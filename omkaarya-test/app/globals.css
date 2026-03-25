@@ -1,12 +1,61 @@
 @import "tailwindcss";
 
+/* Manual theme toggle: dark: utilities follow <html data-theme="dark"> */
+@custom-variant dark (&:where([data-theme="dark"] *));
+
+/*
+  Default light tokens on :root so CSS is valid before/without data-theme.
+  Authoritative overrides: [data-theme="light"] / [data-theme="dark"] on <html>.
+*/
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --card: #ffffff;
-  --muted: #6b7280;
-  --border: #e5e7eb;
-  --accent: #f97316; /* orange */
+  --brand-primary: #ff5c28;
+  --brand-primary-hover: #e64e1f;
+  --surface-page: #f9fafb;
+  --surface-card: #ffffff;
+  --surface-elevated: #ffffff;
+  --border-default: #e5e7eb;
+  --text-primary: #111827;
+  --text-muted: #6b7280;
+  --background: var(--surface-page);
+  --foreground: var(--text-primary);
+  --card: var(--surface-card);
+  --muted: var(--text-muted);
+  --border: var(--border-default);
+  --accent: var(--brand-primary);
+}
+
+[data-theme="light"] {
+  --brand-primary: #ff5c28;
+  --brand-primary-hover: #e64e1f;
+  --surface-page: #f9fafb;
+  --surface-card: #ffffff;
+  --surface-elevated: #ffffff;
+  --border-default: #e5e7eb;
+  --text-primary: #111827;
+  --text-muted: #6b7280;
+  --background: var(--surface-page);
+  --foreground: var(--text-primary);
+  --card: var(--surface-card);
+  --muted: var(--text-muted);
+  --border: var(--border-default);
+  --accent: var(--brand-primary);
+}
+
+[data-theme="dark"] {
+  --brand-primary: #ff7133;
+  --brand-primary-hover: #ff8c52;
+  --surface-page: #0f0f0f;
+  --surface-card: #1e1e1e;
+  --surface-elevated: #171717;
+  --border-default: rgba(255, 255, 255, 0.1);
+  --text-primary: #f9fafb;
+  --text-muted: #9ca3af;
+  --background: var(--surface-page);
+  --foreground: var(--text-primary);
+  --card: var(--surface-card);
+  --muted: var(--text-muted);
+  --border: var(--border-default);
+  --accent: var(--brand-primary);
 }
 
 @theme inline {
@@ -16,38 +65,8 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --card: #0f1724;
-    --muted: #9ca3af;
-    --border: #1f2937;
-    --accent: #fb923c;
-  }
-}
-
-/* Theme override via data-theme on <html> */
-[data-theme="light"] {
-  --background: #ffffff;
-  --foreground: #171717;
-  --card: #ffffff;
-  --muted: #6b7280;
-  --border: #e5e7eb;
-  --accent: #f97316;
-}
-
-[data-theme="dark"] {
-  --background: #0a0a0a;
-  --foreground: #ededed;
-  --card: #0f1724;
-  --muted: #9ca3af;
-  --border: #1f2937;
-  --accent: #fb923c;
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }

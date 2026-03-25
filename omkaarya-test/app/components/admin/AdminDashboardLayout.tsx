@@ -17,12 +17,15 @@ import {
   Search,
   Settings,
   Shield,
+  Sun,
+  Moon,
   Tag,
   User,
   Users,
   UserX,
 } from "lucide-react";
 import { AdminBreadcrumbs } from "@/app/components/admin/adminBreadcrumbs";
+import { useTheme } from "@/app/components/ThemeProvider";
 
 const primaryNav = [
   { href: "#", label: "Dashboard", icon: LayoutDashboard },
@@ -46,12 +49,13 @@ export default function AdminDashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { theme, setTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const templesActive =
     pathname === "/super-admin" || pathname.startsWith("/super-admin/create-temple");
 
   return (
-    <div className="flex min-h-screen bg-zinc-100 font-sans text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
+    <div className="flex min-h-screen bg-[var(--surface-page)] font-sans text-[var(--text-primary)]">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <button
@@ -64,13 +68,14 @@ export default function AdminDashboardLayout({
 
       <aside
         className={[
-          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-zinc-200 bg-white transition-transform dark:border-zinc-800 dark:bg-zinc-900 lg:static lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-[var(--border-default)] bg-[var(--surface-elevated)] transition-transform lg:static lg:translate-x-0",
           sidebarOpen ? "translate-x-0" : "-translate-x-full",
         ].join(" ")}
       >
-        <div className="flex h-16 items-center border-b border-zinc-100 px-6 dark:border-zinc-800">
-          <span className="text-xl font-semibold tracking-tight text-[var(--brand-primary)]">
-            Omkaarya
+        <div className="flex h-16 items-center border-b border-[var(--border-default)] px-6">
+          <span className="text-xl font-semibold tracking-tight" aria-label="Pepulux">
+            <span className="text-[var(--text-primary)]">pep</span>
+            <span className="text-[var(--brand-primary)]">ulux</span>
           </span>
         </div>
         <nav className="flex-1 overflow-y-auto px-3 py-4">
@@ -85,18 +90,21 @@ export default function AdminDashboardLayout({
                     className={[
                       "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                       active
-                        ? "bg-red-50 text-[var(--brand-primary)] dark:bg-red-950/40 dark:text-orange-400"
-                        : "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-800/80",
+                        ? "bg-zinc-100 font-semibold text-[var(--brand-primary)] dark:bg-zinc-800/80"
+                        : "text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60",
                     ].join(" ")}
                   >
-                    <Icon className="h-5 w-5 shrink-0 opacity-80" aria-hidden />
+                    <Icon
+                      className={`h-5 w-5 shrink-0 ${active ? "opacity-100" : "opacity-80"}`}
+                      aria-hidden
+                    />
                     {label}
                   </Link>
                 </li>
               );
             })}
           </ul>
-          <p className="mb-2 mt-6 px-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+          <p className="mb-2 mt-6 px-3 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
             User Management
           </p>
           <ul className="space-y-0.5">
@@ -105,7 +113,7 @@ export default function AdminDashboardLayout({
                 <Link
                   href={href}
                   onClick={() => setSidebarOpen(false)}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-800/80"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
                 >
                   <Icon className="h-5 w-5 shrink-0 opacity-80" aria-hidden />
                   {label}
@@ -117,11 +125,11 @@ export default function AdminDashboardLayout({
       </aside>
 
       <div className="flex min-h-screen flex-1 flex-col lg:pl-0">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-zinc-200 bg-white px-4 pr-20 dark:border-zinc-800 dark:bg-zinc-900 lg:pr-24">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-[var(--border-default)] bg-[var(--surface-elevated)] px-4 pr-20 lg:pr-24">
           <button
             type="button"
             aria-label="Open menu"
-            className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-100 lg:hidden dark:hover:bg-zinc-800"
+            className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60 lg:hidden"
             onClick={() => setSidebarOpen(true)}
           >
             <Menu className="h-5 w-5" />
@@ -131,13 +139,13 @@ export default function AdminDashboardLayout({
 
           <div className="mx-auto hidden max-w-xl flex-1 px-4 md:block">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
               <input
                 type="search"
                 placeholder="Search…"
-                className="w-full rounded-lg border border-zinc-200 bg-zinc-50 py-2 pl-10 pr-16 text-sm outline-none ring-[var(--brand-primary)] focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800/80"
+                className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--surface-page)] py-2 pl-10 pr-16 text-sm text-[var(--text-primary)] outline-none ring-[var(--brand-primary)] placeholder:text-[var(--text-muted)] focus:ring-2"
               />
-              <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 sm:inline-block dark:border-zinc-600 dark:bg-zinc-900">
+              <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-[var(--border-default)] bg-[var(--surface-card)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)] sm:inline-block">
                 ⌘K
               </kbd>
             </div>
@@ -147,7 +155,7 @@ export default function AdminDashboardLayout({
             <button
               type="button"
               aria-label="Language"
-              className="hidden rounded-lg p-2 text-zinc-600 hover:bg-zinc-100 sm:block dark:hover:bg-zinc-800"
+              className="hidden rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60 sm:block"
             >
               <span className="text-lg" title="English (US)">
                 🇺🇸
@@ -156,35 +164,43 @@ export default function AdminDashboardLayout({
             <button
               type="button"
               aria-label="Fullscreen"
-              className="hidden rounded-lg p-2 text-zinc-600 hover:bg-zinc-100 md:block dark:hover:bg-zinc-800"
+              className="hidden rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60 md:block"
             >
               <Maximize2 className="h-5 w-5" />
             </button>
             <button
               type="button"
               aria-label="Messages"
-              className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
             >
               <Mail className="h-5 w-5" />
             </button>
             <button
               type="button"
               aria-label="Notifications"
-              className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
             >
               <Bell className="h-5 w-5" />
             </button>
             <button
               type="button"
               aria-label="Settings"
-              className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
             >
               <Settings className="h-5 w-5" />
             </button>
             <button
               type="button"
+              aria-label="Toggle theme"
+              className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            >
+              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
+            <button
+              type="button"
               aria-label="Account"
-              className="ml-1 flex h-9 w-9 items-center justify-center rounded-full bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300"
+              className="ml-1 flex h-9 w-9 items-center justify-center rounded-full bg-zinc-200 text-[var(--text-muted)] dark:bg-zinc-700 dark:text-zinc-300"
             >
               <User className="h-5 w-5" />
             </button>
@@ -193,14 +209,14 @@ export default function AdminDashboardLayout({
 
         <main className="flex-1 p-4 sm:p-6">{children}</main>
 
-        <footer className="border-t border-zinc-200 bg-white px-4 py-4 text-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <footer className="border-t border-[var(--border-default)] bg-[var(--surface-elevated)] px-4 py-4 text-sm">
           <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 sm:flex-row sm:gap-4">
-            <p className="text-center text-zinc-500 sm:text-left">
+            <p className="text-center text-[var(--text-muted)] sm:text-left">
               2024 - 2026 ©{" "}
               <span className="font-medium text-[var(--brand-primary)]">Om Kaaryaa</span> All Right
               Reserved
             </p>
-            <p className="text-center text-zinc-500">
+            <p className="text-center text-[var(--text-muted)]">
               Powered By{" "}
               <span className="font-medium text-[var(--brand-primary)]">Pepulux</span> All Right
               Reserved
