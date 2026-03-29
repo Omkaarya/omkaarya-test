@@ -78,11 +78,11 @@ export function AdminDashboardShell({
 
       <aside
         className={[
-          "fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 flex-col border-r border-zinc-200 bg-white transition-transform dark:border-zinc-800 dark:bg-zinc-950",
+          "fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 flex-col border-r border-white bg-white transition-transform dark:border-zinc-950 dark:bg-zinc-950",
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         ].join(" ")}
       >
-        <div className="flex h-16 items-center border-b border-zinc-200 px-6 dark:border-zinc-800">
+        <div className="flex h-16 items-center border-b border-white px-6 dark:border-zinc-950">
           <span className="text-xl font-semibold tracking-tight" aria-label="Pepulux">
             <span className="text-[var(--text-primary)]">pep</span>
             <span className="text-[var(--brand-primary)]">ulux</span>
@@ -135,7 +135,7 @@ export function AdminDashboardShell({
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:pl-64">
-        <header className="flex h-16 shrink-0 items-center gap-4 border-b border-zinc-200 bg-white px-4 pr-20 dark:border-zinc-800 dark:bg-zinc-950 lg:pr-24">
+        <header className="flex h-16 shrink-0 items-center gap-4 border-b border-white bg-white px-4 pr-20 dark:border-zinc-950 dark:bg-zinc-950 lg:pr-24">
           <button
             type="button"
             aria-label="Open menu"
@@ -219,7 +219,7 @@ export function AdminDashboardShell({
 
         {children}
 
-        <footer className="shrink-0 border-t border-zinc-200 bg-white px-4 py-4 text-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <footer className="shrink-0 border-t border-white bg-white px-4 py-4 text-sm dark:border-zinc-950 dark:bg-zinc-950">
           <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 sm:flex-row sm:gap-4">
             <p className="text-center text-[var(--text-muted)] sm:text-left">
               2024 - 2026 ©{" "}
