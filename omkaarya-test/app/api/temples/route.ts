@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MOCK_TEMPLES } from "@/lib/mock-temples";
+import { fetchTemplesFromDb } from "@/lib/temples-db";
 import {
   filterTemples,
   listCountries,
@@ -10,16 +10,22 @@ import {
 } from "@/lib/temples-query";
 
 export async function GET(request: NextRequest) {
-  const query = parseTemplesQuery(request.nextUrl.searchParams);
-  const filtered = filterTemples(MOCK_TEMPLES, query);
-  const sorted = sortTemples(filtered, query.sortBy);
-  const paged = paginateTemples(sorted, query.page, query.pageSize);
+  try {
+    const allRows = await fetchTemplesFromDb();
+    const query = parseTemplesQuery(request.nextUrl.searchParams);
+    const filtered = filterTemples(allRows, query);
+    const sorted = sortTemples(filtered, query.sortBy);
+    const paged = paginateTemples(sorted, query.page, query.pageSize);
 
-  const payload: TemplesListResponse = {
-    ...paged,
-    totalAll: MOCK_TEMPLES.length,
-    countries: listCountries(MOCK_TEMPLES),
-  };
+    const payload: TemplesListResponse = {
+      ...paged,
+      totalAll: allRows.length,
+      countries: listCountries(allRows),
+    };
 
-  return NextResponse.json(payload);
+    return NextResponse.json(payload);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to load temples";
+    return NextResponse.json({ error: message }, { status: 503 });
+  }
 }

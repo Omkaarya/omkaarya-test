@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Eye, MoreVertical, Pencil, Plus } from "lucide-react";
 import type { MockTemple, TemplePlan } from "@/lib/mock-temples";
+import { apiUrl } from "@/lib/api-base";
 import type { TemplesListResponse, TemplesSortBy } from "@/lib/temples-query";
 import AdminDataTable from "@/app/components/admin/AdminDataTable";
 import AdminFiltersBar from "@/app/components/admin/AdminFiltersBar";
@@ -88,7 +89,7 @@ export default function TemplesAdminPage() {
       });
 
       try {
-        const response = await fetch(`/api/temples?${params.toString()}`, {
+        const response = await fetch(apiUrl(`/api/temples?${params.toString()}`), {
           signal: controller.signal,
         });
         if (!response.ok) {

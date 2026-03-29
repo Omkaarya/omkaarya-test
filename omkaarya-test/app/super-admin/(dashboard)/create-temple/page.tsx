@@ -18,6 +18,7 @@ import {
   MapPin,
   Sun,
 } from "lucide-react";
+import { apiUrl } from "@/lib/api-base";
 import AdminButton from "@/app/components/admin/AdminButton";
 import AffixedInput from "@/app/components/admin/AffixedInput";
 import FormField from "@/app/components/admin/FormField";
@@ -358,7 +359,7 @@ export default function CreateTemplePage() {
     };
 
     try {
-      const response = await fetch("/api/temples/create", {
+      const response = await fetch(apiUrl("/api/temples/create"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

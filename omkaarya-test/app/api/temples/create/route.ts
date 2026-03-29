@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { insertTempleFromPayload } from "@/lib/temples-db";
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,17 +12,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const templeId = `temp_${Date.now()}`;
+    const { templeId } = await insertTempleFromPayload(payload);
 
-    // Placeholder for persistence + invite trigger integration.
-    // In production, insert records and enqueue/send invite email here.
     return NextResponse.json({
       success: true,
       templeId,
       inviteQueued: true,
       message: "Temple created successfully. Invite email has been queued.",
     });
-  } catch {
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to create temple.";
+    if (message.includes("Database not configured")) {
+      return NextResponse.json({ error: message }, { status: 503 });
+    }
     return NextResponse.json({ error: "Failed to create temple." }, { status: 500 });
   }
 }
