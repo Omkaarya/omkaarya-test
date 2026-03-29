@@ -23,6 +23,9 @@ export function createSuperAdminApiRouter(): Router {
   const api = Router();
   api.use(createTemplesRouter(templesService));
   api.use(createAuthRouter(authService));
+  api.use((_req, res) => {
+    res.status(404).json({ error: "Not found" });
+  });
   return api;
 }
 
