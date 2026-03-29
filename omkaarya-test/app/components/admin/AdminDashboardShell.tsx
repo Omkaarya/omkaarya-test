@@ -66,7 +66,7 @@ export function AdminDashboardShell({
   children,
 }: AdminDashboardShellProps) {
   return (
-    <div className="flex h-screen min-h-0 overflow-hidden bg-[var(--surface-page)] font-sans text-[var(--text-primary)]">
+    <div className="flex h-screen min-h-0 overflow-hidden bg-white font-sans text-[var(--text-primary)] dark:bg-zinc-950">
       {sidebarOpen && (
         <button
           type="button"
@@ -78,11 +78,11 @@ export function AdminDashboardShell({
 
       <aside
         className={[
-          "fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 flex-col border-r border-[var(--border-default)] bg-[var(--surface-elevated)] transition-transform",
+          "fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 flex-col border-r border-zinc-200 bg-white transition-transform dark:border-zinc-800 dark:bg-zinc-950",
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         ].join(" ")}
       >
-        <div className="flex h-16 items-center border-b border-[var(--border-default)] px-6">
+        <div className="flex h-16 items-center border-b border-zinc-200 px-6 dark:border-zinc-800">
           <span className="text-xl font-semibold tracking-tight" aria-label="Pepulux">
             <span className="text-[var(--text-primary)]">pep</span>
             <span className="text-[var(--brand-primary)]">ulux</span>
@@ -135,7 +135,7 @@ export function AdminDashboardShell({
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:pl-64">
-        <header className="flex h-16 shrink-0 items-center gap-4 border-b border-[var(--border-default)] bg-[var(--surface-elevated)] px-4 pr-20 lg:pr-24">
+        <header className="flex h-16 shrink-0 items-center gap-4 border-b border-zinc-200 bg-white px-4 pr-20 dark:border-zinc-800 dark:bg-zinc-950 lg:pr-24">
           <button
             type="button"
             aria-label="Open menu"
@@ -153,7 +153,7 @@ export function AdminDashboardShell({
               <input
                 type="search"
                 placeholder="Search…"
-                className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--surface-page)] py-2 pl-10 pr-16 text-sm text-[var(--text-primary)] outline-none ring-[var(--brand-primary)] placeholder:text-[var(--text-muted)] focus:ring-2"
+                className="w-full rounded-lg border border-zinc-200 bg-zinc-50 py-2 pl-10 pr-16 text-sm text-[var(--text-primary)] outline-none ring-[var(--brand-primary)] placeholder:text-[var(--text-muted)] focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900/80"
               />
               <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-[var(--border-default)] bg-[var(--surface-card)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)] sm:inline-block">
                 ⌘K
@@ -219,7 +219,7 @@ export function AdminDashboardShell({
 
         {children}
 
-        <footer className="shrink-0 border-t border-[var(--border-default)] bg-[var(--surface-elevated)] px-4 py-4 text-sm">
+        <footer className="shrink-0 border-t border-zinc-200 bg-white px-4 py-4 text-sm dark:border-zinc-800 dark:bg-zinc-950">
           <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 sm:flex-row sm:gap-4">
             <p className="text-center text-[var(--text-muted)] sm:text-left">
               2024 - 2026 ©{" "}
