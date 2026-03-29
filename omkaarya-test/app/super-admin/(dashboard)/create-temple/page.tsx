@@ -24,6 +24,7 @@ import AffixedInput from "@/app/components/admin/AffixedInput";
 import FormField from "@/app/components/admin/FormField";
 import LogoUpload from "@/app/components/admin/LogoUpload";
 import PhoneFieldsGroup, {
+  PhoneRowField,
   type PhoneRowValue,
 } from "@/app/components/admin/PhoneFieldsGroup";
 import SelectInput from "@/app/components/admin/SelectInput";
@@ -31,7 +32,29 @@ import SelectionCard from "@/app/components/admin/SelectionCard";
 import TextInput from "@/app/components/admin/TextInput";
 import WizardStepper, { STEP_LABELS } from "@/app/components/admin/WizardStepper";
 
-const emptyPhone: PhoneRowValue = { countryCode: "+1", nationalNumber: "" };
+/** Temple form country (ISO) → default dial code for phone rows when country changes */
+const TEMPLE_COUNTRY_TO_DIAL: Record<string, string> = {
+  GB: "+44",
+  US: "+1",
+  IN: "+91",
+  AU: "+61",
+  CA: "+1",
+};
+
+function dialForCountry(iso: string): string {
+  return TEMPLE_COUNTRY_TO_DIAL[iso] ?? "+1";
+}
+
+function emptyPhoneForCountry(iso: string): PhoneRowValue {
+  return { countryCode: dialForCountry(iso), nationalNumber: "" };
+}
+
+/** API / display string for admin WhatsApp */
+function formatPhoneRowForApi(p: PhoneRowValue): string {
+  const n = p.nationalNumber.trim();
+  if (!n) return "";
+  return `${p.countryCode} ${n}`.replace(/\s+/g, " ").trim();
+}
 
 type Tradition = "Hindu" | "Jain" | "Buddhist" | "Sikh";
 
@@ -159,16 +182,18 @@ export default function CreateTemplePage() {
   const [city, setCity] = useState("London");
   const [address, setAddress] = useState("");
   const [email, setEmail] = useState("");
-  const [telephone, setTelephone] = useState<PhoneRowValue>({ ...emptyPhone });
-  const [whatsapp, setWhatsapp] = useState<PhoneRowValue>({ ...emptyPhone });
-  const [fax, setFax] = useState<PhoneRowValue>({ ...emptyPhone });
+  const [telephone, setTelephone] = useState<PhoneRowValue>(() => emptyPhoneForCountry("GB"));
+  const [whatsapp, setWhatsapp] = useState<PhoneRowValue>(() => emptyPhoneForCountry("GB"));
+  const [fax, setFax] = useState<PhoneRowValue>(() => emptyPhoneForCountry("GB"));
   const [websitePath, setWebsitePath] = useState("");
   const [subdomain, setSubdomain] = useState("");
   const [establishedYear, setEstablishedYear] = useState("");
   const [adminProfileFile, setAdminProfileFile] = useState<File | null>(null);
   const [adminFullName, setAdminFullName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
-  const [adminWhatsapp, setAdminWhatsapp] = useState("");
+  const [adminWhatsapp, setAdminWhatsapp] = useState<PhoneRowValue>(() =>
+    emptyPhoneForCountry("GB")
+  );
   const [adminRole, setAdminRole] = useState("Temple Admin");
   const [adminTouched, setAdminTouched] = useState({
     fullName: false,
@@ -197,6 +222,11 @@ export default function CreateTemplePage() {
     const cities = CITIES_BY_COUNTRY[next];
     if (cities?.length) setCity(cities[0].value);
     else setCity("");
+    const dial = dialForCountry(next);
+    setTelephone((prev) => ({ ...prev, countryCode: dial }));
+    setWhatsapp((prev) => ({ ...prev, countryCode: dial }));
+    setFax((prev) => ({ ...prev, countryCode: dial }));
+    setAdminWhatsapp((prev) => ({ ...prev, countryCode: dial }));
   };
 
   const handlePhoneChange = (
@@ -213,7 +243,7 @@ export default function CreateTemplePage() {
     admin: {
       fullName: adminFullName.trim(),
       email: adminEmail.trim(),
-      whatsapp: adminWhatsapp.trim(),
+      whatsapp: formatPhoneRowForApi(adminWhatsapp),
       role: adminRole,
       profileImageFile: adminProfileFile,
     },
@@ -237,7 +267,7 @@ export default function CreateTemplePage() {
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail.trim())) {
       errors.email = "Enter a valid email address.";
     }
-    const digits = adminWhatsapp.replace(/\D/g, "");
+    const digits = adminWhatsapp.nationalNumber.replace(/\D/g, "");
     if (!digits) {
       errors.whatsapp = "WhatsApp number is required.";
     } else if (digits.length < 8 || digits.length > 15) {
@@ -316,6 +346,21 @@ export default function CreateTemplePage() {
     billingCycle === "Annually" ? `£${annualAmount.toFixed(2)}/Annually` : `£${getDisplayPrice(selectedPlanForReview).toFixed(2)}/Monthly`;
   const canSubmitAllSteps = isStep1Valid && isStep2Valid && isStep3Valid;
 
+  /** Jump back freely; jump forward only when earlier wizard sections are valid (filled). */
+  const isStepReachable = (target: number): boolean => {
+    if (target < 0 || target >= STEP_LABELS.length) return false;
+    if (target <= step) return true;
+    if (target >= 1 && !isStep1Valid) return false;
+    if (target >= 2 && !isStep2Valid) return false;
+    if (target >= 3 && !isStep3Valid) return false;
+    return true;
+  };
+
+  const handleWizardStepClick = (target: number) => {
+    if (!isStepReachable(target)) return;
+    setStep(target);
+  };
+
   const handleCreateTemple = async () => {
     if (!canSubmitAllSteps) {
       setSubmitError("Please complete all required information before creating the temple.");
@@ -345,7 +390,7 @@ export default function CreateTemplePage() {
       admin: {
         fullName: adminFullName.trim(),
         email: adminEmail.trim(),
-        whatsapp: adminWhatsapp.trim(),
+        whatsapp: formatPhoneRowForApi(adminWhatsapp),
         role: adminRole,
       },
       planBilling: {
@@ -407,7 +452,11 @@ export default function CreateTemplePage() {
   return (
     <div className="mx-auto max-w-5xl">
       <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-8">
-        <WizardStepper currentStep={step} />
+        <WizardStepper
+          currentStep={step}
+          onStepClick={handleWizardStepClick}
+          isStepReachable={isStepReachable}
+        />
 
         <div className="mt-10">
           {step === 0 && (
@@ -654,23 +703,15 @@ export default function CreateTemplePage() {
                   </div>
                 </FormField>
 
-                <FormField id="admin-whatsapp" label="WhatsApp" required>
-                  <div>
-                    <TextInput
-                      id="admin-whatsapp"
-                      type="tel"
-                      value={adminWhatsapp}
-                      onChange={(e) => setAdminWhatsapp(e.target.value)}
-                      onBlur={() =>
-                        setAdminTouched((prev) => ({ ...prev, whatsapp: true }))
-                      }
-                      placeholder="+44 20 1234 5678"
-                    />
-                    {adminTouched.whatsapp && adminErrors.whatsapp && (
-                      <p className="mt-1 text-xs text-red-500">{adminErrors.whatsapp}</p>
-                    )}
-                  </div>
-                </FormField>
+                <PhoneRowField
+                  idPrefix="admin-wa"
+                  label="WhatsApp"
+                  required
+                  value={adminWhatsapp}
+                  onChange={setAdminWhatsapp}
+                  onBlur={() => setAdminTouched((prev) => ({ ...prev, whatsapp: true }))}
+                  error={adminTouched.whatsapp ? adminErrors.whatsapp : undefined}
+                />
 
                 <FormField
                   id="admin-role"

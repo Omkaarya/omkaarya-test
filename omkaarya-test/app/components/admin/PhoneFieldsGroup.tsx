@@ -15,41 +15,52 @@ type PhoneFieldsGroupProps = {
   onChange: (which: "telephone" | "whatsapp" | "fax", next: PhoneRowValue) => void;
 };
 
-function PhoneRow({
+export function PhoneRowField({
   idPrefix,
   label,
   value,
   onChange,
+  error,
+  required,
+  onBlur,
 }: {
   idPrefix: string;
   label: string;
   value: PhoneRowValue;
   onChange: (next: PhoneRowValue) => void;
+  error?: string;
+  required?: boolean;
+  onBlur?: () => void;
 }) {
   return (
-    <FormField id={`${idPrefix}-num`} label={label}>
-      <div className="flex gap-2">
-        <SelectInput
-          id={`${idPrefix}-cc`}
-          className="w-22 shrink-0 sm:w-24"
-          value={value.countryCode}
-          onChange={(e) => onChange({ ...value, countryCode: e.target.value })}
-          aria-label={`${label} country code`}
-        >
-          {PHONE_COUNTRY_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </SelectInput>
-        <TextInput
-          id={`${idPrefix}-num`}
-          type="tel"
-          placeholder="Number"
-          className="min-w-0 flex-1"
-          value={value.nationalNumber}
-          onChange={(e) => onChange({ ...value, nationalNumber: e.target.value })}
-        />
+    <FormField id={`${idPrefix}-num`} label={label} required={required}>
+      <div>
+        <div className="flex gap-2">
+          <SelectInput
+            id={`${idPrefix}-cc`}
+            className="w-22 shrink-0 sm:w-24"
+            value={value.countryCode}
+            onChange={(e) => onChange({ ...value, countryCode: e.target.value })}
+            onBlur={onBlur}
+            aria-label={`${label} country code`}
+          >
+            {PHONE_COUNTRY_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </SelectInput>
+          <TextInput
+            id={`${idPrefix}-num`}
+            type="tel"
+            placeholder="Number"
+            className="min-w-0 flex-1"
+            value={value.nationalNumber}
+            onChange={(e) => onChange({ ...value, nationalNumber: e.target.value })}
+            onBlur={onBlur}
+          />
+        </div>
+        {error ? <p className="mt-1 text-xs text-red-500">{error}</p> : null}
       </div>
     </FormField>
   );
@@ -63,19 +74,19 @@ export default function PhoneFieldsGroup({
 }: PhoneFieldsGroupProps) {
   return (
     <div className="space-y-4">
-      <PhoneRow
+      <PhoneRowField
         idPrefix="phone-tel"
         label="Telephone Number"
         value={telephone}
         onChange={(next) => onChange("telephone", next)}
       />
-      <PhoneRow
+      <PhoneRowField
         idPrefix="phone-wa"
         label="WhatsApp"
         value={whatsapp}
         onChange={(next) => onChange("whatsapp", next)}
       />
-      <PhoneRow
+      <PhoneRowField
         idPrefix="phone-fax"
         label="Fax"
         value={fax}
