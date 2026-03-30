@@ -21,10 +21,20 @@ export default function InvitationLogin() {
     setLoading(true);
 
     try {
+      const trimmedEmail = email.trim();
+      if (!trimmedEmail) {
+        setError("Email is required.");
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+        setError("Enter a valid email address.");
+        return;
+      }
+
       const response = await fetch(apiUrl("/api/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, tempPassword }),
+        body: JSON.stringify({ email: trimmedEmail, tempPassword }),
       });
 
       const data = await response.json();

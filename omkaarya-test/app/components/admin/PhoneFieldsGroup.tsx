@@ -13,6 +13,11 @@ type PhoneFieldsGroupProps = {
   whatsapp: PhoneRowValue;
   fax: PhoneRowValue;
   onChange: (which: "telephone" | "whatsapp" | "fax", next: PhoneRowValue) => void;
+  errors?: Partial<{
+    telephone: string;
+    whatsapp: string;
+    fax: string;
+  }>;
 };
 
 export function PhoneRowField({
@@ -71,6 +76,7 @@ export default function PhoneFieldsGroup({
   whatsapp,
   fax,
   onChange,
+  errors,
 }: PhoneFieldsGroupProps) {
   return (
     <div className="space-y-4">
@@ -79,18 +85,21 @@ export default function PhoneFieldsGroup({
         label="Telephone Number"
         value={telephone}
         onChange={(next) => onChange("telephone", next)}
+        error={errors?.telephone}
       />
       <PhoneRowField
         idPrefix="phone-wa"
         label="WhatsApp"
         value={whatsapp}
         onChange={(next) => onChange("whatsapp", next)}
+        error={errors?.whatsapp}
       />
       <PhoneRowField
         idPrefix="phone-fax"
         label="Fax"
         value={fax}
         onChange={(next) => onChange("fax", next)}
+        error={errors?.fax}
       />
     </div>
   );

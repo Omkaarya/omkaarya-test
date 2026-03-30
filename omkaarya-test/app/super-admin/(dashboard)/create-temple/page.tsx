@@ -56,6 +56,15 @@ function formatPhoneRowForApi(p: PhoneRowValue): string {
   return `${p.countryCode} ${n}`.replace(/\s+/g, " ").trim();
 }
 
+function phoneRowError(p: PhoneRowValue, label: string): string | undefined {
+  const raw = p.nationalNumber.trim();
+  if (!raw) return undefined; // optional unless user enters something
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return `Enter a valid ${label} number.`;
+  if (digits.length < 8 || digits.length > 15) return `Enter a valid ${label} number.`;
+  return undefined;
+}
+
 type Tradition = "Hindu" | "Jain" | "Buddhist" | "Sikh";
 
 const TRADITIONS: {
@@ -142,6 +151,9 @@ type Step1Errors = {
   city?: string;
   address?: string;
   email?: string;
+  telephone?: string;
+  whatsapp?: string;
+  fax?: string;
   establishedYear?: string;
 };
 
@@ -294,6 +306,14 @@ export default function CreateTemplePage() {
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       errors.email = "Temple email format is invalid.";
     }
+
+    const telErr = phoneRowError(telephone, "Telephone");
+    if (telErr) errors.telephone = telErr;
+    const waErr = phoneRowError(whatsapp, "WhatsApp");
+    if (waErr) errors.whatsapp = waErr;
+    const faxErr = phoneRowError(fax, "Fax");
+    if (faxErr) errors.fax = faxErr;
+
     const year = Number(establishedYear);
     if (!establishedYear.trim()) {
       errors.establishedYear = "Established year is required.";
@@ -579,6 +599,9 @@ export default function CreateTemplePage() {
                     placeholder="temple@example.com"
                     startIcon={<Mail className="h-4 w-4" aria-hidden />}
                   />
+                  {step1Errors.email && email.trim() ? (
+                    <p className="mt-1 text-xs text-red-500">{step1Errors.email}</p>
+                  ) : null}
                 </FormField>
 
                 <div className="md:col-span-2">
@@ -587,6 +610,11 @@ export default function CreateTemplePage() {
                     whatsapp={whatsapp}
                     fax={fax}
                     onChange={handlePhoneChange}
+                    errors={{
+                      telephone: step1Errors.telephone,
+                      whatsapp: step1Errors.whatsapp,
+                      fax: step1Errors.fax,
+                    }}
                   />
                 </div>
 
