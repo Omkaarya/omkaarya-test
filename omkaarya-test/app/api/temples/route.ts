@@ -1,31 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchTemplesFromDb } from "@/lib/temples-db";
-import {
-  filterTemples,
-  listCountries,
-  paginateTemples,
-  parseTemplesQuery,
-  sortTemples,
-  type TemplesListResponse,
-} from "@/lib/temples-query";
+import { apiUrl } from "@/lib/api-base";
 
 export async function GET(request: NextRequest) {
   try {
-    const allRows = await fetchTemplesFromDb();
-    const query = parseTemplesQuery(request.nextUrl.searchParams);
-    const filtered = filterTemples(allRows, query);
-    const sorted = sortTemples(filtered, query.sortBy);
-    const paged = paginateTemples(sorted, query.page, query.pageSize);
+    const target = `${apiUrl("/api/temples")}${request.nextUrl.search}`;
+    const res = await fetch(target, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
 
-    const payload: TemplesListResponse = {
-      ...paged,
-      totalAll: allRows.length,
-      countries: listCountries(allRows),
-    };
-
-    return NextResponse.json(payload);
+    const data = await res.json().catch(() => null);
+    return NextResponse.json(data, { status: res.status });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to load temples";
+    const message = e instanceof Error ? e.message : "Failed to load temples from backend";
     return NextResponse.json({ error: message }, { status: 503 });
   }
 }

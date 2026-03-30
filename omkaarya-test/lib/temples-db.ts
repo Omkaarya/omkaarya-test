@@ -8,7 +8,7 @@ function getPool(): Pool {
   const config = getPoolConfig();
   if (!config) {
     throw new Error(
-      "Database not configured. Set DATABASE_URL or DB_USER, DB_HOST, DB_NAME (and DB_PASS, DB_PORT) in .env.local."
+      "Database not configssured. Set DATABASE_URL or DB_USER, DB_HOST, DB_NAME (and DB_PASS, DB_PORT) in .env.local."
     );
   }
   if (!pool) {

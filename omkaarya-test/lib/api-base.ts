@@ -1,12 +1,10 @@
 /**
- * Super-admin: set `NEXT_PUBLIC_API_BASE_URL` (e.g. `http://localhost:4000`)
- * to call the Express backend. If unset, requests stay on Next `/api`.
+ * Frontend API helper: always call the standalone Express backend.
+ * This avoids hitting Next.js `app/api/*` routes (which also require DB env).
  */
 export function apiUrl(path: string): string {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/$/, "");
-  if (!base) {
-    return path.startsWith("/") ? path : `/${path}`;
-  }
+  const envBase = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+  const base = (envBase && envBase.replace(/\/$/, "")) || "http://localhost:4000";
   const p = path.startsWith("/") ? path : `/${path}`;
   return `${base}${p}`;
 }
