@@ -4,8 +4,7 @@ import { apiUrl } from "@/lib/api-base";
 export async function POST(request: NextRequest) {
   try {
     const payload = await request.json();
-
-    const res = await fetch(apiUrl("/api/login"), {
+    const res = await fetch(apiUrl("/api/temples/create"), {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify(payload),
@@ -13,8 +12,8 @@ export async function POST(request: NextRequest) {
 
     const data = await res.json().catch(() => null);
     return NextResponse.json(data, { status: res.status });
-  } catch (error) {
-    console.error("Login error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to create temple.";
+    return NextResponse.json({ error: message }, { status: 503 });
   }
 }

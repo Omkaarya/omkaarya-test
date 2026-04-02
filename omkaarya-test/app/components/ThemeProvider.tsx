@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 type Theme = "light" | "dark";
 
@@ -17,34 +17,34 @@ const ThemeContext = createContext<Context>({
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [theme, setTheme] = useState<Theme>("light");
+  const [theme, setThemeState] = useState<Theme>("light");
 
   useEffect(() => {
     try {
       const stored = localStorage.getItem("theme");
+      let initial: Theme = "light";
       if (stored === "light" || stored === "dark") {
-        setTheme(stored);
-        document.documentElement.setAttribute("data-theme", stored);
-        return;
+        initial = stored;
+      } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+        initial = "dark";
       }
-
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      const initial = prefersDark ? "dark" : "light";
-      setTheme(initial);
+      setThemeState(initial);
       document.documentElement.setAttribute("data-theme", initial);
+      localStorage.setItem("theme", initial);
     } catch (e) {
       // ignore (SSR safety)
     }
   }, []);
 
-  useEffect(() => {
+  const setTheme = useCallback((t: Theme) => {
+    setThemeState(t);
     try {
-      document.documentElement.setAttribute("data-theme", theme);
-      localStorage.setItem("theme", theme);
+      document.documentElement.setAttribute("data-theme", t);
+      localStorage.setItem("theme", t);
     } catch (e) {
       // ignore
     }
-  }, [theme]);
+  }, []);
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme }}>
