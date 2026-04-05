@@ -1,0 +1,205 @@
+"use client";
+
+import { ArrowRight, Eye, EyeOff, Lock, Mail } from "lucide-react";
+import { Suspense, useEffect, useId, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  TEMPLE_ONBOARDING_EMAIL_KEY,
+  TEMPLE_ONBOARDING_INVITE_FULL_NAME_KEY,
+} from "@/lib/temple-onboarding-signin";
+
+const inputBase =
+  "w-full rounded-lg border border-[var(--border-default)] bg-[var(--surface-elevated)] py-2.5 text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function TempleAdminSignInForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const emailFieldId = useId();
+  const passwordFieldId = useId();
+  const emailInputRef = useRef<HTMLInputElement>(null);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+
+  const [email, setEmail] = useState("");
+  const [temporaryPassword, setTemporaryPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [emailPrefilled, setEmailPrefilled] = useState(false);
+
+  useEffect(() => {
+    const raw = searchParams.get("email");
+    const rawFullName = searchParams.get("fullName") ?? searchParams.get("name");
+    const decodedName = rawFullName ? decodeURIComponent(rawFullName.trim()) : "";
+    if (decodedName) {
+      sessionStorage.setItem(TEMPLE_ONBOARDING_INVITE_FULL_NAME_KEY, decodedName);
+    }
+    if (!raw) {
+      emailInputRef.current?.focus();
+      return;
+    }
+    const decoded = decodeURIComponent(raw.trim());
+    if (EMAIL_RE.test(decoded)) {
+      setEmail(decoded);
+      setEmailPrefilled(true);
+      // Editable by default so typos can be corrected; invite link still pre-fills.
+      passwordInputRef.current?.focus();
+    } else {
+      emailInputRef.current?.focus();
+    }
+  }, [searchParams]);
+
+  const strengthFill = Math.min(temporaryPassword.length / 12, 1);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setError("Email is required.");
+      return;
+    }
+    if (!EMAIL_RE.test(trimmedEmail)) {
+      setError("Enter a valid email address.");
+      return;
+    }
+    const pwd = temporaryPassword.trim();
+    if (!pwd) {
+      setError("Temporary password is required.");
+      return;
+    }
+
+    // API integration intentionally deferred. For now, proceed with local validation only.
+    setLoading(true);
+    try {
+      sessionStorage.setItem(TEMPLE_ONBOARDING_EMAIL_KEY, trimmedEmail);
+      router.push("/temple-admin/set-password");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="w-full max-w-md rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-6 shadow-xl sm:p-8">
+      <div className="mb-8 text-center">
+        <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)]">
+          Welcome to Omkaarya
+        </h1>
+        <p className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">
+          Your temple dashboard is ready. Check your email for the temporary password sent by your
+          administrator.
+        </p>
+      </div>
+
+      <form className="space-y-5" onSubmit={handleSubmit} noValidate>
+        <div>
+          <label htmlFor={emailFieldId} className="text-sm font-medium text-[var(--text-primary)]">
+            Email <span className="text-red-600 dark:text-red-400">*</span>
+          </label>
+          <div className="relative mt-1.5">
+            <Mail
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]"
+              aria-hidden
+            />
+            <input
+              ref={emailInputRef}
+              id={emailFieldId}
+              type="email"
+              name="email"
+              autoComplete="email"
+              placeholder="olivia@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={`${inputBase} pl-10 pr-4`}
+              aria-invalid={!!error && !EMAIL_RE.test(email.trim())}
+              aria-describedby={emailPrefilled ? `${emailFieldId}-hint` : undefined}
+            />
+          </div>
+          {emailPrefilled ? (
+            <p id={`${emailFieldId}-hint`} className="sr-only">
+              Email was prefilled from the invitation link. You may edit it if needed.
+            </p>
+          ) : null}
+        </div>
+
+        <div>
+          <label htmlFor={passwordFieldId} className="text-sm font-medium text-[var(--text-primary)]">
+            Temporary Password <span className="text-red-600 dark:text-red-400">*</span>
+          </label>
+          <div className="relative mt-1.5">
+            <Lock
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]"
+              aria-hidden
+            />
+            <input
+              ref={passwordInputRef}
+              id={passwordFieldId}
+              type={showPassword ? "text" : "password"}
+              name="temporaryPassword"
+              autoComplete="current-password"
+              placeholder="••••••••••"
+              value={temporaryPassword}
+              onChange={(e) => setTemporaryPassword(e.target.value)}
+              className={`${inputBase} pl-10 pr-11`}
+            />
+            <button
+              type="button"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          <div
+            className="mt-2 h-1 w-full overflow-hidden rounded-full bg-[var(--border-default)]"
+            aria-hidden
+          >
+            <div
+              className="h-full rounded-full bg-emerald-500 transition-[width] duration-200 ease-out"
+              style={{ width: `${strengthFill * 100}%` }}
+            />
+          </div>
+          <p className="mt-2 text-xs text-[var(--text-muted)]">
+            You’ll create a permanent password on the next step.
+          </p>
+        </div>
+
+        {error ? (
+          <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--brand-primary)] py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)] disabled:pointer-events-none disabled:opacity-50"
+        >
+          {loading ? "Signing in…" : "Sign in"}
+          <ArrowRight className="h-4 w-4" aria-hidden />
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function SignInFallback() {
+  return (
+    <div
+      className="flex w-full max-w-md min-h-[320px] items-center justify-center rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-8 shadow-xl"
+      aria-busy
+    >
+      <p className="text-sm text-[var(--text-muted)]">Loading…</p>
+    </div>
+  );
+}
+
+export default function TempleAdminSignInPage() {
+  return (
+    <Suspense fallback={<SignInFallback />}>
+      <TempleAdminSignInForm />
+    </Suspense>
+  );
+}

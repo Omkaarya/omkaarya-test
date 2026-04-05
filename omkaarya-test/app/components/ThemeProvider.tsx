@@ -17,31 +17,32 @@ const ThemeContext = createContext<Context>({
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [theme, setThemeState] = useState<Theme>("light");
+  const [theme, setThemeState] = useState<Theme>(() => {
+    try {
+      const stored = localStorage.getItem("theme");
+      if (stored === "light" || stored === "dark") return stored;
+      if (window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
+    } catch {
+      // ignore (SSR safety)
+    }
+    return "light";
+  });
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("theme");
-      let initial: Theme = "light";
-      if (stored === "light" || stored === "dark") {
-        initial = stored;
-      } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-        initial = "dark";
-      }
-      setThemeState(initial);
-      document.documentElement.setAttribute("data-theme", initial);
-      localStorage.setItem("theme", initial);
-    } catch (e) {
+      document.documentElement.setAttribute("data-theme", theme);
+      localStorage.setItem("theme", theme);
+    } catch {
       // ignore (SSR safety)
     }
-  }, []);
+  }, [theme]);
 
   const setTheme = useCallback((t: Theme) => {
     setThemeState(t);
     try {
       document.documentElement.setAttribute("data-theme", t);
       localStorage.setItem("theme", t);
-    } catch (e) {
+    } catch {
       // ignore
     }
   }, []);
