@@ -16,6 +16,7 @@ import {
   normalizeCvv,
   parseExpiryDigits,
 } from "@/lib/payment-card-validation";
+import { submitTemplePaymentOnboarding } from "@/lib/temple-onboarding-payment-api";
 import { saveTempleOnboardingPaymentComplete } from "@/lib/temple-onboarding-payment";
 import {
   loadTempleOnboardingPlanDraft,
@@ -24,7 +25,10 @@ import {
 import { getTemplePlanById } from "@/lib/temple-pricing-plans";
 import { TEMPLE_ONBOARDING_EMAIL_KEY } from "@/lib/temple-onboarding-signin";
 import { isDeitySelectionComplete } from "@/lib/temple-onboarding-deity";
-import { isTempleOnboardingTempleCreated } from "@/lib/temple-onboarding-temple-profile";
+import {
+  isTempleOnboardingTempleCreated,
+  loadTempleOnboardingTempleCreatedResponse,
+} from "@/lib/temple-onboarding-temple-profile";
 
 function MastercardMark({ className }: { className?: string }) {
   return (
@@ -172,12 +176,37 @@ export default function TempleAdminPaymentPage() {
       setSubmitError(parts[0] ?? "Check your card details.");
       return;
     }
+
+    const sessionEmail = sessionStorage.getItem(TEMPLE_ONBOARDING_EMAIL_KEY)?.trim();
+    if (!sessionEmail) {
+      router.replace("/temple-admin/signin");
+      return;
+    }
+    const created = loadTempleOnboardingTempleCreatedResponse();
+    if (!created?.templeId) {
+      setSubmitError("Temple setup is incomplete. Please finish the previous steps first.");
+      return;
+    }
+
     setSubmitError(null);
     setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 1600));
-    saveTempleOnboardingPaymentComplete(saveCard);
-    setIsSubmitting(false);
-    router.push("/temple-admin/onboarding-complete");
+    try {
+      const res = await submitTemplePaymentOnboarding({
+        sessionEmail,
+        templeId: created.templeId,
+        saveCardPreferred: saveCard,
+      });
+      if (!res.ok) {
+        setSubmitError(res.message);
+        return;
+      }
+      saveTempleOnboardingPaymentComplete(saveCard);
+      router.push("/temple-admin/onboarding-complete");
+    } catch {
+      setSubmitError("Network error. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!ready || !planDraft?.planId || !plan) {

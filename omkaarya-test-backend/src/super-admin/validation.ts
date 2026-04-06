@@ -113,3 +113,12 @@ export const templePlanSelectionBodySchema = z.object({
   billing: z.enum(["monthly", "annual"]),
   confirmedAt: z.string().optional(),
 });
+
+/** No card fields — strict rejects PAN/CVV/expiry if sent. */
+export const templePaymentOnboardingBodySchema = z
+  .object({
+    sessionEmail: z.string().email(),
+    templeId: z.string().trim().pipe(z.string().min(1)),
+    saveCardPreferred: z.boolean(),
+  })
+  .strict();
