@@ -122,3 +122,10 @@ export const templePaymentOnboardingBodySchema = z
     saveCardPreferred: z.boolean(),
   })
   .strict();
+
+export const templeOnboardingCompleteBodySchema = z
+  .object({
+    sessionEmail: z.string().email(),
+    templeId: z.string().trim().pipe(z.string().min(1)),
+  })
+  .strict();

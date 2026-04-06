@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Check, FileText, MessageCircle, PlayCircle } from "lucide-react";
@@ -16,7 +16,12 @@ import {
   TEMPLE_ONBOARDING_EMAIL_KEY,
   TEMPLE_ONBOARDING_RETURNING_LOGIN_KEY,
 } from "@/lib/temple-onboarding-signin";
-import { loadTempleOnboardingTempleProfileDraft, isTempleOnboardingTempleCreated } from "@/lib/temple-onboarding-temple-profile";
+import { submitTempleOnboardingComplete } from "@/lib/temple-onboarding-complete-api";
+import {
+  isTempleOnboardingTempleCreated,
+  loadTempleOnboardingTempleCreatedResponse,
+  loadTempleOnboardingTempleProfileDraft,
+} from "@/lib/temple-onboarding-temple-profile";
 
 function firstNameFromFullName(fullName: string | undefined): string {
   const t = fullName?.trim();
@@ -49,6 +54,7 @@ function OnboardingCompleteSkeleton() {
 
 export default function TempleAdminOnboardingCompletePage() {
   const router = useRouter();
+  const wasReturningLoginUser = useRef(false);
   const [ready, setReady] = useState(false);
   const [firstName, setFirstName] = useState("there");
   const [templeName, setTempleName] = useState("Your temple");
@@ -62,6 +68,7 @@ export default function TempleAdminOnboardingCompletePage() {
     }
 
     const returningLogin = sessionStorage.getItem(TEMPLE_ONBOARDING_RETURNING_LOGIN_KEY) === "1";
+    wasReturningLoginUser.current = returningLogin;
     if (!returningLogin) {
       if (!isTempleOnboardingTempleCreated()) {
         router.replace("/temple-admin/temple-profile");
@@ -91,6 +98,29 @@ export default function TempleAdminOnboardingCompletePage() {
 
     setReady(true);
   }, [router]);
+
+  useEffect(() => {
+    if (!ready || wasReturningLoginUser.current) return;
+
+    const sessionEmail = sessionStorage.getItem(TEMPLE_ONBOARDING_EMAIL_KEY)?.trim();
+    const created = loadTempleOnboardingTempleCreatedResponse();
+    if (!sessionEmail || !created?.templeId) return;
+
+    let cancelled = false;
+    void (async () => {
+      const res = await submitTempleOnboardingComplete({
+        sessionEmail,
+        templeId: created.templeId,
+      });
+      if (!cancelled && !res.ok) {
+        console.warn("Onboarding completion API:", res.message);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ready]);
 
   if (!ready) {
     return <OnboardingCompleteSkeleton />;
