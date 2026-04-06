@@ -160,3 +160,80 @@ export async function submitTempleOnboardingCompleteAction(
   return { ok: false, status: res.status, message: res.message };
 }
 
+export type TempleSessionProfileCore = {
+  templeName: string;
+  charity: { registered: boolean; registrationNumber: string };
+  email: string;
+  phone: { countryCode: string; nationalNumber: string };
+  location: { countryIso: string; city: string };
+};
+
+export type TempleSessionProfileDetails = {
+  logoDataUrl: string | null;
+  websiteUrl: string;
+  fax: { countryCode: string; nationalNumber: string };
+  domainSubdomain: string;
+  establishedYear: string;
+  fullAddress: {
+    countryIso: string;
+    state: string;
+    city: string;
+    postalCode: string;
+    street: string;
+  };
+};
+
+export type GetTempleSessionProfileResult =
+  | { ok: true; templeId: string; core: TempleSessionProfileCore; details: TempleSessionProfileDetails }
+  | ErrResult;
+
+export async function getTempleSessionProfileAction(sessionEmail: string): Promise<GetTempleSessionProfileResult> {
+  const search = new URLSearchParams({ sessionEmail });
+  const res = await fetchInternalApiJson<{
+    success: boolean;
+    templeId: string;
+    core: TempleSessionProfileCore;
+    details: TempleSessionProfileDetails;
+  }>(`/api/temple-admin/temple-profile?${search.toString()}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  if (!res.ok) return { ok: false, status: res.status, message: res.message };
+  if (!res.data.templeId || !res.data.core || !res.data.details) {
+    return { ok: false, status: 502, message: "Invalid temple profile response." };
+  }
+  return {
+    ok: true,
+    templeId: res.data.templeId,
+    core: res.data.core,
+    details: res.data.details,
+  };
+}
+
+export type SaveTempleProfileDetailsPayload = {
+  sessionEmail: string;
+  websiteUrl: string;
+  fax: { countryCode: string; nationalNumber: string };
+  domainSubdomain: string;
+  establishedYear: string;
+  fullAddress: TempleSessionProfileDetails["fullAddress"];
+  logoDataUrl: string | null;
+};
+
+export async function saveTempleProfileDetailsAction(
+  payload: SaveTempleProfileDetailsPayload,
+): Promise<OkResult | ErrResult> {
+  const res = await fetchInternalApiJson<{ success: boolean; message?: string }>(
+    "/api/temple-admin/temple-profile",
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+  if (res.ok) return { ok: true };
+  return { ok: false, status: res.status, message: res.message };
+}
+

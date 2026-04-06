@@ -129,3 +129,27 @@ export const templeOnboardingCompleteBodySchema = z
     templeId: z.string().trim().pipe(z.string().min(1)),
   })
   .strict();
+
+const phoneRowJsonSchema = z.object({
+  countryCode: z.string(),
+  nationalNumber: z.string(),
+});
+
+const templeFullAddressJsonSchema = z.object({
+  countryIso: z.string(),
+  state: z.string(),
+  city: z.string(),
+  postalCode: z.string(),
+  street: z.string(),
+});
+
+/** PATCH /api/temple-admin/temple-profile/details — foldable section only. */
+export const templeProfileDetailsPatchBodySchema = z.object({
+  sessionEmail: z.string().email(),
+  websiteUrl: z.string(),
+  fax: phoneRowJsonSchema,
+  domainSubdomain: z.string(),
+  establishedYear: z.string(),
+  fullAddress: templeFullAddressJsonSchema,
+  logoDataUrl: z.string().nullable(),
+});

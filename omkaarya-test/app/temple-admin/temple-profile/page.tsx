@@ -3,11 +3,12 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, ChevronDown, HelpCircle, Loader2, Plus } from "lucide-react";
-import { apiUrl } from "@/lib/api-base";
 import {
-  TEMPLE_ONBOARDING_EMAIL_KEY,
-  loadTempleAdminProfileDraft,
-} from "@/lib/temple-onboarding-signin";
+  getTempleSessionProfileAction,
+  saveTempleProfileDetailsAction,
+  type TempleSessionProfileCore,
+} from "@/app/actions/onboarding";
+import { TEMPLE_ONBOARDING_EMAIL_KEY } from "@/lib/temple-onboarding-signin";
 import { isDeitySelectionComplete } from "@/lib/temple-onboarding-deity";
 import {
   fileToDataUrl,
@@ -34,8 +35,6 @@ export default function TempleAdminTempleProfilePage() {
   const websiteId = useId();
   const domainSubdomainId = useId();
   const establishedYearId = useId();
-  const charityRegId = useId();
-
   const streetId = useId();
   const addressCountryId = useId();
   const stateId = useId();
@@ -46,6 +45,9 @@ export default function TempleAdminTempleProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [core, setCore] = useState<TempleSessionProfileCore | null>(null);
+  const [templeIdFromServer, setTempleIdFromServer] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const LOCATION_COUNTRIES: { iso: string; label: string }[] = useMemo(
     () => [
@@ -71,27 +73,6 @@ export default function TempleAdminTempleProfilePage() {
       DE: "+49",
       SG: "+65",
       FR: "+33",
-    }),
-    [],
-  );
-
-  const CITIES_BY_COUNTRY: Record<string, { value: string; label: string }[]> = useMemo(
-    () => ({
-      LK: [{ value: "Jaffna", label: "Jaffna" }],
-      IN: [
-        { value: "Hyderabad", label: "Hyderabad" },
-        { value: "Delhi", label: "Delhi" },
-      ],
-      GB: [
-        { value: "London", label: "London" },
-        { value: "Birmingham", label: "Birmingham" },
-      ],
-      US: [
-        { value: "New York", label: "New York" },
-        { value: "Los Angeles", label: "Los Angeles" },
-      ],
-      AU: [{ value: "Sydney", label: "Sydney" }],
-      CA: [{ value: "Toronto", label: "Toronto" }],
     }),
     [],
   );
@@ -199,67 +180,62 @@ export default function TempleAdminTempleProfilePage() {
       return;
     }
 
-    const loadedDraft = loadTempleOnboardingTempleProfileDraft();
-    const adminDraft = loadTempleAdminProfileDraft();
-    const prefillEmail = (adminDraft?.email ?? email).trim();
+    let cancelled = false;
 
-    if (loadedDraft) {
-      // Note: we intentionally don't try to reconstruct `File` objects for the logo yet.
-      const legacy = loadedDraft as Partial<TempleOnboardingTempleProfileDraft> & { faxNumber?: string };
-      const faxMigrated =
-        loadedDraft.fax ??
-        (typeof legacy.faxNumber === "string" && legacy.faxNumber.trim()
-          ? {
-              countryCode: loadedDraft.phone?.countryCode ?? "+94",
-              nationalNumber: legacy.faxNumber.trim(),
-            }
-          : undefined);
+    const run = async () => {
+      const res = await getTempleSessionProfileAction(email);
+      if (cancelled) return;
+      if (!res.ok) {
+        setLoadError(res.message || "Could not load profile.");
+        setIsHydrating(false);
+        return;
+      }
+      setCore(res.core);
+      setTempleIdFromServer(res.templeId);
+
+      const loadedDraft = loadTempleOnboardingTempleProfileDraft();
+      const faxDial =
+        (loadedDraft?.fax?.countryCode ?? res.details.fax.countryCode ?? "") ||
+        DIAL_BY_ISO[res.details.fullAddress.countryIso] ||
+        "+91";
+
       setDraft((prev) => ({
         ...prev,
-        ...loadedDraft,
-        phone: loadedDraft.phone ? (loadedDraft.phone as PhoneRowValue) : prev.phone,
-        whatsapp: loadedDraft.whatsapp ? (loadedDraft.whatsapp as PhoneRowValue) : prev.whatsapp,
-        fax: faxMigrated ?? prev.fax,
-        charity: loadedDraft.charity ? loadedDraft.charity : prev.charity,
-        location: loadedDraft.location ? loadedDraft.location : prev.location,
-        fullAddress: loadedDraft.fullAddress ? loadedDraft.fullAddress : prev.fullAddress,
-        email: loadedDraft.email ? loadedDraft.email : prefillEmail,
+        templeName: res.core.templeName,
+        charity: res.core.charity,
+        email: res.core.email,
+        phone: res.core.phone,
+        whatsapp: res.core.phone,
+        location: res.core.location,
+        logoDataUrl: res.details.logoDataUrl,
+        websiteUrl: loadedDraft?.websiteUrl ?? res.details.websiteUrl,
+        domainSubdomain: loadedDraft?.domainSubdomain ?? res.details.domainSubdomain,
+        establishedYear: loadedDraft?.establishedYear ?? res.details.establishedYear,
+        fullAddress: loadedDraft?.fullAddress ?? res.details.fullAddress,
+        fax: {
+          countryCode: loadedDraft?.fax?.countryCode ?? faxDial,
+          nationalNumber: loadedDraft?.fax?.nationalNumber ?? res.details.fax.nationalNumber,
+        },
       }));
-    } else {
-      setDraft((prev) => ({ ...prev, email: prefillEmail }));
-    }
 
-    // Make sure phone dial codes match the currently selected location (nice UX).
-    setDraft((prev) => {
-      const phoneDial = DIAL_BY_ISO[prev.location.countryIso] ?? prev.phone.countryCode;
-      const nextPhone = { ...prev.phone, countryCode: phoneDial };
-      return {
-        ...prev,
-        phone: nextPhone,
-        whatsapp: nextPhone,
-        fax: { ...prev.fax, countryCode: phoneDial },
-      };
-    });
-
-    setTimeout(() => {
       setIsHydrating(false);
-      document.getElementById(templeNameId)?.focus?.();
-    }, 150);
-  }, [DIAL_BY_ISO, router]);
+      setTimeout(() => {
+        document.getElementById(websiteId)?.focus?.();
+      }, 150);
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [DIAL_BY_ISO, router, websiteId]);
 
   useEffect(() => {
     if (!isHydrating) {
-      // Persist draft continuously so users don't lose work during navigation.
       saveTempleOnboardingTempleProfileDraft({
-        templeName: draft.templeName,
-        charity: draft.charity,
-        email: draft.email,
-        phone: draft.phone,
-        whatsapp: draft.whatsapp,
-        fax: draft.fax,
-        location: draft.location,
         logoDataUrl: draft.logoDataUrl,
         websiteUrl: draft.websiteUrl,
+        fax: draft.fax,
         domainSubdomain: draft.domainSubdomain,
         establishedYear: draft.establishedYear,
         fullAddress: draft.fullAddress,
@@ -268,11 +244,9 @@ export default function TempleAdminTempleProfilePage() {
   }, [draft, isHydrating]);
 
   useEffect(() => {
-    // When logo changes, convert file to data URL for sessionStorage persistence.
     let cancelled = false;
     (async () => {
       if (!logoFile) {
-        setDraft((prev) => ({ ...prev, logoDataUrl: null }));
         return;
       }
       try {
@@ -280,7 +254,6 @@ export default function TempleAdminTempleProfilePage() {
         if (cancelled) return;
         setDraft((prev) => ({ ...prev, logoDataUrl: url }));
       } catch {
-        // If conversion fails, keep the file for preview but don't persist it.
         if (cancelled) return;
         setDraft((prev) => ({ ...prev, logoDataUrl: null }));
       }
@@ -290,23 +263,12 @@ export default function TempleAdminTempleProfilePage() {
     };
   }, [logoFile]);
 
-  const EMAIL_RE = useMemo(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/, []);
   const SUBDOMAIN_RE = useMemo(() => /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i, []);
 
   /** Matches super-admin `create-temple` — optional unless the user starts typing. */
   function phoneRowErrorOptional(p: PhoneRowValue, label: string): string | undefined {
     const raw = p.nationalNumber.trim();
     if (!raw) return undefined;
-    const digits = raw.replace(/\D/g, "");
-    if (!digits) return `Enter a valid ${label} number.`;
-    if (digits.length < 8 || digits.length > 15) return `Enter a valid ${label} number.`;
-    return undefined;
-  }
-
-  /** Required telephone / WhatsApp (same fields as super-admin step 1). */
-  function phoneRowErrorRequired(p: PhoneRowValue, label: string): string | undefined {
-    const raw = p.nationalNumber.trim();
-    if (!raw) return `${label} number is required.`;
     const digits = raw.replace(/\D/g, "");
     if (!digits) return `Enter a valid ${label} number.`;
     if (digits.length < 8 || digits.length > 15) return `Enter a valid ${label} number.`;
@@ -323,20 +285,8 @@ export default function TempleAdminTempleProfilePage() {
   const errors = useMemo(() => {
     const errs: Record<string, string> = {};
 
-    if (!draft.templeName.trim()) errs.templeName = "Temple name is required.";
-
-    const e = draft.email.trim();
-    if (!e) errs.email = "Email is required.";
-    else if (!EMAIL_RE.test(e)) errs.email = "Enter a valid email address.";
-
-    const phoneErr = phoneRowErrorRequired(draft.phone, "Phone number");
-    if (phoneErr) errs.phone = phoneErr;
-
     const faxErr = phoneRowErrorOptional(draft.fax, "Fax");
     if (faxErr) errs.fax = faxErr;
-
-    if (!draft.location.countryIso) errs.locationCountry = "Country is required.";
-    if (!draft.location.city.trim()) errs.locationCity = "City is required.";
 
     if (!draft.domainSubdomain.trim()) errs.domainSubdomain = "Domain URL is required.";
     else if (!SUBDOMAIN_RE.test(draft.domainSubdomain.trim())) {
@@ -352,17 +302,12 @@ export default function TempleAdminTempleProfilePage() {
       }
     }
 
-    if (draft.charity.registered && !draft.charity.registrationNumber.trim()) {
-      errs.charityRegistrationNumber = "Charity registration number is required.";
-    }
-
     // Validate website if provided.
-    if (draft.websiteUrl.trim()) {
+   if (draft.websiteUrl.trim()) {
       const normalized = normalizeWebsiteUrl(draft.websiteUrl);
       if (!normalized) errs.websiteUrl = "Website URL is invalid.";
       else {
         try {
-          // eslint-disable-next-line no-new
           new URL(normalized);
         } catch {
           errs.websiteUrl = "Enter a valid website URL (e.g. example.com).";
@@ -378,7 +323,7 @@ export default function TempleAdminTempleProfilePage() {
 
     const ok = Object.keys(errs).length === 0;
     return { ok, errs };
-  }, [draft, EMAIL_RE, SUBDOMAIN_RE]);
+  }, [draft, SUBDOMAIN_RE]);
 
   const slugPreview = useMemo(() => {
     const s = draft.domainSubdomain.trim();
@@ -392,26 +337,16 @@ export default function TempleAdminTempleProfilePage() {
 
   const hasAnyInput = useMemo(() => {
     return Boolean(
-      draft.templeName.trim() ||
-        draft.email.trim() ||
-        draft.phone.nationalNumber.trim() ||
-        draft.whatsapp.nationalNumber.trim() ||
-        draft.location.city.trim() ||
-        draft.domainSubdomain.trim() ||
-        draft.establishedYear.trim() ||
-        draft.fullAddress.street.trim() ||
-        draft.fullAddress.postalCode.trim(),
+      core &&
+        (draft.domainSubdomain.trim() ||
+          draft.establishedYear.trim() ||
+          draft.fullAddress.street.trim() ||
+          draft.fullAddress.postalCode.trim()),
     );
-  }, [draft]);
+  }, [core, draft]);
 
   function focusFirstError() {
     const idsInOrder: { key: string; id: string }[] = [
-      { key: "templeName", id: templeNameId },
-      { key: "charityRegistrationNumber", id: charityRegId },
-      { key: "email", id: emailId },
-      { key: "phone", id: "temple-contact-num" },
-      { key: "locationCountry", id: "location-country" },
-      { key: "locationCity", id: "location-city" },
       { key: "fax", id: "temple-fax-num" },
       { key: "domainSubdomain", id: domainSubdomainId },
       { key: "establishedYear", id: establishedYearId },
@@ -436,8 +371,13 @@ export default function TempleAdminTempleProfilePage() {
     setSubmitAttempted(true);
     setError(null);
 
+    if (!core || !templeIdFromServer) {
+      setError("Your temple is not provisioned yet. Please contact your administrator.");
+      return;
+    }
+
     if (!hasAnyInput) {
-      setError("Please enter your temple details before continuing.");
+      setError("Please complete the additional details before continuing.");
       return;
     }
 
@@ -458,7 +398,8 @@ export default function TempleAdminTempleProfilePage() {
       return;
     }
 
-    if (!sessionStorage.getItem(TEMPLE_ONBOARDING_EMAIL_KEY)) {
+    const sessionEmail = sessionStorage.getItem(TEMPLE_ONBOARDING_EMAIL_KEY);
+    if (!sessionEmail) {
       router.replace("/temple-admin/signin");
       return;
     }
@@ -472,70 +413,21 @@ export default function TempleAdminTempleProfilePage() {
 
     setIsSaving(true);
     try {
-      const adminEmail = sessionStorage.getItem(TEMPLE_ONBOARDING_EMAIL_KEY) ?? "";
-      const adminDraft = loadTempleAdminProfileDraft();
-      const adminFullName = (adminDraft?.fullName ?? "").trim() || "Temple Admin";
-      const adminRole = (adminDraft?.roles?.[0] ?? "Temple Admin") as string;
-      const waCc = adminDraft?.whatsapp?.countryCode ?? "+91";
-      const waDigits = (adminDraft?.whatsapp?.nationalNumber ?? "").replace(/\D/g, "");
-      const adminWhatsapp =
-        waDigits.length >= 7 ? `${waCc} ${adminDraft?.whatsapp?.nationalNumber ?? ""}`.replace(/\s+/g, " ").trim() : "";
-
-      const payload = {
-        temple: {
-          tradition: "Hindu",
-          deity: "Ganesha",
-          name: draft.templeName.trim(),
-          country: draft.location.countryIso,
-          city: draft.location.city.trim(),
-          email: draft.email.trim(),
-          subdomain: slugPreview,
-          address: draft.fullAddress.street.trim(),
-          website: draft.websiteUrl.trim(),
-          phone: draft.phone,
-          whatsapp: draft.phone,
-          fax: draft.fax,
-          establishedYear: draft.establishedYear.trim(),
-        },
-        admin: {
-          fullName: adminFullName,
-          email: adminEmail,
-          whatsapp: adminWhatsapp,
-          role: adminRole,
-        },
-        planBilling: {
-          selectedPlan: "Sankalpa",
-          billingCycle: "Monthly",
-          trial: { enabled: false, days: null },
-        },
-      };
-
-      const response = await fetch(apiUrl("/api/temples/create"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify(payload),
+      const res = await saveTempleProfileDetailsAction({
+        sessionEmail,
+        websiteUrl: draft.websiteUrl,
+        fax: draft.fax,
+        domainSubdomain: draft.domainSubdomain.trim(),
+        establishedYear: draft.establishedYear.trim(),
+        fullAddress: draft.fullAddress,
+        logoDataUrl: draft.logoDataUrl,
       });
-
-      const data = (await response.json().catch(() => null)) as {
-        error?: string;
-        templeId?: string;
-        message?: string;
-      } | null;
-
-      if (!response.ok) {
-        const message =
-          (data && typeof data.error === "string" && data.error) ||
-          (data && typeof data.message === "string" && data.message) ||
-          "Failed to save temple.";
-        throw new Error(message);
+      if (!res.ok) {
+        setError(res.message || "Could not save details.");
+        return;
       }
 
-      const templeId = data?.templeId;
-      if (!templeId) {
-        throw new Error("Temple saved, but response was missing templeId.");
-      }
-
-      markTempleOnboardingTempleCreated({ templeId: String(templeId) });
+      markTempleOnboardingTempleCreated({ templeId: templeIdFromServer });
       router.push("/temple-admin/deity-selection");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
@@ -569,6 +461,16 @@ export default function TempleAdminTempleProfilePage() {
           </div>
           <div className="mt-8 h-12 w-40 rounded bg-zinc-200/60 dark:bg-zinc-800/60" />
         </div>
+      ) : loadError ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-950 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
+          <h1 className="text-2xl font-semibold tracking-tight">Set up your temple</h1>
+          <p className="mt-2 text-sm" role="alert">
+            {loadError}
+          </p>
+          <p className="mt-3 text-sm text-amber-900/80 dark:text-amber-200/90">
+            Your temple must be provisioned before you can continue. Please contact your administrator.
+          </p>
+        </div>
       ) : (
         <>
           <div className="mb-6">
@@ -578,193 +480,82 @@ export default function TempleAdminTempleProfilePage() {
             <p className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">
               This appears on all devotee-facing pages, donation receipts, and communications.
             </p>
+            <p className="mt-2 text-xs text-[var(--text-muted)]">
+              Temple name, contact, and location are managed by your organisation. Use “Add more details” below to
+              complete your profile.
+            </p>
           </div>
 
           <form className="space-y-6" onSubmit={handleSubmit} noValidate>
             <div className="space-y-5">
-              <FormField id={templeNameId} label="Temple Name" required layout="horizontal">
-                <div>
-                  <TextInput
-                    id={templeNameId}
-                    placeholder="Sri Mariamman Temple"
-                    value={draft.templeName}
-                    onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, templeName: e.target.value }))
-                    }
-                    onBlur={() => setSubmitAttempted(true)}
-                    aria-invalid={submitAttempted && !!errors.errs.templeName}
-                  />
-                  {submitAttempted && errors.errs.templeName ? (
-                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.errs.templeName}</p>
-                  ) : null}
-                </div>
-              </FormField>
-
-              <FormField id="charity-yes" label="Charity Registration" layout="horizontal">
-                <div className="flex flex-col gap-3">
-                  <div className="flex flex-wrap items-center gap-6">
-                    <label className="flex cursor-pointer items-center gap-2 text-sm text-[var(--text-primary)]">
-                      <input
-                        id="charity-yes"
-                        type="radio"
-                        name="charityRegistered"
-                        className="h-4 w-4 border-[var(--border-default)] accent-[var(--brand-primary)]"
-                        checked={draft.charity.registered}
-                        onChange={() =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            charity: { ...prev.charity, registered: true },
-                          }))
-                        }
-                      />
-                      Yes, Registered
-                    </label>
-                    <label className="flex cursor-pointer items-center gap-2 text-sm text-[var(--text-primary)]">
-                      <input
-                        id="charity-no"
-                        type="radio"
-                        name="charityRegistered"
-                        className="h-4 w-4 border-[var(--border-default)] accent-[var(--brand-primary)]"
-                        checked={!draft.charity.registered}
-                        onChange={() =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            charity: { ...prev.charity, registered: false, registrationNumber: "" },
-                          }))
-                        }
-                      />
-                      No, Not Registered
-                    </label>
-                  </div>
-                  <div className="flex items-start gap-2 text-xs text-[var(--text-muted)]">
-                    <HelpCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-                    <p>
-                      Select “Yes” if you have a charity registration number. This will appear on donation receipts.
-                    </p>
-                  </div>
-                </div>
-              </FormField>
-
-              {draft.charity.registered ? (
-                <FormField
-                  id={charityRegId}
-                  label="Charity registration number"
-                  required
-                  layout="horizontal"
-                >
-                  <div>
+              {core ? (
+                <>
+                  <FormField id={templeNameId} label="Temple Name" required layout="horizontal">
                     <TextInput
-                      id={charityRegId}
-                      placeholder="e.g. CH-123456"
-                      value={draft.charity.registrationNumber}
-                      onChange={(e) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          charity: { ...prev.charity, registrationNumber: e.target.value },
-                        }))
-                      }
-                      aria-invalid={submitAttempted && !!errors.errs.charityRegistrationNumber}
+                      id={templeNameId}
+                      readOnly
+                      tabIndex={-1}
+                      value={core.templeName}
+                      className="cursor-not-allowed opacity-90"
                     />
-                    {submitAttempted && errors.errs.charityRegistrationNumber ? (
-                      <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                        {errors.errs.charityRegistrationNumber}
+                  </FormField>
+
+                  <FormField id="charity-display" label="Charity Registration" layout="horizontal">
+                    <div className="flex flex-col gap-2">
+                      <p className="text-sm text-[var(--text-primary)]">
+                        {core.charity.registered ? "Yes, registered" : "No, not registered"}
                       </p>
-                    ) : null}
-                  </div>
-                </FormField>
+                      {core.charity.registered ? (
+                        <TextInput
+                          readOnly
+                          tabIndex={-1}
+                          value={core.charity.registrationNumber || "—"}
+                          className="cursor-not-allowed opacity-90"
+                        />
+                      ) : null}
+                      <div className="flex items-start gap-2 text-xs text-[var(--text-muted)]">
+                        <HelpCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                        <p>Shown on donation receipts when applicable.</p>
+                      </div>
+                    </div>
+                  </FormField>
+
+                  <FormField id={emailId} label="Email" required layout="horizontal">
+                    <TextInput
+                      id={emailId}
+                      type="email"
+                      readOnly
+                      tabIndex={-1}
+                      value={core.email}
+                      className="cursor-not-allowed opacity-90"
+                    />
+                  </FormField>
+
+                  <FormField id="temple-contact-ro" label="Phone number" required layout="horizontal">
+                    <div className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-elevated)] px-3 py-2.5 text-sm text-[var(--text-primary)]">
+                      {core.phone.countryCode} {core.phone.nationalNumber || "—"}
+                    </div>
+                  </FormField>
+
+                  <FormField id="location-ro" label="Location" required layout="horizontal">
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <span className="text-xs font-medium text-[var(--text-muted)]">Country</span>
+                        <div className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-elevated)] px-3 py-2.5 text-sm text-[var(--text-primary)]">
+                          {LOCATION_COUNTRIES.find((c) => c.iso === core.location.countryIso)?.label ??
+                            core.location.countryIso}
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <span className="text-xs font-medium text-[var(--text-muted)]">City</span>
+                        <div className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-elevated)] px-3 py-2.5 text-sm text-[var(--text-primary)]">
+                          {core.location.city || "—"}
+                        </div>
+                      </div>
+                    </div>
+                  </FormField>
+                </>
               ) : null}
-
-              <FormField id={emailId} label="Email" required layout="horizontal">
-                <div>
-                  <TextInput
-                    id={emailId}
-                    type="email"
-                    placeholder="user@example.com"
-                    value={draft.email}
-                    onChange={(e) => setDraft((prev) => ({ ...prev, email: e.target.value }))}
-                    onBlur={() => setSubmitAttempted(true)}
-                    aria-invalid={submitAttempted && !!errors.errs.email}
-                  />
-                  {submitAttempted && errors.errs.email ? (
-                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.errs.email}</p>
-                  ) : null}
-                </div>
-              </FormField>
-
-              <PhoneRowField
-                idPrefix="temple-contact"
-                label="Phone number"
-                layout="horizontal"
-                required
-                value={draft.phone}
-                onChange={(next) => setDraft((prev) => ({ ...prev, phone: next, whatsapp: next }))}
-                onBlur={() => setSubmitAttempted(true)}
-                error={submitAttempted ? errors.errs.phone : undefined}
-              />
-
-              <FormField id="location-country" label="Location" required layout="horizontal">
-                <div>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <span className="text-xs font-medium text-[var(--text-muted)]">Country</span>
-                      <SelectInput
-                        id="location-country"
-                        value={draft.location.countryIso}
-                        onChange={(e) => {
-                          const nextIso = e.target.value;
-                          const dial = DIAL_BY_ISO[nextIso] ?? draft.phone.countryCode;
-                          setDraft((prev) => {
-                            const nextPhone = { ...prev.phone, countryCode: dial };
-                            return {
-                              ...prev,
-                              location: { ...prev.location, countryIso: nextIso, city: "" },
-                              phone: nextPhone,
-                              whatsapp: nextPhone,
-                              fullAddress: {
-                                ...prev.fullAddress,
-                                countryIso: nextIso,
-                                state: "",
-                                city: "",
-                                postalCode: "",
-                              },
-                            };
-                          });
-                        }}
-                      >
-                        {LOCATION_COUNTRIES.map((c) => (
-                          <option key={c.iso} value={c.iso}>
-                            {c.label}
-                          </option>
-                        ))}
-                      </SelectInput>
-                    </div>
-                    <div className="space-y-1.5">
-                      <span className="text-xs font-medium text-[var(--text-muted)]">City</span>
-                      <SelectInput
-                        id="location-city"
-                        value={draft.location.city}
-                        onChange={(e) =>
-                          setDraft((prev) => ({ ...prev, location: { ...prev.location, city: e.target.value } }))
-                        }
-                        aria-invalid={submitAttempted && !!errors.errs.locationCity}
-                      >
-                        <option value="">Select City</option>
-                        {(CITIES_BY_COUNTRY[draft.location.countryIso] ?? []).map((c) => (
-                          <option key={c.value} value={c.value}>
-                            {c.label}
-                          </option>
-                        ))}
-                      </SelectInput>
-                    </div>
-                  </div>
-                  {submitAttempted && errors.errs.locationCountry ? (
-                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.errs.locationCountry}</p>
-                  ) : null}
-                  {submitAttempted && errors.errs.locationCity ? (
-                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.errs.locationCity}</p>
-                  ) : null}
-                </div>
-              </FormField>
             </div>
 
             <div>
@@ -807,7 +598,12 @@ export default function TempleAdminTempleProfilePage() {
                 <div className="min-h-0 overflow-hidden">
                   <div className="space-y-5 pt-5">
                     <FormField id="logo" label="Your logo" hint="This will display on your profile." layout="horizontal">
-                      <LogoUpload file={logoFile} onFileChange={setLogoFile} placeholderLabel="Logo" />
+                      <LogoUpload
+                        file={logoFile}
+                        onFileChange={setLogoFile}
+                        initialDataUrl={draft.logoDataUrl}
+                        placeholderLabel="Logo"
+                      />
                     </FormField>
 
                     <FormField id={websiteId} label="Website" layout="horizontal">
@@ -1055,7 +851,7 @@ export default function TempleAdminTempleProfilePage() {
               primary={
                 <button
                   type="submit"
-                  disabled={isSaving}
+                  disabled={isSaving || !core || !!loadError}
                   className="flex w-full min-w-0 flex-[1.25] items-center justify-center gap-2 rounded-lg bg-[var(--brand-primary)] py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)] disabled:pointer-events-none disabled:opacity-50"
                 >
                   {isSaving ? (

@@ -13,6 +13,7 @@ import { createTemplePaymentOnboardingRouter } from "./temple-payment-onboarding
 import { PostgresTemplePlanRepository } from "./temple-plan.repository.js";
 import { createTemplePlanRouter } from "./temple-plan.routes.js";
 import { PostgresTempleRepository } from "./temples.repository.js";
+import { createTempleSessionProfileRouter } from "./temple-session-profile.routes.js";
 import { createTemplesRouter } from "./temples.routes.js";
 import { TemplesService } from "./temples.service.js";
 
@@ -27,6 +28,8 @@ import { TemplesService } from "./temples.service.js";
  * - POST /api/temple-admin/plan-selection
  * - POST /api/temple-admin/payment-onboarding
  * - POST /api/temple-admin/onboarding-complete
+ * - GET  /api/temple-admin/temple-profile?sessionEmail=
+ * - PATCH /api/temple-admin/temple-profile/details
  *
  * Requires PostgreSQL (see server bootstrap).
  */
@@ -43,6 +46,7 @@ export function createSuperAdminApiRouter(): Router {
 
   const api = Router();
   api.use(createTemplesRouter(templesService));
+  api.use(createTempleSessionProfileRouter(templeRepo));
   api.use(createAuthRouter(authService));
   api.use(createTempleAdminProfileRouter(templeAdminProfiles));
   api.use(createTempleDeityRouter(templeDeities));

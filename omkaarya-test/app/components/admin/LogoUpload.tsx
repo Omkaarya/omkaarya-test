@@ -6,6 +6,8 @@ import { useEffect, useId, useMemo, useRef } from "react";
 type LogoUploadProps = {
   file: File | null;
   onFileChange: (file: File | null) => void;
+  /** Shown when no `file` is selected (e.g. persisted data URL from server). */
+  initialDataUrl?: string | null;
   placeholderLabel?: string;
   uploadLabel?: string;
   replaceLabel?: string;
@@ -14,17 +16,21 @@ type LogoUploadProps = {
 export default function LogoUpload({
   file,
   onFileChange,
+  initialDataUrl = null,
   placeholderLabel = "Logo",
   uploadLabel = "Upload",
   replaceLabel = "Replace",
 }: LogoUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const id = useId();
-  const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
+  const previewUrl = useMemo(() => {
+    if (file) return URL.createObjectURL(file);
+    return initialDataUrl?.trim() ? initialDataUrl : null;
+  }, [file, initialDataUrl]);
 
   useEffect(() => {
     return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
 

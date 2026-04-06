@@ -2,9 +2,12 @@ import { randomBytes } from "node:crypto";
 import { getPool } from "../db/pool.js";
 import type {
   CreateTemplePayload,
+  PhoneRowJson,
   TempleCompliance,
+  TempleFullAddressJson,
   TemplePlan,
   TempleRecord,
+  TempleSessionProfileResponse,
   TempleStatus,
 } from "./types.js";
 
@@ -41,6 +44,47 @@ function buildSlug(subdomain: string): string {
   if (!s) return "temple.omkaarya.com";
   return s.includes(".") ? s : `${s}.omkaarya.com`;
 }
+
+function parsePhoneJson(value: unknown): PhoneRowJson {
+  if (value && typeof value === "object" && "countryCode" in value && "nationalNumber" in value) {
+    const o = value as Record<string, unknown>;
+    return {
+      countryCode: typeof o.countryCode === "string" ? o.countryCode : "",
+      nationalNumber: typeof o.nationalNumber === "string" ? o.nationalNumber : "",
+    };
+  }
+  return { countryCode: "", nationalNumber: "" };
+}
+
+function parseFullAddressJson(value: unknown): TempleFullAddressJson {
+  if (value && typeof value === "object") {
+    const o = value as Record<string, unknown>;
+    return {
+      countryIso: typeof o.countryIso === "string" ? o.countryIso : "",
+      state: typeof o.state === "string" ? o.state : "",
+      city: typeof o.city === "string" ? o.city : "",
+      postalCode: typeof o.postalCode === "string" ? o.postalCode : "",
+      street: typeof o.street === "string" ? o.street : "",
+    };
+  }
+  return { countryIso: "", state: "", city: "", postalCode: "", street: "" };
+}
+
+function phoneFromPayloadUnknown(input: unknown): PhoneRowJson {
+  const p = parsePhoneJson(input);
+  if (p.countryCode || p.nationalNumber) return p;
+  return { countryCode: "+91", nationalNumber: "" };
+}
+
+export type SaveTempleProfileDetailsInput = {
+  sessionEmail: string;
+  websiteUrl: string;
+  fax: PhoneRowJson;
+  domainSubdomain: string;
+  establishedYear: string;
+  fullAddress: TempleFullAddressJson;
+  logoDataUrl: string | null;
+};
 
 export class PostgresTempleRepository implements TempleRepository {
   async listAll(): Promise<TempleRecord[]> {
@@ -80,6 +124,99 @@ export class PostgresTempleRepository implements TempleRepository {
     }));
   }
 
+  async getTempleSessionProfileByAdminEmail(adminEmail: string): Promise<TempleSessionProfileResponse | null> {
+    const pool = getPool();
+    if (!pool) {
+      throw new Error("Database pool is not available");
+    }
+    const email = adminEmail.trim();
+    if (!email) return null;
+
+    const result = await pool.query<{
+      tenant_id: string;
+      name: string;
+      country_code: string;
+      city: string;
+      admin_email: string;
+      contact_email: string | null;
+      charity_registered: boolean;
+      charity_registration_number: string | null;
+      contact_phone: unknown;
+      website_url: string | null;
+      fax: unknown;
+      domain_subdomain: string | null;
+      established_year: string | null;
+      full_address: unknown;
+      logo_data_url: string | null;
+    }>(
+      `SELECT tenant_id, name, country_code, city, admin_email,
+              contact_email, charity_registered, charity_registration_number, contact_phone,
+              website_url, fax, domain_subdomain, established_year, full_address, logo_data_url
+       FROM public.temples
+       WHERE admin_email = $1
+       LIMIT 1`,
+      [email]
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+
+    const contactEmail = (row.contact_email ?? row.admin_email).trim();
+    const phone = parsePhoneJson(row.contact_phone);
+
+    return {
+      success: true,
+      templeId: row.tenant_id,
+      core: {
+        templeName: row.name,
+        charity: {
+          registered: row.charity_registered,
+          registrationNumber: (row.charity_registration_number ?? "").trim(),
+        },
+        email: contactEmail,
+        phone,
+        location: { countryIso: row.country_code, city: row.city },
+      },
+      details: {
+        logoDataUrl: row.logo_data_url,
+        websiteUrl: (row.website_url ?? "").trim(),
+        fax: parsePhoneJson(row.fax),
+        domainSubdomain: (row.domain_subdomain ?? "").trim(),
+        establishedYear: (row.established_year ?? "").trim(),
+        fullAddress: parseFullAddressJson(row.full_address),
+      },
+    };
+  }
+
+  async saveTempleProfileDetails(input: SaveTempleProfileDetailsInput): Promise<{ ok: true } | { ok: false; reason: "not_found" }> {
+    const pool = getPool();
+    if (!pool) {
+      throw new Error("Database pool is not available");
+    }
+    const sessionEmail = input.sessionEmail.trim();
+    const res = await pool.query<{ tenant_id: string }>(
+      `UPDATE public.temples
+       SET website_url = $2,
+           fax = $3::jsonb,
+           domain_subdomain = $4,
+           established_year = $5,
+           full_address = $6::jsonb,
+           logo_data_url = $7
+       WHERE admin_email = $1
+       RETURNING tenant_id`,
+      [
+        sessionEmail,
+        input.websiteUrl.trim() || null,
+        JSON.stringify(input.fax),
+        input.domainSubdomain.trim() || null,
+        input.establishedYear.trim() || null,
+        JSON.stringify(input.fullAddress),
+        input.logoDataUrl,
+      ]
+    );
+    if (res.rows.length === 0) return { ok: false, reason: "not_found" };
+    return { ok: true };
+  }
+
   async createTemple(payload: CreateTemplePayload): Promise<{ templeId: string; temporaryPassword?: string }> {
     const pool = getPool();
     if (!pool) {
@@ -109,13 +246,17 @@ export class PostgresTempleRepository implements TempleRepository {
         adminEmail: payload.admin.email.trim() || payload.temple.email.trim() || "",
       };
 
+      const contactEmail = payload.temple.email.trim() || null;
+      const contactPhone = phoneFromPayloadUnknown(payload.temple.phone);
+
       let temporaryPassword: string | undefined;
       await client.query("BEGIN");
       try {
         await client.query(
           `INSERT INTO public.temples (
-             tenant_id, name, slug, country_code, country_flag, city, plan, devotees, status, compliance, admin_email
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+             tenant_id, name, slug, country_code, country_flag, city, plan, devotees, status, compliance, admin_email,
+             contact_email, charity_registered, charity_registration_number, contact_phone
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb)`,
           [
             row.tenantId,
             row.name,
@@ -128,6 +269,10 @@ export class PostgresTempleRepository implements TempleRepository {
             row.status,
             row.compliance,
             row.adminEmail,
+            contactEmail,
+            false,
+            null,
+            JSON.stringify(contactPhone),
           ]
         );
 
