@@ -132,13 +132,27 @@ export class PostgresTempleRepository implements TempleRepository {
         );
 
         if (ADMIN_EMAIL_RE.test(row.adminEmail)) {
-          temporaryPassword = generateTemporaryPassword();
-          await client.query(
-            `INSERT INTO public.users (email, temp_password)
-             VALUES ($1, $2)
-             ON CONFLICT (email) DO UPDATE SET temp_password = EXCLUDED.temp_password`,
-            [row.adminEmail, temporaryPassword]
+          const existing = await client.query<{ password_hash: string | null }>(
+            "SELECT password_hash FROM public.users WHERE email = $1 LIMIT 1",
+            [row.adminEmail]
           );
+          if (existing.rows.length === 0) {
+            temporaryPassword = generateTemporaryPassword();
+            await client.query(`INSERT INTO public.users (email, temp_password) VALUES ($1, $2)`, [
+              row.adminEmail,
+              temporaryPassword,
+            ]);
+          } else if (existing.rows[0]!.password_hash != null) {
+            // Temple admin onboarding: user already set a permanent password — do not reset invite fields.
+          } else {
+            temporaryPassword = generateTemporaryPassword();
+            await client.query(
+              `INSERT INTO public.users (email, temp_password)
+               VALUES ($1, $2)
+               ON CONFLICT (email) DO UPDATE SET temp_password = EXCLUDED.temp_password`,
+              [row.adminEmail, temporaryPassword]
+            );
+          }
         }
 
         await client.query("COMMIT");
@@ -147,7 +161,7 @@ export class PostgresTempleRepository implements TempleRepository {
         throw e;
       }
 
-      return { templeId: `temp_${Date.now()}`, temporaryPassword };
+      return { templeId: row.tenantId, temporaryPassword };
     } finally {
       client.release();
     }

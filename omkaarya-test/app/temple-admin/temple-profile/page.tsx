@@ -496,7 +496,6 @@ export default function TempleAdminTempleProfilePage() {
           whatsapp: draft.phone,
           fax: draft.fax,
           establishedYear: draft.establishedYear.trim(),
-          charity: draft.charity,
         },
         admin: {
           fullName: adminFullName,
@@ -511,20 +510,27 @@ export default function TempleAdminTempleProfilePage() {
         },
       };
 
-      // const response = await fetch(apiUrl("/api/temples/create"), {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify(payload),
-      // }); 
+      const response = await fetch(apiUrl("/api/temples/create"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-      // const data = (await response.json().catch(() => null)) as unknown;
-      // if (!response.ok) {
-      //   const message = (data as { error?: string } | null)?.error ?? "Failed to save temple.";
-      //   throw new Error(message);
-      // }
+      const data = (await response.json().catch(() => null)) as {
+        error?: string;
+        templeId?: string;
+        message?: string;
+      } | null;
 
-      const res = { templeId: "123", success: true } as { templeId?: string; success?: boolean } | null;
-      const templeId = res?.templeId;
+      if (!response.ok) {
+        const message =
+          (data && typeof data.error === "string" && data.error) ||
+          (data && typeof data.message === "string" && data.message) ||
+          "Failed to save temple.";
+        throw new Error(message);
+      }
+
+      const templeId = data?.templeId;
       if (!templeId) {
         throw new Error("Temple saved, but response was missing templeId.");
       }
