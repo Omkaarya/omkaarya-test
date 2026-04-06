@@ -33,12 +33,13 @@ export function createTemplesRouter(temples: TemplesService): Router {
     asyncHandler(async (req, res) => {
       const body = req.body as CreateTemplePayload;
       try {
-        const { templeId } = await temples.createTemple(body);
+        const { templeId, temporaryPassword } = await temples.createTemple(body);
         res.json({
           success: true,
           templeId,
           inviteQueued: true,
           message: "Temple created successfully. Invite email has been queued.",
+          ...(temporaryPassword !== undefined ? { temporaryPassword } : {}),
         });
       } catch (e) {
         throw new HttpError(500, "Failed to create temple.", { cause: e });

@@ -25,7 +25,7 @@ export class TemplesService {
     };
   }
 
-  async createTemple(payload: CreateTemplePayload): Promise<{ templeId: string }> {
+  async createTemple(payload: CreateTemplePayload): Promise<{ templeId: string; temporaryPassword?: string }> {
     return this.repo.createTemple(payload);
   }
 }

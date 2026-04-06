@@ -3,6 +3,7 @@
 import { ArrowRight, Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { Suspense, useEffect, useId, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { apiUrl } from "@/lib/api-base";
 import {
   TEMPLE_ONBOARDING_EMAIL_KEY,
   TEMPLE_ONBOARDING_INVITE_FULL_NAME_KEY,
@@ -70,11 +71,31 @@ function TempleAdminSignInForm() {
       return;
     }
 
-    // API integration intentionally deferred. For now, proceed with local validation only.
     setLoading(true);
     try {
-      sessionStorage.setItem(TEMPLE_ONBOARDING_EMAIL_KEY, trimmedEmail);
-      router.push("/temple-admin/set-password");
+      const response = await fetch(apiUrl("/api/login"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ email: trimmedEmail, tempPassword: pwd }),
+      });
+
+      const data = (await response.json().catch(() => null)) as { error?: string; message?: string } | null;
+
+      if (response.ok) {
+        sessionStorage.setItem(TEMPLE_ONBOARDING_EMAIL_KEY, trimmedEmail);
+        router.push("/temple-admin/set-password");
+        return;
+      }
+
+      if (response.status === 401) {
+        setError("Invalid email or temporary password. Check with your administrator.");
+      } else {
+        setError(
+          (data && typeof data.error === "string" && data.error) || "Something went wrong. Please try again."
+        );
+      }
+    } catch {
+      setError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }

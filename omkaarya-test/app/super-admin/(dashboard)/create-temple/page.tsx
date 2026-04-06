@@ -433,7 +433,15 @@ export default function CreateTemplePage() {
       if (!response.ok) {
         throw new Error(data?.error || "Failed to create temple.");
       }
-      setSubmitSuccess("Temple successfully created. An invite email has been sent to the admin.");
+      const tempPwd =
+        data && typeof data === "object" && "temporaryPassword" in data && typeof data.temporaryPassword === "string"
+          ? data.temporaryPassword
+          : "";
+      setSubmitSuccess(
+        tempPwd
+          ? `Temple created. Share this temporary password with the admin securely — they need it on the temple sign-in page: ${tempPwd}`
+          : "Temple successfully created. An invite email has been sent to the admin."
+      );
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Failed to create temple.");
     } finally {

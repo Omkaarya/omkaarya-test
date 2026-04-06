@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { getPool } from "../db/pool.js";
 import type {
   CreateTemplePayload,
@@ -7,9 +8,15 @@ import type {
   TempleStatus,
 } from "./types.js";
 
+const ADMIN_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function generateTemporaryPassword(): string {
+  return randomBytes(12).toString("base64url");
+}
+
 export interface TempleRepository {
   listAll(): Promise<TempleRecord[]>;
-  createTemple(payload: CreateTemplePayload): Promise<{ templeId: string }>;
+  createTemple(payload: CreateTemplePayload): Promise<{ templeId: string; temporaryPassword?: string }>;
 }
 
 const FLAG_BY_CODE: Record<string, string> = {
@@ -73,7 +80,7 @@ export class PostgresTempleRepository implements TempleRepository {
     }));
   }
 
-  async createTemple(payload: CreateTemplePayload): Promise<{ templeId: string }> {
+  async createTemple(payload: CreateTemplePayload): Promise<{ templeId: string; temporaryPassword?: string }> {
     const pool = getPool();
     if (!pool) {
       throw new Error("Database pool is not available");
@@ -101,25 +108,46 @@ export class PostgresTempleRepository implements TempleRepository {
         compliance: "Pending",
         adminEmail: payload.admin.email.trim() || payload.temple.email.trim() || "",
       };
-      await client.query(
-        `INSERT INTO public.temples (
-           tenant_id, name, slug, country_code, country_flag, city, plan, devotees, status, compliance, admin_email
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-        [
-          row.tenantId,
-          row.name,
-          row.slug,
-          row.countryCode,
-          row.countryFlag,
-          row.city,
-          row.plan,
-          row.devotees,
-          row.status,
-          row.compliance,
-          row.adminEmail,
-        ]
-      );
-      return { templeId: `temp_${Date.now()}` };
+
+      let temporaryPassword: string | undefined;
+      await client.query("BEGIN");
+      try {
+        await client.query(
+          `INSERT INTO public.temples (
+             tenant_id, name, slug, country_code, country_flag, city, plan, devotees, status, compliance, admin_email
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          [
+            row.tenantId,
+            row.name,
+            row.slug,
+            row.countryCode,
+            row.countryFlag,
+            row.city,
+            row.plan,
+            row.devotees,
+            row.status,
+            row.compliance,
+            row.adminEmail,
+          ]
+        );
+
+        if (ADMIN_EMAIL_RE.test(row.adminEmail)) {
+          temporaryPassword = generateTemporaryPassword();
+          await client.query(
+            `INSERT INTO public.users (email, temp_password)
+             VALUES ($1, $2)
+             ON CONFLICT (email) DO UPDATE SET temp_password = EXCLUDED.temp_password`,
+            [row.adminEmail, temporaryPassword]
+          );
+        }
+
+        await client.query("COMMIT");
+      } catch (e) {
+        await client.query("ROLLBACK");
+        throw e;
+      }
+
+      return { templeId: `temp_${Date.now()}`, temporaryPassword };
     } finally {
       client.release();
     }
