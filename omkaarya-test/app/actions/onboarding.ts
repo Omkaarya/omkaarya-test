@@ -5,6 +5,38 @@ import { fetchInternalApiJson } from "@/lib/server/internal-api";
 type OkResult = { ok: true };
 type ErrResult = { ok: false; status: number; message: string };
 
+export type GetTempleAdminProfileResult =
+  | {
+      ok: true;
+      profile: {
+        email: string;
+        fullName: string;
+        phone: string;
+        roles: string[];
+      };
+    }
+  | ErrResult;
+
+export async function getTempleAdminProfileAction(sessionEmail: string): Promise<GetTempleAdminProfileResult> {
+  const search = new URLSearchParams({ sessionEmail });
+  const res = await fetchInternalApiJson<{
+    success: boolean;
+    profile?: { email: string; fullName: string; phone: string; roles: string[] };
+  }>(`/api/temple-admin/profile?${search.toString()}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  if (!res.ok) return { ok: false, status: res.status, message: res.message };
+
+  const profile = res.data.profile;
+  if (!profile) {
+    return { ok: false, status: 502, message: "Profile response missing profile payload." };
+  }
+  return { ok: true, profile };
+}
+
 export type SubmitTempleAdminProfilePayload = {
   sessionEmail: string;
   fullName: string;

@@ -18,6 +18,19 @@ export function createTempleAdminProfileRouter(
 ): Router {
   const r = Router();
 
+  r.get(
+    "/temple-admin/profile",
+    profileLimiter,
+    asyncHandler(async (req, res) => {
+      const sessionEmail = typeof req.query.sessionEmail === "string" ? req.query.sessionEmail : "";
+      const record = await profiles.getAdminProfileByEmail(sessionEmail);
+      if (!record) {
+        throw new HttpError(404, "User not found for this session email.");
+      }
+      res.json({ success: true, profile: record });
+    })
+  );
+
   r.post(
     "/temple-admin/profile",
     profileLimiter,

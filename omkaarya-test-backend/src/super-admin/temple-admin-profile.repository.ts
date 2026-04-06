@@ -8,11 +8,51 @@ export type SaveAdminProfileInput = {
   roles: string[];
 };
 
+export type TempleAdminProfileRecord = {
+  email: string;
+  fullName: string;
+  phone: string;
+  roles: string[];
+};
+
 export type SaveAdminProfileResult =
   | { ok: true }
   | { ok: false; reason: "not_found" | "email_taken" };
 
 export class PostgresTempleAdminProfileRepository {
+  async getAdminProfileByEmail(email: string): Promise<TempleAdminProfileRecord | null> {
+    const pool = getPool();
+    if (!pool) {
+      throw new Error("Database pool is not available");
+    }
+
+    const e = email.trim();
+    if (!e) return null;
+
+    const res = await pool.query<{
+      email: string;
+      full_name: string | null;
+      whatsapp: string | null;
+      roles: string[] | null;
+    }>(
+      `SELECT email, full_name, whatsapp, roles
+       FROM public.users
+       WHERE email = $1
+       LIMIT 1`,
+      [e]
+    );
+
+    const row = res.rows[0];
+    if (!row) return null;
+
+    return {
+      email: row.email,
+      fullName: row.full_name ?? "",
+      phone: row.whatsapp ?? "",
+      roles: Array.isArray(row.roles) ? row.roles : [],
+    };
+  }
+
   async saveAdminProfile(input: SaveAdminProfileInput): Promise<SaveAdminProfileResult> {
     const pool = getPool();
     if (!pool) {
