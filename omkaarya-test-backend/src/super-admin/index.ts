@@ -2,6 +2,8 @@ import { Router } from "express";
 import { PostgresAuthRepository } from "./auth.repository.js";
 import { createAuthRouter } from "./auth.routes.js";
 import { AuthService } from "./auth.service.js";
+import { PostgresTempleAdminProfileRepository } from "./temple-admin-profile.repository.js";
+import { createTempleAdminProfileRouter } from "./temple-admin.routes.js";
 import { PostgresTempleRepository } from "./temples.repository.js";
 import { createTemplesRouter } from "./temples.routes.js";
 import { TemplesService } from "./temples.service.js";
@@ -12,6 +14,7 @@ import { TemplesService } from "./temples.service.js";
  * - POST /api/temples/create
  * - POST /api/login
  * - POST /api/set-password
+ * - POST /api/temple-admin/profile
  *
  * Requires PostgreSQL (see server bootstrap).
  */
@@ -20,10 +23,12 @@ export function createSuperAdminApiRouter(): Router {
   const templesService = new TemplesService(templeRepo);
 
   const authService = new AuthService(new PostgresAuthRepository());
+  const templeAdminProfiles = new PostgresTempleAdminProfileRepository();
 
   const api = Router();
   api.use(createTemplesRouter(templesService));
   api.use(createAuthRouter(authService));
+  api.use(createTempleAdminProfileRouter(templeAdminProfiles));
   api.use((_req, res) => {
     res.status(404).json({ error: "Not found" });
   });

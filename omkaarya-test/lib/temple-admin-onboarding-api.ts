@@ -1,4 +1,7 @@
+import { apiUrl } from "./api-base";
+
 export type SubmitTempleAdminProfilePayload = {
+  sessionEmail: string;
   fullName: string;
   email: string;
   roles: string[];
@@ -12,21 +15,28 @@ export type SubmitTempleAdminProfileResult =
       message: string;
     };
 
-async function sleep(ms: number) {
-  await new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 export async function submitTempleAdminProfile(
   payload: SubmitTempleAdminProfilePayload,
 ): Promise<SubmitTempleAdminProfileResult> {
-  // Mock-only per current onboarding implementation.
-  // TODO: Replace with `fetch(apiUrl(...))` + proper error parsing when backend endpoint is ready.
-  await sleep(250);
+  const response = await fetch(apiUrl("/api/temple-admin/profile"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(payload),
+  });
 
-  if (!payload.fullName.trim() || !payload.email.trim() || payload.roles.length === 0 || !payload.phone.trim()) {
-    return { ok: false, message: "Missing required fields." };
+  const data = (await response.json().catch(() => null)) as {
+    error?: string;
+    message?: string;
+  } | null;
+
+  if (response.ok) {
+    return { ok: true };
   }
 
-  return { ok: true };
-}
+  const message =
+    (data && typeof data.error === "string" && data.error) ||
+    (data && typeof data.message === "string" && data.message) ||
+    "Something went wrong. Please try again.";
 
+  return { ok: false, message };
+}

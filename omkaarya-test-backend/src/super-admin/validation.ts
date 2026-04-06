@@ -21,6 +21,25 @@ export const setPasswordBodySchema = z.object({
   newPassword: z.string().min(8),
 });
 
+const templeAdminRoleSchema = z.enum([
+  "Temple Admin",
+  "Head Priest",
+  "Trustee",
+  "Manager",
+  "Accountant",
+]);
+
+export const templeAdminProfileBodySchema = z.object({
+  sessionEmail: z.string().email(),
+  email: z.string().email(),
+  fullName: z.string().trim().pipe(z.string().min(1)),
+  roles: z.array(templeAdminRoleSchema).min(1),
+  phone: z
+    .string()
+    .trim()
+    .pipe(z.string().min(8).max(24)),
+});
+
 const templeNested = z.object({
   tradition: z.string(),
   name: z.string(),

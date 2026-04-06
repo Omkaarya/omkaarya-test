@@ -125,6 +125,7 @@ export default function TempleAdminAdminProfilePage() {
     setLoading(true);
     try {
       const payload = {
+        sessionEmail: sessionEmail.trim(),
         fullName: fullName.trim(),
         email: email.trim(),
         roles,
@@ -134,6 +135,9 @@ export default function TempleAdminAdminProfilePage() {
       if (!res.ok) {
         setError(res.message || "Something went wrong. Please try again.");
         return;
+      }
+      if (payload.email !== sessionEmail.trim()) {
+        sessionStorage.setItem(TEMPLE_ONBOARDING_EMAIL_KEY, payload.email);
       }
       router.push("/temple-admin/temple-profile");
     } catch {
