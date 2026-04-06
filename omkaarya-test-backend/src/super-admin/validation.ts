@@ -77,3 +77,31 @@ export const createTempleBodySchema = z.object({
   admin: adminNested,
   planBilling: planBillingNested,
 });
+
+/** Matches frontend `DEITY_CATALOG` ids in `lib/deity-catalog.ts`. */
+const deityCatalogIdSchema = z.enum([
+  "pillaiyaar",
+  "murugan",
+  "shivan",
+  "guruvayurappan",
+  "amman",
+  "aanjaneyar",
+]);
+
+export const templeDeitySelectionBodySchema = z
+  .object({
+    sessionEmail: z.string().email(),
+    templeId: z.string().trim().pipe(z.string().min(1)),
+    primaryDeityId: deityCatalogIdSchema,
+    subDeityIds: z.array(deityCatalogIdSchema).default([]),
+    customDeityNote: z.string().max(2000).optional(),
+    preferCustomLater: z.boolean().optional(),
+  })
+  .refine((d) => !d.subDeityIds.includes(d.primaryDeityId), {
+    message: "Sub-deities must not include the primary deity.",
+    path: ["subDeityIds"],
+  })
+  .refine((d) => new Set(d.subDeityIds).size === d.subDeityIds.length, {
+    message: "Duplicate sub-deity ids are not allowed.",
+    path: ["subDeityIds"],
+  });

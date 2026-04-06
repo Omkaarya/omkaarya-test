@@ -12,12 +12,16 @@ import {
   getDeityById,
   type DeityCatalogEntry,
 } from "@/lib/deity-catalog";
+import { submitTempleDeitySelection } from "@/lib/temple-onboarding-deity-api";
 import {
   isDeitySelectionComplete,
   loadTempleOnboardingDeityDraft,
   saveTempleOnboardingDeityDraft,
 } from "@/lib/temple-onboarding-deity";
-import { isTempleOnboardingTempleCreated } from "@/lib/temple-onboarding-temple-profile";
+import {
+  isTempleOnboardingTempleCreated,
+  loadTempleOnboardingTempleCreatedResponse,
+} from "@/lib/temple-onboarding-temple-profile";
 
 const SEARCH_DEBOUNCE_MS = 320;
 
@@ -55,6 +59,7 @@ export default function TempleAdminDeitySelectionPage() {
   const [showCustomNote, setShowCustomNote] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const debouncedPrimarySearch = useDebouncedValue(primarySearch, SEARCH_DEBOUNCE_MS);
   const debouncedSubSearch = useDebouncedValue(subSearch, SEARCH_DEBOUNCE_MS);
@@ -116,7 +121,7 @@ export default function TempleAdminDeitySelectionPage() {
 
   const clearAllSub = () => setSubDeityIds([]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSubmitAttempted(true);
     setSubmitError(null);
     if (!primaryDeityId) {
@@ -124,14 +129,46 @@ export default function TempleAdminDeitySelectionPage() {
       document.getElementById(primarySectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
-    saveTempleOnboardingDeityDraft({
-      primaryDeityId,
-      subDeityIds,
-      customDeityNote,
-      preferCustomLater: showCustomNote,
-      completed: true,
-    });
-    router.push("/temple-admin/choose-plan");
+
+    const sessionEmail = sessionStorage.getItem(TEMPLE_ONBOARDING_EMAIL_KEY)?.trim();
+    if (!sessionEmail) {
+      router.replace("/temple-admin/signin");
+      return;
+    }
+
+    const created = loadTempleOnboardingTempleCreatedResponse();
+    if (!created?.templeId) {
+      setSubmitError("Temple setup is incomplete. Please finish the previous step first.");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const res = await submitTempleDeitySelection({
+        sessionEmail,
+        templeId: created.templeId,
+        primaryDeityId,
+        subDeityIds,
+        customDeityNote: customDeityNote.trim() || undefined,
+        preferCustomLater: showCustomNote,
+      });
+      if (!res.ok) {
+        setSubmitError(res.message);
+        return;
+      }
+      saveTempleOnboardingDeityDraft({
+        primaryDeityId,
+        subDeityIds,
+        customDeityNote,
+        preferCustomLater: showCustomNote,
+        completed: true,
+      });
+      router.push("/temple-admin/choose-plan");
+    } catch {
+      setSubmitError("Network error. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const selectedSubEntries = useMemo(
@@ -416,10 +453,11 @@ export default function TempleAdminDeitySelectionPage() {
         primary={
           <button
             type="button"
-            onClick={handleSave}
-            className="flex w-full min-w-0 flex-[1.25] items-center justify-center gap-2 rounded-lg bg-[var(--brand-primary)] py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)]"
+            onClick={() => void handleSave()}
+            disabled={isSaving}
+            className="flex w-full min-w-0 flex-[1.25] items-center justify-center gap-2 rounded-lg bg-[var(--brand-primary)] py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)] disabled:pointer-events-none disabled:opacity-50"
           >
-            Save & Continue
+            {isSaving ? "Saving…" : "Save & Continue"}
             <ArrowRight className="h-4 w-4" aria-hidden />
           </button>
         }
