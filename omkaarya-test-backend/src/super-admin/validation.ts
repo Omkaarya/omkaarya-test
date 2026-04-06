@@ -1,8 +1,24 @@
 import { z } from "zod";
 
-export const loginBodySchema = z.object({
+export const loginBodySchema = z
+  .object({
+    email: z.string().email(),
+    password: z.string().optional(),
+    tempPassword: z.string().optional(),
+  })
+  .refine(
+    (d) => {
+      const p = (d.password ?? "").trim();
+      const t = (d.tempPassword ?? "").trim();
+      return p.length > 0 || t.length > 0;
+    },
+    { message: "Password is required", path: ["password"] }
+  );
+
+export const setPasswordBodySchema = z.object({
   email: z.string().email(),
   tempPassword: z.string().min(1),
+  newPassword: z.string().min(8),
 });
 
 const templeNested = z.object({

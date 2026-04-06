@@ -1,6 +1,9 @@
 /** Non-secret identifier for onboarding context. */
 export const TEMPLE_ONBOARDING_EMAIL_KEY = "temple_onboarding_email";
 
+/** Set when the user signed in with a permanent password (recurring); onboarding-complete skips local draft guards. */
+export const TEMPLE_ONBOARDING_RETURNING_LOGIN_KEY = "temple_onboarding_returning_login";
+
 /** Non-secret remember-me preference for onboarding UI. */
 export const TEMPLE_ONBOARDING_REMEMBER_ME_KEY = "temple_onboarding_remember_me";
 

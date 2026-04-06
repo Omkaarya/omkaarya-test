@@ -7,6 +7,7 @@ import { apiUrl } from "@/lib/api-base";
 import {
   TEMPLE_ONBOARDING_EMAIL_KEY,
   TEMPLE_ONBOARDING_INVITE_FULL_NAME_KEY,
+  TEMPLE_ONBOARDING_RETURNING_LOGIN_KEY,
 } from "@/lib/temple-onboarding-signin";
 
 const inputBase =
@@ -23,7 +24,7 @@ function TempleAdminSignInForm() {
   const passwordInputRef = useRef<HTMLInputElement>(null);
 
   const [email, setEmail] = useState("");
-  const [temporaryPassword, setTemporaryPassword] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -51,7 +52,7 @@ function TempleAdminSignInForm() {
     }
   }, [searchParams]);
 
-  const strengthFill = Math.min(temporaryPassword.length / 12, 1);
+  const strengthFill = Math.min(password.length / 12, 1);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -65,9 +66,9 @@ function TempleAdminSignInForm() {
       setError("Enter a valid email address.");
       return;
     }
-    const pwd = temporaryPassword.trim();
+    const pwd = password.trim();
     if (!pwd) {
-      setError("Temporary password is required.");
+      setError("Password is required.");
       return;
     }
 
@@ -79,16 +80,27 @@ function TempleAdminSignInForm() {
         body: JSON.stringify({ email: trimmedEmail, tempPassword: pwd }),
       });
 
-      const data = (await response.json().catch(() => null)) as { error?: string; message?: string } | null;
+      const data = (await response.json().catch(() => null)) as {
+        error?: string;
+        message?: string;
+        firstLogin?: boolean;
+      } | null;
 
       if (response.ok) {
         sessionStorage.setItem(TEMPLE_ONBOARDING_EMAIL_KEY, trimmedEmail);
-        router.push("/temple-admin/set-password");
+        const firstLogin = data?.firstLogin !== false;
+        if (firstLogin) {
+          sessionStorage.removeItem(TEMPLE_ONBOARDING_RETURNING_LOGIN_KEY);
+          router.push("/temple-admin/set-password");
+        } else {
+          sessionStorage.setItem(TEMPLE_ONBOARDING_RETURNING_LOGIN_KEY, "1");
+          router.push("/temple-admin/onboarding-complete");
+        }
         return;
       }
 
       if (response.status === 401) {
-        setError("Invalid email or temporary password. Check with your administrator.");
+        setError("Invalid email or password. Check with your administrator.");
       } else {
         setError(
           (data && typeof data.error === "string" && data.error) || "Something went wrong. Please try again."
@@ -108,8 +120,8 @@ function TempleAdminSignInForm() {
           Welcome to Omkaarya
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">
-          Your temple dashboard is ready. Check your email for the temporary password sent by your
-          administrator.
+          Your temple dashboard is ready. Use the temporary password from your invite, or your own
+          password if you already created one.
         </p>
       </div>
 
@@ -146,7 +158,7 @@ function TempleAdminSignInForm() {
 
         <div>
           <label htmlFor={passwordFieldId} className="text-sm font-medium text-[var(--text-primary)]">
-            Temporary Password <span className="text-red-600 dark:text-red-400">*</span>
+            Password <span className="text-red-600 dark:text-red-400">*</span>
           </label>
           <div className="relative mt-1.5">
             <Lock
@@ -157,11 +169,11 @@ function TempleAdminSignInForm() {
               ref={passwordInputRef}
               id={passwordFieldId}
               type={showPassword ? "text" : "password"}
-              name="temporaryPassword"
+              name="password"
               autoComplete="current-password"
               placeholder="••••••••••"
-              value={temporaryPassword}
-              onChange={(e) => setTemporaryPassword(e.target.value)}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className={`${inputBase} pl-10 pr-11`}
             />
             <button
@@ -183,7 +195,8 @@ function TempleAdminSignInForm() {
             />
           </div>
           <p className="mt-2 text-xs text-[var(--text-muted)]">
-            You’ll create a permanent password on the next step.
+            First-time sign-in uses your temporary password; you’ll set a permanent password on the
+            next step.
           </p>
         </div>
 

@@ -14,6 +14,7 @@ import { getTemplePlanById } from "@/lib/temple-pricing-plans";
 import {
   loadTempleAdminProfileDraft,
   TEMPLE_ONBOARDING_EMAIL_KEY,
+  TEMPLE_ONBOARDING_RETURNING_LOGIN_KEY,
 } from "@/lib/temple-onboarding-signin";
 import { loadTempleOnboardingTempleProfileDraft, isTempleOnboardingTempleCreated } from "@/lib/temple-onboarding-temple-profile";
 
@@ -59,13 +60,19 @@ export default function TempleAdminOnboardingCompletePage() {
       router.replace("/temple-admin/signin");
       return;
     }
-    if (!isTempleOnboardingTempleCreated()) {
-      router.replace("/temple-admin/temple-profile");
-      return;
-    }
-    if (!loadTempleOnboardingPaymentStatus()) {
-      router.replace("/temple-admin/payment");
-      return;
+
+    const returningLogin = sessionStorage.getItem(TEMPLE_ONBOARDING_RETURNING_LOGIN_KEY) === "1";
+    if (!returningLogin) {
+      if (!isTempleOnboardingTempleCreated()) {
+        router.replace("/temple-admin/temple-profile");
+        return;
+      }
+      if (!loadTempleOnboardingPaymentStatus()) {
+        router.replace("/temple-admin/payment");
+        return;
+      }
+    } else {
+      sessionStorage.removeItem(TEMPLE_ONBOARDING_RETURNING_LOGIN_KEY);
     }
 
     const admin = loadTempleAdminProfileDraft();

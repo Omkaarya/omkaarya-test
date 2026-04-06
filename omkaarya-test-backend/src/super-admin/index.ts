@@ -11,6 +11,7 @@ import { TemplesService } from "./temples.service.js";
  * - GET  /api/temples
  * - POST /api/temples/create
  * - POST /api/login
+ * - POST /api/set-password
  *
  * Requires PostgreSQL (see server bootstrap).
  */
