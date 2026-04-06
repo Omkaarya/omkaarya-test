@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "migrate": "tsx scripts/migrate.ts",
     "seed": "tsx scripts/seed.ts",
-    "db:setup": "npm run migrate && npm run seed"
+    "db:setup": "npm run migrate && npm run seed",
+    "verify:set-password": "tsx scripts/verify-set-password-smoke.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

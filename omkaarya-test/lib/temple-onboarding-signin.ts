@@ -1,6 +1,12 @@
 /** Non-secret identifier for onboarding context. */
 export const TEMPLE_ONBOARDING_EMAIL_KEY = "temple_onboarding_email";
 
+/**
+ * Temporary password used only for POST /api/set-password after first login (same tab session).
+ * Cleared after a successful password update.
+ */
+export const TEMPLE_ONBOARDING_TEMP_PASSWORD_KEY = "temple_onboarding_temp_password";
+
 /** Set when the user signed in with a permanent password (recurring); onboarding-complete skips local draft guards. */
 export const TEMPLE_ONBOARDING_RETURNING_LOGIN_KEY = "temple_onboarding_returning_login";
 

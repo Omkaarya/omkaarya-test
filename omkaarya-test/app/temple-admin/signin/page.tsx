@@ -8,6 +8,7 @@ import {
   TEMPLE_ONBOARDING_EMAIL_KEY,
   TEMPLE_ONBOARDING_INVITE_FULL_NAME_KEY,
   TEMPLE_ONBOARDING_RETURNING_LOGIN_KEY,
+  TEMPLE_ONBOARDING_TEMP_PASSWORD_KEY,
 } from "@/lib/temple-onboarding-signin";
 
 const inputBase =
@@ -91,9 +92,11 @@ function TempleAdminSignInForm() {
         const firstLogin = data?.firstLogin !== false;
         if (firstLogin) {
           sessionStorage.removeItem(TEMPLE_ONBOARDING_RETURNING_LOGIN_KEY);
+          sessionStorage.setItem(TEMPLE_ONBOARDING_TEMP_PASSWORD_KEY, pwd);
           router.push("/temple-admin/set-password");
         } else {
           sessionStorage.setItem(TEMPLE_ONBOARDING_RETURNING_LOGIN_KEY, "1");
+          sessionStorage.removeItem(TEMPLE_ONBOARDING_TEMP_PASSWORD_KEY);
           router.push("/temple-admin/onboarding-complete");
         }
         return;

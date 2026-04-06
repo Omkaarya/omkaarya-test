@@ -3,9 +3,11 @@
 import { ArrowRight, Eye, EyeOff, Lock } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { apiUrl } from "@/lib/api-base";
 import {
   TEMPLE_ONBOARDING_EMAIL_KEY,
   TEMPLE_ONBOARDING_REMEMBER_ME_KEY,
+  TEMPLE_ONBOARDING_TEMP_PASSWORD_KEY,
 } from "@/lib/temple-onboarding-signin";
 import TempleOnboardingStepActions from "@/app/components/temple-admin/TempleOnboardingStepActions";
 
@@ -42,7 +44,8 @@ export default function TempleAdminSetPasswordPage() {
 
   useEffect(() => {
     const email = sessionStorage.getItem(TEMPLE_ONBOARDING_EMAIL_KEY);
-    if (!email) {
+    const tempPassword = sessionStorage.getItem(TEMPLE_ONBOARDING_TEMP_PASSWORD_KEY);
+    if (!email || !tempPassword) {
       router.replace("/temple-admin/signin");
       return;
     }
@@ -80,16 +83,40 @@ export default function TempleAdminSetPasswordPage() {
     if (!validation.ok) return;
 
     const email = sessionStorage.getItem(TEMPLE_ONBOARDING_EMAIL_KEY);
-    if (!email) {
+    const tempPassword = sessionStorage.getItem(TEMPLE_ONBOARDING_TEMP_PASSWORD_KEY);
+    if (!email || !tempPassword) {
       router.replace("/temple-admin/signin");
       return;
     }
 
+    const newPwd = newPassword.trim();
+
     setLoading(true);
     try {
       localStorage.setItem(TEMPLE_ONBOARDING_REMEMBER_ME_KEY, rememberMe ? "1" : "0");
-      // API integration intentionally deferred. For now, proceed after local validation only.
-      router.push("/temple-admin/admin-profile");
+      const response = await fetch(apiUrl("/api/set-password"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ email, tempPassword, newPassword: newPwd }),
+      });
+
+      const data = (await response.json().catch(() => null)) as {
+        error?: string;
+        message?: string;
+      } | null;
+
+      if (response.ok) {
+        sessionStorage.removeItem(TEMPLE_ONBOARDING_TEMP_PASSWORD_KEY);
+        router.push("/temple-admin/admin-profile");
+        return;
+      }
+
+      setError(
+        (data && typeof data.error === "string" && data.error) ||
+          "Could not update your password. Please try again."
+      );
+    } catch {
+      setError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
