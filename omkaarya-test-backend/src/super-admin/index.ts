@@ -6,6 +6,8 @@ import { PostgresTempleAdminProfileRepository } from "./temple-admin-profile.rep
 import { createTempleAdminProfileRouter } from "./temple-admin.routes.js";
 import { PostgresTempleDeityRepository } from "./temple-deity.repository.js";
 import { createTempleDeityRouter } from "./temple-deity.routes.js";
+import { PostgresTemplePlanRepository } from "./temple-plan.repository.js";
+import { createTemplePlanRouter } from "./temple-plan.routes.js";
 import { PostgresTempleRepository } from "./temples.repository.js";
 import { createTemplesRouter } from "./temples.routes.js";
 import { TemplesService } from "./temples.service.js";
@@ -18,6 +20,7 @@ import { TemplesService } from "./temples.service.js";
  * - POST /api/set-password
  * - POST /api/temple-admin/profile
  * - POST /api/temple-admin/deity-selection
+ * - POST /api/temple-admin/plan-selection
  *
  * Requires PostgreSQL (see server bootstrap).
  */
@@ -28,12 +31,14 @@ export function createSuperAdminApiRouter(): Router {
   const authService = new AuthService(new PostgresAuthRepository());
   const templeAdminProfiles = new PostgresTempleAdminProfileRepository();
   const templeDeities = new PostgresTempleDeityRepository();
+  const templePlans = new PostgresTemplePlanRepository();
 
   const api = Router();
   api.use(createTemplesRouter(templesService));
   api.use(createAuthRouter(authService));
   api.use(createTempleAdminProfileRouter(templeAdminProfiles));
   api.use(createTempleDeityRouter(templeDeities));
+  api.use(createTemplePlanRouter(templePlans));
   api.use((_req, res) => {
     res.status(404).json({ error: "Not found" });
   });

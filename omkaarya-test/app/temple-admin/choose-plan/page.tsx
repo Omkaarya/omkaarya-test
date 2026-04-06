@@ -20,9 +20,11 @@ import {
   TEMPLE_PRICING_PLANS,
   type TemplePlanId,
 } from "@/lib/temple-pricing-plans";
+import { submitTemplePlanSelection } from "@/lib/temple-onboarding-plan-api";
 import { TEMPLE_ONBOARDING_EMAIL_KEY } from "@/lib/temple-onboarding-signin";
 import {
   isTempleOnboardingTempleCreated,
+  loadTempleOnboardingTempleCreatedResponse,
   loadTempleOnboardingTempleProfileDraft,
 } from "@/lib/temple-onboarding-temple-profile";
 
@@ -40,6 +42,8 @@ export default function TempleAdminChoosePlanPage() {
   const [selectedPlanId, setSelectedPlanId] = useState<TemplePlanId | null>("business");
   const [billing, setBilling] = useState<TempleOnboardingPlanBilling>("annual");
   const [setupOpen, setSetupOpen] = useState(false);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   useEffect(() => {
     const email = sessionStorage.getItem(TEMPLE_ONBOARDING_EMAIL_KEY);
@@ -95,14 +99,47 @@ export default function TempleAdminChoosePlanPage() {
 
   const selectedPlan = selectedPlanId ? getTemplePlanById(selectedPlanId) : undefined;
 
-  function handleConfirm() {
+  async function handleConfirm() {
+    setConfirmError(null);
     if (!selectedPlanId) return;
-    saveTempleOnboardingPlanDraft({
-      planId: selectedPlanId,
-      billing,
-      confirmedAt: new Date().toISOString(),
-    });
-    router.push("/temple-admin/payment");
+
+    const sessionEmail = sessionStorage.getItem(TEMPLE_ONBOARDING_EMAIL_KEY)?.trim();
+    if (!sessionEmail) {
+      router.replace("/temple-admin/signin");
+      return;
+    }
+
+    const created = loadTempleOnboardingTempleCreatedResponse();
+    if (!created?.templeId) {
+      setConfirmError("Temple setup is incomplete. Please finish the previous steps first.");
+      return;
+    }
+
+    const confirmedAt = new Date().toISOString();
+    setIsConfirming(true);
+    try {
+      const res = await submitTemplePlanSelection({
+        sessionEmail,
+        templeId: created.templeId,
+        planId: selectedPlanId,
+        billing,
+        confirmedAt,
+      });
+      if (!res.ok) {
+        setConfirmError(res.message);
+        return;
+      }
+      saveTempleOnboardingPlanDraft({
+        planId: selectedPlanId,
+        billing,
+        confirmedAt,
+      });
+      router.push("/temple-admin/payment");
+    } catch {
+      setConfirmError("Network error. Please try again.");
+    } finally {
+      setIsConfirming(false);
+    }
   }
 
   if (!isHydrated) {
@@ -286,6 +323,15 @@ export default function TempleAdminChoosePlanPage() {
           ) : null}
         </div>
 
+        {confirmError ? (
+          <p
+            role="alert"
+            className="mx-auto mt-4 max-w-2xl rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-center text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-200"
+          >
+            {confirmError}
+          </p>
+        ) : null}
+
         <TempleOnboardingStepActions
           className="mt-8"
           onBack={() => router.push("/temple-admin/deity-selection")}
@@ -293,11 +339,11 @@ export default function TempleAdminChoosePlanPage() {
           primary={
             <button
               type="button"
-              onClick={handleConfirm}
-              disabled={!selectedPlanId}
+              onClick={() => void handleConfirm()}
+              disabled={!selectedPlanId || isConfirming}
               className="flex w-full min-w-0 flex-[1.25] items-center justify-center gap-2 rounded-lg bg-[var(--brand-primary)] py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)] disabled:pointer-events-none disabled:opacity-50"
             >
-              Yes, Confirmed
+              {isConfirming ? "Saving…" : "Yes, Confirmed"}
               <ArrowRight className="h-4 w-4" aria-hidden />
             </button>
           }

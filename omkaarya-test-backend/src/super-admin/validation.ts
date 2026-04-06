@@ -105,3 +105,11 @@ export const templeDeitySelectionBodySchema = z
     message: "Duplicate sub-deity ids are not allowed.",
     path: ["subDeityIds"],
   });
+
+export const templePlanSelectionBodySchema = z.object({
+  sessionEmail: z.string().email(),
+  templeId: z.string().trim().pipe(z.string().min(1)),
+  planId: z.enum(["basic", "business", "enterprise"]),
+  billing: z.enum(["monthly", "annual"]),
+  confirmedAt: z.string().optional(),
+});
