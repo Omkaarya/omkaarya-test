@@ -1,4 +1,5 @@
 import { getPool } from "../db/pool.js";
+import { sqlTempleMatchesSessionEmail } from "./temple-admin-match.js";
 
 export type CompleteTempleOnboardingInput = {
   sessionEmail: string;
@@ -24,7 +25,7 @@ export class PostgresTempleOnboardingCompleteRepository {
       const result = await client.query(
         `UPDATE public.temples
          SET onboarding_completed_at = NOW()
-         WHERE tenant_id = $1 AND admin_email = $2`,
+         WHERE tenant_id = $1 AND ${sqlTempleMatchesSessionEmail(2)}`,
         [tenantId, sessionEmail]
       );
       if (result.rowCount === 0) {

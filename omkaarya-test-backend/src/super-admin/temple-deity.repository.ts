@@ -1,4 +1,5 @@
 import { getPool } from "../db/pool.js";
+import { sqlTempleMatchesSessionEmail } from "./temple-admin-match.js";
 
 export type SaveTempleDeitySelectionInput = {
   sessionEmail: string;
@@ -31,7 +32,7 @@ export class PostgresTempleDeityRepository {
              sub_deity_ids = $2,
              deity_custom_note = $3,
              deity_prefer_custom_later = $4
-         WHERE tenant_id = $5 AND admin_email = $6`,
+         WHERE tenant_id = $5 AND ${sqlTempleMatchesSessionEmail(6)}`,
         [
           input.primaryDeityId,
           input.subDeityIds,

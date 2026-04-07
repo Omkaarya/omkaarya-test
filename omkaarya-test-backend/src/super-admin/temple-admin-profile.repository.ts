@@ -1,4 +1,5 @@
 import { getPool } from "../db/pool.js";
+import { sqlTempleMatchesSessionEmail } from "./temple-admin-match.js";
 
 export type SaveAdminProfileInput = {
   sessionEmail: string;
@@ -89,7 +90,7 @@ export class PostgresTempleAdminProfileRepository {
         }
 
         await client.query(
-          `UPDATE public.temples SET admin_email = $1 WHERE admin_email = $2`,
+          `UPDATE public.temples SET admin_email = $1 WHERE ${sqlTempleMatchesSessionEmail(2)}`,
           [nextEmail, sessionEmail]
         );
 

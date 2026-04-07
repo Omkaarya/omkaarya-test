@@ -10,6 +10,7 @@ import type {
   TempleSessionProfileResponse,
   TempleStatus,
 } from "./types.js";
+import { sqlTempleMatchesSessionEmail } from "./temple-admin-match.js";
 
 const ADMIN_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -153,7 +154,7 @@ export class PostgresTempleRepository implements TempleRepository {
               contact_email, charity_registered, charity_registration_number, contact_phone,
               website_url, fax, domain_subdomain, established_year, full_address, logo_data_url
        FROM public.temples
-       WHERE admin_email = $1
+       WHERE ${sqlTempleMatchesSessionEmail(1)}
        LIMIT 1`,
       [email]
     );
@@ -201,7 +202,7 @@ export class PostgresTempleRepository implements TempleRepository {
            established_year = $5,
            full_address = $6::jsonb,
            logo_data_url = $7
-       WHERE admin_email = $1
+       WHERE ${sqlTempleMatchesSessionEmail(1)}
        RETURNING tenant_id`,
       [
         sessionEmail,
@@ -252,30 +253,7 @@ export class PostgresTempleRepository implements TempleRepository {
       let temporaryPassword: string | undefined;
       await client.query("BEGIN");
       try {
-        await client.query(
-          `INSERT INTO public.temples (
-             tenant_id, name, slug, country_code, country_flag, city, plan, devotees, status, compliance, admin_email,
-             contact_email, charity_registered, charity_registration_number, contact_phone
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb)`,
-          [
-            row.tenantId,
-            row.name,
-            row.slug,
-            row.countryCode,
-            row.countryFlag,
-            row.city,
-            row.plan,
-            row.devotees,
-            row.status,
-            row.compliance,
-            row.adminEmail,
-            contactEmail,
-            false,
-            null,
-            JSON.stringify(contactPhone),
-          ]
-        );
-
+        let adminUserId: number | null = null;
         if (ADMIN_EMAIL_RE.test(row.adminEmail)) {
           const existing = await client.query<{ password_hash: string | null }>(
             "SELECT password_hash FROM public.users WHERE email = $1 LIMIT 1",
@@ -298,6 +276,44 @@ export class PostgresTempleRepository implements TempleRepository {
               [row.adminEmail, temporaryPassword]
             );
           }
+          const idRes = await client.query<{ id: number }>(
+            "SELECT id FROM public.users WHERE email = $1 LIMIT 1",
+            [row.adminEmail]
+          );
+          adminUserId = idRes.rows[0]?.id ?? null;
+        }
+
+        await client.query(
+          `INSERT INTO public.temples (
+             tenant_id, name, slug, country_code, country_flag, city, plan, devotees, status, compliance, admin_email,
+             admin_user_id,
+             contact_email, charity_registered, charity_registration_number, contact_phone
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16::jsonb)`,
+          [
+            row.tenantId,
+            row.name,
+            row.slug,
+            row.countryCode,
+            row.countryFlag,
+            row.city,
+            row.plan,
+            row.devotees,
+            row.status,
+            row.compliance,
+            row.adminEmail,
+            adminUserId,
+            contactEmail,
+            false,
+            null,
+            JSON.stringify(contactPhone),
+          ]
+        );
+
+        if (ADMIN_EMAIL_RE.test(row.adminEmail)) {
+          await client.query(`UPDATE public.users SET tenant_id = $1 WHERE lower(trim(email)) = lower(trim($2))`, [
+            row.tenantId,
+            row.adminEmail,
+          ]);
         }
 
         await client.query("COMMIT");

@@ -1,4 +1,5 @@
 import { getPool } from "../db/pool.js";
+import { sqlTempleMatchesSessionEmail } from "./temple-admin-match.js";
 import type { TemplePlan } from "./types.js";
 
 const TIER_TO_PLAN: Record<"basic" | "business" | "enterprise", TemplePlan> = {
@@ -44,7 +45,7 @@ export class PostgresTemplePlanRepository {
              billing_cycle = $2,
              onboarding_plan_tier = $3,
              plan_confirmed_at = $4
-         WHERE tenant_id = $5 AND admin_email = $6`,
+         WHERE tenant_id = $5 AND ${sqlTempleMatchesSessionEmail(6)}`,
         [mappedPlan, input.billing, input.planId, confirmedAt, tenantId, sessionEmail]
       );
       if (result.rowCount === 0) {

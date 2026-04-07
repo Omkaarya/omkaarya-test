@@ -1,4 +1,5 @@
 import { getPool } from "../db/pool.js";
+import { sqlTempleMatchesSessionEmail } from "./temple-admin-match.js";
 
 export type CompletePaymentOnboardingInput = {
   sessionEmail: string;
@@ -28,7 +29,7 @@ export class PostgresTemplePaymentOnboardingRepository {
         `UPDATE public.temples
          SET payment_onboarding_completed_at = NOW(),
              payment_save_card_preference = $1
-         WHERE tenant_id = $2 AND admin_email = $3`,
+         WHERE tenant_id = $2 AND ${sqlTempleMatchesSessionEmail(3)}`,
         [input.saveCardPreferred, tenantId, sessionEmail]
       );
       if (result.rowCount === 0) {
