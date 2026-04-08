@@ -5,7 +5,7 @@ import WizardStepper from "@/app/components/admin/WizardStepper";
 const STEPS = [
   { label: "Sign In", subtitle: "Access your account" },
   { label: "Set Password", subtitle: "Secure your account" },
-  { label: "Admin Profile", subtitle: "Admin profile basic details" },
+  { label: "Admin Profile", subtitle: "Admin profile details" },
   { label: "Temple Profile", subtitle: "Temple details" },
   { label: "Choose Plan", subtitle: "Pick your plan" },
   { label: "Payment", subtitle: "Add payment details" },
