@@ -2,6 +2,7 @@ import { Router } from "express";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { HttpError } from "../middleware/http-error.js";
 import { validateBody } from "../middleware/validate.js";
+import { sendTempleAdminInviteEmail } from "../email/send-temple-invite.js";
 import type { TemplesService } from "./temples.service.js";
 import type { CreateTemplePayload } from "./types.js";
 import { createTempleBodySchema } from "./validation.js";
@@ -34,11 +35,28 @@ export function createTemplesRouter(temples: TemplesService): Router {
       const body = req.body as CreateTemplePayload;
       try {
         const { templeId, temporaryPassword } = await temples.createTemple(body);
+        let inviteEmailSent: boolean | undefined = undefined;
+        if (typeof temporaryPassword === "string" && temporaryPassword.trim()) {
+          try {
+            const out = await sendTempleAdminInviteEmail({
+              to: body.admin.email.trim(),
+              templeName: body.temple.name ?? "",
+              temporaryPassword,
+            });
+            inviteEmailSent = out.sent;
+          } catch (e) {
+            inviteEmailSent = false;
+            console.error(`[temple-invite] Failed to send invite email to ${body.admin.email.trim()}`, e);
+          }
+        }
         res.json({
           success: true,
           templeId,
-          inviteQueued: true,
-          message: "Temple created successfully. Invite email has been queued.",
+          ...(inviteEmailSent !== undefined ? { inviteEmailSent } : {}),
+          message:
+            inviteEmailSent === true
+              ? "Temple created successfully. An invite email has been sent to the temple admin."
+              : "Temple created successfully.",
           ...(temporaryPassword !== undefined ? { temporaryPassword } : {}),
         });
       } catch (e) {
