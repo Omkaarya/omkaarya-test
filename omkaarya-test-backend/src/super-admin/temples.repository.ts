@@ -255,25 +255,41 @@ export class PostgresTempleRepository implements TempleRepository {
       try {
         let adminUserId: number | null = null;
         if (ADMIN_EMAIL_RE.test(row.adminEmail)) {
+          const adminFullName = payload.admin.fullName?.trim() ?? "";
+          const adminWhatsapp = payload.admin.whatsapp?.trim() ?? "";
+          const adminRole = payload.admin.role?.trim() ?? "";
+          const adminRoles = adminRole ? [adminRole] : [];
+
           const existing = await client.query<{ password_hash: string | null }>(
             "SELECT password_hash FROM public.users WHERE email = $1 LIMIT 1",
             [row.adminEmail]
           );
           if (existing.rows.length === 0) {
             temporaryPassword = generateTemporaryPassword();
-            await client.query(`INSERT INTO public.users (email, temp_password) VALUES ($1, $2)`, [
-              row.adminEmail,
-              temporaryPassword,
-            ]);
+            await client.query(
+              `INSERT INTO public.users (email, temp_password, full_name, whatsapp, roles)
+               VALUES ($1, $2, $3, $4, $5)`,
+              [row.adminEmail, temporaryPassword, adminFullName, adminWhatsapp, adminRoles]
+            );
           } else if (existing.rows[0]!.password_hash != null) {
-            // Temple admin onboarding: user already set a permanent password — do not reset invite fields.
+            // User already has a permanent password — do not reset password fields, but do overwrite profile fields.
+            await client.query(
+              `UPDATE public.users
+               SET full_name = $1, whatsapp = $2, roles = $3
+               WHERE email = $4`,
+              [adminFullName, adminWhatsapp, adminRoles, row.adminEmail]
+            );
           } else {
             temporaryPassword = generateTemporaryPassword();
             await client.query(
-              `INSERT INTO public.users (email, temp_password)
-               VALUES ($1, $2)
-               ON CONFLICT (email) DO UPDATE SET temp_password = EXCLUDED.temp_password`,
-              [row.adminEmail, temporaryPassword]
+              `INSERT INTO public.users (email, temp_password, full_name, whatsapp, roles)
+               VALUES ($1, $2, $3, $4, $5)
+               ON CONFLICT (email) DO UPDATE
+               SET temp_password = EXCLUDED.temp_password,
+                   full_name = EXCLUDED.full_name,
+                   whatsapp = EXCLUDED.whatsapp,
+                   roles = EXCLUDED.roles`,
+              [row.adminEmail, temporaryPassword, adminFullName, adminWhatsapp, adminRoles]
             );
           }
           const idRes = await client.query<{ id: number }>(
