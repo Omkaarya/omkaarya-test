@@ -160,6 +160,11 @@ type Step1Errors = {
 type PlanId = "Sankalpa" | "Aaradhana";
 type BillingCycle = "Monthly" | "Annually";
 
+function planIdForApi(plan: PlanId): string {
+  // Backend enum includes "Aaaradhana" (triple-a). Keep UI spelling stable.
+  return plan === "Aaradhana" ? "Aaaradhana" : plan;
+}
+
 const PLAN_FEATURES: Record<PlanId, string[]> = {
   Sankalpa: [
     "200+ integrations",
@@ -264,7 +269,7 @@ export default function CreateTemplePage() {
       billingCycle,
       trial: {
         enabled: trialEnabled,
-        days: trialEnabled ? trialDays : null,
+        days: trialEnabled ? Number(trialDays) : null,
       },
     },
   };
@@ -414,11 +419,11 @@ export default function CreateTemplePage() {
         role: adminRole,
       },
       planBilling: {
-        selectedPlan: selectedPlanForReview,
+        selectedPlan: planIdForApi(selectedPlanForReview),
         billingCycle,
         trial: {
           enabled: trialEnabled,
-          days: trialEnabled ? trialDays : null,
+          days: trialEnabled ? Number(trialDays) : null,
         },
       },
     };
@@ -437,10 +442,18 @@ export default function CreateTemplePage() {
         data && typeof data === "object" && "temporaryPassword" in data && typeof data.temporaryPassword === "string"
           ? data.temporaryPassword
           : "";
+      const inviteEmailSent =
+        data && typeof data === "object" && "inviteEmailSent" in data && typeof data.inviteEmailSent === "boolean"
+          ? data.inviteEmailSent
+          : undefined;
       setSubmitSuccess(
         tempPwd
           ? `Temple created. Share this temporary password with the admin securely — they need it on the temple sign-in page: ${tempPwd}`
-          : "Temple successfully created. An invite email has been sent to the admin."
+          : inviteEmailSent === true
+            ? "Temple successfully created. An invite email has been sent to the admin."
+            : inviteEmailSent === false
+              ? "Temple successfully created, but invite email could not be sent (email not configured or SMTP failed)."
+              : "Temple successfully created."
       );
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Failed to create temple.");
