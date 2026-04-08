@@ -2,6 +2,8 @@ import { Router } from "express";
 import { PostgresAuthRepository } from "./auth.repository.js";
 import { createAuthRouter } from "./auth.routes.js";
 import { AuthService } from "./auth.service.js";
+import { createPasswordResetRouter } from "./password-reset.routes.js";
+import { PasswordResetService } from "./password-reset.service.js";
 import { PostgresTempleAdminProfileRepository } from "./temple-admin-profile.repository.js";
 import { createTempleAdminProfileRouter } from "./temple-admin.routes.js";
 import { PostgresTempleDeityRepository } from "./temple-deity.repository.js";
@@ -23,6 +25,10 @@ import { TemplesService } from "./temples.service.js";
  * - POST /api/temples/create
  * - POST /api/login
  * - POST /api/set-password
+ * - POST /api/password-reset/request
+ * - POST /api/password-reset/resend
+ * - POST /api/password-reset/verify-otp
+ * - POST /api/password-reset/complete
  * - POST /api/temple-admin/profile
  * - POST /api/temple-admin/deity-selection
  * - POST /api/temple-admin/plan-selection
@@ -38,6 +44,7 @@ export function createSuperAdminApiRouter(): Router {
   const templesService = new TemplesService(templeRepo);
 
   const authService = new AuthService(new PostgresAuthRepository());
+  const passwordResetService = new PasswordResetService();
   const templeAdminProfiles = new PostgresTempleAdminProfileRepository();
   const templeDeities = new PostgresTempleDeityRepository();
   const templePlans = new PostgresTemplePlanRepository();
@@ -48,6 +55,7 @@ export function createSuperAdminApiRouter(): Router {
   api.use(createTemplesRouter(templesService));
   api.use(createTempleSessionProfileRouter(templeRepo));
   api.use(createAuthRouter(authService));
+  api.use(createPasswordResetRouter(passwordResetService));
   api.use(createTempleAdminProfileRouter(templeAdminProfiles));
   api.use(createTempleDeityRouter(templeDeities));
   api.use(createTemplePlanRouter(templePlans));

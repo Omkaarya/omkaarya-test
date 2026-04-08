@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, Eye, EyeOff, Lock, Mail } from "lucide-react";
+import Link from "next/link";
 import { Suspense, useEffect, useId, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiUrl } from "@/lib/api-base";
@@ -201,6 +202,14 @@ function TempleAdminSignInForm() {
             First-time sign-in uses your temporary password; you’ll set a permanent password on the
             next step.
           </p>
+          <div className="mt-2 flex justify-end">
+            <Link
+              href="/temple-admin/forgot-password"
+              className="text-sm font-medium text-[var(--brand-primary)] hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
         </div>
 
         {error ? (

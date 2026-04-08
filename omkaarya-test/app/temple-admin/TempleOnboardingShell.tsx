@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import ForgotPasswordShellStepper from "@/app/components/temple-admin/ForgotPasswordShellStepper";
 import {
   TempleOnboardingStepper,
   templeOnboardingStepFromPathname,
@@ -51,6 +52,7 @@ function OmkaaryaMark() {
 export default function TempleOnboardingShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const step = templeOnboardingStepFromPathname(pathname);
+  const isForgotPassword = Boolean(pathname?.includes("/temple-admin/forgot-password"));
   const isCompletePage = Boolean(pathname?.includes("/temple-admin/onboarding-complete"));
   const [avatarInitials, setAvatarInitials] = useState("?");
   const [avatarTitle, setAvatarTitle] = useState("Temple admin");
@@ -98,7 +100,20 @@ export default function TempleOnboardingShell({ children }: { children: React.Re
 
           {!isCompletePage ? (
             <div className="order-last min-w-0 w-full flex-1 lg:order-none lg:max-w-2xl lg:flex-[1.25]">
-              <TempleOnboardingStepper currentStep={step} />
+              {isForgotPassword ? (
+                <Suspense
+                  fallback={
+                    <div
+                      className="h-14 w-full animate-pulse rounded-lg bg-orange-100/40 dark:bg-zinc-800/50"
+                      aria-hidden
+                    />
+                  }
+                >
+                  <ForgotPasswordShellStepper />
+                </Suspense>
+              ) : (
+                <TempleOnboardingStepper currentStep={step} />
+              )}
             </div>
           ) : null}
 

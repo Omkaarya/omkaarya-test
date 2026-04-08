@@ -153,3 +153,24 @@ export const templeProfileDetailsPatchBodySchema = z.object({
   fullAddress: templeFullAddressJsonSchema,
   logoDataUrl: z.string().nullable(),
 });
+
+export const passwordResetRequestBodySchema = z.object({
+  email: z.string().email(),
+});
+
+export const passwordResetVerifyOtpBodySchema = z.object({
+  email: z.string().email(),
+  otp: z.string().regex(/^\d{4}$/, "Must be a 4-digit code"),
+});
+
+export const passwordResetCompleteBodySchema = z
+  .object({
+    email: z.string().email(),
+    resetToken: z.string().min(32),
+    newPassword: z.string().min(8),
+    confirmNewPassword: z.string().min(8),
+  })
+  .refine((d) => d.newPassword === d.confirmNewPassword, {
+    message: "Passwords do not match",
+    path: ["confirmNewPassword"],
+  });
