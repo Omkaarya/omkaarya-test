@@ -8,6 +8,8 @@ import { apiUrl } from "@/lib/api-base";
 import {
   TEMPLE_ONBOARDING_EMAIL_KEY,
   TEMPLE_ONBOARDING_INVITE_FULL_NAME_KEY,
+  TEMPLE_ONBOARDING_REMEMBERED_EMAIL_KEY,
+  TEMPLE_ONBOARDING_REMEMBER_ME_KEY,
   TEMPLE_ONBOARDING_RETURNING_LOGIN_KEY,
   TEMPLE_ONBOARDING_TEMP_PASSWORD_KEY,
 } from "@/lib/temple-onboarding-signin";
@@ -31,6 +33,7 @@ function TempleAdminSignInForm() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [emailPrefilled, setEmailPrefilled] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   useEffect(() => {
     const raw = searchParams.get("email");
@@ -39,19 +42,40 @@ function TempleAdminSignInForm() {
     if (decodedName) {
       sessionStorage.setItem(TEMPLE_ONBOARDING_INVITE_FULL_NAME_KEY, decodedName);
     }
-    if (!raw) {
-      emailInputRef.current?.focus();
+    try {
+      const savedRemember = localStorage.getItem(TEMPLE_ONBOARDING_REMEMBER_ME_KEY);
+      const remember = savedRemember === "1";
+      setRememberMe(remember);
+    } catch {
+      // ignore
+    }
+
+    if (raw) {
+      const decoded = decodeURIComponent(raw.trim());
+      if (EMAIL_RE.test(decoded)) {
+        setEmail(decoded);
+        setEmailPrefilled(true);
+        // Editable by default so typos can be corrected; invite link still pre-fills.
+        passwordInputRef.current?.focus();
+      } else {
+        emailInputRef.current?.focus();
+      }
       return;
     }
-    const decoded = decodeURIComponent(raw.trim());
-    if (EMAIL_RE.test(decoded)) {
-      setEmail(decoded);
-      setEmailPrefilled(true);
-      // Editable by default so typos can be corrected; invite link still pre-fills.
-      passwordInputRef.current?.focus();
-    } else {
-      emailInputRef.current?.focus();
+
+    try {
+      const savedRemember = localStorage.getItem(TEMPLE_ONBOARDING_REMEMBER_ME_KEY);
+      const rememberedEmail = localStorage.getItem(TEMPLE_ONBOARDING_REMEMBERED_EMAIL_KEY) ?? "";
+      if (savedRemember === "1" && EMAIL_RE.test(rememberedEmail.trim())) {
+        setEmail(rememberedEmail.trim());
+        passwordInputRef.current?.focus();
+        return;
+      }
+    } catch {
+      // ignore
     }
+
+    emailInputRef.current?.focus();
   }, [searchParams]);
 
   const strengthFill = Math.min(password.length / 12, 1);
@@ -76,6 +100,17 @@ function TempleAdminSignInForm() {
 
     setLoading(true);
     try {
+      try {
+        localStorage.setItem(TEMPLE_ONBOARDING_REMEMBER_ME_KEY, rememberMe ? "1" : "0");
+        if (rememberMe) {
+          localStorage.setItem(TEMPLE_ONBOARDING_REMEMBERED_EMAIL_KEY, trimmedEmail);
+        } else {
+          localStorage.removeItem(TEMPLE_ONBOARDING_REMEMBERED_EMAIL_KEY);
+        }
+      } catch {
+        // ignore
+      }
+
       const response = await fetch(apiUrl("/api/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -202,6 +237,16 @@ function TempleAdminSignInForm() {
             First-time sign-in uses your temporary password; you’ll set a permanent password on the
             next step.
           </p>
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <label className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--surface-elevated)]"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
+              Remember me
+            </label>
           <div className="mt-2 flex justify-end">
             <Link
               href="/temple-admin/forgot-password"
@@ -209,6 +254,7 @@ function TempleAdminSignInForm() {
             >
               Forgot password?
             </Link>
+          </div>
           </div>
         </div>
 

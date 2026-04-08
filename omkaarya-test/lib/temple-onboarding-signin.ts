@@ -13,6 +13,9 @@ export const TEMPLE_ONBOARDING_RETURNING_LOGIN_KEY = "temple_onboarding_returnin
 /** Non-secret remember-me preference for onboarding UI. */
 export const TEMPLE_ONBOARDING_REMEMBER_ME_KEY = "temple_onboarding_remember_me";
 
+/** Non-secret remembered email for temple admin sign-in (when remember-me is enabled). */
+export const TEMPLE_ONBOARDING_REMEMBERED_EMAIL_KEY = "temple_onboarding_remembered_email";
+
 /** Non-secret invite prefill: admin full name. */
 export const TEMPLE_ONBOARDING_INVITE_FULL_NAME_KEY = "temple_onboarding_invite_full_name";
 

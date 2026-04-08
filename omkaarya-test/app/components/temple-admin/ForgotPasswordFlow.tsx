@@ -11,7 +11,10 @@ import {
   TEMPLE_FORGOT_EMAIL_KEY,
   TEMPLE_FORGOT_RESET_TOKEN_KEY,
 } from "@/lib/temple-forgot-password";
-import { TEMPLE_ONBOARDING_REMEMBER_ME_KEY } from "@/lib/temple-onboarding-signin";
+import {
+  TEMPLE_ONBOARDING_REMEMBERED_EMAIL_KEY,
+  TEMPLE_ONBOARDING_REMEMBER_ME_KEY,
+} from "@/lib/temple-onboarding-signin";
 
 const inputBase =
   "w-full rounded-lg border border-[var(--border-default)] bg-[var(--surface-elevated)] py-2.5 text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]";
@@ -322,7 +325,16 @@ export default function ForgotPasswordFlow() {
     const newPwd = newPassword.trim();
     setResetSubmitting(true);
     try {
-      localStorage.setItem(TEMPLE_ONBOARDING_REMEMBER_ME_KEY, rememberMe ? "1" : "0");
+      try {
+        localStorage.setItem(TEMPLE_ONBOARDING_REMEMBER_ME_KEY, rememberMe ? "1" : "0");
+        if (rememberMe) {
+          localStorage.setItem(TEMPLE_ONBOARDING_REMEMBERED_EMAIL_KEY, em);
+        } else {
+          localStorage.removeItem(TEMPLE_ONBOARDING_REMEMBERED_EMAIL_KEY);
+        }
+      } catch {
+        // ignore
+      }
       const response = await fetch(apiUrl("/api/password-reset/complete"), {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
