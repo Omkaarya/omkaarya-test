@@ -247,13 +247,13 @@ export default function TemplesAdminPage() {
                     >
                       <Eye className="h-4 w-4" />
                     </button>
-                    <button
-                      type="button"
+                    <Link
+                      href={`/super-admin/edit-temple/${encodeURIComponent(row.tenantId)}`}
                       aria-label={`Edit ${row.name}`}
                       className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                     >
                       <Pencil className="h-4 w-4" />
-                    </button>
+                    </Link>
                     <button
                       type="button"
                       aria-label={`More options for ${row.name}`}

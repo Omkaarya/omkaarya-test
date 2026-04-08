@@ -105,3 +105,24 @@ export type CreateTemplePayload = {
     };
   };
 };
+
+/** PATCH /api/temples/:tenantId — admin email is not modified server-side. */
+export type UpdateTemplePayload = {
+  temple: CreateTemplePayload["temple"];
+  admin: {
+    fullName: string;
+    whatsapp: string;
+    role: string;
+  };
+  planBilling: CreateTemplePayload["planBilling"];
+  logoTempleDataUrl?: string | null;
+};
+
+/** GET /api/temples/:tenantId — hydrates the super-admin wizard. */
+export type SuperAdminTempleDetailResponse = {
+  tenantId: string;
+  temple: CreateTemplePayload["temple"];
+  admin: CreateTemplePayload["admin"];
+  planBilling: CreateTemplePayload["planBilling"];
+  logoTempleDataUrl: string | null;
+};

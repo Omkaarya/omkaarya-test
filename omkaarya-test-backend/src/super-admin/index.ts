@@ -22,6 +22,8 @@ import { TemplesService } from "./temples.service.js";
 /**
  * Super-admin HTTP API mounted at `/api`:
  * - GET  /api/temples
+ * - GET  /api/temples/:tenantId
+ * - PATCH /api/temples/:tenantId
  * - POST /api/temples/create
  * - POST /api/login
  * - POST /api/set-password
@@ -67,4 +69,10 @@ export function createSuperAdminApiRouter(): Router {
   return api;
 }
 
-export type { CreateTemplePayload, TempleRecord, TemplesListResponse } from "./types.js";
+export type {
+  CreateTemplePayload,
+  SuperAdminTempleDetailResponse,
+  TempleRecord,
+  TemplesListResponse,
+  UpdateTemplePayload,
+} from "./types.js";

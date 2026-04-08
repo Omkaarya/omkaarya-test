@@ -78,6 +78,19 @@ export const createTempleBodySchema = z.object({
   planBilling: planBillingNested,
 });
 
+const adminNestedUpdate = z.object({
+  fullName: z.string(),
+  whatsapp: z.string(),
+  role: z.string(),
+});
+
+export const updateTempleBodySchema = z.object({
+  temple: templeNested,
+  admin: adminNestedUpdate,
+  planBilling: planBillingNested,
+  logoTempleDataUrl: z.string().nullable().optional(),
+});
+
 /** Matches frontend `DEITY_CATALOG` ids in `lib/deity-catalog.ts`. */
 const deityCatalogIdSchema = z.enum([
   "pillaiyaar",

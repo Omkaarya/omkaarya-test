@@ -4,8 +4,8 @@ import { HttpError } from "../middleware/http-error.js";
 import { validateBody } from "../middleware/validate.js";
 import { sendTempleAdminInviteEmail } from "../email/send-temple-invite.js";
 import type { TemplesService } from "./temples.service.js";
-import type { CreateTemplePayload } from "./types.js";
-import { createTempleBodySchema } from "./validation.js";
+import type { CreateTemplePayload, UpdateTemplePayload } from "./types.js";
+import { createTempleBodySchema, updateTempleBodySchema } from "./validation.js";
 
 export function createTemplesRouter(temples: TemplesService): Router {
   const r = Router();
@@ -24,6 +24,42 @@ export function createTemplesRouter(temples: TemplesService): Router {
         res.json(payload);
       } catch (e) {
         throw new HttpError(500, "Failed to load temples", { cause: e });
+      }
+    })
+  );
+
+  r.get(
+    "/temples/:tenantId",
+    asyncHandler(async (req, res) => {
+      const tenantId = typeof req.params.tenantId === "string" ? req.params.tenantId : "";
+      try {
+        const detail = await temples.getTempleForEdit(tenantId);
+        if (!detail) {
+          res.status(404).json({ error: "Temple not found." });
+          return;
+        }
+        res.json(detail);
+      } catch (e) {
+        throw new HttpError(500, "Failed to load temple.", { cause: e });
+      }
+    })
+  );
+
+  r.patch(
+    "/temples/:tenantId",
+    validateBody(updateTempleBodySchema),
+    asyncHandler(async (req, res) => {
+      const tenantId = typeof req.params.tenantId === "string" ? req.params.tenantId : "";
+      const body = req.body as UpdateTemplePayload;
+      try {
+        const out = await temples.updateTemple(tenantId, body);
+        if (!out.ok) {
+          res.status(404).json({ error: "Temple not found." });
+          return;
+        }
+        res.json({ success: true, message: "Temple updated successfully." });
+      } catch (e) {
+        throw new HttpError(500, "Failed to update temple.", { cause: e });
       }
     })
   );
