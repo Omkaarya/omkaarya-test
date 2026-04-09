@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import {
+  AlertCircle,
   ArrowLeft,
   ArrowRight,
   BookOpen,
@@ -25,6 +26,7 @@ import {
   Mail,
   MapPin,
   Sun,
+  X,
 } from "lucide-react";
 import { apiUrl } from "@/lib/api-base";
 import AdminButton from "@/app/components/admin/AdminButton";
@@ -238,11 +240,10 @@ const PLAN_MONTHLY_PRICES: Record<PlanId, number> = {
 export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWizardProps) {
   const router = useRouter();
   const [step, setStep] = useState(0);
-  const primaryActionRef = useRef<HTMLDivElement>(null);
   const unsavedDialogRef = useRef<HTMLDialogElement>(null);
+  const validationToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const snapshotRef = useRef<string>("");
   const [noChangesOpen, setNoChangesOpen] = useState(false);
-  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
   const [hydrated, setHydrated] = useState(mode === "create");
   const [initialTempleLogoDataUrl, setInitialTempleLogoDataUrl] = useState<string | null>(null);
 
@@ -282,6 +283,8 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
     billingCycle: false,
     trialDays: false,
   });
+  const [step1ShowErrors, setStep1ShowErrors] = useState(false);
+  const [validationToastOpen, setValidationToastOpen] = useState(false);
   const [quickActionMessage, setQuickActionMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -573,9 +576,63 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
     return true;
   };
 
+  const dismissValidationToast = useCallback(() => {
+    if (validationToastTimerRef.current) {
+      clearTimeout(validationToastTimerRef.current);
+      validationToastTimerRef.current = null;
+    }
+    setValidationToastOpen(false);
+  }, []);
+
+  const showRequiredFieldsToast = useCallback(() => {
+    if (validationToastTimerRef.current) {
+      clearTimeout(validationToastTimerRef.current);
+    }
+    setValidationToastOpen(true);
+    validationToastTimerRef.current = setTimeout(() => {
+      setValidationToastOpen(false);
+      validationToastTimerRef.current = null;
+    }, 4500);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (validationToastTimerRef.current) {
+        clearTimeout(validationToastTimerRef.current);
+      }
+    };
+  }, []);
+
   const handleWizardStepClick = (target: number) => {
-    if (!isStepReachable(target)) return;
-    setStep(target);
+    if (isStepReachable(target)) {
+      setStep(target);
+      return;
+    }
+    if (target <= step) return;
+    showRequiredFieldsToast();
+    if (!isStep1Valid) {
+      setStep1ShowErrors(true);
+      setStep(0);
+      return;
+    }
+    if (!isStep2Valid) {
+      setAdminTouched({
+        fullName: true,
+        email: true,
+        whatsapp: true,
+        role: true,
+      });
+      setStep(1);
+      return;
+    }
+    if (!isStep3Valid) {
+      setStep3Touched({
+        selectedPlan: true,
+        billingCycle: true,
+        trialDays: true,
+      });
+      setStep(2);
+    }
   };
 
   const requestExit = () => {
@@ -651,9 +708,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
           ? data.inviteEmailSent
           : undefined;
       setSubmitSuccess(
-        tempPwd
-          ? `Temple created. Share this temporary password with the admin securely — they need it on the temple sign-in page: ${tempPwd}`
-          : inviteEmailSent === true
+        inviteEmailSent === true
             ? "Temple successfully created. An invite email has been sent to the admin."
             : inviteEmailSent === false
               ? "Temple successfully created, but invite email could not be sent (email not configured or SMTP failed)."
@@ -744,25 +799,28 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
 
   const handleFinalSubmit = async () => {
     if (!canSubmitAllSteps) {
-      setSubmitError(
-        mode === "edit"
-          ? "Please complete all required information before saving."
-          : "Please complete all required information before creating the temple."
-      );
+      showRequiredFieldsToast();
+      setStep1ShowErrors(true);
+      setAdminTouched({
+        fullName: true,
+        email: true,
+        whatsapp: true,
+        role: true,
+      });
+      setStep3Touched({
+        selectedPlan: true,
+        billingCycle: true,
+        trialDays: true,
+      });
+      if (!isStep1Valid) setStep(0);
+      else if (!isStep2Valid) setStep(1);
+      else if (!isStep3Valid) setStep(2);
       return;
     }
     if (!isDirty) {
-      const el = primaryActionRef.current;
-      if (el) {
-        const r = el.getBoundingClientRect();
-        setPopoverPos({ top: r.bottom + 8, left: r.left });
-      } else {
-        setPopoverPos({ top: 120, left: 120 });
-      }
       setNoChangesOpen(true);
       window.setTimeout(() => {
         setNoChangesOpen(false);
-        setPopoverPos(null);
       }, 2200);
       return;
     }
@@ -775,6 +833,8 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
 
   const onNext = () => {
     if (step === 0 && !isStep1Valid) {
+      setStep1ShowErrors(true);
+      showRequiredFieldsToast();
       return;
     }
     if (step === 1 && !isStep2Valid) {
@@ -784,6 +844,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
         whatsapp: true,
         role: true,
       });
+      showRequiredFieldsToast();
       return;
     }
     if (step === 2 && !isStep3Valid) {
@@ -792,6 +853,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
         billingCycle: true,
         trialDays: true,
       });
+      showRequiredFieldsToast();
       return;
     }
     if (step >= STEP_LABELS.length - 1) {
@@ -864,12 +926,17 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
 
               <div className="grid gap-6 md:grid-cols-2">
                 <FormField id="temple-name" label="Temple Name" required>
-                  <TextInput
-                    id="temple-name"
-                    value={templeName}
-                    onChange={(e) => setTempleName(e.target.value)}
-                    placeholder="e.g. Shiva Mandir London"
-                  />
+                  <div>
+                    <TextInput
+                      id="temple-name"
+                      value={templeName}
+                      onChange={(e) => setTempleName(e.target.value)}
+                      placeholder="e.g. Shiva Mandir London"
+                    />
+                    {step1ShowErrors && step1Errors.templeName ? (
+                      <p className="mt-1 text-xs text-red-500">{step1Errors.templeName}</p>
+                    ) : null}
+                  </div>
                 </FormField>
 
                 <FormField
@@ -885,68 +952,90 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                     </button>
                   }
                 >
-                  <SelectInput
-                    id="deity"
-                    value={deity}
-                    onChange={(e) => setDeity(e.target.value)}
-                  >
-                    <option value="">Select deity</option>
-                    {deityOptions.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </SelectInput>
+                  <div>
+                    <SelectInput
+                      id="deity"
+                      value={deity}
+                      onChange={(e) => setDeity(e.target.value)}
+                    >
+                      <option value="">Select deity</option>
+                      {deityOptions.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </SelectInput>
+                    {step1ShowErrors && step1Errors.deity ? (
+                      <p className="mt-1 text-xs text-red-500">{step1Errors.deity}</p>
+                    ) : null}
+                  </div>
                 </FormField>
 
                 <FormField id="country" label="Country" required>
-                  <SelectInput
-                    id="country"
-                    value={country}
-                    onChange={(e) => handleCountryChange(e.target.value)}
-                  >
-                    {COUNTRIES.map((c) => (
-                      <option key={c.value} value={c.value}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </SelectInput>
+                  <div>
+                    <SelectInput
+                      id="country"
+                      value={country}
+                      onChange={(e) => handleCountryChange(e.target.value)}
+                    >
+                      {COUNTRIES.map((c) => (
+                        <option key={c.value} value={c.value}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </SelectInput>
+                    {step1ShowErrors && step1Errors.country ? (
+                      <p className="mt-1 text-xs text-red-500">{step1Errors.country}</p>
+                    ) : null}
+                  </div>
                 </FormField>
 
                 <FormField id="city" label="City" required>
-                  <SelectInput id="city" value={city} onChange={(e) => setCity(e.target.value)}>
-                    {cityOptions.map((c) => (
-                      <option key={c.value} value={c.value}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </SelectInput>
+                  <div>
+                    <SelectInput id="city" value={city} onChange={(e) => setCity(e.target.value)}>
+                      {cityOptions.map((c) => (
+                        <option key={c.value} value={c.value}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </SelectInput>
+                    {step1ShowErrors && step1Errors.city ? (
+                      <p className="mt-1 text-xs text-red-500">{step1Errors.city}</p>
+                    ) : null}
+                  </div>
                 </FormField>
 
                 <div className="md:col-span-2">
                   <FormField id="address" label="Full Address" required>
-                    <TextInput
-                      id="address"
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      placeholder="Street, area, postal code"
-                      startIcon={<MapPin className="h-4 w-4" aria-hidden />}
-                    />
+                    <div>
+                      <TextInput
+                        id="address"
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        placeholder="Street, area, postal code"
+                        startIcon={<MapPin className="h-4 w-4" aria-hidden />}
+                      />
+                      {step1ShowErrors && step1Errors.address ? (
+                        <p className="mt-1 text-xs text-red-500">{step1Errors.address}</p>
+                      ) : null}
+                    </div>
                   </FormField>
                 </div>
 
                 <FormField id="email" label="Email Address" required>
-                  <TextInput
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="temple@example.com"
-                    startIcon={<Mail className="h-4 w-4" aria-hidden />}
-                  />
-                  {step1Errors.email && email.trim() ? (
-                    <p className="mt-1 text-xs text-red-500">{step1Errors.email}</p>
-                  ) : null}
+                  <div>
+                    <TextInput
+                      id="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="temple@example.com"
+                      startIcon={<Mail className="h-4 w-4" aria-hidden />}
+                    />
+                    {step1ShowErrors && step1Errors.email ? (
+                      <p className="mt-1 text-xs text-red-500">{step1Errors.email}</p>
+                    ) : null}
+                  </div>
                 </FormField>
 
                 <div className="md:col-span-2">
@@ -955,11 +1044,15 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                     whatsapp={whatsapp}
                     fax={fax}
                     onChange={handlePhoneChange}
-                    errors={{
-                      telephone: step1Errors.telephone,
-                      whatsapp: step1Errors.whatsapp,
-                      fax: step1Errors.fax,
-                    }}
+                    errors={
+                      step1ShowErrors
+                        ? {
+                            telephone: step1Errors.telephone,
+                            whatsapp: step1Errors.whatsapp,
+                            fax: step1Errors.fax,
+                          }
+                        : undefined
+                    }
                   />
                 </div>
 
@@ -996,15 +1089,20 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                 </FormField>
 
                 <FormField id="year" label="Established Year" required>
-                  <TextInput
-                    id="year"
-                    type="number"
-                    min={1800}
-                    max={2100}
-                    value={establishedYear}
-                    onChange={(e) => setEstablishedYear(e.target.value)}
-                    placeholder="e.g. 1998"
-                  />
+                  <div>
+                    <TextInput
+                      id="year"
+                      type="number"
+                      min={1800}
+                      max={2100}
+                      value={establishedYear}
+                      onChange={(e) => setEstablishedYear(e.target.value)}
+                      placeholder="e.g. 1998"
+                    />
+                    {step1ShowErrors && step1Errors.establishedYear ? (
+                      <p className="mt-1 text-xs text-red-500">{step1Errors.establishedYear}</p>
+                    ) : null}
+                  </div>
                 </FormField>
               </div>
             </>
@@ -1571,11 +1669,11 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
               <AdminButton variant="outline" onClick={() => setStep(0)}>
                 Edit Temple Details
               </AdminButton>
-              <div ref={primaryActionRef} className="inline-flex">
+              <div className="inline-flex">
                 <AdminButton
                   variant="primary"
                   onClick={() => void handleFinalSubmit()}
-                  disabled={isSubmitting || !canSubmitAllSteps}
+                  disabled={isSubmitting}
                 >
                   {isSubmitting ? (
                     <>
@@ -1601,17 +1699,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                   Back
                 </AdminButton>
               )}
-              <AdminButton
-                variant="primary"
-                onClick={onNext}
-                disabled={
-                  isSubmitting ||
-                  (step === 0 && !isStep1Valid) ||
-                  (step === 1 && !isStep2Valid) ||
-                  (step === 2 && !isStep3Valid) ||
-                  (step === 4 && !canSubmitAllSteps)
-                }
-              >
+              <AdminButton variant="primary" onClick={onNext} disabled={isSubmitting}>
                 {nextButtonLabel(step, mode)}
                 <ArrowRight className="h-4 w-4" aria-hidden />
               </AdminButton>
@@ -1622,7 +1710,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
 
       <dialog
         ref={unsavedDialogRef}
-        className="max-w-md rounded-xl border border-zinc-200 bg-white p-6 text-zinc-900 shadow-lg backdrop:bg-black/40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+        className="w-[min(100%-2rem,28rem)] max-w-md rounded-xl border border-zinc-200 bg-white p-6 text-zinc-900 shadow-xl backdrop:bg-black/40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
       >
         <h3 className="text-lg font-semibold">Unsaved changes</h3>
         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
@@ -1644,13 +1732,40 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
           </AdminButton>
         </div>
       </dialog>
-      {noChangesOpen && popoverPos ? (
+
+      {validationToastOpen ? (
         <div
-          className="fixed z-[100] rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm font-medium text-white shadow-lg dark:bg-zinc-800"
-          style={{ top: popoverPos.top, left: popoverPos.left }}
-          role="status"
+          className="fixed bottom-4 right-4 z-[190] flex max-w-sm items-start gap-3 rounded-xl border border-zinc-200 bg-white p-4 text-zinc-900 shadow-lg dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50 sm:bottom-6 sm:right-6"
+          role="alert"
         >
-          No changes made
+          <AlertCircle
+            className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-500"
+            aria-hidden
+          />
+          <div className="min-w-0 flex-1 pt-0.5">
+            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Required fields</p>
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+              Please fill in all required fields.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="-m-1 shrink-0 rounded-md p-1 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            aria-label="Dismiss"
+            onClick={dismissValidationToast}
+          >
+            <X className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
+      ) : null}
+
+      {noChangesOpen ? (
+        <div
+          className="fixed bottom-4 right-4 z-[185] max-w-sm rounded-xl border border-zinc-200 bg-white p-4 text-center shadow-lg dark:border-zinc-700 dark:bg-zinc-900 sm:bottom-6 sm:right-6"
+          role="status"
+          aria-live="polite"
+        >
+          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">No changes made</p>
         </div>
       ) : null}
     </div>

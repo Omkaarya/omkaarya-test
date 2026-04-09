@@ -92,7 +92,7 @@ export default function WizardStepper({
               isInteractive
                 ? "cursor-pointer hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-900"
                 : clickable && !reachable
-                  ? "cursor-not-allowed opacity-50"
+                  ? "cursor-pointer opacity-50 hover:opacity-70"
                   : "",
             ].join(" ")}
           >
@@ -129,9 +129,14 @@ export default function WizardStepper({
                     {circle}
                   </button>
                 ) : clickable && !reachable ? (
-                  <span className="shrink-0" title="Complete previous steps first">
+                  <button
+                    type="button"
+                    className="shrink-0 cursor-pointer border-0 bg-transparent p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-900"
+                    aria-label={`Step ${index + 1}: ${step.label}. Complete previous steps first.`}
+                    onClick={() => onStepClick?.(index)}
+                  >
                     {circle}
-                  </span>
+                  </button>
                 ) : (
                   <span className="shrink-0">{circle}</span>
                 )}
@@ -174,13 +179,32 @@ export default function WizardStepper({
                     ) : null}
                   </div>
                 </button>
-              ) : (
-                <span
-                  className={[
-                    "max-w-[10rem] text-center text-xs font-medium sm:text-sm",
-                    clickable && !reachable ? "cursor-not-allowed opacity-60" : "",
-                  ].join(" ")}
+              ) : clickable && !reachable ? (
+                <button
+                  type="button"
+                  className="max-w-[10rem] cursor-pointer border-0 bg-transparent p-0 text-center text-xs font-medium opacity-60 hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)] focus-visible:ring-offset-2 sm:text-sm dark:focus-visible:ring-offset-zinc-900"
+                  onClick={() => onStepClick?.(index)}
                 >
+                  <div
+                    className={[
+                      isCurrent
+                        ? "text-[var(--brand-primary)]"
+                        : isUpcoming
+                          ? "text-zinc-400 dark:text-zinc-500"
+                          : "text-zinc-700 dark:text-zinc-300",
+                      "flex flex-col items-center gap-0.5",
+                    ].join(" ")}
+                  >
+                    <span className="whitespace-nowrap">{step.label}</span>
+                    {step.subtitle ? (
+                      <span className="whitespace-normal text-[10px] font-normal leading-tight text-[var(--text-muted)]">
+                        {step.subtitle}
+                      </span>
+                    ) : null}
+                  </div>
+                </button>
+              ) : (
+                <span className="max-w-[10rem] text-center text-xs font-medium sm:text-sm">
                   <div
                     className={[
                       isCurrent
