@@ -14,6 +14,12 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbSegment[] {
       { label: "Create Temple", isCurrent: true },
     ];
   }
+  if (pathname.startsWith("/super-admin/edit-temple/")) {
+    return [
+      { label: "Temples", href: "/super-admin" },
+      { label: "Edit Temple", isCurrent: true },
+    ];
+  }
   if (pathname === "/super-admin") {
     return [{ label: "Temples", isCurrent: true }];
   }

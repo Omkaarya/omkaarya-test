@@ -28,6 +28,7 @@ export function PhoneRowField({
   error,
   required,
   onBlur,
+  layout = "vertical",
 }: {
   idPrefix: string;
   label: string;
@@ -36,9 +37,10 @@ export function PhoneRowField({
   error?: string;
   required?: boolean;
   onBlur?: () => void;
+  layout?: "vertical" | "horizontal";
 }) {
   return (
-    <FormField id={`${idPrefix}-num`} label={label} required={required}>
+    <FormField id={`${idPrefix}-num`} label={label} required={required} layout={layout}>
       <div>
         <div className="flex gap-2">
           <SelectInput
@@ -65,7 +67,7 @@ export function PhoneRowField({
             onBlur={onBlur}
           />
         </div>
-        {error ? <p className="mt-1 text-xs text-red-500">{error}</p> : null}
+        {error ? <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p> : null}
       </div>
     </FormField>
   );

@@ -1,6 +1,7 @@
 /** Emoji + dial code for compact phone row selects */
 export const PHONE_COUNTRY_OPTIONS = [
   { value: "+1", label: "🇺🇸 +1" },
+  { value: "+94", label: "🇱🇰 +94" },
   { value: "+44", label: "🇬🇧 +44" },
   { value: "+91", label: "🇮🇳 +91" },
   { value: "+61", label: "🇦🇺 +61" },

@@ -1,6 +1,13 @@
+import { randomBytes } from "node:crypto";
 import { Pool } from "pg";
 import type { MockTemple } from "@/lib/mock-temples";
 import { getPoolConfig } from "@/lib/pg-config";
+
+const ADMIN_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function generateTemporaryPassword(): string {
+  return randomBytes(12).toString("base64url");
+}
 
 let pool: Pool | null = null;
 
@@ -118,25 +125,62 @@ export async function insertTempleFromPayload(payload: {
     const adminEmail =
       payload.admin.email.trim() || payload.temple.email.trim() || "";
 
-    await client.query(
-      `INSERT INTO public.temples (
-         tenant_id, name, slug, country_code, country_flag, city, plan, devotees, status, compliance, admin_email
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-      [
-        tenantId,
-        name,
-        slug,
-        countryCode,
-        FLAG_BY_CODE[countryCode] ?? "",
-        city,
-        plan,
-        0,
-        trial ? "Trial" : "Active",
-        "Pending",
-        adminEmail,
-      ]
-    );
-    return { templeId: `temp_${Date.now()}` };
+    let adminUserId: number | null = null;
+    await client.query("BEGIN");
+    try {
+      if (ADMIN_EMAIL_RE.test(adminEmail)) {
+        const existing = await client.query<{ password_hash: string | null }>(
+          "SELECT password_hash FROM public.users WHERE email = $1 LIMIT 1",
+          [adminEmail]
+        );
+        if (existing.rows.length === 0) {
+          const tempPassword = generateTemporaryPassword();
+          await client.query(`INSERT INTO public.users (email, temp_password) VALUES ($1, $2)`, [
+            adminEmail,
+            tempPassword,
+          ]);
+        } else if (existing.rows[0]!.password_hash == null) {
+          const tempPassword = generateTemporaryPassword();
+          await client.query(
+            `INSERT INTO public.users (email, temp_password)
+             VALUES ($1, $2)
+             ON CONFLICT (email) DO UPDATE SET temp_password = EXCLUDED.temp_password`,
+            [adminEmail, tempPassword]
+          );
+        }
+        const idRes = await client.query<{ id: number }>(
+          "SELECT id FROM public.users WHERE email = $1 LIMIT 1",
+          [adminEmail]
+        );
+        adminUserId = idRes.rows[0]?.id ?? null;
+      }
+
+      await client.query(
+        `INSERT INTO public.temples (
+           tenant_id, name, slug, country_code, country_flag, city, plan, devotees, status, compliance, admin_email,
+           admin_user_id
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+        [
+          tenantId,
+          name,
+          slug,
+          countryCode,
+          FLAG_BY_CODE[countryCode] ?? "",
+          city,
+          plan,
+          0,
+          trial ? "Trial" : "Active",
+          "Pending",
+          adminEmail,
+          adminUserId,
+        ]
+      );
+      await client.query("COMMIT");
+    } catch (e) {
+      await client.query("ROLLBACK");
+      throw e;
+    }
+    return { templeId: tenantId };
   } finally {
     client.release();
   }

@@ -1,9 +1,13 @@
-import type { AuthRepository } from "./auth.repository.js";
+import type { AuthRepository, LoginResult } from "./auth.repository.js";
 
 export class AuthService {
   constructor(private readonly auth: AuthRepository) {}
 
-  async verifyInvitationLogin(email: string, tempPassword: string): Promise<boolean> {
-    return this.auth.verifyInvitationCredentials(email, tempPassword);
+  async login(email: string, password: string): Promise<LoginResult> {
+    return this.auth.login(email, password);
+  }
+
+  async setPermanentPassword(email: string, tempPassword: string, newPassword: string): Promise<boolean> {
+    return this.auth.setPermanentPassword(email, tempPassword, newPassword);
   }
 }

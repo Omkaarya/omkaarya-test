@@ -38,6 +38,42 @@ export type TemplesListResponse = {
   countries: string[];
 };
 
+/** JSON shape stored in `temples.contact_phone` / `temples.fax` — aligned with frontend `PhoneRowValue`. */
+export type PhoneRowJson = {
+  countryCode: string;
+  nationalNumber: string;
+};
+
+/** JSON shape stored in `temples.full_address` — aligned with frontend `TempleFullAddressDraft`. */
+export type TempleFullAddressJson = {
+  countryIso: string;
+  state: string;
+  city: string;
+  postalCode: string;
+  street: string;
+};
+
+/** GET /api/temple-admin/temple-profile — core (read-only) + details (foldable). */
+export type TempleSessionProfileResponse = {
+  success: true;
+  templeId: string;
+  core: {
+    templeName: string;
+    charity: { registered: boolean; registrationNumber: string };
+    email: string;
+    phone: PhoneRowJson;
+    location: { countryIso: string; city: string };
+  };
+  details: {
+    logoDataUrl: string | null;
+    websiteUrl: string;
+    fax: PhoneRowJson;
+    domainSubdomain: string;
+    establishedYear: string;
+    fullAddress: TempleFullAddressJson;
+  };
+};
+
 export type CreateTemplePayload = {
   temple: {
     tradition: string;
@@ -68,4 +104,25 @@ export type CreateTemplePayload = {
       days: number | null;
     };
   };
+};
+
+/** PATCH /api/temples/:tenantId — admin email is not modified server-side. */
+export type UpdateTemplePayload = {
+  temple: CreateTemplePayload["temple"];
+  admin: {
+    fullName: string;
+    whatsapp: string;
+    role: string;
+  };
+  planBilling: CreateTemplePayload["planBilling"];
+  logoTempleDataUrl?: string | null;
+};
+
+/** GET /api/temples/:tenantId — hydrates the super-admin wizard. */
+export type SuperAdminTempleDetailResponse = {
+  tenantId: string;
+  temple: CreateTemplePayload["temple"];
+  admin: CreateTemplePayload["admin"];
+  planBilling: CreateTemplePayload["planBilling"];
+  logoTempleDataUrl: string | null;
 };

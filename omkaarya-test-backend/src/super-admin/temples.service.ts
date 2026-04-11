@@ -6,7 +6,12 @@ import {
   sortTemples,
 } from "./temples.query.js";
 import type { TempleRepository } from "./temples.repository.js";
-import type { CreateTemplePayload, TemplesListResponse } from "./types.js";
+import type {
+  CreateTemplePayload,
+  SuperAdminTempleDetailResponse,
+  TemplesListResponse,
+  UpdateTemplePayload,
+} from "./types.js";
 
 export class TemplesService {
   constructor(private readonly repo: TempleRepository) {}
@@ -25,7 +30,18 @@ export class TemplesService {
     };
   }
 
-  async createTemple(payload: CreateTemplePayload): Promise<{ templeId: string }> {
+  async createTemple(payload: CreateTemplePayload): Promise<{ templeId: string; temporaryPassword?: string }> {
     return this.repo.createTemple(payload);
+  }
+
+  async getTempleForEdit(tenantId: string): Promise<SuperAdminTempleDetailResponse | null> {
+    return this.repo.getTempleForEdit(tenantId);
+  }
+
+  async updateTemple(
+    tenantId: string,
+    payload: UpdateTemplePayload
+  ): Promise<{ ok: true } | { ok: false; reason: "not_found" }> {
+    return this.repo.updateTemple(tenantId, payload);
   }
 }
