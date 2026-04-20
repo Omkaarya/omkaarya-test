@@ -4,6 +4,7 @@
 @custom-variant dark (&:where([data-theme="dark"] *));
 
 @theme {
+  /* ── Brand Scale (swap per product) ─────────────────────── */
   --color-brand-50: #FFF0EF;
   --color-brand-100: #FFE1DF;
   --color-brand-200: #FFBFBA;
@@ -15,6 +16,14 @@
   --color-brand-800: #6B1900;
   --color-brand-900: #420C00;
 
+  /* ── Semantic Brand Shortcuts ──────────────────────────── */
+  --color-brand: #FF4800;
+  --color-brand-hover: #CA3700;
+  --color-brand-muted: #FFE1DF;
+  --color-brand-on: #FFFFFF;
+  --color-brand-primary: #FF4800;
+
+  /* ── Gray Scale (never changes) ────────────────────────── */
   --color-gray-25: #FDFDFD;
   --color-gray-50: #FAFAFA;
   --color-gray-100: #F5F5F5;
@@ -28,6 +37,7 @@
   --color-gray-900: #181D27;
   --color-gray-950: #0A0D12;
 
+  /* ── Status Colors (never change) ──────────────────────── */
   --color-error-50: #FEF3F2;
   --color-error-100: #FEE4E2;
   --color-error-500: #F04438;
@@ -42,6 +52,50 @@
   --color-success-500: #17B26A;
   --color-success-600: #079455;
 
+  /* ── Semantic Surface/BG tokens ─────────────────────────── */
+  --color-surface: #FFFFFF;
+  --color-subtle: #FAFAFA;
+  --color-bg-disabled: #F5F5F5;
+  --color-bg-brand-solid: #FF4800;
+  --color-bg-brand-secondary: #FFE1DF;
+
+  /* ── Semantic Text tokens ──────────────────────────────── */
+  --color-text-primary: #181D27;
+  --color-text-secondary: #414651;
+  --color-text-tertiary: #535862;
+  --color-text-placeholder: #717680;
+  --color-text-disabled: #717680;
+  --color-text-brand: #FF4800;
+
+  /* ── Semantic Foreground (icons) tokens ─────────────────── */
+  --color-fg-primary: #181D27;
+  --color-fg-secondary: #414651;
+  --color-fg-tertiary: #535862;
+  --color-fg-quaternary: #A4A7AE;
+  --color-fg-disabled: #A4A7AE;
+  --color-fg-error: #D92D20;
+  --color-fg-warning: #DC6803;
+  --color-fg-success: #079455;
+  --color-fg-brand: #FF4800;
+
+  /* ── Semantic Border tokens ────────────────────────────── */
+  --color-border: #D5D7DA;
+  --color-border-secondary: #E9EAEB;
+  --color-border-brand: #FF4800;
+  --color-border-error: #F04438;
+
+  /* ── Status Composite tokens ───────────────────────────── */
+  --color-status-danger-bg: #FEF3F2;
+  --color-status-danger-text: #D92D20;
+  --color-status-warning-bg: #FFFAEB;
+  --color-status-warning-text: #DC6803;
+  --color-status-success-bg: #ECFDF3;
+  --color-status-success-text: #079455;
+
+  /* ── Focus Ring ────────────────────────────────────────── */
+  --color-focus-ring: #FF4800;
+
+  /* ── Border Radius ─────────────────────────────────────── */
   --radius-none: 0px;
   --radius-xxs: 2px;
   --radius-xs: 4px;
@@ -54,6 +108,7 @@
   --radius-4xl: 24px;
   --radius-full: 9999px;
 
+  /* ── Typography ────────────────────────────────────────── */
   --text-xs: 12px;
   --text-sm: 14px;
   --text-md: 16px;
@@ -66,6 +121,7 @@
   --text-display-xl: 60px;
   --text-display-2xl: 72px;
 
+  /* ── Font ───────────────────────────────────────────────── */
   --font-sans: var(--font-jakarta-sans);
   --font-display: var(--font-jakarta-sans);
 }
@@ -75,17 +131,15 @@
   --foreground: var(--color-gray-900);
   --card: #ffffff;
   --muted: var(--color-gray-500);
-  --border: var(--color-gray-300);
   --accent: var(--color-brand-500);
 
   /* Legacy variables for existing components backward compatibility */
   --surface-page: var(--color-gray-25);
   --surface-card: #ffffff;
-  --text-primary: var(--color-gray-900);
-  --text-muted: var(--color-gray-500);
-  --border-default: var(--color-gray-300);
+  --surface-elevated: var(--color-gray-50);
   --brand-primary: var(--color-brand-500);
   --brand-primary-hover: var(--color-brand-600);
+  --border-default: var(--color-gray-300);
 }
 
 [data-theme="dark"] {
@@ -93,17 +147,15 @@
   --foreground: var(--color-gray-25);
   --card: var(--color-gray-900);
   --muted: var(--color-gray-400);
-  --border: var(--color-gray-700);
   --accent: var(--color-brand-400);
 
   /* Legacy variables for existing components backward compatibility */
   --surface-page: var(--color-gray-950);
   --surface-card: var(--color-gray-900);
-  --text-primary: var(--color-gray-25);
-  --text-muted: var(--color-gray-400);
-  --border-default: var(--color-gray-700);
+  --surface-elevated: var(--color-gray-800);
   --brand-primary: var(--color-brand-400);
   --brand-primary-hover: var(--color-brand-300);
+  --border-default: var(--color-gray-700);
 }
 
 @theme inline {
