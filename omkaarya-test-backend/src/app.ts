@@ -52,8 +52,6 @@ export function createApp(options: CreateAppOptions = {}): Express {
   app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
   app.use(express.json({ limit: "1mb" }));
 
-  app.use(apiMountPath, createSuperAdminApiRouter());
-
   const healthHandler: express.RequestHandler = async (_req, res) => {
     try {
       const pool = getPool();
@@ -98,6 +96,8 @@ export function createApp(options: CreateAppOptions = {}): Express {
 
   // Keep `/health` for local + also expose `${apiMountPath}/health` for serverless setups (e.g. Vercel).
   app.get("/health", healthHandler);
+
+  app.use(apiMountPath, createSuperAdminApiRouter());
 
   app.use((_req, res) => {
     res.status(404).json({ error: "Not found" });
