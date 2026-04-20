@@ -23,6 +23,15 @@ function autoMigrateEnabled(): boolean {
   return process.env.NODE_ENV !== "production";
 }
 
+/** Single origin or comma-separated list (e.g. production + Vercel preview URLs). */
+function corsOriginOption(): string | string[] {
+  const raw = (process.env.CORS_ORIGIN ?? "http://localhost:3000").trim();
+  const parts = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  if (parts.length === 0) return "http://localhost:3000";
+  if (parts.length === 1) return parts[0];
+  return parts;
+}
+
 async function bootstrap(): Promise<void> {
   if (autoMigrateEnabled()) {
     try {
@@ -75,7 +84,7 @@ async function bootstrap(): Promise<void> {
 
   app.use(
     cors({
-      origin: process.env.CORS_ORIGIN ?? "http://localhost:3000",
+      origin: corsOriginOption(),
       credentials: true,
     })
   );

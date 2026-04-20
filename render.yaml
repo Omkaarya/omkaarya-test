@@ -1,0 +1,16 @@
+# Render Blueprint: deploy API from monorepo root.
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: omkaarya-test-api
+    runtime: docker
+    rootDir: omkaarya-test-backend
+    dockerfilePath: Dockerfile
+    dockerContext: .
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "4000"
