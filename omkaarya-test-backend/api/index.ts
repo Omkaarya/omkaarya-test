@@ -8,7 +8,8 @@ const migrationReady = runPendingMigrations()
   .then(() => console.log("[db] Migrations complete"))
   .catch((e) => console.error("[db] Migration failed on cold start:", e));
 
-const app = createApp({ apiMountPath: "/" });
+// Same mount as local server: `/api/temples`, `/api/login`, … (not `/temples` at repo root).
+const app = createApp({ apiMountPath: "/api" });
 
 // Wrapper that waits for migrations before handling any request.
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
