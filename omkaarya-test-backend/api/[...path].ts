@@ -7,9 +7,15 @@ import { createApp } from "../src/app.js";
 const app = createApp({ apiMountPath: "/" });
 
 export default function handler(req: any, res: any) {
-  const url: string = req?.url ?? "/";
-  if (url === "/api") req.url = "/";
-  else if (url.startsWith("/api/")) req.url = url.slice("/api".length);
+  const raw: string = req?.url ?? req?.originalUrl ?? "/";
+  let normalized = raw;
+  if (normalized === "/api") normalized = "/";
+  else if (normalized.startsWith("/api/")) normalized = normalized.slice("/api".length);
+
+  // Ensure Express/router sees the normalized URL.
+  req.url = normalized;
+  req.originalUrl = normalized;
+  if (req._parsedUrl) req._parsedUrl = undefined;
   return app(req, res);
 }
 
