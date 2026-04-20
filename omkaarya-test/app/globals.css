@@ -3,75 +3,120 @@
 /* Manual theme toggle: dark: utilities follow <html data-theme="dark"> */
 @custom-variant dark (&:where([data-theme="dark"] *));
 
-/*
-  Default light tokens on :root so CSS is valid before/without data-theme.
-  Authoritative overrides: [data-theme="light"] / [data-theme="dark"] on <html>.
-*/
-:root {
-  --brand-primary: #ff5c28;
-  --brand-primary-hover: #e64e1f;
-  --surface-page: #f9fafb;
-  --surface-card: #ffffff;
-  --surface-elevated: #ffffff;
-  --border-default: #e5e7eb;
-  --text-primary: #111827;
-  --text-muted: #6b7280;
-  --background: var(--surface-page);
-  --foreground: var(--text-primary);
-  --card: var(--surface-card);
-  --muted: var(--text-muted);
-  --border: var(--border-default);
-  --accent: var(--brand-primary);
+@theme {
+  --color-brand-50: #FFF0EF;
+  --color-brand-100: #FFE1DF;
+  --color-brand-200: #FFBFBA;
+  --color-brand-300: #FF9F95;
+  --color-brand-400: #FF7764;
+  --color-brand-500: #FF4800;
+  --color-brand-600: #CA3700;
+  --color-brand-700: #9B2800;
+  --color-brand-800: #6B1900;
+  --color-brand-900: #420C00;
+
+  --color-gray-25: #FDFDFD;
+  --color-gray-50: #FAFAFA;
+  --color-gray-100: #F5F5F5;
+  --color-gray-200: #E9EAEB;
+  --color-gray-300: #D5D7DA;
+  --color-gray-400: #A4A7AE;
+  --color-gray-500: #717680;
+  --color-gray-600: #535862;
+  --color-gray-700: #414651;
+  --color-gray-800: #252B37;
+  --color-gray-900: #181D27;
+  --color-gray-950: #0A0D12;
+
+  --color-error-50: #FEF3F2;
+  --color-error-100: #FEE4E2;
+  --color-error-500: #F04438;
+  --color-error-600: #D92D20;
+  --color-error-700: #B42318;
+
+  --color-warning-50: #FFFAEB;
+  --color-warning-500: #F79009;
+  --color-warning-600: #DC6803;
+
+  --color-success-50: #ECFDF3;
+  --color-success-500: #17B26A;
+  --color-success-600: #079455;
+
+  --radius-none: 0px;
+  --radius-xxs: 2px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 20px;
+  --radius-4xl: 24px;
+  --radius-full: 9999px;
+
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 18px;
+  --text-xl: 20px;
+  --text-display-xs: 24px;
+  --text-display-sm: 30px;
+  --text-display-md: 36px;
+  --text-display-lg: 48px;
+  --text-display-xl: 60px;
+  --text-display-2xl: 72px;
+
+  --font-sans: var(--font-jakarta-sans);
+  --font-display: var(--font-jakarta-sans);
 }
 
-[data-theme="light"] {
-  --brand-primary: #ff5c28;
-  --brand-primary-hover: #e64e1f;
-  --surface-page: #f9fafb;
+:root {
+  --background: var(--color-gray-25);
+  --foreground: var(--color-gray-900);
+  --card: #ffffff;
+  --muted: var(--color-gray-500);
+  --border: var(--color-gray-300);
+  --accent: var(--color-brand-500);
+
+  /* Legacy variables for existing components backward compatibility */
+  --surface-page: var(--color-gray-25);
   --surface-card: #ffffff;
-  --surface-elevated: #ffffff;
-  --border-default: #e5e7eb;
-  --text-primary: #111827;
-  --text-muted: #6b7280;
-  --background: var(--surface-page);
-  --foreground: var(--text-primary);
-  --card: var(--surface-card);
-  --muted: var(--text-muted);
-  --border: var(--border-default);
-  --accent: var(--brand-primary);
+  --text-primary: var(--color-gray-900);
+  --text-muted: var(--color-gray-500);
+  --border-default: var(--color-gray-300);
+  --brand-primary: var(--color-brand-500);
+  --brand-primary-hover: var(--color-brand-600);
 }
 
 [data-theme="dark"] {
-  --brand-primary: #ff7133;
-  --brand-primary-hover: #ff8c52;
-  --surface-page: #0f0f0f;
-  --surface-card: #1e1e1e;
-  --surface-elevated: #171717;
-  --border-default: rgba(255, 255, 255, 0.1);
-  --text-primary: #f9fafb;
-  --text-muted: #9ca3af;
-  --background: var(--surface-page);
-  --foreground: var(--text-primary);
-  --card: var(--surface-card);
-  --muted: var(--text-muted);
-  --border: var(--border-default);
-  --accent: var(--brand-primary);
+  --background: var(--color-gray-950);
+  --foreground: var(--color-gray-25);
+  --card: var(--color-gray-900);
+  --muted: var(--color-gray-400);
+  --border: var(--color-gray-700);
+  --accent: var(--color-brand-400);
+
+  /* Legacy variables for existing components backward compatibility */
+  --surface-page: var(--color-gray-950);
+  --surface-card: var(--color-gray-900);
+  --text-primary: var(--color-gray-25);
+  --text-muted: var(--color-gray-400);
+  --border-default: var(--color-gray-700);
+  --brand-primary: var(--color-brand-400);
+  --brand-primary-hover: var(--color-brand-300);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-jakarta-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
-/* Center native modal dialogs in the viewport (showModal / top layer) */
 dialog:modal {
   position: fixed;
   top: 50%;
