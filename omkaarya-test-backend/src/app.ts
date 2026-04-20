@@ -98,12 +98,6 @@ export function createApp(options: CreateAppOptions = {}): Express {
 
   // Keep `/health` for local + also expose `${apiMountPath}/health` for serverless setups (e.g. Vercel).
   app.get("/health", healthHandler);
-  // Many deployments place the API under `/api`, but the incoming request path may or may not include it.
-  // Always serve `/api/health` so health checks work regardless of mount configuration.
-  app.get("/api/health", healthHandler);
-  if (apiMountPath !== "/") {
-    app.get(`${apiMountPath}/health`, healthHandler);
-  }
 
   app.use((_req, res) => {
     res.status(404).json({ error: "Not found" });
