@@ -54,7 +54,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
 
   app.use(apiMountPath, createSuperAdminApiRouter());
 
-  app.get("/health", async (_req, res) => {
+  const healthHandler: express.RequestHandler = async (_req, res) => {
     try {
       const pool = getPool();
       if (!pool) {
@@ -94,7 +94,13 @@ export function createApp(options: CreateAppOptions = {}): Express {
         },
       });
     }
-  });
+  };
+
+  // Keep `/health` for local + also expose `${apiMountPath}/health` for serverless setups (e.g. Vercel).
+  app.get("/health", healthHandler);
+  if (apiMountPath !== "/") {
+    app.get(`${apiMountPath}/health`, healthHandler);
+  }
 
   app.use((_req, res) => {
     res.status(404).json({ error: "Not found" });
