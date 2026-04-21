@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   CheckCircle2,
   ChevronDown,
@@ -45,6 +45,28 @@ type SubscriptionRow = {
   adminEmail: string;
 };
 
+type SubscriptionsListResponse = {
+  data: Array<{
+    id: string;
+    tenantId: string;
+    templeName: string;
+    plan: string;
+    billingCycle: string;
+    amount: number;
+    paymentDate: string;
+    receiptId: string | null;
+    status: SubscriptionStatus;
+    verifiedBy: string | null;
+    activatedOn: string | null;
+    expiresOn: string;
+    adminEmail: string;
+  }>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
 // ── Helpers ────────────────────────────────────────────────────────
 
 function statusBadgeColor(status: SubscriptionStatus) {
@@ -62,6 +84,13 @@ function planBadgeColor(plan: PlanName) {
     case "Sankalpa": return "pink" as const;
     case "Mandala": return "indigo" as const;
   }
+}
+
+function initialsFromTempleName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const a = parts[0]?.[0] ?? "";
+  const b = parts.length > 1 ? parts[1]![0] : (parts[0]?.[1] ?? "");
+  return (a + b).toUpperCase() || "T";
 }
 
 // ── Filter Tabs ────────────────────────────────────────────────────
@@ -244,238 +273,148 @@ export default function SubscriptionsPage() {
     type: "success" | "error";
   } | null>(null);
 
-  // ── Mock Data ────────────────────────────────────────────────────
+  const [rows, setRows] = useState<SubscriptionRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [totalPages, setTotalPages] = useState(1);
 
-  const [rows, setRows] = useState<SubscriptionRow[]>([
-    {
-      id: "SUB-001",
-      templeName: "Sri Jagannath Temple",
-      templeInitials: "SJ",
-      plan: "Mandala",
-      billingCycle: "Annual",
-      amount: 24999,
-      paymentDate: "2026-04-15",
-      receiptId: "RCP-20260415-001",
-      status: "Pending",
-      verifiedBy: null,
-      activatedOn: null,
-      expiresOn: "2027-04-15",
-      adminEmail: "admin@jagannath.org",
-    },
-    {
-      id: "SUB-002",
-      templeName: "Swaminarayan Mandir",
-      templeInitials: "SM",
-      plan: "Aaradhana",
-      billingCycle: "Monthly",
-      amount: 1999,
-      paymentDate: "2026-04-12",
-      receiptId: "RCP-20260412-002",
-      status: "Pending",
-      verifiedBy: null,
-      activatedOn: null,
-      expiresOn: "2026-05-12",
-      adminEmail: "info@swaminarayan.in",
-    },
-    {
-      id: "SUB-003",
-      templeName: "Meenakshi Amman Temple",
-      templeInitials: "MA",
-      plan: "Sankalpa",
-      billingCycle: "Annual",
-      amount: 14999,
-      paymentDate: "2026-03-20",
-      receiptId: "RCP-20260320-003",
-      status: "Active",
-      verifiedBy: "Super Admin",
-      activatedOn: "2026-03-21",
-      expiresOn: "2027-03-20",
-      adminEmail: "temple@meenakshi.org",
-    },
-    {
-      id: "SUB-004",
-      templeName: "Kashi Vishwanath Temple",
-      templeInitials: "KV",
-      plan: "Mandala",
-      billingCycle: "Annual",
-      amount: 24999,
-      paymentDate: "2026-02-10",
-      receiptId: "RCP-20260210-004",
-      status: "Active",
-      verifiedBy: "Super Admin",
-      activatedOn: "2026-02-11",
-      expiresOn: "2027-02-10",
-      adminEmail: "admin@kashivishwanath.org",
-    },
-    {
-      id: "SUB-005",
-      templeName: "Tirupati Balaji Temple",
-      templeInitials: "TB",
-      plan: "Mandala",
-      billingCycle: "Annual",
-      amount: 24999,
-      paymentDate: "2025-04-01",
-      receiptId: "RCP-20250401-005",
-      status: "Expired",
-      verifiedBy: "Super Admin",
-      activatedOn: "2025-04-02",
-      expiresOn: "2026-04-01",
-      adminEmail: "tirupati@balaji.org",
-    },
-    {
-      id: "SUB-006",
-      templeName: "Somnath Temple",
-      templeInitials: "ST",
-      plan: "Aaradhana",
-      billingCycle: "Monthly",
-      amount: 1999,
-      paymentDate: "2026-04-18",
-      receiptId: "RCP-20260418-006",
-      status: "Pending",
-      verifiedBy: null,
-      activatedOn: null,
-      expiresOn: "2026-05-18",
-      adminEmail: "admin@somnath.temple",
-    },
-    {
-      id: "SUB-007",
-      templeName: "Siddhivinayak Temple",
-      templeInitials: "SV",
-      plan: "Sankalpa",
-      billingCycle: "Monthly",
-      amount: 3999,
-      paymentDate: "2026-04-05",
-      receiptId: "RCP-20260405-007",
-      status: "Rejected",
-      verifiedBy: "Super Admin",
-      activatedOn: null,
-      expiresOn: "2026-05-05",
-      adminEmail: "ops@siddhivinayak.com",
-    },
-    {
-      id: "SUB-008",
-      templeName: "Golden Temple",
-      templeInitials: "GT",
-      plan: "Mandala",
-      billingCycle: "Annual",
-      amount: 24999,
-      paymentDate: "2026-01-15",
-      receiptId: "RCP-20260115-008",
-      status: "Active",
-      verifiedBy: "Super Admin",
-      activatedOn: "2026-01-16",
-      expiresOn: "2027-01-15",
-      adminEmail: "admin@goldentemple.org",
-    },
-    {
-      id: "SUB-009",
-      templeName: "Rameshwaram Temple",
-      templeInitials: "RT",
-      plan: "Aaradhana",
-      billingCycle: "Annual",
-      amount: 9999,
-      paymentDate: "2026-04-19",
-      receiptId: "RCP-20260419-009",
-      status: "Pending",
-      verifiedBy: null,
-      activatedOn: null,
-      expiresOn: "2027-04-19",
-      adminEmail: "info@rameshwaram.in",
-    },
-    {
-      id: "SUB-010",
-      templeName: "Badrinath Temple",
-      templeInitials: "BT",
-      plan: "Sankalpa",
-      billingCycle: "Annual",
-      amount: 14999,
-      paymentDate: "2025-10-10",
-      receiptId: "RCP-20251010-010",
-      status: "Expired",
-      verifiedBy: "Super Admin",
-      activatedOn: "2025-10-11",
-      expiresOn: "2026-04-10",
-      adminEmail: "admin@badrinath.org",
-    },
-  ]);
+  const fetchList = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const params = new URLSearchParams();
+      if (searchInput.trim()) params.set("q", searchInput.trim());
+      if (filter !== "All") params.set("status", filter);
+      params.set("page", String(page));
+      params.set("pageSize", String(pageSize));
 
-  // ── Filtering ────────────────────────────────────────────────────
+      const res = await fetch(`/api/subscriptions?${params.toString()}`, { cache: "no-store" });
+      const data = (await res.json().catch(() => null)) as SubscriptionsListResponse | { error?: string } | null;
+      if (!res.ok) {
+        const err =
+          data && typeof data === "object" && "error" in data && typeof (data as any).error === "string"
+            ? (data as any).error
+            : undefined;
+        throw new Error(err ?? "Failed to load subscriptions");
+      }
 
-  const filtered = useMemo(() => {
-    const q = searchInput.trim().toLowerCase();
-    let list = rows;
-    if (q) {
-      list = list.filter(
-        (r) =>
-          r.templeName.toLowerCase().includes(q) ||
-          r.plan.toLowerCase().includes(q) ||
-          r.receiptId.toLowerCase().includes(q)
+      const payload = data as SubscriptionsListResponse;
+      setRows(
+        payload.data.map((r) => ({
+          id: r.id,
+          templeName: r.templeName,
+          templeInitials: initialsFromTempleName(r.templeName),
+          plan: r.plan as PlanName,
+          billingCycle: r.billingCycle as BillingCycle,
+          amount: r.amount,
+          paymentDate: r.paymentDate,
+          receiptId: r.receiptId ?? "",
+          status: r.status,
+          verifiedBy: r.verifiedBy,
+          activatedOn: r.activatedOn,
+          expiresOn: r.expiresOn,
+          adminEmail: r.adminEmail,
+        }))
       );
+      setTotalPages(payload.totalPages || 1);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Failed to load subscriptions");
+      setRows([]);
+      setTotalPages(1);
+    } finally {
+      setLoading(false);
     }
-    if (filter !== "All") {
-      list = list.filter((r) => r.status === filter);
-    }
-    return list;
-  }, [rows, searchInput, filter]);
+  }, [filter, page, pageSize, searchInput]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  useEffect(() => {
+    void fetchList();
+  }, [fetchList]);
+
   const pageSafe = Math.min(page, totalPages);
-  const pageRows = filtered.slice(
-    (pageSafe - 1) * pageSize,
-    pageSafe * pageSize
-  );
+  const pageRows = rows;
 
   // ── Metrics ──────────────────────────────────────────────────────
 
-  const metrics = useMemo(() => {
-    return {
-      total: rows.length,
-      pending: rows.filter((r) => r.status === "Pending").length,
-      active: rows.filter((r) => r.status === "Active").length,
-      expired: rows.filter((r) => r.status === "Expired").length,
+  const [metrics, setMetrics] = useState({ total: 0, pending: 0, active: 0, expired: 0 });
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadMetrics() {
+      const mk = (status: string) =>
+        fetch(`/api/subscriptions?status=${encodeURIComponent(status)}&page=1&pageSize=1`, {
+          cache: "no-store",
+        })
+          .then((r) => r.json().catch(() => null))
+          .then((j: any) => (j && typeof j.total === "number" ? j.total : 0))
+          .catch(() => 0);
+
+      const [all, pending, active, expired] = await Promise.all([
+        mk("All"),
+        mk("Pending"),
+        mk("Active"),
+        mk("Expired"),
+      ]);
+      if (!cancelled) setMetrics({ total: all, pending, active, expired });
+    }
+    void loadMetrics();
+    return () => {
+      cancelled = true;
     };
-  }, [rows]);
+  }, []);
 
   // ── Actions ──────────────────────────────────────────────────────
 
-  const handleVerify = useCallback(() => {
+  const handleVerify = useCallback(async () => {
     if (!verifyingRow) return;
-    setRows((prev) =>
-      prev.map((r) =>
-        r.id === verifyingRow.id
-          ? {
-              ...r,
-              status: "Active" as SubscriptionStatus,
-              verifiedBy: "Super Admin",
-              activatedOn: new Date().toISOString().split("T")[0],
-            }
-          : r
-      )
-    );
+    try {
+      const res = await fetch(`/api/subscriptions/${encodeURIComponent(verifyingRow.id)}/verify`, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "Failed to verify subscription");
+      await fetchList();
+    } catch (e) {
+      setToast({
+        message: e instanceof Error ? e.message : "Failed to verify subscription",
+        type: "error",
+      });
+      setTimeout(() => setToast(null), 5000);
+      return;
+    }
     setVerifyingRow(null);
     setToast({
       message: `Subscription activated for ${verifyingRow.templeName}. Confirmation email sent to ${verifyingRow.adminEmail}.`,
       type: "success",
     });
     setTimeout(() => setToast(null), 5000);
-  }, [verifyingRow]);
+  }, [fetchList, verifyingRow]);
 
-  const handleReject = useCallback(() => {
+  const handleReject = useCallback(async () => {
     if (!verifyingRow) return;
-    setRows((prev) =>
-      prev.map((r) =>
-        r.id === verifyingRow.id
-          ? { ...r, status: "Rejected" as SubscriptionStatus, verifiedBy: "Super Admin" }
-          : r
-      )
-    );
+    try {
+      const res = await fetch(`/api/subscriptions/${encodeURIComponent(verifyingRow.id)}/reject`, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "Failed to reject subscription");
+      await fetchList();
+    } catch (e) {
+      setToast({
+        message: e instanceof Error ? e.message : "Failed to reject subscription",
+        type: "error",
+      });
+      setTimeout(() => setToast(null), 5000);
+      return;
+    }
     setVerifyingRow(null);
     setToast({
       message: `Subscription rejected for ${verifyingRow.templeName}.`,
       type: "error",
     });
     setTimeout(() => setToast(null), 5000);
-  }, [verifyingRow]);
+  }, [fetchList, verifyingRow]);
 
   // ── Columns ──────────────────────────────────────────────────────
 
@@ -540,7 +479,7 @@ export default function SubscriptionsPage() {
         cell: (row) => (
           <button className="inline-flex items-center gap-1.5 text-sm font-medium text-text-brand hover:underline">
             <FileText className="h-3.5 w-3.5" />
-            {row.receiptId}
+            {row.receiptId || "—"}
           </button>
         ),
       },
@@ -689,6 +628,17 @@ export default function SubscriptionsPage() {
             </div>
           </div>
         </div>
+
+        {loadError && (
+          <div className="mx-6 mb-4 rounded-xl border border-border-error bg-status-danger-bg px-4 py-3 text-sm text-status-danger-text">
+            {loadError}
+          </div>
+        )}
+        {loading && (
+          <div className="mx-6 mb-4 rounded-xl border border-border bg-subtle px-4 py-3 text-sm text-text-tertiary">
+            Loading subscriptions…
+          </div>
+        )}
 
         {/* Data Table */}
         <DataTable<SubscriptionRow>
