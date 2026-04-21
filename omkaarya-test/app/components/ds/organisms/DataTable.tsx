@@ -62,7 +62,7 @@ export function DataTable<T>({
   const someSelected = selectedIds.length > 0 && selectedIds.length < data.length;
 
   return (
-    <div className={`w-full overflow-x-auto bg-surface border border-border sm:rounded-xl shadow-xs ${className}`}>
+    <div className={`w-full overflow-x-auto ${className}`}>
       <table className="w-full text-left border-collapse whitespace-nowrap min-w-[600px]">
         
         {/* Table Header */}

@@ -1,19 +1,19 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import {
+  Bell,
   CheckCircle2,
-  ChevronDown,
   CreditCard,
   Download,
   Eye,
   FileText,
   MoreVertical,
+  RefreshCw,
+  Repeat,
   ShieldCheck,
   X,
   XCircle,
-  Clock,
-  AlertTriangle,
 } from "lucide-react";
 
 import { Button } from "@/app/components/ds/atoms/Button";
@@ -31,8 +31,10 @@ type BillingCycle = "Monthly" | "Annual";
 
 type SubscriptionRow = {
   id: string;
+  invoiceId: string;
   templeName: string;
   templeInitials: string;
+  templeAddress: string;
   plan: PlanName;
   billingCycle: BillingCycle;
   amount: number;
@@ -43,6 +45,7 @@ type SubscriptionRow = {
   activatedOn: string | null;
   expiresOn: string;
   adminEmail: string;
+  cardLast4: string;
 };
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -64,10 +67,281 @@ function planBadgeColor(plan: PlanName) {
   }
 }
 
+function planMonthlyRate(plan: PlanName) {
+  switch (plan) {
+    case "Aaradhana": return 1999;
+    case "Sankalpa": return 3999;
+    case "Mandala": return 4999;
+  }
+}
+
 // ── Filter Tabs ────────────────────────────────────────────────────
 
 const FILTERS = ["All", "Pending", "Active", "Expired", "Rejected"] as const;
 type FilterId = (typeof FILTERS)[number];
+
+// ── Actions Dropdown ───────────────────────────────────────────────
+
+type ActionItem = {
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+  danger?: boolean;
+};
+
+function ActionsDropdown({ actions }: { actions: ActionItem[] }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    if (open) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(!open);
+        }}
+        className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors"
+      >
+        <MoreVertical className="h-4 w-4" />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full z-50 mt-1 w-52 origin-top-right rounded-xl border border-border bg-surface shadow-xl animate-in fade-in zoom-in-95 duration-150">
+          <div className="p-1.5">
+            {actions.map((action, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpen(false);
+                  action.onClick();
+                }}
+                className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
+                  action.danger
+                    ? "text-status-danger-text hover:bg-red-50 dark:hover:bg-red-950/30"
+                    : "text-text-secondary hover:bg-subtle hover:text-text-primary"
+                }`}
+              >
+                {action.icon}
+                {action.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Invoice Detail Modal ────────────────────────────────────────────
+
+function InvoiceModal({
+  subscription,
+  onClose,
+}: {
+  subscription: SubscriptionRow;
+  onClose: () => void;
+}) {
+  const months = subscription.billingCycle === "Annual" ? 12 : 1;
+  const monthlyRate = planMonthlyRate(subscription.plan);
+  const subTotal = subscription.amount;
+  const tax = 0;
+  const total = subTotal + tax;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+      <div
+        className="absolute inset-0 bg-gray-950/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-surface shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border px-6 py-5">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400">
+              <FileText className="h-6 w-6" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-text-primary">
+                Invoice #{subscription.invoiceId} Details
+              </h3>
+              <p className="text-sm text-text-tertiary">
+                Manage your invoice/bill here
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="space-y-6 p-6">
+          {/* Invoice Meta */}
+          <div className="flex items-start justify-between rounded-xl bg-subtle p-5">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-brand-100 text-brand font-bold text-lg">
+                {subscription.templeInitials}
+              </div>
+              <div>
+                <p className="font-bold text-text-primary text-lg">{subscription.templeName}</p>
+              </div>
+            </div>
+            <div className="text-right text-sm space-y-1">
+              <p className="text-text-tertiary">
+                <span className="font-medium">Invoice: </span>
+                <span className="text-text-primary font-semibold">{subscription.invoiceId}</span>
+              </p>
+              <p className="text-text-tertiary">
+                <span className="font-medium">Issued: </span>
+                {subscription.paymentDate}
+              </p>
+              <p className="text-text-tertiary">
+                <span className="font-medium">Due: </span>
+                {subscription.expiresOn}
+              </p>
+            </div>
+          </div>
+
+          {/* From / To */}
+          <div className="grid grid-cols-2 gap-6">
+            <div className="rounded-xl border border-border p-4">
+              <p className="text-xs font-bold uppercase text-text-tertiary tracking-wider mb-2">
+                Invoice From
+              </p>
+              <p className="font-semibold text-text-primary">Pepulux Pvt. Ltd</p>
+              <p className="text-sm text-text-secondary mt-1">
+                2972 Westheimer Rd, Santa Ana,<br />
+                Illinois 85486
+              </p>
+              <p className="text-sm text-text-tertiary mt-1">contact@pepulux.com</p>
+            </div>
+            <div className="rounded-xl border border-border p-4">
+              <p className="text-xs font-bold uppercase text-text-tertiary tracking-wider mb-2">
+                Invoice To
+              </p>
+              <p className="font-semibold text-text-primary">{subscription.templeName}</p>
+              <p className="text-sm text-text-secondary mt-1">
+                {subscription.templeAddress}
+              </p>
+              <p className="text-sm text-text-tertiary mt-1">{subscription.adminEmail}</p>
+            </div>
+          </div>
+
+          {/* Line Items Table */}
+          <div className="overflow-hidden rounded-xl border border-border">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-border bg-subtle">
+                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Plan</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Billing Cycle</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Start Date</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">End Date</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary text-right">Amount/Mth</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary text-right">Months</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-border">
+                  <td className="px-4 py-3 text-sm font-semibold text-text-primary">
+                    {subscription.plan}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">
+                    {subscription.billingCycle}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">
+                    {subscription.activatedOn ?? subscription.paymentDate}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">
+                    {subscription.expiresOn}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-primary text-right tabular-nums">
+                    ₹{monthlyRate.toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-primary text-right tabular-nums">
+                    {months}
+                  </td>
+                  <td className="px-4 py-3 text-sm font-semibold text-text-primary text-right tabular-nums">
+                    ₹{subTotal.toLocaleString()}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Payment Info Summary */}
+          <div className="flex justify-end">
+            <div className="w-72 space-y-2 rounded-xl border border-border p-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-text-secondary font-medium">Payment Info</span>
+                <span className="text-text-primary font-semibold">Total</span>
+              </div>
+              <hr className="border-border" />
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-text-tertiary">
+                  Credit Card: 424 **** **** {subscription.cardLast4}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-text-tertiary">Sub Total</span>
+                <span className="text-text-primary tabular-nums">
+                  ₹{subTotal.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-text-tertiary">Tax</span>
+                <span className="text-text-primary tabular-nums">₹{tax.toFixed(2)}</span>
+              </div>
+              <hr className="border-border" />
+              <div className="flex items-center justify-between text-sm font-bold">
+                <span className="text-text-primary">Total</span>
+                <span className="text-brand tabular-nums">₹{total.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Terms */}
+          <div className="rounded-xl bg-status-success-bg/50 border border-green-200/50 dark:border-green-900/50 p-4">
+            <p className="text-sm font-semibold text-text-primary mb-2">
+              Terms and Conditions
+            </p>
+            <ul className="text-xs text-text-secondary space-y-1 list-disc pl-4">
+              <li>All payments are made according to the agreed-upon terms and may occur on monthly or annual basis.</li>
+              <li>All due invoices must be paid before their due dates to avoid potential disruption to enterprise-wide services.</li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-3 border-t border-border px-6 py-4">
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
+          <Button variant="primary" leadingIcon={<Download className="h-4 w-4" />}>
+            Download PDF
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Verification Modal ─────────────────────────────────────────────
 
@@ -84,13 +358,11 @@ function VerifyModal({
 }) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
-      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-gray-950/60 backdrop-blur-sm"
         onClick={onClose}
       />
 
-      {/* Modal */}
       <div className="relative z-10 w-full max-w-lg rounded-2xl border border-border bg-surface p-0 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
@@ -117,7 +389,6 @@ function VerifyModal({
 
         {/* Body */}
         <div className="space-y-4 p-6">
-          {/* Temple Info */}
           <div className="flex items-center gap-4 rounded-xl bg-subtle p-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-100 text-brand font-bold text-sm">
               {subscription.templeInitials}
@@ -132,7 +403,6 @@ function VerifyModal({
             </div>
           </div>
 
-          {/* Details Grid */}
           <div className="grid grid-cols-2 gap-4">
             <div className="rounded-lg border border-border p-3">
               <p className="text-xs font-medium text-text-tertiary">Plan</p>
@@ -164,7 +434,6 @@ function VerifyModal({
             </div>
           </div>
 
-          {/* Receipt Preview */}
           <div className="rounded-xl border border-border-secondary bg-subtle p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -212,7 +481,7 @@ function Toast({
 }) {
   return (
     <div
-      className={`fixed bottom-6 right-6 z-[200] flex items-center gap-3 rounded-xl border px-5 py-4 shadow-xl transition-all animate-in slide-in-from-bottom-4 ${
+      className={`fixed bottom-6 right-6 z-[200] flex items-center gap-3 rounded-xl border px-5 py-4 shadow-xl transition-all ${
         type === "success"
           ? "border-success-500/20 bg-status-success-bg text-status-success-text"
           : "border-error-500/20 bg-status-danger-bg text-status-danger-text"
@@ -239,6 +508,7 @@ export default function SubscriptionsPage() {
   const [page, setPage] = useState(1);
   const pageSize = 10;
   const [verifyingRow, setVerifyingRow] = useState<SubscriptionRow | null>(null);
+  const [invoiceRow, setInvoiceRow] = useState<SubscriptionRow | null>(null);
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
@@ -248,9 +518,11 @@ export default function SubscriptionsPage() {
 
   const [rows, setRows] = useState<SubscriptionRow[]>([
     {
-      id: "SUB-001",
+      id: "Sub ID 001",
+      invoiceId: "INV000001",
       templeName: "Sri Jagannath Temple",
       templeInitials: "SJ",
+      templeAddress: "Grand Road, Puri, Odisha 752001",
       plan: "Mandala",
       billingCycle: "Annual",
       amount: 24999,
@@ -261,11 +533,14 @@ export default function SubscriptionsPage() {
       activatedOn: null,
       expiresOn: "2027-04-15",
       adminEmail: "admin@jagannath.org",
+      cardLast4: "5765",
     },
     {
-      id: "SUB-002",
+      id: "Sub ID 002",
+      invoiceId: "INV000002",
       templeName: "Swaminarayan Mandir",
       templeInitials: "SM",
+      templeAddress: "Kalupur, Ahmedabad, Gujarat 380001",
       plan: "Aaradhana",
       billingCycle: "Monthly",
       amount: 1999,
@@ -276,11 +551,14 @@ export default function SubscriptionsPage() {
       activatedOn: null,
       expiresOn: "2026-05-12",
       adminEmail: "info@swaminarayan.in",
+      cardLast4: "8842",
     },
     {
-      id: "SUB-003",
+      id: "Sub ID 003",
+      invoiceId: "INV000003",
       templeName: "Meenakshi Amman Temple",
       templeInitials: "MA",
+      templeAddress: "Madurai, Tamil Nadu 625001",
       plan: "Sankalpa",
       billingCycle: "Annual",
       amount: 14999,
@@ -291,11 +569,14 @@ export default function SubscriptionsPage() {
       activatedOn: "2026-03-21",
       expiresOn: "2027-03-20",
       adminEmail: "temple@meenakshi.org",
+      cardLast4: "3321",
     },
     {
-      id: "SUB-004",
+      id: "Sub ID 004",
+      invoiceId: "INV000004",
       templeName: "Kashi Vishwanath Temple",
       templeInitials: "KV",
+      templeAddress: "Lahori Tola, Varanasi, UP 221001",
       plan: "Mandala",
       billingCycle: "Annual",
       amount: 24999,
@@ -306,11 +587,14 @@ export default function SubscriptionsPage() {
       activatedOn: "2026-02-11",
       expiresOn: "2027-02-10",
       adminEmail: "admin@kashivishwanath.org",
+      cardLast4: "7209",
     },
     {
-      id: "SUB-005",
+      id: "Sub ID 005",
+      invoiceId: "INV000005",
       templeName: "Tirupati Balaji Temple",
       templeInitials: "TB",
+      templeAddress: "Tirumala, Tirupati, AP 517504",
       plan: "Mandala",
       billingCycle: "Annual",
       amount: 24999,
@@ -321,11 +605,14 @@ export default function SubscriptionsPage() {
       activatedOn: "2025-04-02",
       expiresOn: "2026-04-01",
       adminEmail: "tirupati@balaji.org",
+      cardLast4: "4410",
     },
     {
-      id: "SUB-006",
+      id: "Sub ID 006",
+      invoiceId: "INV000006",
       templeName: "Somnath Temple",
       templeInitials: "ST",
+      templeAddress: "Somnath, Prabhas Patan, Gujarat 362268",
       plan: "Aaradhana",
       billingCycle: "Monthly",
       amount: 1999,
@@ -336,11 +623,14 @@ export default function SubscriptionsPage() {
       activatedOn: null,
       expiresOn: "2026-05-18",
       adminEmail: "admin@somnath.temple",
+      cardLast4: "1150",
     },
     {
-      id: "SUB-007",
+      id: "Sub ID 007",
+      invoiceId: "INV000007",
       templeName: "Siddhivinayak Temple",
       templeInitials: "SV",
+      templeAddress: "Prabhadevi, Mumbai, MH 400028",
       plan: "Sankalpa",
       billingCycle: "Monthly",
       amount: 3999,
@@ -351,11 +641,14 @@ export default function SubscriptionsPage() {
       activatedOn: null,
       expiresOn: "2026-05-05",
       adminEmail: "ops@siddhivinayak.com",
+      cardLast4: "2277",
     },
     {
-      id: "SUB-008",
+      id: "Sub ID 008",
+      invoiceId: "INV000008",
       templeName: "Golden Temple",
       templeInitials: "GT",
+      templeAddress: "Golden Temple Rd, Amritsar, Punjab 143006",
       plan: "Mandala",
       billingCycle: "Annual",
       amount: 24999,
@@ -366,11 +659,14 @@ export default function SubscriptionsPage() {
       activatedOn: "2026-01-16",
       expiresOn: "2027-01-15",
       adminEmail: "admin@goldentemple.org",
+      cardLast4: "6693",
     },
     {
-      id: "SUB-009",
+      id: "Sub ID 009",
+      invoiceId: "INV000009",
       templeName: "Rameshwaram Temple",
       templeInitials: "RT",
+      templeAddress: "Rameswaram, Tamil Nadu 623526",
       plan: "Aaradhana",
       billingCycle: "Annual",
       amount: 9999,
@@ -381,11 +677,14 @@ export default function SubscriptionsPage() {
       activatedOn: null,
       expiresOn: "2027-04-19",
       adminEmail: "info@rameshwaram.in",
+      cardLast4: "9981",
     },
     {
-      id: "SUB-010",
+      id: "Sub ID 010",
+      invoiceId: "INV000010",
       templeName: "Badrinath Temple",
       templeInitials: "BT",
+      templeAddress: "Badrinath, Chamoli, Uttarakhand 246422",
       plan: "Sankalpa",
       billingCycle: "Annual",
       amount: 14999,
@@ -396,6 +695,7 @@ export default function SubscriptionsPage() {
       activatedOn: "2025-10-11",
       expiresOn: "2026-04-10",
       adminEmail: "admin@badrinath.org",
+      cardLast4: "3587",
     },
   ]);
 
@@ -409,7 +709,8 @@ export default function SubscriptionsPage() {
         (r) =>
           r.templeName.toLowerCase().includes(q) ||
           r.plan.toLowerCase().includes(q) ||
-          r.receiptId.toLowerCase().includes(q)
+          r.receiptId.toLowerCase().includes(q) ||
+          r.id.toLowerCase().includes(q)
       );
     }
     if (filter !== "All") {
@@ -438,6 +739,14 @@ export default function SubscriptionsPage() {
 
   // ── Actions ──────────────────────────────────────────────────────
 
+  const showToast = useCallback(
+    (message: string, type: "success" | "error") => {
+      setToast({ message, type });
+      setTimeout(() => setToast(null), 5000);
+    },
+    []
+  );
+
   const handleVerify = useCallback(() => {
     if (!verifyingRow) return;
     setRows((prev) =>
@@ -453,12 +762,11 @@ export default function SubscriptionsPage() {
       )
     );
     setVerifyingRow(null);
-    setToast({
-      message: `Subscription activated for ${verifyingRow.templeName}. Confirmation email sent to ${verifyingRow.adminEmail}.`,
-      type: "success",
-    });
-    setTimeout(() => setToast(null), 5000);
-  }, [verifyingRow]);
+    showToast(
+      `Subscription activated for ${verifyingRow.templeName}. Confirmation email sent to ${verifyingRow.adminEmail}.`,
+      "success"
+    );
+  }, [verifyingRow, showToast]);
 
   const handleReject = useCallback(() => {
     if (!verifyingRow) return;
@@ -470,28 +778,83 @@ export default function SubscriptionsPage() {
       )
     );
     setVerifyingRow(null);
-    setToast({
-      message: `Subscription rejected for ${verifyingRow.templeName}.`,
-      type: "error",
-    });
-    setTimeout(() => setToast(null), 5000);
-  }, [verifyingRow]);
+    showToast(`Subscription rejected for ${verifyingRow.templeName}.`, "error");
+  }, [verifyingRow, showToast]);
+
+  // ── Row Actions Builder ──────────────────────────────────────────
+
+  function getRowActions(row: SubscriptionRow): ActionItem[] {
+    const base: ActionItem[] = [
+      {
+        label: "View",
+        icon: <Eye className="h-4 w-4" />,
+        onClick: () => setInvoiceRow(row),
+      },
+      {
+        label: "Download Invoice",
+        icon: <Download className="h-4 w-4" />,
+        onClick: () =>
+          showToast(`Downloading invoice ${row.invoiceId}…`, "success"),
+      },
+      {
+        label: "Change Plan",
+        icon: <Repeat className="h-4 w-4" />,
+        onClick: () =>
+          showToast(`Change plan dialog for ${row.templeName} — coming soon.`, "success"),
+      },
+      {
+        label: "Reminder",
+        icon: <Bell className="h-4 w-4" />,
+        onClick: () =>
+          showToast(`Payment reminder sent to ${row.adminEmail}.`, "success"),
+      },
+    ];
+
+    if (row.status === "Expired") {
+      base.push({
+        label: "Extend",
+        icon: <RefreshCw className="h-4 w-4" />,
+        onClick: () =>
+          showToast(`Extend subscription for ${row.templeName} — coming soon.`, "success"),
+      });
+    }
+
+    if (row.status === "Pending" || row.status === "Expired") {
+      base.push({
+        label: "Convert to Paid",
+        icon: <CreditCard className="h-4 w-4" />,
+        onClick: () =>
+          showToast(`Convert to Paid for ${row.templeName} — coming soon.`, "success"),
+      });
+    }
+
+    return base;
+  }
 
   // ── Columns ──────────────────────────────────────────────────────
 
   const columns = useMemo<ColumnDef<SubscriptionRow>[]>(
     () => [
       {
+        key: "id",
+        header: "Subscription ID",
+        cell: (row) => (
+          <span className="text-sm font-medium text-text-secondary">
+            {row.id}
+          </span>
+        ),
+      },
+      {
         key: "templeName",
-        header: "Temple",
+        header: "Temple Name",
         sortable: true,
         cell: (row) => (
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand text-xs font-bold">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand text-xs font-bold">
               {row.templeInitials}
             </div>
             <div className="min-w-0">
-              <p className="font-semibold text-text-primary truncate">
+              <p className="font-semibold text-text-primary truncate text-sm">
                 {row.templeName}
               </p>
               <p className="text-xs text-text-tertiary truncate">
@@ -512,9 +875,9 @@ export default function SubscriptionsPage() {
       },
       {
         key: "billingCycle",
-        header: "Billing",
+        header: "Billing Cycle",
         cell: (row) => (
-          <span className="text-text-secondary">{row.billingCycle}</span>
+          <span className="text-sm text-text-secondary">{row.billingCycle}</span>
         ),
       },
       {
@@ -522,26 +885,16 @@ export default function SubscriptionsPage() {
         header: "Amount",
         align: "right",
         cell: (row) => (
-          <span className="font-semibold tabular-nums text-text-primary">
+          <span className="font-semibold tabular-nums text-text-primary text-sm">
             ₹{row.amount.toLocaleString()}
           </span>
         ),
       },
       {
-        key: "paymentDate",
-        header: "Payment Date",
+        key: "expiresOn",
+        header: "Expander",
         cell: (row) => (
-          <span className="text-text-secondary">{row.paymentDate}</span>
-        ),
-      },
-      {
-        key: "receiptId",
-        header: "Receipt",
-        cell: (row) => (
-          <button className="inline-flex items-center gap-1.5 text-sm font-medium text-text-brand hover:underline">
-            <FileText className="h-3.5 w-3.5" />
-            {row.receiptId}
-          </button>
+          <span className="text-sm text-text-secondary">{row.expiresOn}</span>
         ),
       },
       {
@@ -554,34 +907,26 @@ export default function SubscriptionsPage() {
         ),
       },
       {
-        key: "verifiedBy",
-        header: "Verified By",
+        key: "actions",
+        header: "Actions",
+        align: "right",
         cell: (row) => (
-          <span className="text-text-tertiary">
-            {row.verifiedBy ?? "—"}
-          </span>
+          <div className="flex items-center justify-end gap-2">
+            {row.status === "Pending" && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setVerifyingRow(row)}
+              >
+                <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Verify
+              </Button>
+            )}
+            <ActionsDropdown actions={getRowActions(row)} />
+          </div>
         ),
       },
-      {
-        key: "actions",
-        header: "",
-        align: "right",
-        cell: (row) =>
-          row.status === "Pending" ? (
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => setVerifyingRow(row)}
-            >
-              <ShieldCheck className="h-4 w-4 mr-1" /> Verify
-            </Button>
-          ) : (
-            <button className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors">
-              <Eye className="h-4 w-4" />
-            </button>
-          ),
-      },
     ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
@@ -592,11 +937,16 @@ export default function SubscriptionsPage() {
       {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-display-xs font-bold tracking-tight text-text-primary">
-            Subscriptions
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-display-xs font-bold tracking-tight text-text-primary">
+              Subscriptions
+            </h1>
+            <Badge color="warning" size="sm">
+              {metrics.pending} Pending
+            </Badge>
+          </div>
           <p className="mt-1 text-sm text-text-tertiary">
-            Review payment receipts, verify and activate temple subscriptions.
+            Manage and filter all subscriptions & payments
           </p>
         </div>
         <Button variant="outline" leadingIcon={<Download className="h-4 w-4" />}>
@@ -651,14 +1001,11 @@ export default function SubscriptionsPage() {
                     }
                   : undefined
               }
-              placeholder="Search by temple, plan, or receipt…"
+              placeholder="Search by name, city, or admin email"
             />
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-text-tertiary">
-              Filter:
-            </span>
             <div className="flex flex-wrap gap-1 rounded-lg bg-subtle p-1">
               {FILTERS.map((id) => {
                 const active = filter === id;
@@ -671,7 +1018,7 @@ export default function SubscriptionsPage() {
                       setPage(1);
                     }}
                     className={[
-                      "rounded-md px-3 py-1.5 text-xs font-semibold transition-all",
+                      "rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all",
                       active
                         ? "bg-surface text-text-primary shadow-xs border border-border/50"
                         : "text-text-secondary hover:text-text-primary",
@@ -679,7 +1026,7 @@ export default function SubscriptionsPage() {
                   >
                     {id}
                     {id === "Pending" && metrics.pending > 0 && (
-                      <span className="ml-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-status-warning-bg text-[10px] font-bold text-status-warning-text">
+                      <span className="ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-status-warning-bg px-1 text-[10px] font-bold text-status-warning-text">
                         {metrics.pending}
                       </span>
                     )}
@@ -715,6 +1062,14 @@ export default function SubscriptionsPage() {
           onClose={() => setVerifyingRow(null)}
           onVerify={handleVerify}
           onReject={handleReject}
+        />
+      )}
+
+      {/* Invoice Detail Modal */}
+      {invoiceRow && (
+        <InvoiceModal
+          subscription={invoiceRow}
+          onClose={() => setInvoiceRow(null)}
         />
       )}
 
