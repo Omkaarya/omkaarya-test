@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { forgotPasswordStepFromQuery } from "@/app/components/temple-admin/ForgotPasswordStepper";
-import { apiUrl } from "@/lib/api-base";
 import {
   clearTempleForgotPasswordSession,
   TEMPLE_FORGOT_EMAIL_KEY,
@@ -192,7 +191,7 @@ export default function ForgotPasswordFlow() {
 
     setEmailSubmitting(true);
     try {
-      const response = await fetch(apiUrl("/api/password-reset/request"), {
+      const response = await fetch("/api/password-reset/request", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ email: trimmed }),
@@ -255,7 +254,7 @@ export default function ForgotPasswordFlow() {
 
     setOtpSubmitting(true);
     try {
-      const response = await fetch(apiUrl("/api/password-reset/verify-otp"), {
+      const response = await fetch("/api/password-reset/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ email: em, otp }),
@@ -292,7 +291,7 @@ export default function ForgotPasswordFlow() {
     setResendHint("");
     setOtpError("");
     try {
-      const response = await fetch(apiUrl("/api/password-reset/resend"), {
+      const response = await fetch("/api/password-reset/resend", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ email: em }),
@@ -335,7 +334,7 @@ export default function ForgotPasswordFlow() {
       } catch {
         // ignore
       }
-      const response = await fetch(apiUrl("/api/password-reset/complete"), {
+      const response = await fetch("/api/password-reset/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({

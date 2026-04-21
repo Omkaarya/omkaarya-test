@@ -4,7 +4,6 @@ import { ArrowRight, Eye, EyeOff, Lock, Mail } from "lucide-react";
 import Link from "next/link";
 import { Suspense, useEffect, useId, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { apiUrl } from "@/lib/api-base";
 import {
   TEMPLE_ONBOARDING_EMAIL_KEY,
   TEMPLE_ONBOARDING_INVITE_FULL_NAME_KEY,
@@ -111,7 +110,7 @@ function TempleAdminSignInForm() {
         // ignore
       }
 
-      const response = await fetch(apiUrl("/api/login"), {
+      const response = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ email: trimmedEmail, tempPassword: pwd }),
