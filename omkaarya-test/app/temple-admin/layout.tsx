@@ -1,9 +1,7 @@
-import TempleOnboardingShell from "./TempleOnboardingShell";
-
-export default function TempleAdminLayout({
+export default function TempleAdminRootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <TempleOnboardingShell>{children}</TempleOnboardingShell>;
+  return <>{children}</>;
 }
