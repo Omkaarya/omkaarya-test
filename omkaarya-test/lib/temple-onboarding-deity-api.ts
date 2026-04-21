@@ -1,5 +1,3 @@
-import { apiUrl } from "./api-base";
-
 export type SubmitTempleDeitySelectionPayload = {
   sessionEmail: string;
   templeId: string;
@@ -19,7 +17,7 @@ export type SubmitTempleDeitySelectionResult =
 export async function submitTempleDeitySelection(
   payload: SubmitTempleDeitySelectionPayload,
 ): Promise<SubmitTempleDeitySelectionResult> {
-  const response = await fetch(apiUrl("/api/temple-admin/deity-selection"), {
+  const response = await fetch("/api/temple-admin/deity-selection", {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(payload),

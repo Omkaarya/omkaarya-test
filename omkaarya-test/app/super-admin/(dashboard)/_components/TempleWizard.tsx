@@ -28,7 +28,6 @@ import {
   Sun,
   X,
 } from "lucide-react";
-import { apiUrl } from "@/lib/api-base";
 import AdminButton from "@/app/components/admin/AdminButton";
 import AffixedInput from "@/app/components/admin/AffixedInput";
 import FormField from "@/app/components/admin/FormField";
@@ -690,7 +689,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
     };
 
     try {
-      const response = await fetch(apiUrl("/api/temples/create"), {
+      const response = await fetch("/api/temples/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -773,7 +772,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
     }
 
     try {
-      const response = await fetch(apiUrl(`/api/temples/${encodeURIComponent(tenantId.trim())}`), {
+      const response = await fetch(`/api/temples/${encodeURIComponent(tenantId.trim())}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
