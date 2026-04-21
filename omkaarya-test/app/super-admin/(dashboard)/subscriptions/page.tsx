@@ -3,9 +3,11 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import {
   Bell,
+  Calendar,
   CheckCircle2,
   CreditCard,
   Download,
+  Expand,
   Eye,
   FileText,
   MoreVertical,
@@ -18,7 +20,6 @@ import {
 
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Badge } from "@/app/components/ds/atoms/Badge";
-import { MetricCard } from "@/app/components/ds/molecules/MetricCard";
 import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
 import { Pagination } from "@/app/components/ds/molecules/Pagination";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
@@ -67,12 +68,10 @@ function planBadgeColor(plan: PlanName) {
   }
 }
 
-function planMonthlyRate(plan: PlanName) {
-  switch (plan) {
-    case "Aaradhana": return 1999;
-    case "Sankalpa": return 3999;
-    case "Mandala": return 4999;
-  }
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${d.getFullYear()} ${months[d.getMonth()]} ${d.getDate()}`;
 }
 
 // ── Filter Tabs ────────────────────────────────────────────────────
@@ -145,7 +144,7 @@ function ActionsDropdown({ actions }: { actions: ActionItem[] }) {
   );
 }
 
-// ── Invoice Detail Modal ────────────────────────────────────────────
+// ── Invoice Detail Modal (Figma-exact) ──────────────────────────────
 
 function InvoiceModal({
   subscription,
@@ -154,11 +153,7 @@ function InvoiceModal({
   subscription: SubscriptionRow;
   onClose: () => void;
 }) {
-  const months = subscription.billingCycle === "Annual" ? 12 : 1;
-  const monthlyRate = planMonthlyRate(subscription.plan);
-  const subTotal = subscription.amount;
-  const tax = 0;
-  const total = subTotal + tax;
+  const invoiceStatus = subscription.status === "Active" || subscription.verifiedBy ? "Paid" : "Unpaid";
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
@@ -168,175 +163,159 @@ function InvoiceModal({
       />
 
       <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-surface shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-6 py-5">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400">
-              <FileText className="h-6 w-6" />
+        {/* Header — icon top-left, expand + close top-right */}
+        <div className="px-6 pt-6 pb-0">
+          <div className="flex items-start justify-between">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-surface shadow-xs">
+              <FileText className="h-5 w-5 text-text-tertiary" />
             </div>
-            <div>
-              <h3 className="text-lg font-bold text-text-primary">
-                Invoice #{subscription.invoiceId} Details
-              </h3>
-              <p className="text-sm text-text-tertiary">
-                Manage your invoice/bill here
-              </p>
+            <div className="flex items-center gap-2">
+              <button className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors">
+                <Expand className="h-4 w-4" />
+              </button>
+              <button
+                onClick={onClose}
+                className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
+
+          {/* Title */}
+          <h3 className="mt-4 text-lg font-bold text-text-primary">
+            Invoice #{subscription.invoiceId} Details
+          </h3>
+          <p className="text-sm text-text-tertiary">
+            Manage your invoice details here.
+          </p>
         </div>
 
         {/* Body */}
         <div className="space-y-6 p-6">
-          {/* Invoice Meta */}
-          <div className="flex items-start justify-between rounded-xl bg-subtle p-5">
-            <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-brand-100 text-brand font-bold text-lg">
-                {subscription.templeInitials}
-              </div>
-              <div>
-                <p className="font-bold text-text-primary text-lg">{subscription.templeName}</p>
-              </div>
-            </div>
-            <div className="text-right text-sm space-y-1">
-              <p className="text-text-tertiary">
-                <span className="font-medium">Invoice: </span>
-                <span className="text-text-primary font-semibold">{subscription.invoiceId}</span>
-              </p>
-              <p className="text-text-tertiary">
-                <span className="font-medium">Issued: </span>
-                {subscription.paymentDate}
-              </p>
-              <p className="text-text-tertiary">
-                <span className="font-medium">Due: </span>
-                {subscription.expiresOn}
-              </p>
+          {/* Temple Avatar */}
+          <div>
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-600 text-white font-bold text-xl shadow-lg">
+              {subscription.templeInitials}
             </div>
           </div>
 
-          {/* From / To */}
-          <div className="grid grid-cols-2 gap-6">
-            <div className="rounded-xl border border-border p-4">
-              <p className="text-xs font-bold uppercase text-text-tertiary tracking-wider mb-2">
-                Invoice From
-              </p>
-              <p className="font-semibold text-text-primary">Pepulux Pvt. Ltd</p>
-              <p className="text-sm text-text-secondary mt-1">
-                2972 Westheimer Rd, Santa Ana,<br />
-                Illinois 85486
-              </p>
-              <p className="text-sm text-text-tertiary mt-1">contact@pepulux.com</p>
+          {/* Invoice Meta */}
+          <div>
+            <p className="text-sm font-semibold text-text-primary mb-2">Invoice</p>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-sm text-text-secondary">
+                <FileText className="h-4 w-4 text-text-tertiary" />
+                <span>{subscription.invoiceId}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-text-secondary">
+                <Calendar className="h-4 w-4 text-text-tertiary" />
+                <span>Issued On: {formatDate(subscription.paymentDate)}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-text-secondary">
+                <Calendar className="h-4 w-4 text-text-tertiary" />
+                <span>Due On: {formatDate(subscription.expiresOn)}</span>
+              </div>
             </div>
-            <div className="rounded-xl border border-border p-4">
-              <p className="text-xs font-bold uppercase text-text-tertiary tracking-wider mb-2">
-                Invoice To
+          </div>
+
+          {/* Invoice From / To */}
+          <div className="grid grid-cols-2 gap-8">
+            <div>
+              <p className="text-sm font-bold text-text-primary mb-2">Invoice From:</p>
+              <p className="text-sm font-medium text-text-primary">Pepulux</p>
+              <p className="text-sm text-text-secondary">
+                2972 Westheimer Rd, Santa Ana, Illinois 85486
               </p>
-              <p className="font-semibold text-text-primary">{subscription.templeName}</p>
-              <p className="text-sm text-text-secondary mt-1">
+              <p className="text-sm text-text-tertiary">user@example.com</p>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-text-primary mb-2">Invoice To:</p>
+              <p className="text-sm font-medium text-text-primary">{subscription.templeName}</p>
+              <p className="text-sm text-text-secondary">
                 {subscription.templeAddress}
               </p>
-              <p className="text-sm text-text-tertiary mt-1">{subscription.adminEmail}</p>
+              <p className="text-sm text-text-tertiary">{subscription.adminEmail}</p>
             </div>
           </div>
 
           {/* Line Items Table */}
-          <div className="overflow-hidden rounded-xl border border-border">
+          <div className="overflow-hidden rounded-lg border border-border">
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-border bg-subtle">
                   <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Plan</th>
                   <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Billing Cycle</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Start Date</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">End Date</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary text-right">Amount/Mth</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary text-right">Months</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary text-right">Total</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Created On</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Expiring On</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Amount(USD)</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Invoice Status</th>
                 </tr>
               </thead>
               <tbody>
-                <tr className="border-b border-border">
-                  <td className="px-4 py-3 text-sm font-semibold text-text-primary">
+                <tr>
+                  <td className="px-4 py-3 text-sm text-text-primary">
                     {subscription.plan}
                   </td>
                   <td className="px-4 py-3 text-sm text-text-secondary">
                     {subscription.billingCycle}
                   </td>
                   <td className="px-4 py-3 text-sm text-text-secondary">
-                    {subscription.activatedOn ?? subscription.paymentDate}
+                    {formatDate(subscription.activatedOn ?? subscription.paymentDate)}
                   </td>
                   <td className="px-4 py-3 text-sm text-text-secondary">
-                    {subscription.expiresOn}
+                    {formatDate(subscription.expiresOn)}
                   </td>
-                  <td className="px-4 py-3 text-sm text-text-primary text-right tabular-nums">
-                    ₹{monthlyRate.toLocaleString()}
+                  <td className="px-4 py-3 text-sm text-text-primary tabular-nums">
+                    ₹{subscription.amount.toLocaleString()}
                   </td>
-                  <td className="px-4 py-3 text-sm text-text-primary text-right tabular-nums">
-                    {months}
-                  </td>
-                  <td className="px-4 py-3 text-sm font-semibold text-text-primary text-right tabular-nums">
-                    ₹{subTotal.toLocaleString()}
+                  <td className="px-4 py-3">
+                    <Badge color={invoiceStatus === "Paid" ? "success" : "warning"} size="sm" dot>
+                      {invoiceStatus}
+                    </Badge>
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          {/* Payment Info Summary */}
-          <div className="flex justify-end">
-            <div className="w-72 space-y-2 rounded-xl border border-border p-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-text-secondary font-medium">Payment Info</span>
-                <span className="text-text-primary font-semibold">Total</span>
+          {/* Payment Info + Totals — side by side */}
+          <div className="flex items-start justify-between gap-8">
+            <div>
+              <p className="text-sm font-bold text-text-primary mb-2">Payment Info</p>
+              <p className="text-sm text-text-secondary">
+                Credit Card: {subscription.cardLast4 ? `4216 **** **** ${subscription.cardLast4}` : "—"}
+              </p>
+              <p className="text-sm text-text-secondary">
+                Amount: ₹{subscription.amount.toLocaleString()}
+              </p>
+            </div>
+            <div className="text-right space-y-1 min-w-[200px]">
+              <div className="flex justify-between text-sm">
+                <span className="text-text-secondary">Sub Total</span>
+                <span className="text-text-primary tabular-nums">₹{subscription.amount.toLocaleString()}</span>
               </div>
-              <hr className="border-border" />
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-text-tertiary">
-                  Credit Card: 424 **** **** {subscription.cardLast4}
-                </span>
+              <div className="flex justify-between text-sm">
+                <span className="text-text-secondary">Tax</span>
+                <span className="text-text-primary tabular-nums">₹0.00</span>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-text-tertiary">Sub Total</span>
-                <span className="text-text-primary tabular-nums">
-                  ₹{subTotal.toLocaleString()}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-text-tertiary">Tax</span>
-                <span className="text-text-primary tabular-nums">₹{tax.toFixed(2)}</span>
-              </div>
-              <hr className="border-border" />
-              <div className="flex items-center justify-between text-sm font-bold">
+              <div className="flex justify-between text-sm font-bold pt-1 border-t border-border">
                 <span className="text-text-primary">Total</span>
-                <span className="text-brand tabular-nums">₹{total.toLocaleString()}</span>
+                <span className="text-text-primary tabular-nums">₹{subscription.amount.toLocaleString()}</span>
               </div>
             </div>
           </div>
 
-          {/* Terms */}
-          <div className="rounded-xl bg-status-success-bg/50 border border-green-200/50 dark:border-green-900/50 p-4">
-            <p className="text-sm font-semibold text-text-primary mb-2">
+          {/* Terms and Conditions — light pink/rose bg like Figma */}
+          <div className="rounded-xl bg-rose-50 dark:bg-rose-950/20 p-5">
+            <p className="text-sm font-bold text-text-primary mb-2">
               Terms and Conditions
             </p>
-            <ul className="text-xs text-text-secondary space-y-1 list-disc pl-4">
-              <li>All payments are made according to the agreed-upon terms and may occur on monthly or annual basis.</li>
-              <li>All due invoices must be paid before their due dates to avoid potential disruption to enterprise-wide services.</li>
+            <ul className="text-sm text-text-secondary space-y-1.5 list-disc pl-4">
+              <li>All payments must be made according to the agreed schedule. Late payments may incur additional fees.</li>
+              <li>We are not liable for any indirect, incidental, or consequential damages, including loss of profits, revenue, or data.</li>
             </ul>
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex justify-end gap-3 border-t border-border px-6 py-4">
-          <Button variant="outline" onClick={onClose}>
-            Close
-          </Button>
-          <Button variant="primary" leadingIcon={<Download className="h-4 w-4" />}>
-            Download PDF
-          </Button>
         </div>
       </div>
     </div>
@@ -364,7 +343,6 @@ function VerifyModal({
       />
 
       <div className="relative z-10 w-full max-w-lg rounded-2xl border border-border bg-surface p-0 shadow-2xl">
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-status-warning-bg text-status-warning-text">
@@ -387,50 +365,33 @@ function VerifyModal({
           </button>
         </div>
 
-        {/* Body */}
         <div className="space-y-4 p-6">
           <div className="flex items-center gap-4 rounded-xl bg-subtle p-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-100 text-brand font-bold text-sm">
               {subscription.templeInitials}
             </div>
             <div>
-              <p className="font-semibold text-text-primary">
-                {subscription.templeName}
-              </p>
-              <p className="text-sm text-text-tertiary">
-                {subscription.adminEmail}
-              </p>
+              <p className="font-semibold text-text-primary">{subscription.templeName}</p>
+              <p className="text-sm text-text-tertiary">{subscription.adminEmail}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="rounded-lg border border-border p-3">
               <p className="text-xs font-medium text-text-tertiary">Plan</p>
-              <p className="mt-1 font-semibold text-text-primary">
-                {subscription.plan}
-              </p>
+              <p className="mt-1 font-semibold text-text-primary">{subscription.plan}</p>
             </div>
             <div className="rounded-lg border border-border p-3">
-              <p className="text-xs font-medium text-text-tertiary">
-                Billing Cycle
-              </p>
-              <p className="mt-1 font-semibold text-text-primary">
-                {subscription.billingCycle}
-              </p>
+              <p className="text-xs font-medium text-text-tertiary">Billing Cycle</p>
+              <p className="mt-1 font-semibold text-text-primary">{subscription.billingCycle}</p>
             </div>
             <div className="rounded-lg border border-border p-3">
               <p className="text-xs font-medium text-text-tertiary">Amount</p>
-              <p className="mt-1 font-semibold text-text-primary">
-                ₹{subscription.amount.toLocaleString()}
-              </p>
+              <p className="mt-1 font-semibold text-text-primary">₹{subscription.amount.toLocaleString()}</p>
             </div>
             <div className="rounded-lg border border-border p-3">
-              <p className="text-xs font-medium text-text-tertiary">
-                Payment Date
-              </p>
-              <p className="mt-1 font-semibold text-text-primary">
-                {subscription.paymentDate}
-              </p>
+              <p className="text-xs font-medium text-text-tertiary">Payment Date</p>
+              <p className="mt-1 font-semibold text-text-primary">{subscription.paymentDate}</p>
             </div>
           </div>
 
@@ -439,12 +400,8 @@ function VerifyModal({
               <div className="flex items-center gap-3">
                 <FileText className="h-5 w-5 text-fg-tertiary" />
                 <div>
-                  <p className="text-sm font-medium text-text-primary">
-                    Payment Receipt
-                  </p>
-                  <p className="text-xs text-text-tertiary">
-                    {subscription.receiptId}.pdf
-                  </p>
+                  <p className="text-sm font-medium text-text-primary">Payment Receipt</p>
+                  <p className="text-xs text-text-tertiary">{subscription.receiptId}.pdf</p>
                 </div>
               </div>
               <Button variant="ghost" size="sm">
@@ -454,7 +411,6 @@ function VerifyModal({
           </div>
         </div>
 
-        {/* Footer */}
         <div className="flex justify-end gap-3 border-t border-border px-6 py-4">
           <Button variant="destructive-outline" onClick={onReject}>
             <XCircle className="h-4 w-4 mr-1.5" /> Reject
@@ -519,7 +475,7 @@ export default function SubscriptionsPage() {
   const [rows, setRows] = useState<SubscriptionRow[]>([
     {
       id: "Sub ID 001",
-      invoiceId: "INV000001",
+      invoiceId: "INV251001",
       templeName: "Sri Jagannath Temple",
       templeInitials: "SJ",
       templeAddress: "Grand Road, Puri, Odisha 752001",
@@ -537,7 +493,7 @@ export default function SubscriptionsPage() {
     },
     {
       id: "Sub ID 002",
-      invoiceId: "INV000002",
+      invoiceId: "INV251002",
       templeName: "Swaminarayan Mandir",
       templeInitials: "SM",
       templeAddress: "Kalupur, Ahmedabad, Gujarat 380001",
@@ -555,7 +511,7 @@ export default function SubscriptionsPage() {
     },
     {
       id: "Sub ID 003",
-      invoiceId: "INV000003",
+      invoiceId: "INV251003",
       templeName: "Meenakshi Amman Temple",
       templeInitials: "MA",
       templeAddress: "Madurai, Tamil Nadu 625001",
@@ -573,7 +529,7 @@ export default function SubscriptionsPage() {
     },
     {
       id: "Sub ID 004",
-      invoiceId: "INV000004",
+      invoiceId: "INV251004",
       templeName: "Kashi Vishwanath Temple",
       templeInitials: "KV",
       templeAddress: "Lahori Tola, Varanasi, UP 221001",
@@ -591,7 +547,7 @@ export default function SubscriptionsPage() {
     },
     {
       id: "Sub ID 005",
-      invoiceId: "INV000005",
+      invoiceId: "INV251005",
       templeName: "Tirupati Balaji Temple",
       templeInitials: "TB",
       templeAddress: "Tirumala, Tirupati, AP 517504",
@@ -609,7 +565,7 @@ export default function SubscriptionsPage() {
     },
     {
       id: "Sub ID 006",
-      invoiceId: "INV000006",
+      invoiceId: "INV251006",
       templeName: "Somnath Temple",
       templeInitials: "ST",
       templeAddress: "Somnath, Prabhas Patan, Gujarat 362268",
@@ -627,7 +583,7 @@ export default function SubscriptionsPage() {
     },
     {
       id: "Sub ID 007",
-      invoiceId: "INV000007",
+      invoiceId: "INV251007",
       templeName: "Siddhivinayak Temple",
       templeInitials: "SV",
       templeAddress: "Prabhadevi, Mumbai, MH 400028",
@@ -645,7 +601,7 @@ export default function SubscriptionsPage() {
     },
     {
       id: "Sub ID 008",
-      invoiceId: "INV000008",
+      invoiceId: "INV251008",
       templeName: "Golden Temple",
       templeInitials: "GT",
       templeAddress: "Golden Temple Rd, Amritsar, Punjab 143006",
@@ -663,7 +619,7 @@ export default function SubscriptionsPage() {
     },
     {
       id: "Sub ID 009",
-      invoiceId: "INV000009",
+      invoiceId: "INV251009",
       templeName: "Rameshwaram Temple",
       templeInitials: "RT",
       templeAddress: "Rameswaram, Tamil Nadu 623526",
@@ -681,7 +637,7 @@ export default function SubscriptionsPage() {
     },
     {
       id: "Sub ID 010",
-      invoiceId: "INV000010",
+      invoiceId: "INV251010",
       templeName: "Badrinath Temple",
       templeInitials: "BT",
       templeAddress: "Badrinath, Chamoli, Uttarakhand 246422",
@@ -710,7 +666,8 @@ export default function SubscriptionsPage() {
           r.templeName.toLowerCase().includes(q) ||
           r.plan.toLowerCase().includes(q) ||
           r.receiptId.toLowerCase().includes(q) ||
-          r.id.toLowerCase().includes(q)
+          r.id.toLowerCase().includes(q) ||
+          r.adminEmail.toLowerCase().includes(q)
       );
     }
     if (filter !== "All") {
@@ -726,14 +683,15 @@ export default function SubscriptionsPage() {
     pageSafe * pageSize
   );
 
-  // ── Metrics ──────────────────────────────────────────────────────
+  // ── Metrics (for tab badges) ─────────────────────────────────────
 
-  const metrics = useMemo(() => {
+  const counts = useMemo(() => {
     return {
-      total: rows.length,
-      pending: rows.filter((r) => r.status === "Pending").length,
-      active: rows.filter((r) => r.status === "Active").length,
-      expired: rows.filter((r) => r.status === "Expired").length,
+      All: rows.length,
+      Pending: rows.filter((r) => r.status === "Pending").length,
+      Active: rows.filter((r) => r.status === "Active").length,
+      Expired: rows.filter((r) => r.status === "Expired").length,
+      Rejected: rows.filter((r) => r.status === "Rejected").length,
     };
   }, [rows]);
 
@@ -933,7 +891,7 @@ export default function SubscriptionsPage() {
   // ── Render ───────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -942,7 +900,7 @@ export default function SubscriptionsPage() {
               Subscriptions
             </h1>
             <Badge color="warning" size="sm">
-              {metrics.pending} Pending
+              {counts.Pending} Pending
             </Badge>
           </div>
           <p className="mt-1 text-sm text-text-tertiary">
@@ -954,37 +912,9 @@ export default function SubscriptionsPage() {
         </Button>
       </div>
 
-      {/* Metrics Grid */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          title="Total Subscriptions"
-          value={String(metrics.total).padStart(2, "0")}
-          chartColor="brand"
-          showMenu={false}
-        />
-        <MetricCard
-          title="Pending Verification"
-          value={String(metrics.pending).padStart(2, "0")}
-          chartColor="warning"
-          showMenu={false}
-        />
-        <MetricCard
-          title="Active"
-          value={String(metrics.active).padStart(2, "0")}
-          chartColor="success"
-          showMenu={false}
-        />
-        <MetricCard
-          title="Expired"
-          value={String(metrics.expired).padStart(2, "0")}
-          chartColor="gray"
-          showMenu={false}
-        />
-      </div>
-
       {/* Table Container */}
       <div className="bg-surface rounded-xl border border-border shadow-xs">
-        {/* Filter Bar */}
+        {/* Filter Bar — search + tabs with count badges */}
         <div className="flex flex-col gap-4 border-b border-border p-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="w-full max-w-md">
             <SearchInput
@@ -1005,35 +935,39 @@ export default function SubscriptionsPage() {
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex flex-wrap gap-1 rounded-lg bg-subtle p-1">
-              {FILTERS.map((id) => {
-                const active = filter === id;
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => {
-                      setFilter(id);
-                      setPage(1);
-                    }}
+          <div className="flex flex-wrap items-center gap-1 rounded-lg bg-subtle p-1">
+            {FILTERS.map((id) => {
+              const active = filter === id;
+              const count = counts[id];
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => {
+                    setFilter(id);
+                    setPage(1);
+                  }}
+                  className={[
+                    "rounded-md px-3 py-1.5 text-xs font-semibold transition-all flex items-center gap-1.5",
+                    active
+                      ? "bg-surface text-text-primary shadow-xs border border-border/50"
+                      : "text-text-secondary hover:text-text-primary",
+                  ].join(" ")}
+                >
+                  {id}
+                  <span
                     className={[
-                      "rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all",
+                      "inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold",
                       active
-                        ? "bg-surface text-text-primary shadow-xs border border-border/50"
-                        : "text-text-secondary hover:text-text-primary",
+                        ? "bg-brand text-white"
+                        : "bg-border/50 text-text-tertiary",
                     ].join(" ")}
                   >
-                    {id}
-                    {id === "Pending" && metrics.pending > 0 && (
-                      <span className="ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-status-warning-bg px-1 text-[10px] font-bold text-status-warning-text">
-                        {metrics.pending}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
