@@ -317,6 +317,16 @@ function InvoiceModal({
             </ul>
           </div>
         </div>
+
+        {/* Bottom Action Buttons */}
+        <div className="flex justify-end gap-3 border-t border-border px-6 py-4">
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
+          <Button variant="primary" leadingIcon={<Download className="h-4 w-4" />}>
+            Download Invoice
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -357,12 +367,17 @@ function VerifyModal({
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors">
+              <Expand className="h-4 w-4" />
+            </button>
+            <button
+              onClick={onClose}
+              className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         <div className="space-y-4 p-6">
@@ -405,7 +420,7 @@ function VerifyModal({
                 </div>
               </div>
               <Button variant="ghost" size="sm">
-                <Eye className="h-4 w-4 mr-1" /> View
+                <Eye className="h-4 w-4 mr-1" /> View Receipt
               </Button>
             </div>
           </div>

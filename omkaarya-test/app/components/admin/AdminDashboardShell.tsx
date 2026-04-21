@@ -1,17 +1,21 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import {
   Bell,
   Building2,
   Calendar,
+  ChevronDown,
+  Cog,
   CreditCard,
+  Database,
+  FileText,
   Globe,
   LayoutDashboard,
   Mail,
   Maximize2,
   Menu,
-  Package,
   Receipt,
   Search,
   Settings,
@@ -22,17 +26,34 @@ import {
   User,
   Users,
   UserX,
+  Wallet,
+  CheckSquare,
+  RefreshCw,
+  DollarSign,
 } from "lucide-react";
 import { AdminBreadcrumbs } from "@/app/components/admin/adminBreadcrumbs";
+
+// ── Navigation Config ──────────────────────────────────────────────
 
 const primaryNav = [
   { href: "#", label: "Dashboard", icon: LayoutDashboard },
   { href: "/super-admin", label: "Temples", icon: Building2 },
-  { href: "/super-admin/subscriptions", label: "Subscriptions", icon: CreditCard },
-  { href: "#", label: "Pricing Plans", icon: Tag },
+  { href: "/super-admin/pricing-plans", label: "Pricing Plans", icon: Tag },
   { href: "#", label: "Domains", icon: Globe },
-  { href: "#", label: "Transactions", icon: Receipt },
   { href: "#", label: "Panchangam", icon: Calendar },
+] as const;
+
+const financeNav = [
+  { href: "/super-admin/finance", label: "Revenue Dashboard", icon: DollarSign },
+  { href: "/super-admin/finance/transactions", label: "Transactions", icon: Receipt },
+  { href: "/super-admin/finance/invoices", label: "Invoices", icon: FileText },
+  { href: "/super-admin/finance/receipts", label: "Receipts", icon: Wallet },
+  { href: "/super-admin/finance/confirm-payments", label: "Confirm Payments", icon: CheckSquare },
+] as const;
+
+const subscriptionNav = [
+  { href: "/super-admin/finance/subscriptions", label: "Subscriptions", icon: CreditCard },
+  { href: "/super-admin/finance/upcoming-renewals", label: "Upcoming Renewals", icon: RefreshCw },
 ] as const;
 
 const userNav = [
@@ -40,6 +61,81 @@ const userNav = [
   { href: "#", label: "Role & Permissions", icon: Shield },
   { href: "#", label: "Delete Account Requests", icon: UserX },
 ] as const;
+
+const systemSettingsNav = [
+  { href: "/super-admin/system-settings/feature-registry", label: "Feature Registry", icon: Database },
+] as const;
+
+// ── Collapsible Section ────────────────────────────────────────────
+
+function NavSection({
+  label,
+  icon: SectionIcon,
+  items,
+  pathname,
+  onLinkClick,
+  defaultOpen = false,
+}: {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  items: ReadonlyArray<{ href: string; label: string; icon: React.ComponentType<{ className?: string }> }>;
+  pathname: string;
+  onLinkClick: () => void;
+  defaultOpen?: boolean;
+}) {
+  const hasActiveChild = items.some((item) => pathname === item.href || pathname.startsWith(item.href + "/"));
+  const [open, setOpen] = useState(defaultOpen || hasActiveChild);
+
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={[
+          "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+          hasActiveChild
+            ? "bg-zinc-100 font-semibold text-[var(--brand-primary)] dark:bg-zinc-800/80"
+            : "text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60",
+        ].join(" ")}
+      >
+        <SectionIcon
+          className={`h-5 w-5 shrink-0 ${hasActiveChild ? "opacity-100" : "opacity-80"}`}
+        />
+        <span className="flex-1 text-left">{label}</span>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 transition-transform duration-200 ${open ? "rotate-0" : "-rotate-90"}`}
+        />
+      </button>
+
+      {open && (
+        <ul className="mt-0.5 ml-4 space-y-0.5 border-l border-zinc-200 pl-3 dark:border-zinc-700">
+          {items.map(({ href, label: itemLabel, icon: Icon }) => {
+            const active = pathname === href || pathname.startsWith(href + "/");
+            return (
+              <li key={itemLabel}>
+                <Link
+                  href={href}
+                  onClick={onLinkClick}
+                  className={[
+                    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
+                    active
+                      ? "font-semibold text-[var(--brand-primary)] bg-zinc-50 dark:bg-zinc-800/50"
+                      : "text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60",
+                  ].join(" ")}
+                >
+                  <Icon className={`h-4 w-4 shrink-0 ${active ? "opacity-100" : "opacity-70"}`} />
+                  {itemLabel}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+// ── Shell Props ────────────────────────────────────────────────────
 
 export type AdminDashboardShellProps = {
   pathname: string;
@@ -66,6 +162,8 @@ export function AdminDashboardShell({
   onToggleTheme,
   children,
 }: AdminDashboardShellProps) {
+  const closeSidebar = () => onSidebarOpenChange(false);
+
   return (
     <div className="flex h-screen min-h-0 overflow-hidden bg-white font-sans text-[var(--text-primary)] dark:bg-zinc-950">
       {sidebarOpen && (
@@ -73,7 +171,7 @@ export function AdminDashboardShell({
           type="button"
           aria-label="Close menu"
           className="fixed inset-0 z-40 bg-black/40 lg:hidden"
-          onClick={() => onSidebarOpenChange(false)}
+          onClick={closeSidebar}
         />
       )}
 
@@ -90,6 +188,7 @@ export function AdminDashboardShell({
           </span>
         </div>
         <nav className="flex-1 overflow-y-auto px-3 py-4">
+          {/* Primary Nav */}
           <ul className="space-y-0.5">
             {primaryNav.map(({ href, label, icon: Icon }) => {
               const active = href === "/super-admin" && templesActive;
@@ -97,7 +196,7 @@ export function AdminDashboardShell({
                 <li key={label}>
                   <Link
                     href={href}
-                    onClick={() => onSidebarOpenChange(false)}
+                    onClick={closeSidebar}
                     className={[
                       "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                       active
@@ -114,7 +213,27 @@ export function AdminDashboardShell({
                 </li>
               );
             })}
+
+            {/* Finance & Billing — collapsible */}
+            <NavSection
+              label="Finance & Billing"
+              icon={Wallet}
+              items={financeNav}
+              pathname={pathname}
+              onLinkClick={closeSidebar}
+            />
+
+            {/* Subscriptions — collapsible */}
+            <NavSection
+              label="Subscriptions"
+              icon={CreditCard}
+              items={subscriptionNav}
+              pathname={pathname}
+              onLinkClick={closeSidebar}
+            />
           </ul>
+
+          {/* User Management */}
           <p className="mb-2 mt-6 px-3 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
             User Management
           </p>
@@ -123,7 +242,7 @@ export function AdminDashboardShell({
               <li key={label}>
                 <Link
                   href={href}
-                  onClick={() => onSidebarOpenChange(false)}
+                  onClick={closeSidebar}
                   className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
                 >
                   <Icon className="h-5 w-5 shrink-0 opacity-80" aria-hidden />
@@ -131,6 +250,20 @@ export function AdminDashboardShell({
                 </Link>
               </li>
             ))}
+          </ul>
+
+          {/* System Settings */}
+          <p className="mb-2 mt-6 px-3 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+            System
+          </p>
+          <ul className="space-y-0.5">
+            <NavSection
+              label="System Settings"
+              icon={Cog}
+              items={systemSettingsNav}
+              pathname={pathname}
+              onLinkClick={closeSidebar}
+            />
           </ul>
         </nav>
       </aside>
