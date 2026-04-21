@@ -1,22 +1,25 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
-import { Settings2, Check, Minus, ArrowRight, Clock, CreditCard, Sparkles } from "lucide-react";
+import Link from "next/link";
+import {
+  Check,
+  Plus,
+  Settings2,
+  ToggleLeft,
+  ToggleRight,
+} from "lucide-react";
 
-// ── Plan data matching Figma ───────────────────────────────────────
+// ── Plan data from Figma ───────────────────────────────────────────
 
 const PLANS = [
   {
     id: "Prarambha",
     name: "Prarambha",
-    price: "$20",
-    period: "/per month",
-    description: "Ideal for small temples starting digital management of daily activities and donations.",
-    setupFee: "$49 one-time",
-    trial: "7 days",
-    seats: "3",
-    extraSeat: "$6/seat/month",
+    priceMonthly: "$19",
+    priceYearly: "$157",
+    description:
+      "Ideal for small temples starting digital management of daily activities and donations.",
     included: [
       "Devotee management",
       "Pooja booking (online + manual)",
@@ -26,224 +29,354 @@ const PLANS = [
       "Standard roles",
       "Inventory management - Basic",
     ],
-    notIncluded: [
-      "Compliance tax receipts",
-      "Full microsite + SEO branding",
-      "Custom domain",
-      "Extended roles",
-      "Custom roles",
-      "Priority support",
-      "Advanced analytics",
-    ],
   },
   {
     id: "Sankalpa",
     name: "Sankalpa",
-    price: "$49",
-    period: "/per month",
     popular: true,
-    description: "Ideal for growing temples wanting compliance receipts and advanced features.",
-    setupFee: "$99 one-time",
-    trial: "14 days",
-    seats: "5",
-    extraSeat: "$5/seat/month",
+    priceMonthly: "$49",
+    priceYearly: "$539",
+    description:
+      "Ideal for growing temples wanting compliance receipts and advanced features.",
     included: [
-      "Everything in Prarambha",
+      "Devotee management",
+      "Pooja booking (online + manual)",
+      "Donations + basic receipts",
+      "Temple microsite (subdomain)",
+      "Panchangam display",
       "Compliance tax receipts",
       "Full microsite + SEO branding",
       "Inventory management",
       "Extended roles (Trustee · Accountant)",
       "Priority support",
-      "Advanced analytics",
-    ],
-    notIncluded: [
-      "Custom domain",
-      "Custom roles",
     ],
   },
   {
     id: "Aaradhana",
     name: "Aaradhana",
-    price: "$99",
-    period: "/per month",
-    description: "Ideal for established temples wanting full control with unlimited customisation for overall operations.",
-    setupFee: "$149 one-time",
-    trial: "14 days",
-    seats: "10",
-    extraSeat: "$4/seat/month",
+    priceMonthly: "$99",
+    priceYearly: "$1089",
+    description:
+      "Ideal for established temples wanting full control with unlimited customisation.",
     included: [
-      "Everything in Sankalpa",
+      "Devotee management",
+      "Pooja booking (online + manual)",
+      "Donations + basic receipts",
+      "Temple microsite (subdomain)",
+      "Panchangam display",
+      "Compliance tax receipts",
+      "Full microsite + SEO branding",
+      "Inventory management",
+      "Extended roles (Trustee · Accountant)",
+      "Priority support",
       "Custom domain",
       "Custom roles",
-      "Up to 10 user seats",
-      "Dedicated onboarding support",
+      "Advanced analytics",
     ],
-    notIncluded: [],
   },
 ];
 
+// ── Feature comparison matrix ──────────────────────────────────────
+
+type FeatureRow = {
+  name: string;
+  prarambha: boolean;
+  sankalpa: boolean;
+  aaradhana: boolean;
+};
+
+const COMPARISON_FEATURES: FeatureRow[] = [
+  { name: "Devotee management", prarambha: true, sankalpa: true, aaradhana: true },
+  { name: "Pooja booking (online + manual)", prarambha: true, sankalpa: true, aaradhana: true },
+  { name: "Donations + basic receipts", prarambha: true, sankalpa: true, aaradhana: true },
+  { name: "Compliance tax receipts", prarambha: false, sankalpa: true, aaradhana: true },
+  { name: "Temple microsite (subdomain)", prarambha: true, sankalpa: true, aaradhana: true },
+  { name: "Full microsite + SEO branding", prarambha: false, sankalpa: true, aaradhana: true },
+  { name: "Panchangam display", prarambha: true, sankalpa: true, aaradhana: true },
+  { name: "Inventory management", prarambha: false, sankalpa: true, aaradhana: true },
+  { name: "Standard roles", prarambha: true, sankalpa: true, aaradhana: true },
+  { name: "Extended roles (Trustee · Accountant)", prarambha: false, sankalpa: true, aaradhana: true },
+  { name: "Custom roles", prarambha: false, sankalpa: false, aaradhana: true },
+  { name: "Priority support", prarambha: false, sankalpa: true, aaradhana: true },
+  { name: "Advanced analytics", prarambha: false, sankalpa: false, aaradhana: true },
+  { name: "Custom domain", prarambha: false, sankalpa: false, aaradhana: true },
+];
+
+const SEAT_ROW = { label: "Included seats", values: ["3", "5", "10"] };
+const EXTRA_SEAT_ROW = { label: "Extra seat", values: ["$6/mo", "$5/mo", "$4/mo"] };
+
+// ── Temple Analytics mock ──────────────────────────────────────────
+
+const TEMPLE_ANALYTICS = [
+  { plan: "Prarambha", count: 45, pct: 35 },
+  { plan: "Sankalpa", count: 62, pct: 48 },
+  { plan: "Aaradhana", count: 22, pct: 17 },
+];
+
+// ── Main Page ──────────────────────────────────────────────────────
+
 export default function PricingPlansPage() {
-  const [billedYearly, setBilledYearly] = useState<Record<string, boolean>>({});
+  const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
+  const [featureToggles, setFeatureToggles] = useState<Record<string, Record<string, boolean>>>({});
+
+  const togglePlanFeature = (featureName: string, planKey: string) => {
+    setFeatureToggles((prev) => {
+      const featureRow = prev[featureName] || {};
+      return {
+        ...prev,
+        [featureName]: {
+          ...featureRow,
+          [planKey]: !(featureRow[planKey] ?? COMPARISON_FEATURES.find(f => f.name === featureName)?.[planKey as keyof FeatureRow] ?? false),
+        },
+      };
+    });
+  };
+
+  const getFeatureValue = (featureName: string, planKey: string): boolean => {
+    if (featureToggles[featureName]?.[planKey] !== undefined) {
+      return featureToggles[featureName][planKey];
+    }
+    const feature = COMPARISON_FEATURES.find(f => f.name === featureName);
+    return feature ? (feature[planKey as keyof FeatureRow] as boolean) : false;
+  };
 
   return (
-    <div className="mx-auto w-full max-w-[min(100rem,calc(100vw-2rem))]">
+    <div className="mx-auto w-full max-w-[min(100rem,calc(100vw-2rem))] space-y-6">
+      {/* ─── Header ──────────────────────────────────────────── */}
       <div className="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        {/* Header */}
-        <div className="border-b border-zinc-100 p-6 dark:border-zinc-800 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 dark:border-zinc-700 dark:text-zinc-400 mb-3">
-            <Sparkles className="h-3 w-3" />
-            Seva Plans
+        <div className="flex flex-col gap-4 border-b border-zinc-100 p-6 dark:border-zinc-800 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+                Pricing Plans
+              </h1>
+              <span className="rounded-md bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800 dark:bg-blue-950/50 dark:text-blue-300">
+                {PLANS.length} plans
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+              Manage and configure your pricing tiers
+            </p>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-            Plans built for every size of temple
-          </h1>
-          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 max-w-lg mx-auto">
-            Every temple is verified before onboarding. Configure features per plan to control what each tier gets.
-          </p>
+
+          <div className="flex items-center gap-3">
+            {/* Monthly / Yearly tabs */}
+            <div className="flex rounded-lg border border-zinc-200 bg-zinc-50 p-0.5 dark:border-zinc-700 dark:bg-zinc-800">
+              <button
+                type="button"
+                onClick={() => setBilling("monthly")}
+                className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                  billing === "monthly"
+                    ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50"
+                    : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400"
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                onClick={() => setBilling("yearly")}
+                className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                  billing === "yearly"
+                    ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50"
+                    : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400"
+                }`}
+              >
+                Yearly&nbsp;<span className="text-emerald-600 dark:text-emerald-400">Save 15%</span>
+              </button>
+            </div>
+
+            {/* Create Plan button */}
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)]"
+            >
+              <Plus className="h-4 w-4" />
+              Create Pricing Plan
+            </button>
+          </div>
         </div>
 
-        {/* Plan Cards */}
+        {/* ─── Plan Cards ──────────────────────────────────────── */}
         <div className="grid gap-6 p-6 lg:grid-cols-3">
           {PLANS.map((plan) => (
             <div
               key={plan.id}
-              className="relative flex flex-col rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900 overflow-hidden"
+              className="relative flex flex-col rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900"
             >
-              {/* Card Content */}
-              <div className="p-6">
-                {/* Plan name + badge */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900 dark:bg-zinc-100">
-                      <span className="text-xs font-bold text-white dark:text-zinc-900">
-                        {plan.name.charAt(0)}
-                      </span>
-                    </div>
-                    <span className="text-base font-bold text-zinc-900 dark:text-zinc-50">
-                      {plan.name}
-                    </span>
-                  </div>
+              <div className="p-5">
+                {/* Name + badge */}
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">{plan.name}</h2>
                   {plan.popular && (
-                    <span className="rounded-full border border-zinc-300 px-2.5 py-0.5 text-[10px] font-semibold text-zinc-600 dark:border-zinc-600 dark:text-zinc-400">
+                    <span className="rounded-full border border-zinc-300 px-2.5 py-0.5 text-[10px] font-semibold text-zinc-500 dark:border-zinc-600 dark:text-zinc-400">
                       Most Popular
                     </span>
                   )}
                 </div>
 
                 {/* Price */}
-                <div className="mb-4">
-                  <span className="text-4xl font-bold text-zinc-900 dark:text-zinc-50">{plan.price}</span>
-                  <span className="text-sm text-zinc-500 dark:text-zinc-400">{plan.period}</span>
+                <div className="mb-3">
+                  <span className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">
+                    {billing === "monthly" ? plan.priceMonthly : plan.priceYearly}
+                  </span>
+                  <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                    /{billing === "monthly" ? "month" : "year"}
+                  </span>
                 </div>
 
                 {/* Description */}
-                <p className="mb-5 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
+                <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
                   {plan.description}
                 </p>
 
-                {/* Meta details */}
-                <div className="space-y-2 text-sm mb-5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-500 dark:text-zinc-400">Setup fee:</span>
-                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">{plan.setupFee}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-500 dark:text-zinc-400">Trial:</span>
-                    <span className="font-medium text-zinc-700 dark:text-zinc-300">{plan.trial}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-500 dark:text-zinc-400">Included seats:</span>
-                    <span className="font-medium text-zinc-700 dark:text-zinc-300">{plan.seats}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-500 dark:text-zinc-400">Extra seat:</span>
-                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">{plan.extraSeat}</span>
-                  </div>
-                </div>
-
-                {/* Billed yearly toggle */}
-                <div className="flex items-center gap-2.5 mb-6">
-                  <button
-                    type="button"
-                    onClick={() => setBilledYearly((prev) => ({ ...prev, [plan.id]: !prev[plan.id] }))}
-                    className={`relative h-5 w-9 rounded-full transition-colors ${
-                      billedYearly[plan.id]
-                        ? "bg-zinc-900 dark:bg-zinc-100"
-                        : "bg-zinc-300 dark:bg-zinc-600"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform shadow-sm ${
-                        billedYearly[plan.id] ? "translate-x-4 dark:bg-zinc-900" : "dark:bg-zinc-300"
-                      }`}
-                    />
-                  </button>
-                  <span className="text-sm text-zinc-500 dark:text-zinc-400">Billed yearly</span>
-                </div>
-
-                {/* Divider */}
-                <hr className="border-zinc-100 dark:border-zinc-800 mb-5" />
-
                 {/* Included */}
-                <div className="mb-5">
-                  <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 mb-3">Included</h4>
-                  <ul className="space-y-2.5">
+                <div className="mb-4">
+                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                    Included
+                  </h4>
+                  <ul className="space-y-1.5">
                     {plan.included.map((item) => (
-                      <li key={item} className="flex items-start gap-2.5 text-sm text-zinc-700 dark:text-zinc-300">
-                        <Check className="h-4 w-4 shrink-0 text-emerald-500 mt-0.5" strokeWidth={2.5} />
-                        {item}
+                      <li key={item} className="flex items-start gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" strokeWidth={2.5} />
+                        <span>{item}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
-
-                {/* Not Included */}
-                {plan.notIncluded.length > 0 && (
-                  <div className="mb-6">
-                    <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 mb-3">Not Included</h4>
-                    <ul className="space-y-2.5">
-                      {plan.notIncluded.map((item) => (
-                        <li key={item} className="flex items-start gap-2.5 text-sm text-zinc-400 dark:text-zinc-500">
-                          <Minus className="h-4 w-4 shrink-0 mt-0.5" strokeWidth={2} />
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
               </div>
 
-              {/* Configure Button - dark, full width at bottom */}
-              <div className="mt-auto px-6 pb-6">
+              {/* Action buttons */}
+              <div className="mt-auto flex items-center gap-2 border-t border-zinc-100 px-5 py-3 dark:border-zinc-800">
                 <Link
                   href={`/super-admin/pricing-plans/${encodeURIComponent(plan.id)}/features`}
-                  className="flex w-full items-center justify-center gap-2 rounded-full bg-zinc-900 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--brand-primary)] px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-primary-hover)]"
                 >
-                  <Settings2 className="h-4 w-4" />
-                  Configure Features
-                  <ArrowRight className="h-4 w-4" />
+                  Edit Plan
                 </Link>
+                <button
+                  type="button"
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300"
+                >
+                  Available
+                </button>
+              </div>
+              <div className="border-t border-zinc-100 px-5 py-2 dark:border-zinc-800 text-center">
+                <button type="button" className="text-xs font-medium text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300">
+                  Downtimes
+                </button>
               </div>
             </div>
           ))}
         </div>
+      </div>
 
-        {/* Footer */}
-        <div className="border-t border-zinc-100 px-6 py-5 dark:border-zinc-800">
-          <div className="flex flex-wrap items-center justify-center gap-8 text-sm text-zinc-500 dark:text-zinc-400">
-            <span className="flex items-center gap-1.5">
-              <Clock className="h-4 w-4" />
-              Cancel anytime.
-            </span>
-            <span className="flex items-center gap-1.5">
-              <CreditCard className="h-4 w-4" />
-              No credit card required.
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Sparkles className="h-4 w-4" />
-              No hidden fees.
-            </span>
-          </div>
+      {/* ─── Feature Comparison Table ──────────────────────────── */}
+      <div className="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="border-b border-zinc-100 px-6 py-4 dark:border-zinc-800">
+          <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Plan Comparison</h2>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-zinc-100 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-800/50">
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500 w-[40%]">
+                  Feature
+                </th>
+                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                  Prarambha
+                </th>
+                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                  Sankalpa
+                </th>
+                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                  Aaradhana
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+              {COMPARISON_FEATURES.map((feature) => (
+                <tr key={feature.name} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20">
+                  <td className="px-6 py-3 text-sm text-zinc-700 dark:text-zinc-300">
+                    {feature.name}
+                  </td>
+                  {(["prarambha", "sankalpa", "aaradhana"] as const).map((planKey) => {
+                    const enabled = getFeatureValue(feature.name, planKey);
+                    return (
+                      <td key={planKey} className="px-4 py-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => togglePlanFeature(feature.name, planKey)}
+                          className={`inline-flex transition-colors ${
+                            enabled
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : "text-zinc-300 dark:text-zinc-600"
+                          }`}
+                          title={enabled ? "Enabled — click to disable" : "Disabled — click to enable"}
+                        >
+                          {enabled ? (
+                            <ToggleRight className="h-6 w-6" />
+                          ) : (
+                            <ToggleLeft className="h-6 w-6" />
+                          )}
+                        </button>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+
+              {/* Seats row */}
+              <tr className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20">
+                <td className="px-6 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  {SEAT_ROW.label}
+                </td>
+                {SEAT_ROW.values.map((v, i) => (
+                  <td key={i} className="px-4 py-3 text-center text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    {v}
+                  </td>
+                ))}
+              </tr>
+
+              {/* Extra seat row */}
+              <tr className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20">
+                <td className="px-6 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  {EXTRA_SEAT_ROW.label}
+                </td>
+                {EXTRA_SEAT_ROW.values.map((v, i) => (
+                  <td key={i} className="px-4 py-3 text-center text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    {v}
+                  </td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ─── Temple Analytics ──────────────────────────────────── */}
+      <div className="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="border-b border-zinc-100 px-6 py-4 dark:border-zinc-800">
+          <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Temple Analytics</h2>
+        </div>
+        <div className="p-6 space-y-4">
+          {TEMPLE_ANALYTICS.map((item) => (
+            <div key={item.plan} className="flex items-center gap-4">
+              <span className="w-24 text-sm font-medium text-zinc-700 dark:text-zinc-300 shrink-0">
+                {item.plan}
+              </span>
+              <div className="flex-1 h-6 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-[var(--brand-primary)] transition-all duration-500"
+                  style={{ width: `${item.pct}%` }}
+                />
+              </div>
+              <span className="w-16 text-right text-sm font-semibold text-zinc-600 dark:text-zinc-400 shrink-0">
+                {item.count} temples
+              </span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
