@@ -6,6 +6,7 @@ import {
   Check,
   Plus,
   Settings2,
+  Tag,
   ToggleLeft,
   ToggleRight,
 } from "lucide-react";
@@ -116,7 +117,16 @@ const TEMPLE_ANALYTICS = [
 // ── Main Page ──────────────────────────────────────────────────────
 
 export default function PricingPlansPage() {
-  const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
+  const [billing, setBilling] = useState<"monthly" | "yearly">("yearly");
+  const [cardBilling, setCardBilling] = useState<Record<string, "monthly" | "yearly">>({});
+
+  const getCardBilling = (planId: string) => cardBilling[planId] || billing;
+  const toggleCardBilling = (planId: string) => {
+    setCardBilling((prev) => ({
+      ...prev,
+      [planId]: (prev[planId] || billing) === "yearly" ? "monthly" : "yearly",
+    }));
+  };
   const [featureToggles, setFeatureToggles] = useState<Record<string, Record<string, boolean>>>({});
 
   const togglePlanFeature = (featureName: string, planKey: string) => {
@@ -218,10 +228,10 @@ export default function PricingPlansPage() {
                 {/* Price */}
                 <div className="mb-3">
                   <span className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">
-                    {billing === "monthly" ? plan.priceMonthly : plan.priceYearly}
+                    {getCardBilling(plan.id) === "monthly" ? plan.priceMonthly : plan.priceYearly}
                   </span>
                   <span className="text-sm text-zinc-500 dark:text-zinc-400">
-                    /{billing === "monthly" ? "month" : "year"}
+                    /{getCardBilling(plan.id) === "monthly" ? "month" : "year"}
                   </span>
                 </div>
 
@@ -243,6 +253,26 @@ export default function PricingPlansPage() {
                       </li>
                     ))}
                   </ul>
+                </div>
+
+                {/* Per-card billing toggle */}
+                <div className="flex items-center gap-2.5 mt-4">
+                  <button
+                    type="button"
+                    onClick={() => toggleCardBilling(plan.id)}
+                    className={`relative h-5 w-9 rounded-full transition-colors ${
+                      getCardBilling(plan.id) === "yearly"
+                        ? "bg-zinc-900 dark:bg-zinc-100"
+                        : "bg-zinc-300 dark:bg-zinc-600"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform shadow-sm ${
+                        getCardBilling(plan.id) === "yearly" ? "translate-x-4 dark:bg-zinc-900" : "dark:bg-zinc-300"
+                      }`}
+                    />
+                  </button>
+                  <span className="text-sm text-zinc-500 dark:text-zinc-400">Billed yearly</span>
                 </div>
               </div>
 
@@ -268,6 +298,18 @@ export default function PricingPlansPage() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Hint text */}
+        <div className="border-t border-zinc-100 px-6 py-4 dark:border-zinc-800">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            <Tag className="mr-1 inline-block h-3.5 w-3.5" />
+            Features are defined in the{" "}
+            <Link href="/super-admin/system-settings/feature-registry" className="font-medium text-[var(--brand-primary)] hover:underline">
+              Feature Registry
+            </Link>
+            . Only active, plan-visible features appear in the configuration.
+          </p>
         </div>
       </div>
 
