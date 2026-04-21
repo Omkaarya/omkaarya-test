@@ -18,6 +18,8 @@ import { PostgresTempleRepository } from "./temples.repository.js";
 import { createTempleSessionProfileRouter } from "./temple-session-profile.routes.js";
 import { createTemplesRouter } from "./temples.routes.js";
 import { TemplesService } from "./temples.service.js";
+import { PostgresSubscriptionsRepository } from "./subscriptions.repository.js";
+import { createSubscriptionsRouter } from "./subscriptions.routes.js";
 
 /**
  * Super-admin HTTP API mounted at `/api`:
@@ -52,6 +54,7 @@ export function createSuperAdminApiRouter(): Router {
   const templePlans = new PostgresTemplePlanRepository();
   const templePaymentOnboarding = new PostgresTemplePaymentOnboardingRepository();
   const templeOnboardingComplete = new PostgresTempleOnboardingCompleteRepository();
+  const subscriptions = new PostgresSubscriptionsRepository();
 
   const api = Router();
   api.use(createTemplesRouter(templesService));
@@ -63,6 +66,7 @@ export function createSuperAdminApiRouter(): Router {
   api.use(createTemplePlanRouter(templePlans));
   api.use(createTemplePaymentOnboardingRouter(templePaymentOnboarding));
   api.use(createTempleOnboardingCompleteRouter(templeOnboardingComplete));
+  api.use(createSubscriptionsRouter(subscriptions));
   api.use((_req, res) => {
     res.status(404).json({ error: "Not found" });
   });
