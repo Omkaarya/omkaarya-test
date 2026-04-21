@@ -11,6 +11,7 @@ import {
   Mail,
   Maximize2,
   Menu,
+  Package,
   Receipt,
   Search,
   Settings,
@@ -27,7 +28,7 @@ import { AdminBreadcrumbs } from "@/app/components/admin/adminBreadcrumbs";
 const primaryNav = [
   { href: "#", label: "Dashboard", icon: LayoutDashboard },
   { href: "/super-admin", label: "Temples", icon: Building2 },
-  { href: "#", label: "Subscriptions", icon: CreditCard },
+  { href: "/super-admin/subscriptions", label: "Subscriptions", icon: CreditCard },
   { href: "#", label: "Pricing Plans", icon: Tag },
   { href: "#", label: "Domains", icon: Globe },
   { href: "#", label: "Transactions", icon: Receipt },
