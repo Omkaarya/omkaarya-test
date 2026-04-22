@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   Bell,
+  CalendarDays,
   DollarSign,
   LayoutDashboard,
   Lock,
@@ -64,6 +65,16 @@ const navItems: NavItem[] = [
       { href: "/temple-admin/inventory/pooja-bom", label: "Pooja BOM" },
       { href: "/temple-admin/inventory/return-from-pooja", label: "Return from Pooja" },
       { href: "/temple-admin/inventory/print-labels", label: "Print Labels" },
+    ],
+  },
+  {
+    label: "Seva Bookings",
+    icon: CalendarDays,
+    moduleKey: "bookings",
+    items: [
+      { href: "/temple-admin/bookings", label: "Booking Schedules" },
+      { href: "/temple-admin/bookings/calendar", label: "Booking Calendar" },
+      { href: "/temple-admin/bookings/new", label: "New Booking" },
     ],
   },
   { href: "#", label: "Staff", icon: Users, moduleKey: "staff" },
