@@ -5,6 +5,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import { getPool } from "./db/pool.js";
 import { INSTANCE_ID, STARTED_AT_ISO } from "./instance-id.js";
+import { sendError, sendSuccess } from "./middleware/api-envelope.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { createSuperAdminApiRouter } from "./super-admin/index.js";
 
@@ -56,41 +57,56 @@ export function createApp(options: CreateAppOptions = {}): Express {
     try {
       const pool = getPool();
       if (!pool) {
-        return res.json({
-          ok: true,
-          service: "omkaarya-test-backend",
-          instanceId: INSTANCE_ID,
-          startedAt: STARTED_AT_ISO,
-          database: { connected: false },
-        });
+        return sendSuccess(
+          res,
+          200,
+          {
+            service: "omkaarya-test-backend",
+            instanceId: INSTANCE_ID,
+            startedAt: STARTED_AT_ISO,
+            database: { connected: false },
+          },
+          "Service is running",
+          "The API process is up; the database pool is not configured, so `database.connected` is false."
+        );
       }
       const { rows } = await pool.query<{ name: string; temples_count: number }>(
         `SELECT current_database() AS name,
                 (SELECT COUNT(*)::int FROM public.temples) AS temples_count`
       );
-      return res.json({
-        ok: true,
-        service: "omkaarya-test-backend",
-        instanceId: INSTANCE_ID,
-        startedAt: STARTED_AT_ISO,
-        database: {
-          connected: true,
-          name: rows[0].name,
-          templesRowCount: rows[0].temples_count,
-          table: "public.temples",
+      return sendSuccess(
+        res,
+        200,
+        {
+          service: "omkaarya-test-backend",
+          instanceId: INSTANCE_ID,
+          startedAt: STARTED_AT_ISO,
+          database: {
+            connected: true,
+            name: rows[0].name,
+            templesRowCount: rows[0].temples_count,
+            table: "public.temples",
+          },
         },
-      });
+        "Service is healthy",
+        "The API and PostgreSQL are reachable; row counts and database name are included for diagnostics."
+      );
     } catch (e) {
-      return res.json({
-        ok: true,
-        service: "omkaarya-test-backend",
-        instanceId: INSTANCE_ID,
-        startedAt: STARTED_AT_ISO,
-        database: {
-          connected: false,
-          error: e instanceof Error ? e.message : String(e),
+      return sendSuccess(
+        res,
+        200,
+        {
+          service: "omkaarya-test-backend",
+          instanceId: INSTANCE_ID,
+          startedAt: STARTED_AT_ISO,
+          database: {
+            connected: false,
+            error: e instanceof Error ? e.message : String(e),
+          },
         },
-      });
+        "Service is running with database check errors",
+        "The process is up but the health query failed; see `database.error` for the reason."
+      );
     }
   };
 
@@ -100,7 +116,13 @@ export function createApp(options: CreateAppOptions = {}): Express {
   app.use(apiMountPath, createSuperAdminApiRouter());
 
   app.use((_req, res) => {
-    res.status(404).json({ error: "Not found" });
+    sendError(
+      res,
+      404,
+      "NOT_FOUND",
+      "Not found",
+      "No route matches this method and path on the API."
+    );
   });
 
   app.use(errorHandler);

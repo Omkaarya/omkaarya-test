@@ -276,15 +276,26 @@ export default function FeatureRegistryPage() {
     try {
       const res = await fetch("/api/features", { cache: "no-store" });
       if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) {
+        const j = (await res.json()) as
+          | { success?: boolean; data?: Feature[] }
+          | Feature[];
+        const data = Array.isArray(j) ? j : j?.success && Array.isArray(j.data) ? j.data : null;
+        if (data) {
           setFeatures(data);
         } else {
           setLoadError("Unexpected response from server.");
         }
       } else {
-        const err = await res.json().catch(() => ({}));
-        setLoadError(err.error || `Failed to load features (${res.status})`);
+        const err = (await res.json().catch(() => ({}))) as {
+          error?: string | { message?: string; reason?: string };
+        };
+        const msg =
+          typeof err.error === "string"
+            ? err.error
+            : err.error && typeof err.error === "object" && "message" in err.error
+              ? String(err.error.message)
+              : `Failed to load features (${res.status})`;
+        setLoadError(msg);
         setFeatures([]);
       }
     } catch (e) {
@@ -310,8 +321,16 @@ export default function FeatureRegistryPage() {
       body: JSON.stringify(data),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: "Request failed" }));
-      throw new Error(err.error || "Failed to save feature");
+      const err = (await res.json().catch(() => ({}))) as {
+        error?: string | { message?: string; reason?: string };
+      };
+      const msg =
+        typeof err.error === "string"
+          ? err.error
+          : err.error && typeof err.error === "object" && "message" in err.error
+            ? String(err.error.message)
+            : "Failed to save feature";
+      throw new Error(msg);
     }
     await loadFeatures();
   };

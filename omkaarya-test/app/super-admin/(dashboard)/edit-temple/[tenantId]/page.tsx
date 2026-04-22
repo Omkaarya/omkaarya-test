@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import TempleWizard from "../../_components/TempleWizard";
+import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import type { SuperAdminTempleDetail } from "@/lib/super-admin-temple-detail";
 
 export default function EditTemplePage() {
@@ -30,13 +31,10 @@ export default function EditTemplePage() {
         });
         const data: unknown = await res.json();
         if (!res.ok) {
-          const msg =
-            data && typeof data === "object" && data !== null && "error" in data
-              ? String((data as { error: unknown }).error)
-              : "Failed to load temple";
-          throw new Error(msg);
+          throw new Error(jsonApiErrorMessage(data) || "Failed to load temple");
         }
-        setDetail(data as SuperAdminTempleDetail);
+        const raw = data as { success?: boolean; data?: SuperAdminTempleDetail };
+        setDetail(raw.success && raw.data ? raw.data : (data as SuperAdminTempleDetail));
       } catch (e) {
         if ((e as Error).name === "AbortError") return;
         setError(e instanceof Error ? e.message : "Failed to load temple");

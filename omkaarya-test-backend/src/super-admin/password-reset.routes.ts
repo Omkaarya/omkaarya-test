@@ -1,5 +1,6 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
+import { sendSuccess } from "../middleware/api-envelope.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { validateBody } from "../middleware/validate.js";
 import type { PasswordResetService } from "./password-reset.service.js";
@@ -39,8 +40,14 @@ export function createPasswordResetRouter(service: PasswordResetService): Router
     validateBody(passwordResetRequestBodySchema),
     asyncHandler(async (req, res) => {
       const { email } = req.body as { email: string };
-      const out = await service.requestOrResendOtp(email);
-      res.json(out);
+      await service.requestOrResendOtp(email);
+      sendSuccess(
+        res,
+        200,
+        { pending: true },
+        "If an account exists for this email, a verification code has been sent.",
+        "The same response is returned whether or not the email is registered, to protect account privacy."
+      );
     })
   );
 
@@ -50,8 +57,14 @@ export function createPasswordResetRouter(service: PasswordResetService): Router
     validateBody(passwordResetRequestBodySchema),
     asyncHandler(async (req, res) => {
       const { email } = req.body as { email: string };
-      const out = await service.requestOrResendOtp(email);
-      res.json(out);
+      await service.requestOrResendOtp(email);
+      sendSuccess(
+        res,
+        200,
+        { pending: true },
+        "If an account exists for this email, a verification code has been sent.",
+        "The same response is returned whether or not the email is registered, to protect account privacy."
+      );
     })
   );
 
@@ -62,7 +75,13 @@ export function createPasswordResetRouter(service: PasswordResetService): Router
     asyncHandler(async (req, res) => {
       const { email, otp } = req.body as { email: string; otp: string };
       const { resetToken } = await service.verifyOtp(email, otp);
-      res.json({ success: true, resetToken });
+      sendSuccess(
+        res,
+        200,
+        { resetToken },
+        "Verification code accepted",
+        "A one-time reset token was issued; use it on the complete step before it expires."
+      );
     })
   );
 
@@ -78,7 +97,13 @@ export function createPasswordResetRouter(service: PasswordResetService): Router
         confirmNewPassword: string;
       };
       await service.complete(email, resetToken, newPassword);
-      res.json({ success: true, message: "Password updated" });
+      sendSuccess(
+        res,
+        200,
+        { updated: true },
+        "Password updated",
+        "The account password was replaced using the valid reset token."
+      );
     })
   );
 

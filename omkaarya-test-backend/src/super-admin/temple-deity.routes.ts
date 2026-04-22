@@ -1,5 +1,6 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
+import { sendSuccess } from "../middleware/api-envelope.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { HttpError } from "../middleware/http-error.js";
 import { validateBody } from "../middleware/validate.js";
@@ -51,10 +52,19 @@ export function createTempleDeityRouter(deities: PostgresTempleDeityRepository):
       });
 
       if (!result.ok) {
-        throw new HttpError(404, "Temple not found for this session or temple id.");
+        throw new HttpError(404, "Temple not found for this session or temple id.", {
+          code: "TEMPLE_NOT_FOUND",
+          reason: "The session user is not associated with the given `templeId`, or the tenant id is wrong.",
+        });
       }
 
-      res.json({ success: true, message: "Deity selection saved" });
+      sendSuccess(
+        res,
+        200,
+        { saved: true },
+        "Deity selection saved",
+        "Primary and sub-deity fields on the `temples` row were updated for this onboarding step."
+      );
     })
   );
 

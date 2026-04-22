@@ -11,11 +11,7 @@ export async function loginAction(input: {
   tempPassword?: string;
   password?: string;
 }): Promise<LoginActionResult> {
-  const res = await fetchInternalApiJson<{
-    success: boolean;
-    firstLogin?: boolean;
-    message?: string;
-  }>("/api/login", {
+  const res = await fetchInternalApiJson<{ firstLogin?: boolean }>("/api/login", {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(input),
@@ -25,7 +21,7 @@ export async function loginAction(input: {
     return {
       ok: true,
       firstLogin: res.data.firstLogin !== false,
-      message: typeof res.data.message === "string" ? res.data.message : "Login successful",
+      message: res.message ?? "Login successful",
     };
   }
 
@@ -41,14 +37,14 @@ export async function setPasswordAction(input: {
   tempPassword: string;
   newPassword: string;
 }): Promise<SetPasswordActionResult> {
-  const res = await fetchInternalApiJson<{ success: boolean; message?: string }>("/api/set-password", {
+  const res = await fetchInternalApiJson<{ passwordUpdated?: boolean }>("/api/set-password", {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(input),
   });
 
   if (res.ok) {
-    return { ok: true, message: typeof res.data.message === "string" ? res.data.message : "Password updated" };
+    return { ok: true, message: res.message ?? "Password updated" };
   }
 
   return { ok: false, status: res.status, message: res.message };

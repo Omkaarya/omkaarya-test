@@ -88,13 +88,21 @@ export default function PlanFeaturesPage() {
     setError("");
     try {
       const res = await fetch(`/api/plan-features?planId=${encodeURIComponent(planId)}`, { cache: "no-store" });
+      const body = (await res.json().catch(() => ({}))) as
+        | { success?: boolean; data?: PlanFeatureConfig[]; error?: { message?: string; reason?: string } }
+        | PlanFeatureConfig[];
       if (res.ok) {
-        setFeatures(await res.json());
+        const rows = Array.isArray(body)
+          ? body
+          : body && typeof body === "object" && body.success && Array.isArray(body.data)
+            ? body.data
+            : null;
+        if (rows) setFeatures(rows);
+        else setError("Unexpected plan features response.");
       } else {
-        const err = await res.json().catch(() => ({}));
         setError(
-          typeof err === "object" && err && "error" in err
-            ? String((err as { error: string }).error)
+          body && typeof body === "object" && "error" in body && (body as { error?: { message?: string } }).error
+            ? String((body as { error: { message: string } }).error.message)
             : "Failed to load plan features"
         );
       }
@@ -181,7 +189,13 @@ export default function PlanFeaturesPage() {
           })),
         }),
       });
-      if (!res.ok) throw new Error("Failed to save");
+      const j = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: { message?: string };
+      };
+      if (!res.ok || j.success === false) {
+        throw new Error(j.error?.message ?? "Failed to save");
+      }
       setSaved(true);
       setDirty(false);
     } catch {

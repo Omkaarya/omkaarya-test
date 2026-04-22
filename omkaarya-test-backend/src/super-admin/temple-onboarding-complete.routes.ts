@@ -1,5 +1,6 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
+import { sendSuccess } from "../middleware/api-envelope.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { HttpError } from "../middleware/http-error.js";
 import { validateBody } from "../middleware/validate.js";
@@ -31,10 +32,19 @@ export function createTempleOnboardingCompleteRouter(
       });
 
       if (!result.ok) {
-        throw new HttpError(404, "Temple not found for this session or temple id.");
+        throw new HttpError(404, "Temple not found for this session or temple id.", {
+          code: "TEMPLE_NOT_FOUND",
+          reason: "The temple could not be found for the session, so completion was not written.",
+        });
       }
 
-      res.json({ success: true, message: "Onboarding completion recorded" });
+      sendSuccess(
+        res,
+        200,
+        { complete: true },
+        "Onboarding completion recorded",
+        "The `temples` row was updated with a completion timestamp for this flow."
+      );
     })
   );
 

@@ -41,6 +41,7 @@ import SelectionCard from "@/app/components/admin/SelectionCard";
 import TextInput from "@/app/components/admin/TextInput";
 import WizardStepper, { STEP_LABELS } from "@/app/components/admin/WizardStepper";
 import type { SuperAdminTempleDetail } from "@/lib/super-admin-temple-detail";
+import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import {
   type ApiPricingPlan,
   effectiveMonthlyFromYearlyCents,
@@ -709,17 +710,22 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = await response.json();
+      const data = (await response.json()) as
+        | { success: true; data: { temporaryPassword?: string; inviteEmailSent?: boolean } }
+        | { success?: boolean; data?: { temporaryPassword?: string; inviteEmailSent?: boolean }; temporaryPassword?: string; inviteEmailSent?: boolean; error?: unknown }
+        | null;
       if (!response.ok) {
-        throw new Error(data?.error || "Failed to create temple.");
+        throw new Error(jsonApiErrorMessage(data) || "Failed to create temple.");
       }
+      const inner =
+        data && typeof data === "object" && "data" in data && data && (data as { data?: unknown }).data
+          ? (data as { data: { temporaryPassword?: string; inviteEmailSent?: boolean } }).data
+          : (data as { temporaryPassword?: string; inviteEmailSent?: boolean } | null);
       const tempPwd =
-        data && typeof data === "object" && "temporaryPassword" in data && typeof data.temporaryPassword === "string"
-          ? data.temporaryPassword
-          : "";
+        inner && typeof inner.temporaryPassword === "string" ? inner.temporaryPassword : "";
       const inviteEmailSent =
-        data && typeof data === "object" && "inviteEmailSent" in data && typeof data.inviteEmailSent === "boolean"
-          ? data.inviteEmailSent
+        inner && "inviteEmailSent" in inner && typeof inner.inviteEmailSent === "boolean"
+          ? inner.inviteEmailSent
           : undefined;
       setSubmitSuccess(
         inviteEmailSent === true
@@ -792,12 +798,17 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = await response.json();
+      const data = (await response.json()) as
+        | { success: true; message: string; data?: unknown }
+        | { success?: boolean; message?: string; error?: unknown }
+        | null;
       if (!response.ok) {
-        throw new Error(data?.error || "Failed to update temple.");
+        throw new Error(jsonApiErrorMessage(data) || "Failed to update temple.");
       }
       setSubmitSuccess(
-        typeof data?.message === "string" ? data.message : "Temple updated successfully."
+        data && typeof data === "object" && "message" in data && typeof (data as { message: string }).message === "string"
+          ? (data as { message: string }).message
+          : "Temple updated successfully."
       );
       snapshotRef.current = computeSnapshot();
       setInitialTempleLogoDataUrl(

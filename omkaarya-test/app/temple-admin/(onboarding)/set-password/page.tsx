@@ -3,6 +3,7 @@
 import { ArrowRight, Eye, EyeOff, Lock } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import {
   TEMPLE_ONBOARDING_EMAIL_KEY,
   TEMPLE_ONBOARDING_REMEMBER_ME_KEY,
@@ -99,10 +100,7 @@ export default function TempleAdminSetPasswordPage() {
         body: JSON.stringify({ email, tempPassword, newPassword: newPwd }),
       });
 
-      const data = (await response.json().catch(() => null)) as {
-        error?: string;
-        message?: string;
-      } | null;
+      const data = (await response.json().catch(() => null)) as unknown;
 
       if (response.ok) {
         sessionStorage.removeItem(TEMPLE_ONBOARDING_TEMP_PASSWORD_KEY);
@@ -110,10 +108,7 @@ export default function TempleAdminSetPasswordPage() {
         return;
       }
 
-      setError(
-        (data && typeof data.error === "string" && data.error) ||
-          "Could not update your password. Please try again."
-      );
+      setError(jsonApiErrorMessage(data) || "Could not update your password. Please try again.");
     } catch {
       setError("Network error. Please try again.");
     } finally {

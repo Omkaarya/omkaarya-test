@@ -1,5 +1,6 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
+import { sendSuccess } from "../middleware/api-envelope.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { HttpError } from "../middleware/http-error.js";
 import { validateBody } from "../middleware/validate.js";
@@ -48,12 +49,24 @@ export function createTemplePlanRouter(plans: PostgresTemplePlanRepository): Rou
 
       if (!result.ok) {
         if (result.reason === "invalid_plan") {
-          throw new HttpError(400, "Invalid or unsupported pricing plan.");
+          throw new HttpError(400, "Invalid or unsupported pricing plan.", {
+            code: "INVALID_PLAN",
+            reason: "The `pricingPlanId` is missing from `pricing_plans` or the plan name is not a billable tier.",
+          });
         }
-        throw new HttpError(404, "Temple not found for this session or temple id.");
+        throw new HttpError(404, "Temple not found for this session or temple id.", {
+          code: "TEMPLE_NOT_FOUND",
+          reason: "No `temples` row matches the given `templeId` and session email, or the session is not linked to that tenant.",
+        });
       }
 
-      res.json({ success: true, message: "Plan selection saved" });
+      sendSuccess(
+        res,
+        200,
+        { saved: true },
+        "Plan selection saved",
+        "The temple row was updated with the chosen `pricing_plans` id, plan name, billing cycle, and confirmation time."
+      );
     })
   );
 

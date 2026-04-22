@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiUrl } from "@/lib/api-base";
+import { nextJsonError } from "@/lib/api-envelope";
 
 export async function GET(
   _request: NextRequest,
@@ -17,7 +18,7 @@ export async function GET(
     return NextResponse.json(data, { status: res.status });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to load temple";
-    return NextResponse.json({ error: message }, { status: 503 });
+    return nextJsonError(503, "UPSTREAM_UNREACHABLE", "Could not reach the API server", message);
   }
 }
 
@@ -38,6 +39,6 @@ export async function PATCH(
     return NextResponse.json(data, { status: res.status });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to update temple";
-    return NextResponse.json({ error: message }, { status: 503 });
+    return nextJsonError(503, "UPSTREAM_UNREACHABLE", "Could not reach the API server", message);
   }
 }

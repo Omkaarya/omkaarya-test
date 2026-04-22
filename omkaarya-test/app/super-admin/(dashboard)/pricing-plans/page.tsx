@@ -63,7 +63,10 @@ export default function PricingPlansPage() {
     try {
       const res = await fetch("/api/features", { cache: "no-store" });
       if (!res.ok) return;
-      const data: Array<{ id: number; name: string; moduleKey: string; isActive: boolean }> = await res.json();
+      const j = (await res.json()) as
+        | { success?: boolean; data?: Array<{ id: number; name: string; moduleKey: string; isActive: boolean }> }
+        | Array<{ id: number; name: string; moduleKey: string; isActive: boolean }>;
+      const data = Array.isArray(j) ? j : j?.success && Array.isArray(j.data) ? j.data : null;
       if (Array.isArray(data)) {
         setRegistryFeatures(
           data

@@ -96,7 +96,10 @@ export default function TemplesAdminPage() {
         if (!response.ok) {
           throw new Error("Failed to load temples");
         }
-        const payload = (await response.json()) as TemplesListResponse;
+        const j = (await response.json()) as
+          | { success: true; data: TemplesListResponse; message: string; reason: string }
+          | (TemplesListResponse & { success?: never });
+        const payload = "success" in j && j.success === true && j.data ? j.data : (j as TemplesListResponse);
         setRows(payload.data);
         setCountries(payload.countries);
         setTotal(payload.total);

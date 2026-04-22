@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { sendError } from "../middleware/api-envelope.js";
 import { PostgresAuthRepository } from "./auth.repository.js";
 import { createAuthRouter } from "./auth.routes.js";
 import { AuthService } from "./auth.service.js";
@@ -73,7 +74,13 @@ export function createSuperAdminApiRouter(): Router {
   api.use(createSubscriptionsRouter(subscriptions));
   api.use(createPricingPlansRouter(pricingPlans));
   api.use((_req, res) => {
-    res.status(404).json({ error: "Not found" });
+    sendError(
+      res,
+      404,
+      "NOT_FOUND",
+      "Not found",
+      "No super-admin API route matches this method and path."
+    );
   });
   return api;
 }

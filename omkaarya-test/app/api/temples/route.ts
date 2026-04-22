@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiUrl } from "@/lib/api-base";
+import { nextJsonError } from "@/lib/api-envelope";
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,6 +15,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data, { status: res.status });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to load temples from backend";
-    return NextResponse.json({ error: message }, { status: 503 });
+    return nextJsonError(503, "UPSTREAM_UNREACHABLE", "Could not reach the API server", message);
   }
 }

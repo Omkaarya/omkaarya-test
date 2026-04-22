@@ -1,5 +1,6 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
+import { sendSuccess } from "../middleware/api-envelope.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { HttpError } from "../middleware/http-error.js";
 import { validateBody } from "../middleware/validate.js";
@@ -32,14 +33,19 @@ export function createAuthRouter(auth: AuthService): Router {
       const password = (body.password ?? body.tempPassword ?? "").trim();
       const result = await auth.login(body.email, password);
       if (!result.ok) {
-        throw new HttpError(401, "Invalid credentials");
+        throw new HttpError(401, "Invalid credentials", {
+          code: "INVALID_CREDENTIALS",
+          reason: "The email and password did not match a user, or the account cannot log in in this way.",
+        });
       }
 
-      res.json({
-        success: true,
-        firstLogin: result.firstLogin,
-        message: "Login successful",
-      });
+      sendSuccess(
+        res,
+        200,
+        { firstLogin: result.firstLogin },
+        "Login successful",
+        "The session is authenticated; `firstLogin` is true if this is the initial password set flow."
+      );
     })
   );
 
@@ -55,9 +61,18 @@ export function createAuthRouter(auth: AuthService): Router {
       };
       const ok = await auth.setPermanentPassword(email, tempPassword, newPassword);
       if (!ok) {
-        throw new HttpError(400, "Could not set password. Check your email and temporary password.");
+        throw new HttpError(400, "Could not set password. Check your email and temporary password.", {
+          code: "SET_PASSWORD_FAILED",
+          reason: "The temporary password may be wrong or expired, or the user record could not be updated.",
+        });
       }
-      res.json({ success: true, message: "Password updated" });
+      sendSuccess(
+        res,
+        200,
+        { passwordUpdated: true },
+        "Password updated",
+        "The user now has a permanent password; temporary credentials are no longer required."
+      );
     })
   );
 
