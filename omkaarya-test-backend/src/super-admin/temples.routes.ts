@@ -7,6 +7,7 @@ import { sendTempleAdminInviteEmail } from "../email/send-temple-invite.js";
 import type { TemplesService } from "./temples.service.js";
 import type { CreateTemplePayload, UpdateTemplePayload } from "./types.js";
 import { createTempleBodySchema, updateTempleBodySchema } from "./validation.js";
+import { TempleEmailAlreadyInUseError } from "./temples.repository.js";
 
 export function createTemplesRouter(temples: TemplesService): Router {
   const r = Router();
@@ -136,6 +137,14 @@ export function createTemplesRouter(temples: TemplesService): Router {
           reason
         );
       } catch (e) {
+        if (e instanceof TempleEmailAlreadyInUseError) {
+          console.warn("[POST /temples/create] email conflict:", e.conflicts);
+          throw new HttpError(409, "Admin email or temple email is already used by another temple.", {
+            code: "EMAIL_ALREADY_IN_USE",
+            reason: "Duplicate temple/admin emails are not allowed for temple creation.",
+            cause: e,
+          });
+        }
         console.error("[POST /temples/create] failed:", e);
         const dev = process.env.NODE_ENV !== "production";
         const detail =

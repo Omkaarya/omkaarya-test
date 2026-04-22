@@ -16,6 +16,19 @@ import { sqlTempleMatchesSessionEmail } from "./temple-admin-match.js";
 
 const ADMIN_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+export class TempleEmailAlreadyInUseError extends Error {
+  readonly name = "TempleEmailAlreadyInUseError";
+  constructor(
+    public readonly conflicts: Array<{
+      email: string;
+      tenantId: string;
+      matchedColumn: "admin_email" | "contact_email";
+    }>
+  ) {
+    super("Admin email or temple email is already used by an existing temple.");
+  }
+}
+
 function generateTemporaryPassword(): string {
   return randomBytes(12).toString("base64url");
 }
@@ -121,6 +134,50 @@ export type SaveTempleProfileDetailsInput = {
 };
 
 export class PostgresTempleRepository implements TempleRepository {
+  private async assertTempleEmailsNotInUse(input: { adminEmail: string; templeEmail: string }): Promise<void> {
+    const pool = getPool();
+    if (!pool) {
+      throw new Error("Database pool is not available");
+    }
+
+    const normalize = (e: string) => e.trim().toLowerCase();
+    const candidates = [normalize(input.adminEmail), normalize(input.templeEmail)].filter(Boolean);
+    const unique = Array.from(new Set(candidates));
+    if (unique.length === 0) return;
+
+    const res = await pool.query<{
+      tenant_id: string;
+      admin_email: string;
+      contact_email: string | null;
+    }>(
+      `SELECT tenant_id, admin_email, contact_email
+       FROM public.temples
+       WHERE lower(trim(admin_email)) = ANY($1)
+          OR lower(trim(coalesce(contact_email, ''))) = ANY($1)`,
+      [unique]
+    );
+
+    if (res.rows.length === 0) return;
+
+    const conflicts: TempleEmailAlreadyInUseError["conflicts"] = [];
+    for (const r of res.rows) {
+      const admin = (r.admin_email ?? "").trim().toLowerCase();
+      const contact = (r.contact_email ?? "").trim().toLowerCase();
+      for (const e of unique) {
+        if (admin && admin === e) {
+          conflicts.push({ email: e, tenantId: r.tenant_id, matchedColumn: "admin_email" });
+        }
+        if (contact && contact === e) {
+          conflicts.push({ email: e, tenantId: r.tenant_id, matchedColumn: "contact_email" });
+        }
+      }
+    }
+
+    if (conflicts.length > 0) {
+      throw new TempleEmailAlreadyInUseError(conflicts);
+    }
+  }
+
   async listAll(): Promise<TempleRecord[]> {
     const pool = getPool();
     if (!pool) {
@@ -256,6 +313,12 @@ export class PostgresTempleRepository implements TempleRepository {
     if (!pool) {
       throw new Error("Database pool is not available");
     }
+
+    await this.assertTempleEmailsNotInUse({
+      adminEmail: payload.admin.email,
+      templeEmail: payload.temple.email,
+    });
+
     const client = await pool.connect();
     try {
       const maxRes = await client.query<{ m: number | null }>(
