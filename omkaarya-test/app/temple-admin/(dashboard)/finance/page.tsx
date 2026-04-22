@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { CheckCircle2, X } from "lucide-react";
+import { CheckCircle2, X, BarChart3, Plus, Wallet, CreditCard, TrendingUp, HeartHandshake } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/app/components/ds/atoms/Button";
@@ -19,8 +19,8 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 // ── Bar Chart ─────────────────────────────────────────────────────
 function BarChart({ title, bars }: { title: string; bars: { label: string; value: string; pct: number; color: string }[] }) {
   return (
-    <div className="bg-surface border border-border rounded-xl p-5">
-      <h3 className="text-xs font-bold mb-4">{title}</h3>
+    <div className="bg-surface border border-border rounded-2xl p-6 shadow-sm">
+      <h3 className="text-sm font-bold uppercase tracking-wider text-text-tertiary mb-5">{title}</h3>
       <div className="space-y-2.5">
         {bars.map((b) => (
           <div key={b.label} className="flex items-center gap-2.5">
@@ -40,14 +40,14 @@ function BarChart({ title, bars }: { title: string; bars: { label: string; value
 // ── Type Pill ─────────────────────────────────────────────────────
 function TypePill({ type }: { type: string }) {
   const styles: Record<string, string> = {
-    Pooja: "bg-orange-50 text-orange-700 before:bg-orange-500",
-    Donation: "bg-blue-50 text-blue-700 before:bg-blue-500",
-    "Counter sale": "bg-green-50 text-green-700 before:bg-green-600",
-    Expense: "bg-red-50 text-red-700 before:bg-red-500",
-    "Ritual Return": "bg-purple-50 text-purple-700 before:bg-purple-500",
+    Pooja: "bg-orange-50 text-[var(--brand-primary)] border border-orange-100",
+    Donation: "bg-blue-50 text-blue-700 border border-blue-100",
+    "Counter sale": "bg-green-50 text-green-700 border border-green-100",
+    Expense: "bg-red-50 text-red-700 border border-red-100",
+    "Ritual Return": "bg-purple-50 text-purple-700 border border-purple-100",
   };
   return (
-    <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-lg before:w-[5px] before:h-[5px] before:rounded-full before:shrink-0 ${styles[type] || "bg-gray-100 text-gray-600"}`}>
+    <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-full ${styles[type] || "bg-zinc-50 text-zinc-600 border border-zinc-200"}`}>
       {type}
     </span>
   );
@@ -55,10 +55,10 @@ function TypePill({ type }: { type: string }) {
 
 // ── Transaction Data ──────────────────────────────────────────────
 const RECENT_TXNS = [
-  { date: "Today 09:14", desc: "Rudrabhishekam — Rajan Kumar", type: "Pooja", cat: "Pooja income", ref: "POOJA-0142", amt: "+£75.00", pos: true, by: "Admin" },
-  { date: "Today 08:30", desc: "Cash donation — anonymous", type: "Donation", cat: "Cash donation", ref: "DON-0087", amt: "+£20.00", pos: true, by: "Priest" },
-  { date: "Yesterday", desc: "Rose garland × 12 — supplier", type: "Expense", cat: "Inventory purchase", ref: "PO-0034", amt: "−£36.00", pos: false, by: "Admin" },
-  { date: "Yesterday", desc: "Prasad packet × 5 — counter sale", type: "Counter sale", cat: "POS sales", ref: "POS-0221", amt: "+£7.50", pos: true, by: "Admin" },
+  { date: "Today 09:14", desc: "Rudrabhishekam — Rajan Kumar", type: "Pooja", cat: "Pooja income", ref: "POOJA-0142", amt: "+LKR 7500.00", pos: true, by: "Admin" },
+  { date: "Today 08:30", desc: "Cash donation — anonymous", type: "Donation", cat: "Cash donation", ref: "DON-0087", amt: "+LKR 2000.00", pos: true, by: "Priest" },
+  { date: "Yesterday", desc: "Rose garland × 12 — supplier", type: "Expense", cat: "Inventory purchase", ref: "PO-0034", amt: "−LKR 3600.00", pos: false, by: "Admin" },
+  { date: "Yesterday", desc: "Prasad packet × 5 — counter sale", type: "Counter sale", cat: "POS sales", ref: "POS-0221", amt: "+LKR 750.00", pos: true, by: "Admin" },
   { date: "2 days ago", desc: "Camphor returned from Abhishekam", type: "Ritual Return", cat: "Inventory only", ref: "POOJA-0138", amt: "— (no entry)", pos: false, by: "Priest" },
 ];
 
@@ -72,47 +72,59 @@ export default function TempleFinanceDashboardPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-display-xs font-bold tracking-tight text-text-primary">Finance Dashboard</h1>
-          <p className="mt-1 text-sm text-text-tertiary">Financial overview for Shiva Temple — London · April 2026</p>
+          <p className="mt-1 text-sm text-text-tertiary">Financial overview for Omkaarya Temple · April 2026</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Link href="/temple-admin/finance/reports">
-            <Button variant="outline" size="sm">📊 View reports</Button>
+            <Button variant="outline" size="sm" className="gap-2">
+              <BarChart3 className="h-4 w-4" /> View reports
+            </Button>
           </Link>
           <Link href="/temple-admin/finance/transactions/add">
-            <Button variant="primary" size="sm">+ Add transaction</Button>
+            <Button variant="primary" size="sm" className="gap-2">
+              <Plus className="h-4 w-4" /> Add transaction
+            </Button>
           </Link>
         </div>
       </div>
 
       {/* Metrics */}
-      <div className="grid grid-cols-4 gap-3">
-        <div className="bg-surface border border-border rounded-xl p-4">
-          <div className="text-lg mb-2">💰</div>
-          <p className="text-[11px] text-text-tertiary font-medium mb-1.5">Total income (this month)</p>
-          <p className="text-2xl font-bold text-green-600">£4,820</p>
+      <div className="grid grid-cols-4 gap-4">
+        <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm transition-all hover:border-[var(--brand-primary)] hover:shadow-md">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-600 dark:bg-green-900/20">
+            <Wallet className="h-5 w-5" />
+          </div>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-text-tertiary mb-1">Total income (This Month)</p>
+          <p className="text-2xl font-bold text-green-600">LKR 482,000</p>
           <p className="text-[10px] text-text-quaternary mt-1">Pooja + Donations + Counter sales</p>
-          <p className="text-[10px] font-semibold text-green-600 mt-1">↑ 12% vs last month</p>
+          <p className="text-[10px] font-semibold text-green-600 mt-2">↑ 12% vs last month</p>
         </div>
-        <div className="bg-surface border border-border rounded-xl p-4">
-          <div className="text-lg mb-2">💸</div>
-          <p className="text-[11px] text-text-tertiary font-medium mb-1.5">Total expenses (this month)</p>
-          <p className="text-2xl font-bold text-red-600">£2,140</p>
+        <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm transition-all hover:border-[var(--brand-primary)] hover:shadow-md">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-900/20">
+            <CreditCard className="h-5 w-5" />
+          </div>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-text-tertiary mb-1">Total expenses (This Month)</p>
+          <p className="text-2xl font-bold text-red-600">LKR 214,000</p>
           <p className="text-[10px] text-text-quaternary mt-1">Purchases + maintenance + salaries</p>
-          <p className="text-[10px] font-semibold text-red-600 mt-1">↑ 8% vs last month</p>
+          <p className="text-[10px] font-semibold text-red-600 mt-2">↑ 8% vs last month</p>
         </div>
-        <div className="bg-surface border border-border rounded-xl p-4">
-          <div className="text-lg mb-2">📈</div>
-          <p className="text-[11px] text-text-tertiary font-medium mb-1.5">Net surplus (this month)</p>
-          <p className="text-2xl font-bold text-brand">£2,680</p>
+        <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm transition-all hover:border-[var(--brand-primary)] hover:shadow-md">
+           <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-[var(--brand-primary)] dark:bg-orange-950/20">
+            <TrendingUp className="h-5 w-5" />
+          </div>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-text-tertiary mb-1">Net surplus (This Month)</p>
+          <p className="text-2xl font-bold text-brand">LKR 268,000</p>
           <p className="text-[10px] text-text-quaternary mt-1">Income minus expenses</p>
-          <p className="text-[10px] font-semibold text-brand mt-1">Healthy surplus</p>
+          <p className="text-[10px] font-semibold text-brand mt-2">Healthy surplus</p>
         </div>
-        <div className="bg-surface border border-border rounded-xl p-4">
-          <div className="text-lg mb-2">💝</div>
-          <p className="text-[11px] text-text-tertiary font-medium mb-1.5">Total donations (this month)</p>
-          <p className="text-2xl font-bold text-blue-600">£2,340</p>
+        <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm transition-all hover:border-[var(--brand-primary)] hover:shadow-md">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/20">
+            <HeartHandshake className="h-5 w-5" />
+          </div>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-text-tertiary mb-1">Total donations (This Month)</p>
+          <p className="text-2xl font-bold text-blue-600">LKR 234,000</p>
           <p className="text-[10px] text-text-quaternary mt-1">Cash + in-kind donations</p>
-          <p className="text-[10px] font-semibold text-blue-600 mt-1">34 donors this month</p>
+          <p className="text-[10px] font-semibold text-blue-600 mt-2">34 donors this month</p>
         </div>
       </div>
 
@@ -121,17 +133,17 @@ export default function TempleFinanceDashboardPage() {
         <BarChart
           title="Income breakdown — April 2026"
           bars={[
-            { label: "Donations", value: "£2,340", pct: 48, color: "bg-blue-600" },
-            { label: "Pooja bookings", value: "£1,560", pct: 32, color: "bg-brand" },
-            { label: "Counter sales", value: "£920", pct: 19, color: "bg-green-600" },
+    { label: "Donations", value: "LKR 234,000", pct: 48, color: "bg-blue-600" },
+            { label: "Pooja bookings", value: "LKR 156,000", pct: 32, color: "bg-orange-500" },
+            { label: "Counter sales", value: "LKR 92,000", pct: 19, color: "bg-green-600" },
           ]}
         />
         <BarChart
           title="Expense breakdown — April 2026"
           bars={[
-            { label: "Inventory purchases", value: "£1,120", pct: 52, color: "bg-amber-500" },
-            { label: "Staff / priest", value: "£750", pct: 35, color: "bg-purple-600" },
-            { label: "Maintenance", value: "£270", pct: 13, color: "bg-brand" },
+            { label: "Inventory purchases", value: "LKR 112,000", pct: 52, color: "bg-amber-500" },
+            { label: "Staff / priest", value: "LKR 75,000", pct: 35, color: "bg-purple-600" },
+            { label: "Maintenance", value: "LKR 27,000", pct: 13, color: "bg-teal-500" },
           ]}
         />
       </div>

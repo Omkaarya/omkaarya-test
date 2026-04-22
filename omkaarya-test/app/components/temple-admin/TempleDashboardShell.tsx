@@ -4,6 +4,8 @@ import Link from "next/link";
 import {
   Bell,
   CalendarDays,
+  Cookie,
+  Database,
   DollarSign,
   LayoutDashboard,
   Lock,
@@ -11,6 +13,7 @@ import {
   Moon,
   Package,
   Settings,
+  ShoppingCart,
   Sun,
   User,
   Users,
@@ -75,6 +78,24 @@ const navItems: NavItem[] = [
       { href: "/temple-admin/bookings", label: "Booking Schedules" },
       { href: "/temple-admin/bookings/calendar", label: "Booking Calendar" },
       { href: "/temple-admin/bookings/new", label: "New Booking" },
+    ],
+  },
+  { href: "/temple-admin/pos", label: "POS", icon: ShoppingCart, moduleKey: "pos" },
+  {
+    label: "Prashadham",
+    icon: Cookie,
+    moduleKey: "prasad",
+    items: [
+      { href: "/temple-admin/prasad", label: "Prashadham Items" },
+      { href: "/temple-admin/prasad/categories", label: "Categories" },
+    ],
+  },
+  {
+    label: "Master Data",
+    icon: Database,
+    moduleKey: "master",
+    items: [
+      { href: "/temple-admin/master", label: "All Master Data" },
     ],
   },
   { href: "#", label: "Staff", icon: Users, moduleKey: "staff" },
