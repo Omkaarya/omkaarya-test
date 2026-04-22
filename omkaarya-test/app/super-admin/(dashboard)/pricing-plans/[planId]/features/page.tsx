@@ -53,9 +53,9 @@ const MODULE_LABELS: Record<string, string> = {
 };
 
 const PLAN_META: Record<string, { label: string; tierColor: string }> = {
-  Aaaradhana: { label: "Prarambha (Basic)", tierColor: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300" },
-  Sankalpa: { label: "Sankalpa (Business)", tierColor: "bg-violet-100 text-violet-800 dark:bg-violet-950/50 dark:text-violet-300" },
-  Mandala: { label: "Aaaradhana (Enterprise)", tierColor: "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-300" },
+  Prarambha: { label: "Prarambha (Starter)", tierColor: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300" },
+  Sankalpa: { label: "Sankalpa (Premium)", tierColor: "bg-violet-100 text-violet-800 dark:bg-violet-950/50 dark:text-violet-300" },
+  Aaradhana: { label: "Aaradhana (Advanced)", tierColor: "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-300" },
 };
 
 function isUuidString(s: string): boolean {
@@ -88,13 +88,21 @@ export default function PlanFeaturesPage() {
     setError("");
     try {
       const res = await fetch(`/api/plan-features?planId=${encodeURIComponent(planId)}`, { cache: "no-store" });
+      const body = (await res.json().catch(() => ({}))) as
+        | { success?: boolean; data?: PlanFeatureConfig[]; error?: { message?: string; reason?: string } }
+        | PlanFeatureConfig[];
       if (res.ok) {
-        setFeatures(await res.json());
+        const rows = Array.isArray(body)
+          ? body
+          : body && typeof body === "object" && body.success && Array.isArray(body.data)
+            ? body.data
+            : null;
+        if (rows) setFeatures(rows);
+        else setError("Unexpected plan features response.");
       } else {
-        const err = await res.json().catch(() => ({}));
         setError(
-          typeof err === "object" && err && "error" in err
-            ? String((err as { error: string }).error)
+          body && typeof body === "object" && "error" in body && (body as { error?: { message?: string } }).error
+            ? String((body as { error: { message: string } }).error.message)
             : "Failed to load plan features"
         );
       }
@@ -181,7 +189,13 @@ export default function PlanFeaturesPage() {
           })),
         }),
       });
-      if (!res.ok) throw new Error("Failed to save");
+      const j = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: { message?: string };
+      };
+      if (!res.ok || j.success === false) {
+        throw new Error(j.error?.message ?? "Failed to save");
+      }
       setSaved(true);
       setDirty(false);
     } catch {

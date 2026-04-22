@@ -122,7 +122,7 @@ export const templeDeitySelectionBodySchema = z
 export const templePlanSelectionBodySchema = z.object({
   sessionEmail: z.string().email(),
   templeId: z.string().trim().pipe(z.string().min(1)),
-  planId: z.enum(["basic", "business", "enterprise"]),
+  pricingPlanId: z.string().uuid("Invalid pricing plan id"),
   billing: z.enum(["monthly", "annual"]),
   confirmedAt: z.string().optional(),
 });
@@ -135,6 +135,16 @@ export const templePaymentOnboardingBodySchema = z
     saveCardPreferred: z.boolean(),
   })
   .strict();
+
+export const templePaymentSubmissionFieldsSchema = z.object({
+  sessionEmail: z.string().email(),
+  templeId: z.string().trim().pipe(z.string().min(1)),
+  paymentRef: z.string().trim().pipe(z.string().min(1)),
+  amountCents: z.coerce.number().int().min(1),
+  currency: z.string().trim().pipe(z.string().min(3).max(8)),
+  transferredDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date (expected YYYY-MM-DD)"),
+  notes: z.string().optional(),
+});
 
 export const templeOnboardingCompleteBodySchema = z
   .object({

@@ -87,7 +87,7 @@ export async function submitTempleDeitySelectionAction(
 export type SubmitTemplePlanSelectionPayload = {
   sessionEmail: string;
   templeId: string;
-  planId: "basic" | "business" | "enterprise";
+  pricingPlanId: string;
   billing: "monthly" | "annual";
   confirmedAt?: string;
 };

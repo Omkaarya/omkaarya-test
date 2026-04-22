@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiUrl } from "@/lib/api-base";
+import { nextJsonError } from "@/lib/api-envelope";
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,6 +14,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(data, { status: res.status });
   } catch (e) {
     console.error("password-reset/verify-otp proxy:", e);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    const r = e instanceof Error ? e.message : "The Next.js proxy failed before reaching the API.";
+    return nextJsonError(500, "PROXY_ERROR", "Internal server error", r);
   }
 }

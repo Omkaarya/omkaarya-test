@@ -16,6 +16,19 @@ import { sqlTempleMatchesSessionEmail } from "./temple-admin-match.js";
 
 const ADMIN_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+export class TempleEmailAlreadyInUseError extends Error {
+  readonly name = "TempleEmailAlreadyInUseError";
+  constructor(
+    public readonly conflicts: Array<{
+      email: string;
+      tenantId: string;
+      matchedColumn: "admin_email" | "contact_email";
+    }>
+  ) {
+    super("Admin email or temple email is already used by an existing temple.");
+  }
+}
+
 function generateTemporaryPassword(): string {
   return randomBytes(12).toString("base64url");
 }
@@ -38,7 +51,7 @@ const FLAG_BY_CODE: Record<string, string> = {
   DE: "🇩🇪",
 };
 
-const PLANS: TemplePlan[] = ["Aaaradhana", "Sankalpa", "Mandala", "Free"];
+const PLANS: TemplePlan[] = ["Prarambha", "Sankalpa", "Aaradhana", "Free"];
 
 function normalizePlan(raw: string): TemplePlan {
   return PLANS.includes(raw as TemplePlan) ? (raw as TemplePlan) : "Sankalpa";
@@ -121,6 +134,50 @@ export type SaveTempleProfileDetailsInput = {
 };
 
 export class PostgresTempleRepository implements TempleRepository {
+  private async assertTempleEmailsNotInUse(input: { adminEmail: string; templeEmail: string }): Promise<void> {
+    const pool = getPool();
+    if (!pool) {
+      throw new Error("Database pool is not available");
+    }
+
+    const normalize = (e: string) => e.trim().toLowerCase();
+    const candidates = [normalize(input.adminEmail), normalize(input.templeEmail)].filter(Boolean);
+    const unique = Array.from(new Set(candidates));
+    if (unique.length === 0) return;
+
+    const res = await pool.query<{
+      tenant_id: string;
+      admin_email: string;
+      contact_email: string | null;
+    }>(
+      `SELECT tenant_id, admin_email, contact_email
+       FROM public.temples
+       WHERE lower(trim(admin_email)) = ANY($1)
+          OR lower(trim(coalesce(contact_email, ''))) = ANY($1)`,
+      [unique]
+    );
+
+    if (res.rows.length === 0) return;
+
+    const conflicts: TempleEmailAlreadyInUseError["conflicts"] = [];
+    for (const r of res.rows) {
+      const admin = (r.admin_email ?? "").trim().toLowerCase();
+      const contact = (r.contact_email ?? "").trim().toLowerCase();
+      for (const e of unique) {
+        if (admin && admin === e) {
+          conflicts.push({ email: e, tenantId: r.tenant_id, matchedColumn: "admin_email" });
+        }
+        if (contact && contact === e) {
+          conflicts.push({ email: e, tenantId: r.tenant_id, matchedColumn: "contact_email" });
+        }
+      }
+    }
+
+    if (conflicts.length > 0) {
+      throw new TempleEmailAlreadyInUseError(conflicts);
+    }
+  }
+
   async listAll(): Promise<TempleRecord[]> {
     const pool = getPool();
     if (!pool) {
@@ -256,6 +313,12 @@ export class PostgresTempleRepository implements TempleRepository {
     if (!pool) {
       throw new Error("Database pool is not available");
     }
+
+    await this.assertTempleEmailsNotInUse({
+      adminEmail: payload.admin.email,
+      templeEmail: payload.temple.email,
+    });
+
     const client = await pool.connect();
     try {
       const maxRes = await client.query<{ m: number | null }>(
@@ -343,7 +406,7 @@ export class PostgresTempleRepository implements TempleRepository {
 
         await client.query(
           `INSERT INTO public.temples (
-             tenant_id, name, slug, country_code, country_flag, city, plan, devotees, status, compliance, admin_email,
+             tenant_id, name, slug, country_code, country_flag, city, plan, pricing_plan_id, devotees, status, compliance, admin_email,
              admin_user_id,
              contact_email, charity_registered, charity_registration_number,
              contact_phone, contact_whatsapp, fax,
@@ -351,7 +414,9 @@ export class PostgresTempleRepository implements TempleRepository {
              tradition, primary_deity_id, billing_cycle,
              logo_data_url
            ) VALUES (
-             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+             $1, $2, $3, $4, $5, $6, $7,
+             (SELECT id FROM public.pricing_plans WHERE name = $27 LIMIT 1),
+             $8, $9, $10, $11, $12,
              $13, $14, $15,
              $16::jsonb, $17::jsonb, $18::jsonb,
              $19, $20, $21, $22::jsonb,
@@ -385,6 +450,7 @@ export class PostgresTempleRepository implements TempleRepository {
             primaryDeity,
             billingCycle,
             null,
+            row.plan,
           ]
         );
 
@@ -586,6 +652,7 @@ export class PostgresTempleRepository implements TempleRepository {
                country_flag = $5,
                city = $6,
                plan = $7,
+               pricing_plan_id = (SELECT id FROM public.pricing_plans WHERE name = $21 LIMIT 1),
                status = $8,
                contact_email = $9,
                contact_phone = $10::jsonb,
@@ -621,6 +688,7 @@ export class PostgresTempleRepository implements TempleRepository {
             primaryDeity,
             billingCycle,
             nextLogo,
+            plan,
           ]
         );
 

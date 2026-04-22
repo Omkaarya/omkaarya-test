@@ -27,7 +27,7 @@ import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTab
 // ── Types ──────────────────────────────────────────────────────────
 
 type SubscriptionStatus = "Pending" | "Active" | "Expired" | "Rejected";
-type PlanName = "Aaradhana" | "Sankalpa" | "Mandala";
+type PlanName = "Prarambha" | "Sankalpa" | "Aaradhana";
 type BillingCycle = "Monthly" | "Annual";
 
 type SubscriptionRow = {
@@ -62,9 +62,9 @@ function statusBadgeColor(status: SubscriptionStatus) {
 
 function planBadgeColor(plan: PlanName) {
   switch (plan) {
-    case "Aaradhana": return "purple" as const;
+    case "Prarambha": return "success" as const;
     case "Sankalpa": return "pink" as const;
-    case "Mandala": return "indigo" as const;
+    case "Aaradhana": return "indigo" as const;
   }
 }
 
@@ -494,7 +494,7 @@ export default function SubscriptionsPage() {
       templeName: "Sri Jagannath Temple",
       templeInitials: "SJ",
       templeAddress: "Grand Road, Puri, Odisha 752001",
-      plan: "Mandala",
+      plan: "Prarambha",
       billingCycle: "Annual",
       amount: 24999,
       paymentDate: "2026-04-15",
@@ -548,7 +548,7 @@ export default function SubscriptionsPage() {
       templeName: "Kashi Vishwanath Temple",
       templeInitials: "KV",
       templeAddress: "Lahori Tola, Varanasi, UP 221001",
-      plan: "Mandala",
+      plan: "Prarambha",
       billingCycle: "Annual",
       amount: 24999,
       paymentDate: "2026-02-10",
@@ -566,7 +566,7 @@ export default function SubscriptionsPage() {
       templeName: "Tirupati Balaji Temple",
       templeInitials: "TB",
       templeAddress: "Tirumala, Tirupati, AP 517504",
-      plan: "Mandala",
+      plan: "Prarambha",
       billingCycle: "Annual",
       amount: 24999,
       paymentDate: "2025-04-01",
@@ -620,7 +620,7 @@ export default function SubscriptionsPage() {
       templeName: "Golden Temple",
       templeInitials: "GT",
       templeAddress: "Golden Temple Rd, Amritsar, Punjab 143006",
-      plan: "Mandala",
+      plan: "Prarambha",
       billingCycle: "Annual",
       amount: 24999,
       paymentDate: "2026-01-15",

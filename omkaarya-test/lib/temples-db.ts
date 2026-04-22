@@ -85,7 +85,7 @@ const FLAG_BY_CODE: Record<string, string> = {
   DE: "🇩🇪",
 };
 
-const PLANS = ["Aaaradhana", "Sankalpa", "Mandala", "Free"] as const;
+const PLANS = ["Prarambha", "Sankalpa", "Aaradhana", "Free"] as const;
 
 function normalizePlan(raw: string): (typeof PLANS)[number] {
   return PLANS.includes(raw as (typeof PLANS)[number]) ? (raw as (typeof PLANS)[number]) : "Sankalpa";

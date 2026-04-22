@@ -2,44 +2,89 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Lock } from "lucide-react";
+import Image from "next/image";
+import { ArrowRight, Building2, Calendar, Copy, UploadCloud, X } from "lucide-react";
 import TempleOnboardingStepActions from "@/app/components/temple-admin/TempleOnboardingStepActions";
-import {
-  formatCardDigitsSpaced,
-  formatExpiryInput,
-  isCardholderNameValid,
-  isExpiryNotPast,
-  isValidCvv,
-  luhnCheck,
-  maskCardDisplay,
-  normalizeCardDigits,
-  normalizeCvv,
-  parseExpiryDigits,
-} from "@/lib/payment-card-validation";
-import { submitTemplePaymentOnboarding } from "@/lib/temple-onboarding-payment-api";
-import { saveTempleOnboardingPaymentComplete } from "@/lib/temple-onboarding-payment";
+import { submitTempleBankTransferNotification } from "@/lib/templePaymentSubmissionApi";
 import {
   loadTempleOnboardingPlanDraft,
   TEMPLE_ONBOARDING_TRIAL_DAYS,
 } from "@/lib/temple-onboarding-plan";
-import { getTemplePlanById } from "@/lib/temple-pricing-plans";
+import {
+  getPlanByIdFromList,
+  type ApiPricingPlan,
+  formatUsdFromCents,
+  effectiveMonthlyFromYearlyCents,
+} from "@/lib/temple-pricing-plans";
 import { TEMPLE_ONBOARDING_EMAIL_KEY } from "@/lib/temple-onboarding-signin";
 import { isDeitySelectionComplete } from "@/lib/temple-onboarding-deity";
 import {
   isTempleOnboardingTempleCreated,
   loadTempleOnboardingTempleCreatedResponse,
 } from "@/lib/temple-onboarding-temple-profile";
+import { loadTempleOnboardingTempleProfileDraft } from "@/lib/temple-onboarding-temple-profile";
 
-function MastercardMark({ className }: { className?: string }) {
+const BANK_DETAILS = {
+  header: "Peopleux Pvt Ltd — Receiving Account",
+  fields: [
+    { label: "Bank Name", value: "Commercial Bank of Ceylon PLC" },
+    { label: "Branch Name", value: "Jaffna Main Branch" },
+    { label: "Account Name", value: "Peopleux Pvt Ltd" },
+    { label: "Account Number", value: "8010567890012" },
+    { label: "SWIFT / BIC Code", value: "CCEYLKLX" },
+  ],
+} as const;
+
+const ALLOWED_UPLOAD_MIME = new Set([
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/gif",
+  "image/svg+xml",
+]);
+
+function todayIsoDate(): string {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function normalizeReference(raw: string): string {
+  return raw
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 40);
+}
+
+function CopyButton({ value, ariaLabel }: { value: string; ariaLabel: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const onCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 900);
+    } catch {
+      // noop: clipboard may be unavailable in some browsers/contexts
+    }
+  };
+
   return (
-    <svg className={className} viewBox="0 0 40 24" width="40" height="24" aria-hidden>
-      <circle cx="15" cy="12" r="10" fill="#EB001B" />
-      <circle cx="25" cy="12" r="10" fill="#F79E1B" />
-      <path
-        d="M20 5.5a9.8 9.8 0 0 1 0 13 9.8 9.8 0 0 1 0-13z"
-        fill="#FF5F00"
-      />
-    </svg>
+    <button
+      type="button"
+      onClick={onCopy}
+      aria-label={ariaLabel}
+      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[var(--text-muted)] transition-colors hover:bg-black/5 hover:text-[var(--text-primary)] dark:hover:bg-white/10"
+    >
+      <Copy className="h-3.5 w-3.5" aria-hidden />
+      {copied ? "Copied" : "Copy"}
+    </button>
   );
 }
 
@@ -74,17 +119,17 @@ export default function TempleAdminPaymentPage() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [planDraft, setPlanDraft] = useState<ReturnType<typeof loadTempleOnboardingPlanDraft>>(null);
-
-  const [nameOnCard, setNameOnCard] = useState("");
-  const [cardDigits, setCardDigits] = useState("");
-  const [cardFocused, setCardFocused] = useState(false);
-  const [expiryDigits, setExpiryDigits] = useState("");
-  const [cvv, setCvv] = useState("");
-  const [saveCard, setSaveCard] = useState(true);
-
-  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [catalogPlans, setCatalogPlans] = useState<ApiPricingPlan[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
+  const [notes, setNotes] = useState("");
+  const [transferredDate, setTransferredDate] = useState(todayIsoDate());
+  const [currency, setCurrency] = useState("USD");
+  const [amountDollars, setAmountDollars] = useState<string>("");
+  const [slipFile, setSlipFile] = useState<File | null>(null);
 
   useEffect(() => {
     const email = sessionStorage.getItem(TEMPLE_ONBOARDING_EMAIL_KEY);
@@ -101,7 +146,7 @@ export default function TempleAdminPaymentPage() {
       return;
     }
     const draft = loadTempleOnboardingPlanDraft();
-    if (!draft?.planId) {
+    if (!draft?.pricingPlanId) {
       router.replace("/temple-admin/choose-plan");
       return;
     }
@@ -109,8 +154,64 @@ export default function TempleAdminPaymentPage() {
     setReady(true);
   }, [router]);
 
-  const plan = planDraft?.planId ? getTemplePlanById(planDraft.planId) : undefined;
+  useEffect(() => {
+    if (!ready || !planDraft?.pricingPlanId) return;
+    const id = planDraft.pricingPlanId;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/pricing-plans", { cache: "no-store" });
+        const json = (await res.json().catch(() => null)) as { success?: boolean; data?: ApiPricingPlan[] };
+        if (cancelled) return;
+        if (res.ok && json.success && Array.isArray(json.data)) {
+          setCatalogPlans(json.data);
+          return;
+        }
+        const one = await fetch(`/api/pricing-plans/${encodeURIComponent(id)}`, { cache: "no-store" });
+        const j2 = (await one.json().catch(() => null)) as { success?: boolean; data?: ApiPricingPlan };
+        if (cancelled || !one.ok || !j2.success || !j2.data) return;
+        setCatalogPlans([j2.data]);
+      } catch {
+        /* summary uses planName from session draft */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, planDraft?.pricingPlanId]);
+
+  useEffect(() => {
+    if (!modalOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [modalOpen]);
+
+  const plan = planDraft?.pricingPlanId
+    ? getPlanByIdFromList(catalogPlans, planDraft.pricingPlanId)
+    : undefined;
   const billingLabel = planDraft?.billing === "monthly" ? "Monthly" : "Annually";
+  const billingPeriodLabel = useMemo(() => {
+    if (!planDraft) return "—";
+    const start = new Date();
+    const end = new Date(start);
+    if (planDraft.billing === "monthly") {
+      end.setMonth(end.getMonth() + 1);
+      end.setDate(end.getDate() - 1);
+    } else {
+      end.setFullYear(end.getFullYear() + 1);
+      end.setDate(end.getDate() - 1);
+    }
+    const fmt = (d: Date) =>
+      d.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+    return `${fmt(start)} - ${fmt(end)}`;
+  }, [planDraft]);
 
   const trialEnd = useMemo(() => {
     const d = new Date();
@@ -127,56 +228,82 @@ export default function TempleAdminPaymentPage() {
 
   const afterTrialPrice = useMemo(() => {
     if (!plan || !planDraft) return "—";
-    const n =
-      planDraft.billing === "monthly" ? plan.priceMonthly : plan.priceAnnualPerMonth;
-    return `$${n} / month`;
+    const perMoCents =
+      planDraft.billing === "monthly"
+        ? plan.priceMonthly
+        : effectiveMonthlyFromYearlyCents(plan.priceYearly);
+    return `${formatUsdFromCents(perMoCents)} / month`;
   }, [plan, planDraft]);
 
-  const planDisplayName = plan ? `${plan.name} plan` : "—";
+  const planDisplayName = plan
+    ? `${plan.name} plan`
+    : planDraft?.planName
+      ? `${planDraft.planName} plan`
+      : "—";
 
-  const validation = useMemo(() => {
-    const nameOk = isCardholderNameValid(nameOnCard);
-    const cardOk = cardDigits.length >= 13 && cardDigits.length <= 19 && luhnCheck(cardDigits);
-    const exp = parseExpiryDigits(expiryDigits);
-    const expOk = Boolean(exp && isExpiryNotPast(exp));
-    const cvvOk = isValidCvv(cvv, cardDigits.length);
-    return { nameOk, cardOk, expOk, cvvOk, expParsed: exp };
-  }, [nameOnCard, cardDigits, expiryDigits, cvv]);
+  const amountDueLabel = useMemo(() => {
+    if (!plan || !planDraft) return "—";
+    const cents = planDraft.billing === "monthly" ? plan.priceMonthly : plan.priceYearly;
+    return formatUsdFromCents(cents);
+  }, [plan, planDraft]);
 
-  const formValid =
-    validation.nameOk && validation.cardOk && validation.expOk && validation.cvvOk;
+  const amountDueCents = useMemo(() => {
+    if (!plan || !planDraft) return 0;
+    return planDraft.billing === "monthly" ? plan.priceMonthly : plan.priceYearly;
+  }, [plan, planDraft]);
 
-  const showErrors = (field: string) => Boolean(touched[field] || submitError);
+  const savingsPerMonthLabel = useMemo(() => {
+    if (!plan || !planDraft) return null;
+    if (planDraft.billing !== "annual") return null;
+    const perMoFromAnnual = effectiveMonthlyFromYearlyCents(plan.priceYearly);
+    const savingsCents = Math.max(0, plan.priceMonthly - perMoFromAnnual);
+    if (savingsCents <= 0) return null;
+    return `You save ${formatUsdFromCents(savingsCents)} monthly`;
+  }, [plan, planDraft]);
 
-  const cardDisplayValue = cardFocused
-    ? formatCardDigitsSpaced(cardDigits)
-    : cardDigits.length >= 13
-      ? maskCardDisplay(cardDigits)
-      : formatCardDigitsSpaced(cardDigits);
+  const paymentReference = useMemo(() => {
+    const created = loadTempleOnboardingTempleCreatedResponse();
+    const draft = loadTempleOnboardingTempleProfileDraft();
+    const name = (draft?.templeName ?? "").trim() || "TEMPLE";
+    const id = created?.templeId ? String(created.templeId) : "0000";
+    return normalizeReference(`${name}-INV-${id}`);
+  }, []);
 
-  const handleCardChange = (raw: string) => {
-    setCardDigits(normalizeCardDigits(raw));
-    setSubmitError(null);
+  const openModal = () => {
+    if (!amountDollars) {
+      setAmountDollars((amountDueCents / 100).toFixed(2));
+    }
+    setTransferredDate(todayIsoDate());
+    setCurrency("USD");
+    setNotes("");
+    setSlipFile(null);
+    setModalError(null);
+    setModalOpen(true);
   };
 
-  const handleExpiryChange = (raw: string) => {
-    const d = raw.replace(/\D/g, "").slice(0, 6);
-    setExpiryDigits(d);
-    setSubmitError(null);
+  const closeModal = () => {
+    if (isSubmitting) return;
+    setModalOpen(false);
   };
 
-  const handleSubmit = async () => {
-    setTouched({ name: true, card: true, expiry: true, cvv: true });
-    if (!formValid) {
-      const parts: string[] = [];
-      if (!validation.nameOk) parts.push("Enter the name as it appears on the card.");
-      if (!validation.cardOk) parts.push("Enter a valid card number.");
-      if (!validation.expOk) parts.push("Enter a valid expiry date that is not in the past.");
-      if (!validation.cvvOk) parts.push("Enter a valid security code.");
-      setSubmitError(parts[0] ?? "Check your card details.");
+  const onPickSlip = (file: File | null) => {
+    setModalError(null);
+    if (!file) {
+      setSlipFile(null);
       return;
     }
+    if (!ALLOWED_UPLOAD_MIME.has(file.type)) {
+      setModalError("Unsupported file type. Please upload PDF, PNG, JPG, SVG, or GIF.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setModalError("File is too large. Max size is 10 MB.");
+      return;
+    }
+    setSlipFile(file);
+  };
 
+  const handleModalSubmit = async () => {
     const sessionEmail = sessionStorage.getItem(TEMPLE_ONBOARDING_EMAIL_KEY)?.trim();
     if (!sessionEmail) {
       router.replace("/temple-admin/signin");
@@ -184,32 +311,51 @@ export default function TempleAdminPaymentPage() {
     }
     const created = loadTempleOnboardingTempleCreatedResponse();
     if (!created?.templeId) {
-      setSubmitError("Temple setup is incomplete. Please finish the previous steps first.");
+      setModalError("Temple setup is incomplete. Please finish the previous steps first.");
       return;
     }
 
-    setSubmitError(null);
+    const amt = Number(amountDollars);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      setModalError("Enter a valid amount transferred.");
+      return;
+    }
+    if (!transferredDate.trim()) {
+      setModalError("Transferred date is required.");
+      return;
+    }
+    if (!slipFile) {
+      setModalError("Please upload the bank transfer slip.");
+      return;
+    }
+
+    setModalError(null);
     setIsSubmitting(true);
     try {
-      const res = await submitTemplePaymentOnboarding({
+      const out = await submitTempleBankTransferNotification({
         sessionEmail,
         templeId: created.templeId,
-        saveCardPreferred: saveCard,
+        paymentRef: paymentReference,
+        amountCents: Math.round(amt * 100),
+        currency,
+        transferredDate,
+        notes: notes.trim() || undefined,
+        slipFile,
       });
-      if (!res.ok) {
-        setSubmitError(res.message);
+      if (!out.ok) {
+        setModalError(out.message);
         return;
       }
-      saveTempleOnboardingPaymentComplete(saveCard);
+      setModalOpen(false);
       router.push("/temple-admin/onboarding-complete");
     } catch {
-      setSubmitError("Network error. Please try again.");
+      setModalError("Network error. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (!ready || !planDraft?.planId || !plan) {
+  if (!ready || !planDraft?.pricingPlanId) {
     return <PaymentPageSkeleton />;
   }
 
@@ -223,11 +369,10 @@ export default function TempleAdminPaymentPage() {
       <div className="relative z-10 rounded-3xl border border-[var(--border-default)] bg-[var(--surface-card)] p-6 shadow-xl sm:p-10">
         <header className="text-center lg:text-left">
           <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-3xl">
-            Add Payment Method
+            Complete your payment
           </h1>
           <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed text-[var(--text-muted)] lg:mx-0">
-            Your card is saved securely but will not be charged until your {TEMPLE_ONBOARDING_TRIAL_DAYS}-day free trial
-            ends.
+            Transfer the amount below to activate your temple portal. We’ll confirm within 1–2 business days.
           </p>
         </header>
 
@@ -240,151 +385,116 @@ export default function TempleAdminPaymentPage() {
           </div>
         ) : null}
 
-        <div className="mt-10 grid gap-10 lg:grid-cols-2 lg:gap-12">
-          <section className="order-2 space-y-6 lg:order-1" aria-labelledby="card-details-heading">
+        <div className="mt-6 rounded-2xl border border-orange-200/70 bg-orange-50/50 px-5 py-4 text-sm dark:border-orange-900/40 dark:bg-orange-950/20">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h2 id="card-details-heading" className="text-lg font-semibold text-[var(--text-primary)]">
-                Card Details
-              </h2>
-              <p className="text-sm text-[var(--text-muted)]">Enter card details</p>
+              <p className="font-semibold text-[var(--text-primary)]">
+                {plan ? plan.name : planDraft?.planName ?? "—"} Plan
+              </p>
+              <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                {billingLabel} Subscription • Billed {planDraft?.billing === "monthly" ? "Monthly" : "Yearly"}
+              </p>
             </div>
+            <div className="text-right">
+              <p className="font-semibold text-[var(--text-primary)]">{amountDueLabel}{planDraft?.billing === "monthly" ? "/month" : "/year"}</p>
+              {savingsPerMonthLabel ? (
+                <p className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-300">• {savingsPerMonthLabel}</p>
+              ) : null}
+            </div>
+          </div>
+        </div>
 
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="payment-name" className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">
-                  Name on card
-                </label>
-                <input
-                  id="payment-name"
-                  name="nameOnCard"
-                  type="text"
-                  autoComplete="cc-name"
-                  value={nameOnCard}
-                  onChange={(e) => {
-                    setNameOnCard(e.target.value);
-                    setSubmitError(null);
-                  }}
-                  onBlur={() => setTouched((t) => ({ ...t, name: true }))}
-                  aria-invalid={showErrors("name") && !validation.nameOk}
-                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-[var(--text-primary)] shadow-sm outline-none transition-[box-shadow,border-color] focus:border-[var(--brand-primary)] focus:ring-2 focus:ring-[var(--brand-primary)]/20 dark:border-zinc-700 dark:bg-zinc-900"
-                  placeholder="Rajan Pillai"
-                />
-                {showErrors("name") && !validation.nameOk ? (
-                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">Enter the cardholder name.</p>
-                ) : null}
+        <div className="mt-8 space-y-8">
+          <section aria-labelledby="bank-details-heading">
+            <div className="overflow-hidden rounded-2xl border border-blue-200/60 bg-blue-50/40 shadow-sm dark:border-blue-900/40 dark:bg-blue-950/15">
+              <div className="border-b border-blue-200/60 bg-blue-50/70 px-5 py-4 dark:border-blue-900/40 dark:bg-blue-950/25">
+                <h2 id="bank-details-heading" className="text-base font-semibold text-[var(--text-primary)]">
+                  Bank Transfer Details
+                </h2>
+                <p className="mt-0.5 text-sm text-[var(--text-muted)]">Transfer the exact amount to the account below</p>
               </div>
 
-              <div>
-                <label htmlFor="payment-card" className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">
-                  Card number
-                </label>
-                <div
-                  className={[
-                    "flex items-center gap-2 rounded-xl border bg-white px-3 py-2 shadow-sm dark:bg-zinc-900",
-                    showErrors("card") && !validation.cardOk
-                      ? "border-red-400 focus-within:ring-2 focus-within:ring-red-200"
-                      : "border-zinc-200 focus-within:border-[var(--brand-primary)] focus-within:ring-2 focus-within:ring-[var(--brand-primary)]/20 dark:border-zinc-700",
-                  ].join(" ")}
-                >
-                  <MastercardMark className="shrink-0 opacity-90" />
-                  <input
-                    id="payment-card"
-                    name="cardNumber"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="cc-number"
-                    readOnly={!cardFocused}
-                    value={cardDisplayValue}
-                    onFocus={() => setCardFocused(true)}
-                    onBlur={() => {
-                      setCardFocused(false);
-                      setTouched((t) => ({ ...t, card: true }));
-                    }}
-                    onChange={(e) => handleCardChange(e.target.value)}
-                    aria-invalid={showErrors("card") && !validation.cardOk}
-                    className="min-w-0 flex-1 border-0 bg-transparent py-2 text-sm text-[var(--text-primary)] outline-none read-only:cursor-pointer"
-                    placeholder="1234 5678 9012 3456"
-                  />
-                </div>
-                {showErrors("card") && !validation.cardOk ? (
-                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">Enter a valid card number.</p>
-                ) : (
-                  <p className="mt-1 text-xs text-[var(--text-muted)]">
-                    Digits are validated in the browser only; your full number is not stored on our servers in this demo.
-                  </p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="payment-expiry" className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">
-                    Expiry
-                  </label>
-                  <input
-                    id="payment-expiry"
-                    name="cc-exp"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="cc-exp"
-                    value={formatExpiryInput(expiryDigits)}
-                    onChange={(e) => handleExpiryChange(e.target.value)}
-                    onBlur={() => setTouched((t) => ({ ...t, expiry: true }))}
-                    placeholder="MM / YY"
-                    aria-invalid={showErrors("expiry") && !validation.expOk}
-                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-[var(--text-primary)] shadow-sm outline-none focus:border-[var(--brand-primary)] focus:ring-2 focus:ring-[var(--brand-primary)]/20 dark:border-zinc-700 dark:bg-zinc-900"
-                  />
-                  {showErrors("expiry") && !validation.expOk ? (
-                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">Valid future expiry required.</p>
-                  ) : null}
-                </div>
-                <div>
-                  <label htmlFor="payment-cvv" className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]">
-                    CVV
-                  </label>
-                  <input
-                    id="payment-cvv"
-                    name="cc-csc"
-                    type="password"
-                    inputMode="numeric"
-                    autoComplete="cc-csc"
-                    value={cvv}
-                    onChange={(e) => {
-                      setCvv(normalizeCvv(e.target.value));
-                      setSubmitError(null);
-                    }}
-                    onBlur={() => setTouched((t) => ({ ...t, cvv: true }))}
-                    maxLength={cardDigits.length === 15 ? 4 : 3}
-                    placeholder="•••"
-                    aria-invalid={showErrors("cvv") && !validation.cvvOk}
-                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm tracking-widest text-[var(--text-primary)] shadow-sm outline-none focus:border-[var(--brand-primary)] focus:ring-2 focus:ring-[var(--brand-primary)]/20 dark:border-zinc-700 dark:bg-zinc-900"
-                  />
-                  {showErrors("cvv") && !validation.cvvOk ? (
-                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                      Enter the {cardDigits.length === 15 ? "4-digit" : "3-digit"} security code.
-                    </p>
-                  ) : null}
+              <div className="flex items-center justify-between gap-3 px-5 py-4">
+                <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
+                  <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-300" aria-hidden />
+                  <span>{BANK_DETAILS.header}</span>
                 </div>
               </div>
 
-              <label className="flex cursor-pointer items-start gap-3 text-sm text-[var(--text-primary)]">
-                <input
-                  type="checkbox"
-                  checked={saveCard}
-                  onChange={(e) => setSaveCard(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-[var(--brand-primary)] focus:ring-[var(--brand-primary)]"
-                />
-                <span>Save card details for future use</span>
-              </label>
+              <dl className="divide-y divide-blue-100/60 text-sm dark:divide-blue-900/30">
+                {BANK_DETAILS.fields.map((f) => (
+                  <div
+                    key={f.label}
+                    className="grid grid-cols-1 gap-2 px-5 py-4 sm:grid-cols-[180px_1fr_auto] sm:items-center"
+                  >
+                    <dt className="text-[var(--text-muted)]">{f.label}</dt>
+                    <dd className="font-medium text-[var(--text-primary)]">{f.value}</dd>
+                    <div className="sm:justify-self-end">
+                      <CopyButton value={f.value} ariaLabel={`Copy ${f.label}`} />
+                    </div>
+                  </div>
+                ))}
+                <div className="grid grid-cols-1 gap-2 px-5 py-4 sm:grid-cols-[180px_1fr_auto] sm:items-center">
+                  <dt className="text-[var(--text-muted)]">Amount to Transfer</dt>
+                  <dd className="font-semibold text-[var(--brand-primary)]">{amountDueLabel}</dd>
+                  <div className="sm:justify-self-end">
+                    <CopyButton value={amountDueLabel} ariaLabel="Copy amount to transfer" />
+                  </div>
+                </div>
+              </dl>
 
-              <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                <span>Your payment details are securely encrypted in transit when you use a real processor.</span>
+              <div className="p-5">
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">Payment reference:</p>
+                      <p className="mt-1 font-mono text-[13px]">{paymentReference}</p>
+                      <p className="mt-2 text-xs opacity-80">
+                        Include this reference in your transfer so we can identify your payment.
+                      </p>
+                    </div>
+                    <CopyButton value={paymentReference} ariaLabel="Copy payment reference" />
+                  </div>
+                </div>
+
+                <ol className="mt-4 space-y-2 rounded-2xl border border-blue-200/60 bg-white/60 px-5 py-4 text-sm text-[var(--text-primary)] dark:border-blue-900/40 dark:bg-zinc-900/40">
+                  <li className="flex gap-3">
+                    <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--brand-primary)]/15 text-xs font-semibold text-[var(--brand-primary)]">
+                      1
+                    </span>
+                    <span>Log in to your bank and initiate a transfer to the account above.</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--brand-primary)]/15 text-xs font-semibold text-[var(--brand-primary)]">
+                      2
+                    </span>
+                    <span>
+                      Enter <span className="font-mono">{paymentReference}</span> as the payment reference / remarks.
+                    </span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--brand-primary)]/15 text-xs font-semibold text-[var(--brand-primary)]">
+                      3
+                    </span>
+                    <span>
+                      Transfer exactly{" "}
+                      <span className="font-semibold text-[var(--brand-primary)]">{amountDueLabel}</span> — other amounts
+                      may be rejected.
+                    </span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--brand-primary)]/15 text-xs font-semibold text-[var(--brand-primary)]">
+                      4
+                    </span>
+                    <span>Click “I’ve Completed the Transfer” below and upload your payment slip.</span>
+                  </li>
+                </ol>
               </div>
             </div>
           </section>
 
           <aside
-            className="order-1 rounded-2xl bg-zinc-100/90 p-6 dark:bg-zinc-800/60 lg:order-2"
+            className="rounded-2xl bg-zinc-100/90 p-6 dark:bg-zinc-800/60"
             aria-labelledby="order-summary-heading"
           >
             <h2 id="order-summary-heading" className="text-lg font-semibold text-[var(--text-primary)]">
@@ -398,8 +508,22 @@ export default function TempleAdminPaymentPage() {
                 <dd className="font-medium text-[var(--text-primary)]">{planDisplayName}</dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-[var(--text-muted)]">Billing</dt>
-                <dd className="font-medium text-[var(--text-primary)]">{billingLabel}</dd>
+                <dt className="text-[var(--text-muted)]">Billing period</dt>
+                <dd className="font-medium text-[var(--text-primary)]">{billingPeriodLabel}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-[var(--text-muted)]">Subtotal</dt>
+                <dd className="font-medium text-[var(--text-primary)]">{amountDueLabel}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-[var(--text-muted)]">Tax</dt>
+                <dd className="font-medium text-[var(--text-primary)]">{formatUsdFromCents(0)}</dd>
+              </div>
+              <div className="border-t border-zinc-200 pt-4 dark:border-zinc-600">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[var(--text-muted)]">Total Due</dt>
+                  <dd className="text-lg font-bold text-[var(--brand-primary)]">{amountDueLabel}</dd>
+                </div>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-[var(--text-muted)]">Trial Ends</dt>
@@ -409,12 +533,6 @@ export default function TempleAdminPaymentPage() {
                     ({TEMPLE_ONBOARDING_TRIAL_DAYS} days)
                   </span>
                 </dd>
-              </div>
-              <div className="border-t border-zinc-200 pt-4 dark:border-zinc-600">
-                <div className="flex justify-between gap-4">
-                  <dt className="text-[var(--text-muted)]">Due Today: (LKR)</dt>
-                  <dd className="text-lg font-bold text-[var(--brand-primary)]">Rs. 0.00</dd>
-                </div>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-[var(--text-muted)]">After Trial:</dt>
@@ -435,21 +553,199 @@ export default function TempleAdminPaymentPage() {
           primary={
             <button
               type="button"
-              onClick={handleSubmit}
-              disabled={!formValid || isSubmitting}
+              onClick={openModal}
+              disabled={isSubmitting}
               className="flex w-full min-w-0 flex-[1.25] items-center justify-center gap-2 rounded-lg bg-[var(--brand-primary)] py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)] disabled:pointer-events-none disabled:opacity-50"
             >
               {isSubmitting ? (
                 "Processing…"
               ) : (
                 <>
-                  Confirm & Activate
+                  I’ve Completed the Transfer
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </>
               )}
             </button>
           }
         />
+
+        {modalOpen ? (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            role="presentation"
+            tabIndex={-1}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) closeModal();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") closeModal();
+            }}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Confirm Payment Submission"
+              className="flex w-full max-w-2xl max-h-[90vh] flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white p-0 text-zinc-900 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+            >
+              <div className="flex items-start justify-between gap-4 border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">Confirm Payment Submission</p>
+                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    Upload your bank transfer slip so we can verify faster. The reference number below is pre-filled from
+                    your invoice.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  aria-label="Close"
+                  className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                  disabled={isSubmitting}
+                >
+                  <X className="h-5 w-5" aria-hidden />
+                </button>
+              </div>
+
+              <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+                {modalError ? (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200">
+                    {modalError}
+                  </div>
+                ) : null}
+
+                <div>
+                  <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                    Payment Ref No <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    value={paymentReference}
+                    readOnly
+                    className="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
+                  />
+                  <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">Auto-filled from invoice.</p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                    Amount Transferred <span className="text-red-500">*</span>
+                  </label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <div className="flex flex-1 items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900">
+                      <span className="text-sm text-zinc-500">$</span>
+                      <input
+                        inputMode="decimal"
+                        value={amountDollars}
+                        onChange={(e) => setAmountDollars(e.target.value)}
+                        className="min-w-0 flex-1 border-0 bg-transparent text-sm text-zinc-900 outline-none dark:text-zinc-50"
+                        placeholder={(amountDueCents / 100).toFixed(2)}
+                      />
+                      <select
+                        value={currency}
+                        onChange={(e) => setCurrency(e.target.value)}
+                        className="rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs font-semibold text-zinc-700 outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+                      >
+                        <option value="USD">USD</option>
+                      </select>
+                    </div>
+                  </div>
+                  <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">Auto-filled from invoices.</p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                    Transferred Date <span className="text-red-500">*</span>
+                  </label>
+                  <div className="mt-1 flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900">
+                    <input
+                      type="date"
+                      value={transferredDate}
+                      onChange={(e) => setTransferredDate(e.target.value)}
+                      className="min-w-0 flex-1 border-0 bg-transparent text-sm text-zinc-900 outline-none dark:text-zinc-50"
+                    />
+                    <Calendar className="h-4 w-4 text-zinc-400" aria-hidden />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                    Upload Bank Transfer Slip <span className="text-red-500">*</span>
+                  </label>
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const f = e.dataTransfer.files?.[0];
+                      if (f) onPickSlip(f);
+                    }}
+                    className="mt-1 flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-6 text-center dark:border-zinc-700 dark:bg-zinc-800/40"
+                  >
+                    <UploadCloud className="h-5 w-5 text-zinc-500" aria-hidden />
+                    <div className="text-xs">
+                      <label className="cursor-pointer font-semibold text-[var(--brand-primary)] hover:underline">
+                        Click to upload
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept=".pdf,.png,.jpg,.jpeg,.gif,.svg"
+                          onChange={(e) => onPickSlip(e.target.files?.[0] ?? null)}
+                          disabled={isSubmitting}
+                        />
+                      </label>{" "}
+                      <span className="text-zinc-500 dark:text-zinc-400">or drag and drop</span>
+                    </div>
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">SVG, PNG, JPG, GIF or PDF (max. 10MB)</p>
+                    {slipFile ? (
+                      <div className="mt-2 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-left text-xs dark:border-zinc-700 dark:bg-zinc-900">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="truncate font-medium">{slipFile.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setSlipFile(null)}
+                            className="rounded-md p-1 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                            aria-label="Remove file"
+                            disabled={isSubmitting}
+                          >
+                            <X className="h-4 w-4" aria-hidden />
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Additional Notes</label>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={3}
+                    placeholder="e.g. transferred from trustee account, bank reference#112345."
+                    className="mt-1 w-full resize-none rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 border-t border-zinc-100 px-5 py-4 dark:border-zinc-800">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="w-1/2 rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleModalSubmit}
+                  className="w-1/2 rounded-xl bg-[var(--brand-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--brand-primary-hover)] disabled:opacity-50"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "Submitting…" : "Submit & Notify Omkaarya Team"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

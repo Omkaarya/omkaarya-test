@@ -36,7 +36,15 @@ async function loadTenantFeatures(tenantId: string): Promise<TenantFeatureAccess
   try {
     const res = await fetch(`/api/tenant-features?tenantId=${encodeURIComponent(tenantId)}`);
     if (!res.ok) return [];
-    const data = (await res.json()) as TenantFeatureAccess[];
+    const json = (await res.json()) as
+      | { success?: boolean; data?: TenantFeatureAccess[] }
+      | TenantFeatureAccess[];
+    const data = Array.isArray(json)
+      ? json
+      : json && json.success && Array.isArray(json.data)
+        ? json.data
+        : null;
+    if (!data) return [];
     cachedFeatures = data;
     cacheTimestamp = now;
     return data;

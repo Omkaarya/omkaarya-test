@@ -1,5 +1,10 @@
 import { getPool } from "../db/pool.js";
-import type { CreatePricingPlanPayload, PricingPlan, UpdatePricingPlanPayload } from "./types.js";
+import type {
+  CreatePricingPlanPayload,
+  PricingPlan,
+  PricingPlanComparisonResponse,
+  UpdatePricingPlanPayload,
+} from "./types.js";
 
 function toPricingPlan(row: any): PricingPlan {
   return {
@@ -18,6 +23,80 @@ function toPricingPlan(row: any): PricingPlan {
 }
 
 export class PostgresPricingPlansRepository {
+  /**
+   * Feature comparison matrix: all `pricing_tier` features × current pricing plan rows.
+   * Missing `plan_features` cells default to not enabled.
+   */
+  async getComparison(): Promise<PricingPlanComparisonResponse> {
+    const pool = getPool();
+    if (!pool) throw new Error("Database pool is not available");
+
+    const { rows: planRows } = await pool.query<{ id: string; name: string }>(
+      `SELECT id::text AS id, name FROM public.pricing_plans
+       ORDER BY price_monthly ASC, name ASC`
+    );
+    const plans = planRows.map((r) => ({ id: r.id, name: r.name }));
+    if (plans.length === 0) {
+      return { plans: [], features: [] };
+    }
+    const planIdList = plans.map((p) => p.id);
+
+    const { rows: featureRows } = await pool.query<{
+      id: number;
+      name: string;
+      key: string;
+      module_key: string;
+      has_limit: boolean;
+    }>(
+      `SELECT id, name, key, module_key, has_limit
+       FROM public.features
+       WHERE is_active = true
+         AND is_visible_in_plan_config = true
+         AND module_key = 'pricing_tier'
+       ORDER BY name ASC, id ASC`
+    );
+
+    const { rows: pfRows } = await pool.query<{
+      plan_id: string;
+      feature_id: number;
+      is_enabled: boolean;
+      limit_value: number | null;
+    }>(
+      `SELECT plan_id, feature_id, is_enabled, limit_value
+       FROM public.plan_features
+       WHERE plan_id = ANY($1::text[])`,
+      [planIdList]
+    );
+
+    const byPlanFeature = new Map<string, { enabled: boolean; limit: number | null }>();
+    for (const r of pfRows) {
+      byPlanFeature.set(`${r.feature_id}::${r.plan_id}`, {
+        enabled: r.is_enabled,
+        limit: r.limit_value,
+      });
+    }
+
+    const features = featureRows.map((f) => {
+      const values: Record<string, { enabled: boolean; limit: number | null }> = {};
+      for (const p of plans) {
+        const cell = byPlanFeature.get(`${f.id}::${p.id}`);
+        values[p.id] = cell
+          ? { enabled: cell.enabled, limit: cell.limit }
+          : { enabled: false, limit: null };
+      }
+      return {
+        featureId: f.id,
+        name: f.name,
+        key: f.key,
+        moduleKey: f.module_key,
+        hasLimit: f.has_limit,
+        values,
+      };
+    });
+
+    return { plans, features };
+  }
+
   async getAll(): Promise<PricingPlan[]> {
     const pool = getPool();
     if (!pool) throw new Error("Database pool is not available");

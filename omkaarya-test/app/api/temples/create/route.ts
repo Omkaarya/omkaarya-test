@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiUrl } from "@/lib/api-base";
+import { nextJsonError } from "@/lib/api-envelope";
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,9 +13,25 @@ export async function POST(request: NextRequest) {
     });
 
     const data = await res.json().catch(() => null);
-    return NextResponse.json(data, { status: res.status });
+    if (!res.ok) {
+      const errMsg =
+        data && typeof data === "object" && "error" in data
+          ? (data as { error: { message?: string } | string }).error
+          : data;
+      console.error("Temple create proxy: backend", res.status, errMsg);
+    }
+    return NextResponse.json(
+      data ?? { success: false, error: { code: "EMPTY_RESPONSE", message: "Empty response", reason: "The backend returned no parseable JSON body." } },
+      { status: res.status }
+    );
   } catch (error) {
-    console.error("Temple create error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("Temple create error (proxy fetch failed – is the API running on the configured base URL?)", error);
+    return nextJsonError(
+      502,
+      "UPSTREAM_UNREACHABLE",
+      "Failed to reach the API server",
+      `Could not connect to the backend: ${msg}. Check that the API is running (default http://localhost:4000) and NEXT_PUBLIC_API_BASE_URL.`
+    );
   }
 }

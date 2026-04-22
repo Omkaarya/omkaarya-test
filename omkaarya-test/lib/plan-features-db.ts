@@ -119,9 +119,10 @@ export async function fetchTenantFeatures(tenantId: string): Promise<TenantFeatu
   const result = await p.query(
     `SELECT f.key AS feature_key, f.module_key, pf.is_enabled AS enabled, pf.limit_value AS "limit"
      FROM public.temples t
-     JOIN public.plan_features pf ON pf.plan_id = t.plan
+     JOIN public.plan_features pf ON pf.plan_id = t.pricing_plan_id::text
      JOIN public.features f ON f.id = pf.feature_id AND f.is_active = true
      WHERE t.tenant_id = $1
+       AND t.pricing_plan_id IS NOT NULL
      ORDER BY f.module_key, f.name`,
     [tenantId]
   );

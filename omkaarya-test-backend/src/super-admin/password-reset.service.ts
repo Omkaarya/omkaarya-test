@@ -33,12 +33,18 @@ export class PasswordResetService {
   async verifyOtp(email: string, otp: string): Promise<{ resetToken: string }> {
     const userId = await findTempleLinkedUserIdByEmail(email);
     if (userId == null) {
-      throw new HttpError(401, "Invalid or expired verification code.");
+      throw new HttpError(401, "Invalid or expired verification code.", {
+        code: "INVALID_OTP",
+        reason: "No temple-linked user exists for this email, or the challenge cannot be used.",
+      });
     }
     const resetExpiresAt = new Date(Date.now() + RESET_TTL_MS);
     const result = await verifyOtpAndSetResetToken(userId, otp.trim(), resetExpiresAt);
     if (!result.ok) {
-      throw new HttpError(401, "Invalid or expired verification code.");
+      throw new HttpError(401, "Invalid or expired verification code.", {
+        code: "INVALID_OTP",
+        reason: "The code was wrong, expired, or did not match the latest challenge for this user.",
+      });
     }
     return { resetToken: result.resetToken };
   }
@@ -46,12 +52,18 @@ export class PasswordResetService {
   async complete(email: string, resetToken: string, newPassword: string): Promise<void> {
     const userId = await findTempleLinkedUserIdByEmail(email);
     if (userId == null) {
-      throw new HttpError(400, "Could not reset password. Request a new code.");
+      throw new HttpError(400, "Could not reset password. Request a new code.", {
+        code: "RESET_FAILED",
+        reason: "The email is not linked to a user eligible for this reset flow.",
+      });
     }
     const hash = await bcrypt.hash(newPassword, 10);
     const ok = await applyPasswordFromResetToken(userId, resetToken.trim(), hash);
     if (!ok) {
-      throw new HttpError(400, "Could not reset password. Request a new code.");
+      throw new HttpError(400, "Could not reset password. Request a new code.", {
+        code: "RESET_TOKEN_INVALID",
+        reason: "The reset token is missing, expired, or was already used.",
+      });
     }
   }
 }
