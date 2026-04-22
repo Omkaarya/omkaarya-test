@@ -13,6 +13,8 @@ import { PostgresTempleOnboardingCompleteRepository } from "./temple-onboarding-
 import { createTempleOnboardingCompleteRouter } from "./temple-onboarding-complete.routes.js";
 import { PostgresTemplePaymentOnboardingRepository } from "./temple-payment-onboarding.repository.js";
 import { createTemplePaymentOnboardingRouter } from "./temple-payment-onboarding.routes.js";
+import { PostgresTemplePaymentSubmissionsRepository } from "./temple-payment-submissions.repository.js";
+import { createTemplePaymentSubmissionsRouter } from "./temple-payment-submissions.routes.js";
 import { PostgresTemplePlanRepository } from "./temple-plan.repository.js";
 import { createTemplePlanRouter } from "./temple-plan.routes.js";
 import { PostgresTempleRepository } from "./temples.repository.js";
@@ -57,6 +59,7 @@ export function createSuperAdminApiRouter(): Router {
   const templeDeities = new PostgresTempleDeityRepository();
   const templePlans = new PostgresTemplePlanRepository();
   const templePaymentOnboarding = new PostgresTemplePaymentOnboardingRepository();
+  const templePaymentSubmissions = new PostgresTemplePaymentSubmissionsRepository();
   const templeOnboardingComplete = new PostgresTempleOnboardingCompleteRepository();
   const subscriptions = new PostgresSubscriptionsRepository();
   const pricingPlans = new PostgresPricingPlansRepository();
@@ -70,6 +73,7 @@ export function createSuperAdminApiRouter(): Router {
   api.use(createTempleDeityRouter(templeDeities));
   api.use(createTemplePlanRouter(templePlans));
   api.use(createTemplePaymentOnboardingRouter(templePaymentOnboarding));
+  api.use(createTemplePaymentSubmissionsRouter(templePaymentSubmissions));
   api.use(createTempleOnboardingCompleteRouter(templeOnboardingComplete));
   api.use(createSubscriptionsRouter(subscriptions));
   api.use(createPricingPlansRouter(pricingPlans));

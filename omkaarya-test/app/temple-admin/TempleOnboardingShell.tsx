@@ -147,7 +147,7 @@ export default function TempleOnboardingShell({ children }: { children: React.Re
         {children}
       </main>
 
-      <footer className="relative z-10 mt-auto border-t border-orange-100/60 bg-white/60 px-4 py-5 text-[11px] text-[var(--text-muted)] backdrop-blur-sm dark:border-[var(--border-default)] dark:bg-[var(--surface-card)]/70 sm:px-6 sm:text-xs lg:px-10">
+      <footer className="relative mt-auto border-t border-orange-100/60 bg-white/60 px-4 py-5 text-[11px] text-[var(--text-muted)] backdrop-blur-sm dark:border-[var(--border-default)] dark:bg-[var(--surface-card)]/70 sm:px-6 sm:text-xs lg:px-10">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 sm:flex-row sm:flex-wrap sm:justify-between sm:gap-4">
           <p className="text-center sm:text-left">2024 - 2026 © Om Kaaryaa All Right Reserved</p>
           <p className="text-center">Powered By Pepulux All Right Reserved</p>

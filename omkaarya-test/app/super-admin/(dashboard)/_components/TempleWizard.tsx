@@ -1746,7 +1746,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
 
       <dialog
         ref={unsavedDialogRef}
-        className="w-[min(100%-2rem,28rem)] max-w-md rounded-xl border border-zinc-200 bg-white p-6 text-zinc-900 shadow-xl backdrop:bg-black/40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+        className="w-[min(100%-2rem,42rem)] max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 text-zinc-900 shadow-2xl backdrop:bg-black/40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
       >
         <h3 className="text-lg font-semibold">Unsaved changes</h3>
         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
