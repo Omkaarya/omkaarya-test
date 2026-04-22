@@ -120,12 +120,33 @@ export default function PricingPlansPage() {
   const [billing, setBilling] = useState<"monthly" | "yearly">("yearly");
   const [cardBilling, setCardBilling] = useState<Record<string, "monthly" | "yearly">>({});
 
+  // When top tabs change, reset ALL per-card overrides so every card + toggle syncs
+  const handleGlobalBillingChange = (mode: "monthly" | "yearly") => {
+    setBilling(mode);
+    setCardBilling({}); // clear all per-card overrides — all cards follow global
+  };
+
   const getCardBilling = (planId: string) => cardBilling[planId] || billing;
+
   const toggleCardBilling = (planId: string) => {
-    setCardBilling((prev) => ({
-      ...prev,
-      [planId]: (prev[planId] || billing) === "yearly" ? "monthly" : "yearly",
-    }));
+    const current = getCardBilling(planId);
+    const next = current === "yearly" ? "monthly" : "yearly";
+
+    const updatedCardBilling = { ...cardBilling, [planId]: next };
+
+    // Check if ALL plans now have the same billing mode → sync global tab
+    const allPlanIds = PLANS.map((p) => p.id);
+    const allSame = allPlanIds.every(
+      (id) => (updatedCardBilling[id] || billing) === next
+    );
+
+    if (allSame) {
+      // All cards match → update global tab and clear overrides
+      setBilling(next);
+      setCardBilling({});
+    } else {
+      setCardBilling(updatedCardBilling);
+    }
   };
   const [featureToggles, setFeatureToggles] = useState<Record<string, Record<string, boolean>>>({});
 
@@ -174,7 +195,7 @@ export default function PricingPlansPage() {
             <div className="flex rounded-lg border border-zinc-200 bg-zinc-50 p-0.5 dark:border-zinc-700 dark:bg-zinc-800">
               <button
                 type="button"
-                onClick={() => setBilling("monthly")}
+                onClick={() => handleGlobalBillingChange("monthly")}
                 className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
                   billing === "monthly"
                     ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50"
@@ -185,7 +206,7 @@ export default function PricingPlansPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setBilling("yearly")}
+                onClick={() => handleGlobalBillingChange("yearly")}
                 className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
                   billing === "yearly"
                     ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50"
