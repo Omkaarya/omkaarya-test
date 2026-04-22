@@ -26,6 +26,7 @@ import { createPricingPlansRouter } from "./pricing-plans.routes.js";
 /**
  * Super-admin HTTP API mounted at `/api`:
  * - GET  /api/temples
+ * - GET  /api/pricing-plans/comparison
  * - GET  /api/temples/:tenantId
  * - PATCH /api/temples/:tenantId
  * - POST /api/temples/create

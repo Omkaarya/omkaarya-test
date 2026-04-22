@@ -26,7 +26,7 @@ import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTab
 // ── Types ──────────────────────────────────────────────────────────
 
 type SubscriptionStatus = "Pending" | "Active" | "Expired" | "Rejected";
-type PlanName = "Aaradhana" | "Sankalpa" | "Mandala";
+type PlanName = "Prarambha" | "Sankalpa" | "Aaradhana";
 type BillingCycle = "Monthly" | "Annual";
 
 type SubscriptionRow = {
@@ -80,9 +80,9 @@ function statusBadgeColor(status: SubscriptionStatus) {
 
 function planBadgeColor(plan: PlanName) {
   switch (plan) {
-    case "Aaradhana": return "purple" as const;
+    case "Prarambha": return "success" as const;
     case "Sankalpa": return "pink" as const;
-    case "Mandala": return "indigo" as const;
+    case "Aaradhana": return "indigo" as const;
   }
 }
 

@@ -1,7 +1,7 @@
 export type SubmitTemplePlanSelectionPayload = {
   sessionEmail: string;
   templeId: string;
-  planId: "basic" | "business" | "enterprise";
+  pricingPlanId: string;
   billing: "monthly" | "annual";
   confirmedAt?: string;
 };
@@ -14,7 +14,7 @@ export type SubmitTemplePlanSelectionResult =
     };
 
 export async function submitTemplePlanSelection(
-  payload: SubmitTemplePlanSelectionPayload,
+  payload: SubmitTemplePlanSelectionPayload
 ): Promise<SubmitTemplePlanSelectionResult> {
   const response = await fetch("/api/temple-admin/plan-selection", {
     method: "POST",

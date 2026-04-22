@@ -38,7 +38,7 @@ const FLAG_BY_CODE: Record<string, string> = {
   DE: "🇩🇪",
 };
 
-const PLANS: TemplePlan[] = ["Aaaradhana", "Sankalpa", "Mandala", "Free"];
+const PLANS: TemplePlan[] = ["Prarambha", "Sankalpa", "Aaradhana", "Free"];
 
 function normalizePlan(raw: string): TemplePlan {
   return PLANS.includes(raw as TemplePlan) ? (raw as TemplePlan) : "Sankalpa";
@@ -343,7 +343,7 @@ export class PostgresTempleRepository implements TempleRepository {
 
         await client.query(
           `INSERT INTO public.temples (
-             tenant_id, name, slug, country_code, country_flag, city, plan, devotees, status, compliance, admin_email,
+             tenant_id, name, slug, country_code, country_flag, city, plan, pricing_plan_id, devotees, status, compliance, admin_email,
              admin_user_id,
              contact_email, charity_registered, charity_registration_number,
              contact_phone, contact_whatsapp, fax,
@@ -351,7 +351,9 @@ export class PostgresTempleRepository implements TempleRepository {
              tradition, primary_deity_id, billing_cycle,
              logo_data_url
            ) VALUES (
-             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+             $1, $2, $3, $4, $5, $6, $7,
+             (SELECT id FROM public.pricing_plans WHERE name = $7 LIMIT 1),
+             $8, $9, $10, $11, $12,
              $13, $14, $15,
              $16::jsonb, $17::jsonb, $18::jsonb,
              $19, $20, $21, $22::jsonb,
@@ -586,6 +588,7 @@ export class PostgresTempleRepository implements TempleRepository {
                country_flag = $5,
                city = $6,
                plan = $7,
+               pricing_plan_id = (SELECT id FROM public.pricing_plans WHERE name = $7 LIMIT 1),
                status = $8,
                contact_email = $9,
                contact_phone = $10::jsonb,

@@ -53,9 +53,9 @@ const MODULE_LABELS: Record<string, string> = {
 };
 
 const PLAN_META: Record<string, { label: string; tierColor: string }> = {
-  Aaaradhana: { label: "Prarambha (Basic)", tierColor: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300" },
-  Sankalpa: { label: "Sankalpa (Business)", tierColor: "bg-violet-100 text-violet-800 dark:bg-violet-950/50 dark:text-violet-300" },
-  Mandala: { label: "Aaaradhana (Enterprise)", tierColor: "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-300" },
+  Prarambha: { label: "Prarambha (Starter)", tierColor: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300" },
+  Sankalpa: { label: "Sankalpa (Premium)", tierColor: "bg-violet-100 text-violet-800 dark:bg-violet-950/50 dark:text-violet-300" },
+  Aaradhana: { label: "Aaradhana (Advanced)", tierColor: "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-300" },
 };
 
 function isUuidString(s: string): boolean {

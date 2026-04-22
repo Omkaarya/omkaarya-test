@@ -34,6 +34,14 @@ export function createPricingPlansRouter(repository: PostgresPricingPlansReposit
   );
 
   r.get(
+    "/pricing-plans/comparison",
+    asyncHandler(async (_req, res) => {
+      const data = await repository.getComparison();
+      res.json({ success: true, data });
+    })
+  );
+
+  r.get(
     "/pricing-plans/:id",
     asyncHandler(async (req, res) => {
       const id = requirePricingPlanId(req.params.id);

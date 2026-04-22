@@ -23,11 +23,11 @@ function initials(name: string): string {
 
 function planPillClass(plan: TemplePlan): string {
   switch (plan) {
-    case "Aaaradhana":
-      return "bg-violet-100 text-violet-800 dark:bg-violet-950/50 dark:text-violet-300";
+    case "Prarambha":
+      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300";
     case "Sankalpa":
       return "bg-pink-100 text-pink-800 dark:bg-pink-950/50 dark:text-pink-300";
-    case "Mandala":
+    case "Aaradhana":
       return "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-300";
     default:
       return "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300";

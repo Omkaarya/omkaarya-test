@@ -24,7 +24,7 @@ export function createTemplePlanRouter(plans: PostgresTemplePlanRepository): Rou
       const body = req.body as {
         sessionEmail: string;
         templeId: string;
-        planId: "basic" | "business" | "enterprise";
+        pricingPlanId: string;
         billing: "monthly" | "annual";
         confirmedAt?: string;
       };
@@ -41,12 +41,15 @@ export function createTemplePlanRouter(plans: PostgresTemplePlanRepository): Rou
       const result = await plans.savePlanSelection({
         sessionEmail: body.sessionEmail,
         templeId: body.templeId,
-        planId: body.planId,
+        pricingPlanId: body.pricingPlanId,
         billing: body.billing,
         confirmedAt,
       });
 
       if (!result.ok) {
+        if (result.reason === "invalid_plan") {
+          throw new HttpError(400, "Invalid or unsupported pricing plan.");
+        }
         throw new HttpError(404, "Temple not found for this session or temple id.");
       }
 

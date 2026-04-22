@@ -122,7 +122,7 @@ export const templeDeitySelectionBodySchema = z
 export const templePlanSelectionBodySchema = z.object({
   sessionEmail: z.string().email(),
   templeId: z.string().trim().pipe(z.string().min(1)),
-  planId: z.enum(["basic", "business", "enterprise"]),
+  pricingPlanId: z.string().uuid("Invalid pricing plan id"),
   billing: z.enum(["monthly", "annual"]),
   confirmedAt: z.string().optional(),
 });

@@ -22,7 +22,12 @@ import {
   loadTempleOnboardingPlanDraft,
   TEMPLE_ONBOARDING_TRIAL_DAYS,
 } from "@/lib/temple-onboarding-plan";
-import { getTemplePlanById } from "@/lib/temple-pricing-plans";
+import {
+  getPlanByIdFromList,
+  type ApiPricingPlan,
+  formatUsdFromCents,
+  effectiveMonthlyFromYearlyCents,
+} from "@/lib/temple-pricing-plans";
 import { TEMPLE_ONBOARDING_EMAIL_KEY } from "@/lib/temple-onboarding-signin";
 import { isDeitySelectionComplete } from "@/lib/temple-onboarding-deity";
 import {
@@ -74,6 +79,7 @@ export default function TempleAdminPaymentPage() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [planDraft, setPlanDraft] = useState<ReturnType<typeof loadTempleOnboardingPlanDraft>>(null);
+  const [catalogPlans, setCatalogPlans] = useState<ApiPricingPlan[]>([]);
 
   const [nameOnCard, setNameOnCard] = useState("");
   const [cardDigits, setCardDigits] = useState("");
@@ -101,7 +107,7 @@ export default function TempleAdminPaymentPage() {
       return;
     }
     const draft = loadTempleOnboardingPlanDraft();
-    if (!draft?.planId) {
+    if (!draft?.pricingPlanId) {
       router.replace("/temple-admin/choose-plan");
       return;
     }
@@ -109,7 +115,35 @@ export default function TempleAdminPaymentPage() {
     setReady(true);
   }, [router]);
 
-  const plan = planDraft?.planId ? getTemplePlanById(planDraft.planId) : undefined;
+  useEffect(() => {
+    if (!ready || !planDraft?.pricingPlanId) return;
+    const id = planDraft.pricingPlanId;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/pricing-plans", { cache: "no-store" });
+        const json = (await res.json().catch(() => null)) as { success?: boolean; data?: ApiPricingPlan[] };
+        if (cancelled) return;
+        if (res.ok && json.success && Array.isArray(json.data)) {
+          setCatalogPlans(json.data);
+          return;
+        }
+        const one = await fetch(`/api/pricing-plans/${encodeURIComponent(id)}`, { cache: "no-store" });
+        const j2 = (await one.json().catch(() => null)) as { success?: boolean; data?: ApiPricingPlan };
+        if (cancelled || !one.ok || !j2.success || !j2.data) return;
+        setCatalogPlans([j2.data]);
+      } catch {
+        /* summary uses planName from session draft */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, planDraft?.pricingPlanId]);
+
+  const plan = planDraft?.pricingPlanId
+    ? getPlanByIdFromList(catalogPlans, planDraft.pricingPlanId)
+    : undefined;
   const billingLabel = planDraft?.billing === "monthly" ? "Monthly" : "Annually";
 
   const trialEnd = useMemo(() => {
@@ -127,12 +161,18 @@ export default function TempleAdminPaymentPage() {
 
   const afterTrialPrice = useMemo(() => {
     if (!plan || !planDraft) return "—";
-    const n =
-      planDraft.billing === "monthly" ? plan.priceMonthly : plan.priceAnnualPerMonth;
-    return `$${n} / month`;
+    const perMoCents =
+      planDraft.billing === "monthly"
+        ? plan.priceMonthly
+        : effectiveMonthlyFromYearlyCents(plan.priceYearly);
+    return `${formatUsdFromCents(perMoCents)} / month`;
   }, [plan, planDraft]);
 
-  const planDisplayName = plan ? `${plan.name} plan` : "—";
+  const planDisplayName = plan
+    ? `${plan.name} plan`
+    : planDraft?.planName
+      ? `${planDraft.planName} plan`
+      : "—";
 
   const validation = useMemo(() => {
     const nameOk = isCardholderNameValid(nameOnCard);
@@ -209,7 +249,7 @@ export default function TempleAdminPaymentPage() {
     }
   };
 
-  if (!ready || !planDraft?.planId || !plan) {
+  if (!ready || !planDraft?.pricingPlanId) {
     return <PaymentPageSkeleton />;
   }
 
