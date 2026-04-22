@@ -4,6 +4,7 @@ import { ArrowRight, Eye, EyeOff, Lock, Mail } from "lucide-react";
 import Link from "next/link";
 import { Suspense, useEffect, useId, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import {
   TEMPLE_ONBOARDING_EMAIL_KEY,
   TEMPLE_ONBOARDING_INVITE_FULL_NAME_KEY,
@@ -117,14 +118,20 @@ function TempleAdminSignInForm() {
       });
 
       const data = (await response.json().catch(() => null)) as {
-        error?: string;
-        message?: string;
+        success?: boolean;
+        data?: { firstLogin?: boolean };
         firstLogin?: boolean;
+        error?: string | { message?: string };
+        message?: string;
       } | null;
 
       if (response.ok) {
         sessionStorage.setItem(TEMPLE_ONBOARDING_EMAIL_KEY, trimmedEmail);
-        const firstLogin = data?.firstLogin !== false;
+        const fl =
+          data && typeof data === "object" && "data" in data && data.data
+            ? data.data?.firstLogin
+            : data?.firstLogin;
+        const firstLogin = fl !== false;
         if (firstLogin) {
           sessionStorage.removeItem(TEMPLE_ONBOARDING_RETURNING_LOGIN_KEY);
           sessionStorage.setItem(TEMPLE_ONBOARDING_TEMP_PASSWORD_KEY, pwd);
@@ -140,9 +147,7 @@ function TempleAdminSignInForm() {
       if (response.status === 401) {
         setError("Invalid email or password. Check with your administrator.");
       } else {
-        setError(
-          (data && typeof data.error === "string" && data.error) || "Something went wrong. Please try again."
-        );
+        setError(jsonApiErrorMessage(data) || "Something went wrong. Please try again.");
       }
     } catch {
       setError("Network error. Please try again.");

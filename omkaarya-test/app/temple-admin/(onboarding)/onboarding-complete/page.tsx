@@ -10,7 +10,6 @@ import {
   loadTempleOnboardingPlanDraft,
   TEMPLE_ONBOARDING_TRIAL_DAYS,
 } from "@/lib/temple-onboarding-plan";
-import { getTemplePlanById } from "@/lib/temple-pricing-plans";
 import {
   loadTempleAdminProfileDraft,
   TEMPLE_ONBOARDING_EMAIL_KEY,
@@ -90,13 +89,36 @@ export default function TempleAdminOnboardingCompletePage() {
     if (tn) setTempleName(tn);
 
     const planDraft = loadTempleOnboardingPlanDraft();
-    const plan = planDraft?.planId ? getTemplePlanById(planDraft.planId) : undefined;
-    const billingLabel = planDraft?.billing === "monthly" ? "Monthly" : "Annual";
-    if (plan) {
-      setPlanLine(`${plan.name} plan · ${billingLabel} · No charge until trial ends`);
-    }
-
     setReady(true);
+
+    const billingLabel = planDraft?.billing === "monthly" ? "Monthly" : "Annual";
+    void (async () => {
+      let label = planDraft?.planName?.trim() || "";
+      if (planDraft?.pricingPlanId) {
+        try {
+          const res = await fetch("/api/pricing-plans", { cache: "no-store" });
+          const json = (await res.json().catch(() => null)) as {
+            success?: boolean;
+            data?: { id: string; name: string }[];
+          };
+          if (res.ok && json.success && Array.isArray(json.data)) {
+            const p = json.data.find((x) => x.id === planDraft.pricingPlanId);
+            if (p?.name) label = p.name;
+          } else {
+            const one = await fetch(`/api/pricing-plans/${encodeURIComponent(planDraft.pricingPlanId)}`, {
+              cache: "no-store",
+            });
+            const j2 = (await one.json().catch(() => null)) as { success?: boolean; data?: { name?: string } };
+            if (one.ok && j2.success && j2.data?.name) label = j2.data.name;
+          }
+        } catch {
+          /* use planName */
+        }
+      }
+      if (label) {
+        setPlanLine(`${label} plan · ${billingLabel} · No charge until trial ends`);
+      }
+    })();
   }, [router]);
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { nextJsonError, nextJsonSuccess } from "@/lib/api-envelope";
 import { fetchTenantFeatures } from "@/lib/plan-features-db";
 
 /**
@@ -11,13 +11,24 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const tenantId = searchParams.get("tenantId");
     if (!tenantId) {
-      return NextResponse.json({ error: "tenantId query param is required" }, { status: 400 });
+      return nextJsonError(
+        400,
+        "MISSING_QUERY",
+        "tenantId query param is required",
+        "Pass `?tenantId=<uuid>` so the server can resolve the tenant's plan and effective features."
+      );
     }
 
     const features = await fetchTenantFeatures(tenantId);
-    return NextResponse.json(features);
+    return nextJsonSuccess(
+      200,
+      features,
+      "Tenant features loaded",
+      "Effective feature flags for this tenant were derived from its plan and registry."
+    );
   } catch (err) {
     console.error("GET /api/tenant-features error:", err);
-    return NextResponse.json({ error: "Failed to fetch tenant features" }, { status: 500 });
+    const m = err instanceof Error ? err.message : String(err);
+    return nextJsonError(500, "TENANT_FEATURES_FAILED", "Failed to fetch tenant features", m);
   }
 }

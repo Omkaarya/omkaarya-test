@@ -1,3 +1,5 @@
+import { jsonApiErrorMessage } from "@/lib/api-envelope";
+
 export type SubmitTempleAdminProfilePayload = {
   sessionEmail: string;
   fullName: string;
@@ -22,19 +24,11 @@ export async function submitTempleAdminProfile(
     body: JSON.stringify(payload),
   });
 
-  const data = (await response.json().catch(() => null)) as {
-    error?: string;
-    message?: string;
-  } | null;
+  const data = (await response.json().catch(() => null)) as unknown;
 
   if (response.ok) {
     return { ok: true };
   }
 
-  const message =
-    (data && typeof data.error === "string" && data.error) ||
-    (data && typeof data.message === "string" && data.message) ||
-    "Something went wrong. Please try again.";
-
-  return { ok: false, message };
+  return { ok: false, message: jsonApiErrorMessage(data) || "Something went wrong. Please try again." };
 }

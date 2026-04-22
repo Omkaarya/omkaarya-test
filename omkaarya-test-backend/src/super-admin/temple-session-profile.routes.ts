@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { sendSuccess } from "../middleware/api-envelope.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { HttpError } from "../middleware/http-error.js";
 import { validateBody } from "../middleware/validate.js";
@@ -13,13 +14,25 @@ export function createTempleSessionProfileRouter(repo: PostgresTempleRepository)
     asyncHandler(async (req, res) => {
       const sessionEmail = typeof req.query.sessionEmail === "string" ? req.query.sessionEmail : "";
       if (!sessionEmail.trim()) {
-        throw new HttpError(400, "sessionEmail is required");
+        throw new HttpError(400, "sessionEmail is required", {
+          code: "MISSING_QUERY",
+          reason: "Pass `?sessionEmail=<email>` so the server can look up the temple for this user.",
+        });
       }
       const profile = await repo.getTempleSessionProfileByAdminEmail(sessionEmail);
       if (!profile) {
-        throw new HttpError(404, "Temple not found for this session email.");
+        throw new HttpError(404, "Temple not found for this session email.", {
+          code: "TEMPLE_NOT_FOUND",
+          reason: "No `temples` row is associated with the given admin email in this context.",
+        });
       }
-      res.json(profile);
+      sendSuccess(
+        res,
+        200,
+        profile,
+        "Temple session profile loaded",
+        "Returns temple contact, branding, and setup fields used after sign-in in onboarding."
+      );
     })
   );
 
@@ -52,9 +65,18 @@ export function createTempleSessionProfileRouter(repo: PostgresTempleRepository)
         logoDataUrl: body.logoDataUrl,
       });
       if (!result.ok) {
-        throw new HttpError(404, "Temple not found for this session email.");
+        throw new HttpError(404, "Temple not found for this session email.", {
+          code: "TEMPLE_NOT_FOUND",
+          reason: "The address and logo updates could not be applied because the tenant was not found for this session.",
+        });
       }
-      res.json({ success: true, message: "Profile details saved" });
+      sendSuccess(
+        res,
+        200,
+        { saved: true },
+        "Profile details saved",
+        "Domain, address, and optional logo fields were persisted on the `temples` record."
+      );
     })
   );
 

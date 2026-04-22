@@ -1,6 +1,6 @@
 export type TempleStatus = "Active" | "Trial" | "Suspended";
 export type TempleCompliance = "Verified" | "Pending" | "Not set up";
-export type TemplePlan = "Aaaradhana" | "Sankalpa" | "Mandala" | "Free";
+export type TemplePlan = "Prarambha" | "Sankalpa" | "Aaradhana" | "Free";
 
 /** Row returned by GET /api/temples — matches frontend MockTemple. */
 export type TempleRecord = {
@@ -153,3 +153,23 @@ export type CreatePricingPlanPayload = {
 };
 
 export type UpdatePricingPlanPayload = Partial<CreatePricingPlanPayload>;
+
+/** GET /api/pricing-plans/comparison — per-plan feature matrix for onboarding UI */
+export type PricingPlanComparisonCell = {
+  enabled: boolean;
+  limit: number | null;
+};
+
+export type PricingPlanComparisonRow = {
+  featureId: number;
+  name: string;
+  key: string;
+  moduleKey: string;
+  hasLimit: boolean;
+  values: Record<string, PricingPlanComparisonCell>;
+};
+
+export type PricingPlanComparisonResponse = {
+  plans: { id: string; name: string }[];
+  features: PricingPlanComparisonRow[];
+};

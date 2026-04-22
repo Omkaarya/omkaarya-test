@@ -1,6 +1,6 @@
 /** Selected plan during onboarding (session-only). */
 
-import type { TemplePlanId } from "@/lib/temple-pricing-plans";
+import { isPricingPlanId } from "@/lib/temple-pricing-plans";
 
 /** Shared across payment and completion copy (change in one place). */
 export const TEMPLE_ONBOARDING_TRIAL_DAYS = 14;
@@ -10,16 +10,29 @@ export const TEMPLE_ONBOARDING_PLAN_DRAFT_KEY = "temple_onboarding_plan_draft";
 export type TempleOnboardingPlanBilling = "monthly" | "annual";
 
 export type TempleOnboardingPlanDraft = {
-  planId: TemplePlanId | null;
+  /** `pricing_plans.id` (UUID) */
+  pricingPlanId: string | null;
+  /** Display label for offline or summary pages */
+  planName?: string | null;
   billing: TempleOnboardingPlanBilling;
   /** ISO string when user confirmed on choose-plan */
   confirmedAt?: string;
 };
 
 const defaultDraft: TempleOnboardingPlanDraft = {
-  planId: null,
+  pricingPlanId: null,
   billing: "annual",
 };
+
+function parsePricingPlanId(o: {
+  pricingPlanId?: unknown;
+  planId?: unknown;
+}): string | null {
+  if (typeof o.pricingPlanId === "string" && isPricingPlanId(o.pricingPlanId)) {
+    return o.pricingPlanId;
+  }
+  return null;
+}
 
 export function loadTempleOnboardingPlanDraft(): TempleOnboardingPlanDraft | null {
   if (typeof window === "undefined") return null;
@@ -28,12 +41,11 @@ export function loadTempleOnboardingPlanDraft(): TempleOnboardingPlanDraft | nul
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== "object") return null;
-    const o = parsed as Partial<TempleOnboardingPlanDraft>;
+    const o = parsed as Partial<TempleOnboardingPlanDraft> & { planId?: unknown };
     const billing = o.billing === "monthly" || o.billing === "annual" ? o.billing : "annual";
-    const planId =
-      o.planId === "basic" || o.planId === "business" || o.planId === "enterprise" ? o.planId : null;
     return {
-      planId,
+      pricingPlanId: parsePricingPlanId(o),
+      planName: typeof o.planName === "string" ? o.planName : null,
       billing,
       confirmedAt: typeof o.confirmedAt === "string" ? o.confirmedAt : undefined,
     };
@@ -48,7 +60,8 @@ export function saveTempleOnboardingPlanDraft(next: Partial<TempleOnboardingPlan
   const merged: TempleOnboardingPlanDraft = {
     ...prev,
     ...next,
-    planId: next.planId !== undefined ? next.planId : prev.planId,
+    pricingPlanId: next.pricingPlanId !== undefined ? next.pricingPlanId : prev.pricingPlanId,
+    planName: next.planName !== undefined ? next.planName : prev.planName,
     billing: next.billing ?? prev.billing,
   };
   sessionStorage.setItem(TEMPLE_ONBOARDING_PLAN_DRAFT_KEY, JSON.stringify(merged));

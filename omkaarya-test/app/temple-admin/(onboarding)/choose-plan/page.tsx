@@ -1,24 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DM_Serif_Display } from "next/font/google";
-import { ArrowRight, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ChevronUp, Layers2, Minus } from "lucide-react";
 import TempleOnboardingStepActions from "@/app/components/temple-admin/TempleOnboardingStepActions";
 import { getDeityById } from "@/lib/deity-catalog";
-import {
-  isDeitySelectionComplete,
-  loadTempleOnboardingDeityDraft,
-} from "@/lib/temple-onboarding-deity";
+import { isDeitySelectionComplete, loadTempleOnboardingDeityDraft } from "@/lib/temple-onboarding-deity";
 import {
   loadTempleOnboardingPlanDraft,
   saveTempleOnboardingPlanDraft,
+  TEMPLE_ONBOARDING_TRIAL_DAYS,
   type TempleOnboardingPlanBilling,
 } from "@/lib/temple-onboarding-plan";
 import {
-  getTemplePlanById,
-  TEMPLE_PRICING_PLANS,
-  type TemplePlanId,
+  type ApiPricingPlan,
+  formatUsdFromCents,
+  effectiveMonthlyFromYearlyCents,
+  isPricingPlanId,
 } from "@/lib/temple-pricing-plans";
 import { submitTemplePlanSelection } from "@/lib/temple-onboarding-plan-api";
 import { TEMPLE_ONBOARDING_EMAIL_KEY } from "@/lib/temple-onboarding-signin";
@@ -33,17 +32,58 @@ const dmSerif = DM_Serif_Display({
   weight: "400",
 });
 
+type ComparisonPayload = {
+  success?: boolean;
+  data?: {
+    plans: { id: string; name: string }[];
+    features: {
+      featureId: number;
+      name: string;
+      key: string;
+      moduleKey: string;
+      hasLimit: boolean;
+      values: Record<string, { enabled: boolean; limit: number | null }>;
+    }[];
+  };
+};
+
 export default function TempleAdminChoosePlanPage() {
   const router = useRouter();
   const [isHydrated, setIsHydrated] = useState(false);
   const [draft, setDraft] = useState<ReturnType<typeof loadTempleOnboardingTempleProfileDraft> | null>(null);
   const [deityDraft, setDeityDraft] = useState<ReturnType<typeof loadTempleOnboardingDeityDraft> | null>(null);
   const [missing, setMissing] = useState(false);
-  const [selectedPlanId, setSelectedPlanId] = useState<TemplePlanId | null>("business");
+  const [plans, setPlans] = useState<ApiPricingPlan[]>([]);
+  const [comparison, setComparison] = useState<ComparisonPayload["data"] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [billing, setBilling] = useState<TempleOnboardingPlanBilling>("annual");
   const [setupOpen, setSetupOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
+
+  const loadCatalog = useCallback(async () => {
+    setLoadError(null);
+    try {
+      const [prRes, cmpRes] = await Promise.all([
+        fetch("/api/pricing-plans", { cache: "no-store" }),
+        fetch("/api/pricing-plans/comparison", { cache: "no-store" }),
+      ]);
+      const prJson = (await prRes.json().catch(() => null)) as { success?: boolean; data?: ApiPricingPlan[] };
+      if (!prRes.ok || !prJson.success || !Array.isArray(prJson.data)) {
+        setLoadError("Could not load pricing plans.");
+        return;
+      }
+      setPlans(prJson.data);
+      const cmpJson = (await cmpRes.json().catch(() => null)) as ComparisonPayload;
+      if (cmpRes.ok && cmpJson.success && cmpJson.data) {
+        setComparison(cmpJson.data);
+      }
+    } catch {
+      setLoadError("Network error while loading plans.");
+    }
+  }, []);
 
   useEffect(() => {
     const email = sessionStorage.getItem(TEMPLE_ONBOARDING_EMAIL_KEY);
@@ -64,7 +104,9 @@ export default function TempleAdminChoosePlanPage() {
 
     const planDraft = loadTempleOnboardingPlanDraft();
     if (planDraft) {
-      if (planDraft.planId) setSelectedPlanId(planDraft.planId);
+      if (planDraft.pricingPlanId && isPricingPlanId(planDraft.pricingPlanId)) {
+        setSelectedPlanId(planDraft.pricingPlanId);
+      }
       setBilling(planDraft.billing);
     }
 
@@ -73,11 +115,29 @@ export default function TempleAdminChoosePlanPage() {
 
   useEffect(() => {
     if (!isHydrated) return;
+    void loadCatalog();
+  }, [isHydrated, loadCatalog]);
+
+  useEffect(() => {
+    if (plans.length > 0 && !selectedPlanId) {
+      const def = plans.find((p) => p.popular)?.id ?? plans[0]!.id;
+      setSelectedPlanId(def);
+    }
+  }, [plans, selectedPlanId]);
+
+  const selectedPlan = useMemo(
+    () => (selectedPlanId ? plans.find((p) => p.id === selectedPlanId) : undefined),
+    [plans, selectedPlanId]
+  );
+
+  useEffect(() => {
+    if (!isHydrated) return;
     saveTempleOnboardingPlanDraft({
-      planId: selectedPlanId,
+      pricingPlanId: selectedPlanId,
+      planName: selectedPlan?.name ?? null,
       billing,
     });
-  }, [isHydrated, selectedPlanId, billing]);
+  }, [isHydrated, selectedPlanId, selectedPlan, billing]);
 
   const slugPreview = useMemo(() => {
     const s = draft?.domainSubdomain?.trim?.() ?? "";
@@ -96,8 +156,6 @@ export default function TempleAdminChoosePlanPage() {
     if (ids.length === 0) return "—";
     return ids.map((id) => getDeityById(id)?.name ?? id).join(", ");
   }, [deityDraft]);
-
-  const selectedPlan = selectedPlanId ? getTemplePlanById(selectedPlanId) : undefined;
 
   async function handleConfirm() {
     setConfirmError(null);
@@ -121,7 +179,7 @@ export default function TempleAdminChoosePlanPage() {
       const res = await submitTemplePlanSelection({
         sessionEmail,
         templeId: created.templeId,
-        planId: selectedPlanId,
+        pricingPlanId: selectedPlanId,
         billing,
         confirmedAt,
       });
@@ -130,7 +188,8 @@ export default function TempleAdminChoosePlanPage() {
         return;
       }
       saveTempleOnboardingPlanDraft({
-        planId: selectedPlanId,
+        pricingPlanId: selectedPlanId,
+        planName: selectedPlan?.name ?? null,
         billing,
         confirmedAt,
       });
@@ -173,13 +232,13 @@ export default function TempleAdminChoosePlanPage() {
           <h1
             className={`mt-4 text-3xl font-normal leading-tight text-[var(--brand-primary)] sm:text-4xl lg:text-[2.75rem] ${dmSerif.className}`}
           >
-            Choose a plan that fits your temple
+            Confirm your plan
           </h1>
           <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400 sm:text-base">
-            All plans include a 7-day free trial. No credit card needed to start.
+            Pick the tier that fits your temple. All plans include a {TEMPLE_ONBOARDING_TRIAL_DAYS}-day free trial.
           </p>
 
-          <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
             <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300" id="billing-toggle-label">
               Annual pricing (save 20%)
             </span>
@@ -204,16 +263,32 @@ export default function TempleAdminChoosePlanPage() {
                 aria-hidden
               />
             </button>
+            <div className="text-sm text-zinc-600 dark:text-zinc-400">
+              <span className="font-medium">Currency:</span> USD
+            </div>
           </div>
         </div>
 
+        {loadError ? (
+          <p
+            className="relative z-[1] mx-auto mt-8 max-w-lg rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-center text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200"
+            role="alert"
+          >
+            {loadError}
+          </p>
+        ) : null}
+
         <div className="relative z-[1] mx-auto mt-10 max-w-5xl">
           <div className="grid grid-cols-1 gap-5 md:grid-cols-3 md:gap-6">
-            {TEMPLE_PRICING_PLANS.map((plan) => {
+            {plans.map((plan) => {
               const selected = selectedPlanId === plan.id;
-              const price =
-                billing === "annual" ? plan.priceAnnualPerMonth : plan.priceMonthly;
-              const Icon = plan.Icon;
+              const priceCents = billing === "annual" ? plan.priceYearly : plan.priceMonthly;
+              const priceLabel =
+                billing === "annual"
+                  ? `${formatUsdFromCents(plan.priceYearly)} / yearly`
+                  : `${formatUsdFromCents(plan.priceMonthly)} / monthly`;
+              const perMo =
+                billing === "annual" ? effectiveMonthlyFromYearlyCents(plan.priceYearly) : plan.priceMonthly;
               return (
                 <div
                   key={plan.id}
@@ -225,41 +300,61 @@ export default function TempleAdminChoosePlanPage() {
                   ].join(" ")}
                 >
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-50 text-[var(--brand-primary)] dark:bg-orange-950/50">
-                    <Icon className="h-6 w-6" aria-hidden />
+                    <Layers2 className="h-6 w-6" aria-hidden />
                   </div>
-                  <h2 className="mt-4 text-lg font-bold text-zinc-900 dark:text-zinc-100">{plan.name}</h2>
+                  {plan.popular ? (
+                    <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+                      Premium
+                    </p>
+                  ) : null}
+                  <h2 className="mt-1 text-lg font-bold text-zinc-900 dark:text-zinc-100">{plan.name}</h2>
+                  <p className="min-h-10 text-xs text-zinc-500 dark:text-zinc-400">
+                    {plan.description ?? " "}
+                  </p>
                   <div className="mt-2">
                     <span className="text-3xl font-bold tabular-nums text-zinc-900 dark:text-zinc-50">
-                      ${price}
+                      {formatUsdFromCents(priceCents)}
                     </span>
-                    <span className="text-lg font-medium text-zinc-600 dark:text-zinc-400">/mth</span>
+                    <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                      {billing === "annual" ? " / yearly" : " / month"}
+                    </span>
                   </div>
-                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                    {billing === "annual" ? "Billed annually." : "Billed monthly."}
+                  {billing === "annual" ? (
+                    <p className="text-xs text-zinc-500">
+                      {formatUsdFromCents(Math.round(perMo))} / month billed annually
+                    </p>
+                  ) : (
+                    <p className="text-xs text-zinc-500">Billed monthly.</p>
+                  )}
+                  <p className="mt-2 text-xs text-zinc-500">{priceLabel}</p>
+                  <p className="mt-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                    {TEMPLE_ONBOARDING_TRIAL_DAYS}-Day Free Trial
                   </p>
-                  <ul className="mt-5 flex flex-1 flex-col gap-3 text-sm text-zinc-700 dark:text-zinc-300">
-                    {plan.features.map((f) => (
-                      <li key={f} className="flex gap-2">
-                        <Check
-                          className="mt-0.5 h-4 w-4 shrink-0 text-[var(--brand-primary)]"
-                          aria-hidden
-                        />
-                        <span>{f}</span>
-                      </li>
-                    ))}
+                  <p className="mt-1 text-xs text-zinc-500">Onboarding &amp; setup: contact sales if needed</p>
+                  <ul className="mt-4 flex flex-1 flex-col gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                    {Array.isArray(plan.features) && plan.features.length > 0
+                      ? plan.features.map((f) => (
+                          <li key={f} className="flex gap-2">
+                            <Check
+                              className="mt-0.5 h-4 w-4 shrink-0 text-[var(--brand-primary)]"
+                              aria-hidden
+                            />
+                            <span>{f}</span>
+                          </li>
+                        ))
+                      : null}
                   </ul>
                   <button
                     type="button"
                     onClick={() => setSelectedPlanId(plan.id)}
-                    disabled={selected}
                     className={[
                       "mt-6 w-full rounded-lg py-3 text-sm font-semibold transition-colors",
                       selected
-                        ? "cursor-default bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+                        ? "border-2 border-[var(--brand-primary)] bg-white text-[var(--brand-primary)] dark:bg-zinc-900"
                         : "bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)]",
                     ].join(" ")}
                   >
-                    {selected ? "Selected" : "Get started"}
+                    {selected ? "Selected" : "Select"}
                   </button>
                 </div>
               );
@@ -268,15 +363,74 @@ export default function TempleAdminChoosePlanPage() {
         </div>
       </div>
 
+      {comparison && comparison.features.length > 0 && (
+        <div className="border-t border-zinc-100 bg-zinc-50/50 px-4 py-6 dark:border-zinc-800 dark:bg-zinc-900/20 sm:px-8">
+          <button
+            type="button"
+            onClick={() => setDetailsOpen((o) => !o)}
+            className="mx-auto flex w-full max-w-4xl items-center justify-center gap-2 text-sm font-semibold text-[var(--brand-primary)]"
+            aria-expanded={detailsOpen}
+          >
+            View full details
+            {detailsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+          {detailsOpen ? (
+            <div className="mx-auto mt-4 max-w-5xl overflow-x-auto">
+              <table className="w-full min-w-[600px] border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-200 dark:border-zinc-700">
+                    <th className="py-2 pr-4 font-semibold">Feature</th>
+                    {comparison.plans.map((p) => (
+                      <th key={p.id} className="px-2 py-2 text-center font-semibold">
+                        {p.name}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {comparison.features.map((row) => (
+                    <tr
+                      key={row.featureId}
+                      className="border-b border-zinc-100 dark:border-zinc-800"
+                    >
+                      <td className="py-2 pr-4 text-zinc-700 dark:text-zinc-300">{row.name}</td>
+                      {comparison.plans.map((p) => {
+                        const v = row.values[p.id];
+                        const on = v?.enabled === true;
+                        return (
+                          <td key={p.id} className="px-2 py-2 text-center">
+                            {on ? (
+                              row.hasLimit && v?.limit != null ? (
+                                <span className="tabular-nums text-zinc-800 dark:text-zinc-200">{v.limit}</span>
+                              ) : (
+                                <Check className="mx-auto h-4 w-4 text-zinc-800 dark:text-zinc-200" />
+                              )
+                            ) : (
+                              <Minus className="mx-auto h-4 w-4 text-zinc-300 dark:text-zinc-600" />
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </div>
+      )}
+
       <div className="border-t border-zinc-100 bg-white px-4 py-6 dark:border-zinc-800 dark:bg-[var(--surface-card)] sm:px-8">
         {selectedPlan ? (
           <p className="flex flex-wrap items-center justify-center gap-2 text-center text-sm text-emerald-700 dark:text-emerald-400">
             <Check className="h-5 w-5 shrink-0" aria-hidden />
             <span>
-              <span className="font-semibold">{selectedPlan.name} Plan</span> selected, Continue to add your
+              <span className="font-semibold">{selectedPlan.name}</span> selected — continue to add your
               payment details
             </span>
           </p>
+        ) : loadError || plans.length === 0 ? (
+          <p className="text-center text-sm text-[var(--text-muted)]">Unable to show plans. Try again later.</p>
         ) : (
           <p className="text-center text-sm text-[var(--text-muted)]">Select a plan to continue.</p>
         )}
@@ -340,11 +494,11 @@ export default function TempleAdminChoosePlanPage() {
             <button
               type="button"
               onClick={() => void handleConfirm()}
-              disabled={!selectedPlanId || isConfirming}
+              disabled={!selectedPlanId || isConfirming || !selectedPlan}
               className="flex w-full min-w-0 flex-[1.25] items-center justify-center gap-2 rounded-lg bg-[var(--brand-primary)] py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)] disabled:pointer-events-none disabled:opacity-50"
             >
-              {isConfirming ? "Saving…" : "Yes, Confirmed"}
-              <ArrowRight className="h-4 w-4" aria-hidden />
+              {isConfirming ? "Saving…" : "Confirm plan & proceed to payment"}
+              <ArrowRight className="h-4 w-4" />
             </button>
           }
         />

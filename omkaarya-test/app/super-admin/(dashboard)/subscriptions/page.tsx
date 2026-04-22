@@ -16,6 +16,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
+import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Badge } from "@/app/components/ds/atoms/Badge";
 import { MetricCard } from "@/app/components/ds/molecules/MetricCard";
@@ -26,7 +27,7 @@ import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTab
 // ── Types ──────────────────────────────────────────────────────────
 
 type SubscriptionStatus = "Pending" | "Active" | "Expired" | "Rejected";
-type PlanName = "Aaradhana" | "Sankalpa" | "Mandala";
+type PlanName = "Prarambha" | "Sankalpa" | "Aaradhana";
 type BillingCycle = "Monthly" | "Annual";
 
 type SubscriptionRow = {
@@ -80,9 +81,9 @@ function statusBadgeColor(status: SubscriptionStatus) {
 
 function planBadgeColor(plan: PlanName) {
   switch (plan) {
-    case "Aaradhana": return "purple" as const;
+    case "Prarambha": return "success" as const;
     case "Sankalpa": return "pink" as const;
-    case "Mandala": return "indigo" as const;
+    case "Aaradhana": return "indigo" as const;
   }
 }
 
@@ -289,16 +290,18 @@ export default function SubscriptionsPage() {
       params.set("pageSize", String(pageSize));
 
       const res = await fetch(`/api/subscriptions?${params.toString()}`, { cache: "no-store" });
-      const data = (await res.json().catch(() => null)) as SubscriptionsListResponse | { error?: string } | null;
+      const data = (await res.json().catch(() => null)) as unknown;
       if (!res.ok) {
-        const err =
-          data && typeof data === "object" && "error" in data && typeof (data as any).error === "string"
-            ? (data as any).error
-            : undefined;
-        throw new Error(err ?? "Failed to load subscriptions");
+        throw new Error(jsonApiErrorMessage(data) ?? "Failed to load subscriptions");
       }
 
-      const payload = data as SubscriptionsListResponse;
+      const d = data as
+        | { success: true; data: SubscriptionsListResponse }
+        | SubscriptionsListResponse;
+      const payload =
+        d && typeof d === "object" && "success" in d && d.success === true && "data" in d
+          ? d.data
+          : (d as SubscriptionsListResponse);
       setRows(
         payload.data.map((r) => ({
           id: r.id,
@@ -345,7 +348,12 @@ export default function SubscriptionsPage() {
           cache: "no-store",
         })
           .then((r) => r.json().catch(() => null))
-          .then((j: any) => (j && typeof j.total === "number" ? j.total : 0))
+          .then((j: { success?: boolean; data?: { total?: number }; total?: number } | null) => {
+          if (!j) return 0;
+          if (j.success && j.data && typeof j.data.total === "number") return j.data.total;
+          if (typeof j.total === "number") return j.total;
+          return 0;
+        })
           .catch(() => 0);
 
       const [all, pending, active, expired] = await Promise.all([
@@ -371,8 +379,19 @@ export default function SubscriptionsPage() {
         method: "POST",
         headers: { Accept: "application/json" },
       });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error ?? "Failed to verify subscription");
+      const data = (await res.json().catch(() => null)) as {
+        error?: string | { message?: string };
+        message?: string;
+      } | null;
+      if (!res.ok) {
+        const errMsg =
+          data && data.error
+            ? typeof data.error === "string"
+              ? data.error
+              : data.error.message
+            : undefined;
+        throw new Error(errMsg ?? "Failed to verify subscription");
+      }
       await fetchList();
     } catch (e) {
       setToast({
@@ -397,8 +416,19 @@ export default function SubscriptionsPage() {
         method: "POST",
         headers: { Accept: "application/json" },
       });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error ?? "Failed to reject subscription");
+      const data = (await res.json().catch(() => null)) as {
+        error?: string | { message?: string };
+        message?: string;
+      } | null;
+      if (!res.ok) {
+        const errMsg =
+          data && data.error
+            ? typeof data.error === "string"
+              ? data.error
+              : data.error.message
+            : undefined;
+        throw new Error(errMsg ?? "Failed to reject subscription");
+      }
       await fetchList();
     } catch (e) {
       setToast({

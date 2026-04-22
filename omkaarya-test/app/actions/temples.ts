@@ -40,10 +40,8 @@ export type CreateTempleActionResult =
 
 export async function createTempleAction(payload: unknown): Promise<CreateTempleActionResult> {
   const res = await fetchInternalApiJson<{
-    success: boolean;
     templeId?: string;
     temporaryPassword?: string;
-    message?: string;
   }>("/api/temples/create", {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -59,7 +57,7 @@ export async function createTempleAction(payload: unknown): Promise<CreateTemple
       ok: true,
       templeId,
       temporaryPassword: typeof res.data.temporaryPassword === "string" ? res.data.temporaryPassword : undefined,
-      message: typeof res.data.message === "string" ? res.data.message : "Temple created successfully.",
+      message: res.message ?? "Temple created successfully.",
     };
   }
 

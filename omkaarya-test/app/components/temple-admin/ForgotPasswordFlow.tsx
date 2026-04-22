@@ -10,6 +10,7 @@ import {
   TEMPLE_FORGOT_EMAIL_KEY,
   TEMPLE_FORGOT_RESET_TOKEN_KEY,
 } from "@/lib/temple-forgot-password";
+import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import {
   TEMPLE_ONBOARDING_REMEMBERED_EMAIL_KEY,
   TEMPLE_ONBOARDING_REMEMBER_ME_KEY,
@@ -75,9 +76,8 @@ function StrengthSegments({ count }: { count: number }) {
 }
 
 async function readErrorMessage(res: Response): Promise<string> {
-  const data = (await res.json().catch(() => null)) as { error?: string } | null;
-  if (data && typeof data.error === "string" && data.error.trim()) return data.error.trim();
-  return "Something went wrong. Please try again.";
+  const data = (await res.json().catch(() => null)) as unknown;
+  return jsonApiErrorMessage(data) || "Something went wrong. Please try again.";
 }
 
 export default function ForgotPasswordFlow() {
@@ -260,22 +260,26 @@ export default function ForgotPasswordFlow() {
         body: JSON.stringify({ email: em, otp }),
       });
       const data = (await response.json().catch(() => null)) as {
+        success?: boolean;
+        data?: { resetToken?: string };
         resetToken?: string;
-        error?: string;
+        error?: unknown;
       } | null;
       if (!response.ok) {
-        setOtpError(
-          data && typeof data.error === "string" && data.error.trim()
-            ? data.error.trim()
-            : "Something went wrong. Please try again."
-        );
+        setOtpError(jsonApiErrorMessage(data) || "Something went wrong. Please try again.");
         return;
       }
-      if (!data?.resetToken) {
+      const token =
+        data && "data" in data && data.data && typeof data.data.resetToken === "string"
+          ? data.data.resetToken
+          : data && typeof data === "object" && "resetToken" in data && typeof (data as { resetToken: string }).resetToken === "string"
+            ? (data as { resetToken: string }).resetToken
+            : "";
+      if (!token) {
         setOtpError("Something went wrong. Please try again.");
         return;
       }
-      sessionStorage.setItem(TEMPLE_FORGOT_RESET_TOKEN_KEY, data.resetToken);
+      sessionStorage.setItem(TEMPLE_FORGOT_RESET_TOKEN_KEY, token);
       router.replace("/temple-admin/forgot-password?step=verified");
     } catch {
       setOtpError("Network error. Please try again.");

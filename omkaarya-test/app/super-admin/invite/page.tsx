@@ -3,6 +3,7 @@
 import { Mail, Lock, EyeOff, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { jsonApiErrorMessage } from "@/lib/api-envelope";
 
 const inputBase =
   "w-full rounded-lg border border-[var(--border-default)] bg-[var(--surface-elevated)] py-2 text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]";
@@ -41,7 +42,7 @@ export default function InvitationLogin() {
       if (response.ok) {
         router.push("/");
       } else {
-        setError(data.error || "Login failed");
+        setError(jsonApiErrorMessage(data) || "Login failed");
       }
     } catch (err) {
       setError("Network error. Please try again.");

@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import { apiUrl } from "@/lib/api-base";
+import { nextJsonError, nextJsonSuccess } from "@/lib/api-envelope";
 import { fetchPlanFeatures, upsertPlanFeatures } from "@/lib/plan-features-db";
 import { fetchAllActiveFeaturesOrdered } from "@/lib/features-db";
 
@@ -10,17 +10,11 @@ function pgErrorCode(err: unknown): string | undefined {
   return typeof c === "string" ? c : undefined;
 }
 
-const SCHEMA_MISSING = {
-  code: "schema_missing" as const,
-  error:
-    "Feature registry tables are missing. From `omkaarya-test-backend` run: npm run migrate (applies 015_feature_registry_and_plan_features.sql for public.features and public.plan_features).",
-};
+const SCHEMA_MISSING_REASON =
+  "Feature registry tables are missing. From `omkaarya-test-backend` run: npm run migrate (applies 015_feature_registry_and_plan_features.sql for public.features and public.plan_features).";
 
-const DB_NOT_CONFIGURED = {
-  code: "db_not_configured" as const,
-  error:
-    "Database not configured. Set DATABASE_URL or DB_USER/DB_HOST/DB_NAME in `omkaarya-test/.env.local`, or add them to `omkaarya-test-backend/.env` (Next loads that file in local dev).",
-};
+const DB_NOT_CONFIGURED_REASON =
+  "Database not configured. Set DATABASE_URL or DB_USER/DB_HOST/DB_NAME in `omkaarya-test/.env.local`, or add them to `omkaarya-test-backend/.env` (Next loads that file in local dev).";
 
 /** GET /api/plan-features?planId=xxx — Get feature configs for a plan. */
 export async function GET(request: Request) {
@@ -28,7 +22,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const planId = searchParams.get("planId");
     if (!planId) {
-      return NextResponse.json({ error: "planId query param is required" }, { status: 400 });
+      return nextJsonError(400, "MISSING_QUERY", "planId query param is required", "Add `?planId=<plan uuid>` to load merged feature config for that plan.");
     }
 
     const [planFeatures, allActiveFeatures] = await Promise.all([
@@ -53,22 +47,26 @@ export async function GET(request: Request) {
       };
     });
 
-    return NextResponse.json(merged);
+    return nextJsonSuccess(
+      200,
+      merged,
+      "Plan feature config loaded",
+      "Merged the global feature registry with per-plan `plan_features` rows (defaults off when unset)."
+    );
   } catch (err) {
     console.error("GET /api/plan-features error:", err);
     const message = err instanceof Error ? err.message : String(err);
     const pgc = pgErrorCode(err);
     if (message.includes("Database not configured")) {
-      return NextResponse.json(DB_NOT_CONFIGURED, { status: 503 });
+      return nextJsonError(503, "DB_NOT_CONFIGURED", "Database not configured", DB_NOT_CONFIGURED_REASON);
     }
     if (
       pgc === "42P01" ||
-      (message.includes("does not exist") &&
-        (message.includes("plan_features") || /\bfeatures\b/.test(message)))
+      (message.includes("does not exist") && (message.includes("plan_features") || /\bfeatures\b/.test(message)))
     ) {
-      return NextResponse.json(SCHEMA_MISSING, { status: 503 });
+      return nextJsonError(503, "SCHEMA_MISSING", "Feature registry tables are missing", SCHEMA_MISSING_REASON);
     }
-    return NextResponse.json({ error: "Failed to fetch plan features" }, { status: 500 });
+    return nextJsonError(500, "PLAN_FEATURES_GET_FAILED", "Failed to fetch plan features", message);
   }
 }
 
@@ -82,7 +80,12 @@ export async function POST(request: Request) {
     };
 
     if (!planId || !Array.isArray(features)) {
-      return NextResponse.json({ error: "planId and features array are required" }, { status: 400 });
+      return nextJsonError(
+        400,
+        "VALIDATION_ERROR",
+        "planId and features array are required",
+        "POST a JSON body with `planId` and `features: [...]` to upsert plan feature toggles."
+      );
     }
 
     await upsertPlanFeatures(
@@ -117,21 +120,20 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ success: true });
+    return nextJsonSuccess(200, { saved: true }, "Plan features saved", "Per-plan `plan_features` rows were upserted; the pricing plan JSONB may be synced when applicable.");
   } catch (err) {
     console.error("POST /api/plan-features error:", err);
     const message = err instanceof Error ? err.message : String(err);
     const pgc = pgErrorCode(err);
     if (message.includes("Database not configured")) {
-      return NextResponse.json(DB_NOT_CONFIGURED, { status: 503 });
+      return nextJsonError(503, "DB_NOT_CONFIGURED", "Database not configured", DB_NOT_CONFIGURED_REASON);
     }
     if (
       pgc === "42P01" ||
-      (message.includes("does not exist") &&
-        (message.includes("plan_features") || /\bfeatures\b/.test(message)))
+      (message.includes("does not exist") && (message.includes("plan_features") || /\bfeatures\b/.test(message)))
     ) {
-      return NextResponse.json(SCHEMA_MISSING, { status: 503 });
+      return nextJsonError(503, "SCHEMA_MISSING", "Feature registry tables are missing", SCHEMA_MISSING_REASON);
     }
-    return NextResponse.json({ error: "Failed to save plan features" }, { status: 500 });
+    return nextJsonError(500, "PLAN_FEATURES_SAVE_FAILED", "Failed to save plan features", message);
   }
 }

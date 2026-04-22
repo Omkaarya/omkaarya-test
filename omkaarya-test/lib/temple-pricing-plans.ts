@@ -1,71 +1,42 @@
-/** Static pricing tiers for temple onboarding (UI only until billing API exists). */
+/**
+ * Shared types for `GET /api/pricing-plans` (cents, JSON features list).
+ * UI surfaces marketing names: Prarambha, Sankalpa, Aaradhana.
+ */
 
-import type { LucideIcon } from "lucide-react";
-import { Layers2, Zap } from "lucide-react";
-
-export type TemplePlanId = "basic" | "business" | "enterprise";
-
-export type TemplePricingPlan = {
-  id: TemplePlanId;
+export type ApiPricingPlan = {
+  id: string;
   name: string;
-  /** Shown in circular icon frame */
-  Icon: LucideIcon;
-  /** Display price when annual toggle is on (per month, billed annually) */
-  priceAnnualPerMonth: number;
-  /** Display price when monthly billing */
+  description: string | null;
   priceMonthly: number;
+  priceYearly: number;
+  popular: boolean;
+  includedSeats: number;
+  extraSeatPriceMonthly: number;
   features: string[];
+  createdAt: string;
+  updatedAt: string;
 };
 
-/**
- * Annual shows $10 / $20 / $40 per month billed annually (design).
- * Monthly is ~20% higher than effective annual monthly for messaging consistency.
- */
-export const TEMPLE_PRICING_PLANS: TemplePricingPlan[] = [
-  {
-    id: "basic",
-    name: "Basic",
-    Icon: Zap,
-    priceAnnualPerMonth: 10,
-    priceMonthly: 13,
-    features: [
-      "Access to all basic features",
-      "Basic reporting and analytics",
-      "Up to 10 individual users",
-      "20 GB individual data each user",
-      "Basic chat and email support",
-    ],
-  },
-  {
-    id: "business",
-    name: "Business",
-    Icon: Layers2,
-    priceAnnualPerMonth: 20,
-    priceMonthly: 25,
-    features: [
-      "200+ integrations",
-      "Advanced reporting and analytics",
-      "Up to 20 individual users",
-      "40 GB individual data each user",
-      "Priority chat and email support",
-    ],
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    Icon: Layers2,
-    priceAnnualPerMonth: 40,
-    priceMonthly: 50,
-    features: [
-      "Advanced custom fields",
-      "Audit log and data history",
-      "Unlimited individual users",
-      "Unlimited individual data",
-      "Personalized + priority service",
-    ],
-  },
-];
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export function getTemplePlanById(id: TemplePlanId): TemplePricingPlan | undefined {
-  return TEMPLE_PRICING_PLANS.find((p) => p.id === id);
+export function isPricingPlanId(s: string | null | undefined): s is string {
+  return Boolean(s && UUID_RE.test(s.trim()));
+}
+
+export function formatUsdFromCents(cents: number): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
+}
+
+/** Per-month display when “annual” billing: effective monthly from yearly price. */
+export function effectiveMonthlyFromYearlyCents(yearlyCents: number): number {
+  return Math.round(yearlyCents / 12);
+}
+
+export function getPlanByIdFromList(
+  list: ApiPricingPlan[],
+  id: string | undefined
+): ApiPricingPlan | undefined {
+  if (!id) return undefined;
+  return list.find((p) => p.id === id);
 }

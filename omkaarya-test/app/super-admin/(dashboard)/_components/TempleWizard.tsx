@@ -41,6 +41,12 @@ import SelectionCard from "@/app/components/admin/SelectionCard";
 import TextInput from "@/app/components/admin/TextInput";
 import WizardStepper, { STEP_LABELS } from "@/app/components/admin/WizardStepper";
 import type { SuperAdminTempleDetail } from "@/lib/super-admin-temple-detail";
+import { jsonApiErrorMessage } from "@/lib/api-envelope";
+import {
+  type ApiPricingPlan,
+  effectiveMonthlyFromYearlyCents,
+  getPlanByIdFromList,
+} from "@/lib/temple-pricing-plans";
 
 export type TempleWizardMode = "create" | "edit";
 
@@ -175,18 +181,11 @@ type Step1Errors = {
   establishedYear?: string;
 };
 
-type PlanId = "Sankalpa" | "Aaradhana";
 type BillingCycle = "Monthly" | "Annually";
 
-function planIdForApi(plan: PlanId): string {
-  // Backend enum includes "Aaaradhana" (triple-a). Keep UI spelling stable.
-  return plan === "Aaradhana" ? "Aaaradhana" : plan;
-}
-
-function planToUi(apiPlan: string): PlanId {
-  if (apiPlan === "Aaaradhana") return "Aaradhana";
-  if (apiPlan === "Sankalpa") return "Sankalpa";
-  return "Sankalpa";
+function matchCatalogPlanId(plans: ApiPricingPlan[], templePlanName: string): string | null {
+  const t = templePlanName.trim();
+  return plans.find((p) => p.name === t)?.id ?? null;
 }
 
 function traditionFromApi(s: string): Tradition {
@@ -213,28 +212,6 @@ function readFileAsDataUrl(file: File): Promise<string> {
     r.readAsDataURL(file);
   });
 }
-
-const PLAN_FEATURES: Record<PlanId, string[]> = {
-  Sankalpa: [
-    "200+ integrations",
-    "Advanced reporting and analytics",
-    "Up to 20 individual users",
-    "40 GB individual data each user",
-    "Priority chat and email support",
-  ],
-  Aaradhana: [
-    "Advanced custom fields",
-    "Audit log and data history",
-    "Unlimited individual users",
-    "Unlimited individual data",
-    "Personalized + priority service",
-  ],
-};
-
-const PLAN_MONTHLY_PRICES: Record<PlanId, number> = {
-  Sankalpa: 20,
-  Aaradhana: 40,
-};
 
 export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWizardProps) {
   const router = useRouter();
@@ -273,7 +250,8 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
     whatsapp: false,
     role: false,
   });
-  const [selectedPlan, setSelectedPlan] = useState<PlanId | "">("Sankalpa");
+  const [catalogPlans, setCatalogPlans] = useState<ApiPricingPlan[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<BillingCycle | "">("Annually");
   const [trialEnabled, setTrialEnabled] = useState(false);
   const [trialDays, setTrialDays] = useState<"7" | "14" | "30">("7");
@@ -288,6 +266,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+  const didInitPlanIdRef = useRef(false);
 
   const computeSnapshot = useCallback(() => {
     return JSON.stringify({
@@ -308,7 +287,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
       adminEmail,
       adminWhatsapp,
       adminRole,
-      selectedPlan,
+      selectedPlanId,
       billingCycle,
       trialEnabled,
       trialDays,
@@ -333,7 +312,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
     adminEmail,
     adminWhatsapp,
     adminRole,
-    selectedPlan,
+    selectedPlanId,
     billingCycle,
     trialEnabled,
     trialDays,
@@ -373,7 +352,6 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
     setAdminEmail(d.admin.email);
     setAdminWhatsapp(parseAdminWhatsappToRow(d.admin.whatsapp, d.temple.country));
     setAdminRole(d.admin.role);
-    setSelectedPlan(planToUi(d.planBilling.selectedPlan));
     const bc = d.planBilling.billingCycle;
     setBillingCycle(bc === "Monthly" || bc === "Annually" ? bc : "Annually");
     setTrialEnabled(d.planBilling.trial.enabled);
@@ -384,6 +362,40 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
     setInitialTempleLogoDataUrl(d.logoTempleDataUrl);
     setHydrated(true);
   }, [mode, initialDetail]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/pricing-plans", { cache: "no-store" });
+        const json = (await res.json().catch(() => null)) as { success?: boolean; data?: ApiPricingPlan[] };
+        if (res.ok && json.success && Array.isArray(json.data) && json.data.length > 0) {
+          setCatalogPlans(json.data);
+        }
+      } catch {
+        /* step 3 shows empty */
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    didInitPlanIdRef.current = false;
+  }, [mode, tenantId, initialDetail?.planBilling?.selectedPlan]);
+
+  useEffect(() => {
+    if (catalogPlans.length === 0) return;
+    if (mode === "create" && !selectedPlanId) {
+      const def = catalogPlans.find((p) => p.popular)?.id ?? catalogPlans[0]!.id;
+      setSelectedPlanId(def);
+      return;
+    }
+    if (mode === "edit" && initialDetail && !didInitPlanIdRef.current) {
+      const id = matchCatalogPlanId(catalogPlans, initialDetail.planBilling.selectedPlan);
+      if (id) {
+        setSelectedPlanId(id);
+        didInitPlanIdRef.current = true;
+      }
+    }
+  }, [catalogPlans, mode, initialDetail, selectedPlanId]);
 
   useLayoutEffect(() => {
     if (mode === "create") {
@@ -445,23 +457,6 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
   };
 
   const slugPreview = subdomain.trim() || "temple_name";
-  const invitePayload = {
-    admin: {
-      fullName: adminFullName.trim(),
-      email: adminEmail.trim(),
-      whatsapp: formatPhoneRowForApi(adminWhatsapp),
-      role: adminRole,
-      profileImageFile: adminProfileFile,
-    },
-    planBilling: {
-      selectedPlan,
-      billingCycle,
-      trial: {
-        enabled: trialEnabled,
-        days: trialEnabled ? Number(trialDays) : null,
-      },
-    },
-  };
 
   const getAdminErrors = (): AdminStepErrors => {
     const errors: AdminStepErrors = {};
@@ -521,7 +516,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
 
   const getStep3Errors = (): Step3Errors => {
     const errors: Step3Errors = {};
-    if (!selectedPlan) {
+    if (!selectedPlanId) {
       errors.selectedPlan = "Please select a plan.";
     }
     if (!billingCycle) {
@@ -536,16 +531,19 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
   const step3Errors = getStep3Errors();
   const isStep3Valid = Object.keys(step3Errors).length === 0;
 
-  const getDisplayPrice = (plan: PlanId): number => {
-    const monthly = PLAN_MONTHLY_PRICES[plan];
+  const selectedPlanData = getPlanByIdFromList(catalogPlans, selectedPlanId ?? undefined);
+  const selectedPlanName = selectedPlanData?.name ?? "Sankalpa";
+
+  const getDisplayPriceDollars = (plan: ApiPricingPlan | undefined): number => {
+    if (!plan) return 0;
     if (billingCycle === "Annually") {
-      return Math.round(monthly * 0.8);
+      return effectiveMonthlyFromYearlyCents(plan.priceYearly) / 100;
     }
-    return monthly;
+    return plan.priceMonthly / 100;
   };
 
-  const selectedPlanForReview = selectedPlan || "Sankalpa";
-  const priceLine = `$${getDisplayPrice(selectedPlanForReview)}/mth, ${
+  const selectedPlanForReview = selectedPlanName;
+  const priceLine = `$${getDisplayPriceDollars(selectedPlanData).toFixed(0)}/mth, ${
     billingCycle === "Annually" ? "billed annually" : "billed monthly"
   }`;
   const renewalDate = new Date();
@@ -555,10 +553,28 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
     month: "long",
     day: "numeric",
   });
-  const annualAmount = getDisplayPrice(selectedPlanForReview) * 12;
+  const annualAmount = getDisplayPriceDollars(selectedPlanData) * 12;
   const billingAmountLabel =
-    billingCycle === "Annually" ? `£${annualAmount.toFixed(2)}/Annually` : `£${getDisplayPrice(selectedPlanForReview).toFixed(2)}/Monthly`;
+    billingCycle === "Annually" ? `£${annualAmount.toFixed(2)}/Annually` : `£${getDisplayPriceDollars(selectedPlanData).toFixed(2)}/Monthly`;
   const canSubmitAllSteps = isStep1Valid && isStep2Valid && isStep3Valid;
+
+  const invitePayload = {
+    admin: {
+      fullName: adminFullName.trim(),
+      email: adminEmail.trim(),
+      whatsapp: formatPhoneRowForApi(adminWhatsapp),
+      role: adminRole,
+      profileImageFile: adminProfileFile,
+    },
+    planBilling: {
+      selectedPlan: selectedPlanName,
+      billingCycle,
+      trial: {
+        enabled: trialEnabled,
+        days: trialEnabled ? Number(trialDays) : null,
+      },
+    },
+  };
 
   const isDirty = useMemo(() => {
     if (mode === "edit" && !hydrated) return false;
@@ -679,7 +695,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
         role: adminRole,
       },
       planBilling: {
-        selectedPlan: planIdForApi(selectedPlanForReview),
+        selectedPlan: selectedPlanName,
         billingCycle,
         trial: {
           enabled: trialEnabled,
@@ -694,17 +710,22 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = await response.json();
+      const data = (await response.json()) as
+        | { success: true; data: { temporaryPassword?: string; inviteEmailSent?: boolean } }
+        | { success?: boolean; data?: { temporaryPassword?: string; inviteEmailSent?: boolean }; temporaryPassword?: string; inviteEmailSent?: boolean; error?: unknown }
+        | null;
       if (!response.ok) {
-        throw new Error(data?.error || "Failed to create temple.");
+        throw new Error(jsonApiErrorMessage(data) || "Failed to create temple.");
       }
+      const inner =
+        data && typeof data === "object" && "data" in data && data && (data as { data?: unknown }).data
+          ? (data as { data: { temporaryPassword?: string; inviteEmailSent?: boolean } }).data
+          : (data as { temporaryPassword?: string; inviteEmailSent?: boolean } | null);
       const tempPwd =
-        data && typeof data === "object" && "temporaryPassword" in data && typeof data.temporaryPassword === "string"
-          ? data.temporaryPassword
-          : "";
+        inner && typeof inner.temporaryPassword === "string" ? inner.temporaryPassword : "";
       const inviteEmailSent =
-        data && typeof data === "object" && "inviteEmailSent" in data && typeof data.inviteEmailSent === "boolean"
-          ? data.inviteEmailSent
+        inner && "inviteEmailSent" in inner && typeof inner.inviteEmailSent === "boolean"
+          ? inner.inviteEmailSent
           : undefined;
       setSubmitSuccess(
         inviteEmailSent === true
@@ -752,7 +773,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
         role: adminRole,
       },
       planBilling: {
-        selectedPlan: planIdForApi(selectedPlan || "Sankalpa"),
+        selectedPlan: selectedPlanName,
         billingCycle,
         trial: {
           enabled: trialEnabled,
@@ -777,12 +798,17 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = await response.json();
+      const data = (await response.json()) as
+        | { success: true; message: string; data?: unknown }
+        | { success?: boolean; message?: string; error?: unknown }
+        | null;
       if (!response.ok) {
-        throw new Error(data?.error || "Failed to update temple.");
+        throw new Error(jsonApiErrorMessage(data) || "Failed to update temple.");
       }
       setSubmitSuccess(
-        typeof data?.message === "string" ? data.message : "Temple updated successfully."
+        data && typeof data === "object" && "message" in data && typeof (data as { message: string }).message === "string"
+          ? (data as { message: string }).message
+          : "Temple updated successfully."
       );
       snapshotRef.current = computeSnapshot();
       setInitialTempleLogoDataUrl(
@@ -1289,63 +1315,74 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                 </div>
               </div>
 
-              <div className="grid gap-4 lg:grid-cols-2">
-                {(["Sankalpa", "Aaradhana"] as PlanId[]).map((plan) => {
-                  const selected = selectedPlan === plan;
-                  const price = getDisplayPrice(plan);
-                  return (
-                    <div
-                      key={plan}
-                      className={[
-                        "rounded-xl border p-4 shadow-sm transition-colors",
-                        selected
-                          ? "border-[var(--brand-primary)] bg-orange-50/30 dark:bg-orange-950/10"
-                          : "border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900",
-                      ].join(" ")}
-                    >
-                      <div className="mb-2 flex justify-center">
-                        <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-800">
-                          <Layers className="h-4 w-4 text-zinc-600 dark:text-zinc-300" />
-                        </span>
-                      </div>
-                      <h3 className="text-center text-lg font-semibold text-[var(--brand-primary)]">
-                        {plan}
-                      </h3>
-                      <p className="text-center text-5xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-                        ${price}
-                        <span className="text-3xl">/mth</span>
-                      </p>
-                      <p className="mt-1 text-center text-sm text-zinc-500 dark:text-zinc-400">
-                        {billingCycle === "Annually" ? "Billed annually." : "Billed monthly."}
-                      </p>
-
-                      <ul className="mt-4 space-y-2">
-                        {PLAN_FEATURES[plan].map((feature) => (
-                          <li key={feature} className="flex items-start gap-2 text-sm text-zinc-600 dark:text-zinc-300">
-                            <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--brand-primary)]" />
-                            <span>{feature}</span>
-                          </li>
-                        ))}
-                      </ul>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedPlan(plan);
-                          setStep3Touched((prev) => ({ ...prev, selectedPlan: true }));
-                        }}
+              <div className="grid gap-4 lg:grid-cols-3">
+                {catalogPlans.length === 0 ? (
+                  <p className="text-sm text-zinc-500 lg:col-span-3">Loading plans…</p>
+                ) : (
+                  catalogPlans.map((plan) => {
+                    const selected = selectedPlanId === plan.id;
+                    const price = getDisplayPriceDollars(plan);
+                    return (
+                      <div
+                        key={plan.id}
                         className={[
-                          "mt-5 w-full rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors",
+                          "rounded-xl border p-4 shadow-sm transition-colors",
                           selected
-                            ? "bg-[var(--brand-primary)]"
-                            : "bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-700 dark:hover:bg-zinc-600",
+                            ? "border-[var(--brand-primary)] bg-orange-50/30 dark:bg-orange-950/10"
+                            : "border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900",
                         ].join(" ")}
                       >
-                        {selected ? "Selected" : "Get started"}
-                      </button>
-                    </div>
-                  );
-                })}
+                        <div className="mb-2 flex justify-center">
+                          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-800">
+                            <Layers className="h-4 w-4 text-zinc-600 dark:text-zinc-300" />
+                          </span>
+                        </div>
+                        <h3 className="text-center text-lg font-semibold text-[var(--brand-primary)]">
+                          {plan.name}
+                        </h3>
+                        {plan.popular ? (
+                          <p className="text-center text-xs font-medium text-amber-700 dark:text-amber-400">Popular</p>
+                        ) : null}
+                        <p className="text-center text-5xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+                          ${price.toFixed(0)}
+                          <span className="text-3xl">/mth</span>
+                        </p>
+                        <p className="mt-1 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                          {billingCycle === "Annually" ? "Billed annually (effective monthly)." : "Billed monthly."}
+                        </p>
+
+                        <ul className="mt-4 space-y-2">
+                          {Array.isArray(plan.features) &&
+                            plan.features.map((feature) => (
+                              <li
+                                key={feature}
+                                className="flex items-start gap-2 text-sm text-zinc-600 dark:text-zinc-300"
+                              >
+                                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--brand-primary)]" />
+                                <span>{feature}</span>
+                              </li>
+                            ))}
+                        </ul>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedPlanId(plan.id);
+                            setStep3Touched((prev) => ({ ...prev, selectedPlan: true }));
+                          }}
+                          className={[
+                            "mt-5 w-full rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors",
+                            selected
+                              ? "bg-[var(--brand-primary)]"
+                              : "bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-700 dark:hover:bg-zinc-600",
+                          ].join(" ")}
+                        >
+                          {selected ? "Selected" : "Get started"}
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
               </div>
 
               {step3Touched.selectedPlan && step3Errors.selectedPlan && (
@@ -1709,7 +1746,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
 
       <dialog
         ref={unsavedDialogRef}
-        className="w-[min(100%-2rem,28rem)] max-w-md rounded-xl border border-zinc-200 bg-white p-6 text-zinc-900 shadow-xl backdrop:bg-black/40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+        className="w-[min(100%-2rem,42rem)] max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 text-zinc-900 shadow-2xl backdrop:bg-black/40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
       >
         <h3 className="text-lg font-semibold">Unsaved changes</h3>
         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">

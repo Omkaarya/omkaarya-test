@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { sendError } from "../middleware/api-envelope.js";
 import { PostgresAuthRepository } from "./auth.repository.js";
 import { createAuthRouter } from "./auth.routes.js";
 import { AuthService } from "./auth.service.js";
@@ -12,6 +13,8 @@ import { PostgresTempleOnboardingCompleteRepository } from "./temple-onboarding-
 import { createTempleOnboardingCompleteRouter } from "./temple-onboarding-complete.routes.js";
 import { PostgresTemplePaymentOnboardingRepository } from "./temple-payment-onboarding.repository.js";
 import { createTemplePaymentOnboardingRouter } from "./temple-payment-onboarding.routes.js";
+import { PostgresTemplePaymentSubmissionsRepository } from "./temple-payment-submissions.repository.js";
+import { createTemplePaymentSubmissionsRouter } from "./temple-payment-submissions.routes.js";
 import { PostgresTemplePlanRepository } from "./temple-plan.repository.js";
 import { createTemplePlanRouter } from "./temple-plan.routes.js";
 import { PostgresTempleRepository } from "./temples.repository.js";
@@ -26,6 +29,7 @@ import { createPricingPlansRouter } from "./pricing-plans.routes.js";
 /**
  * Super-admin HTTP API mounted at `/api`:
  * - GET  /api/temples
+ * - GET  /api/pricing-plans/comparison
  * - GET  /api/temples/:tenantId
  * - PATCH /api/temples/:tenantId
  * - POST /api/temples/create
@@ -55,6 +59,7 @@ export function createSuperAdminApiRouter(): Router {
   const templeDeities = new PostgresTempleDeityRepository();
   const templePlans = new PostgresTemplePlanRepository();
   const templePaymentOnboarding = new PostgresTemplePaymentOnboardingRepository();
+  const templePaymentSubmissions = new PostgresTemplePaymentSubmissionsRepository();
   const templeOnboardingComplete = new PostgresTempleOnboardingCompleteRepository();
   const subscriptions = new PostgresSubscriptionsRepository();
   const pricingPlans = new PostgresPricingPlansRepository();
@@ -68,11 +73,18 @@ export function createSuperAdminApiRouter(): Router {
   api.use(createTempleDeityRouter(templeDeities));
   api.use(createTemplePlanRouter(templePlans));
   api.use(createTemplePaymentOnboardingRouter(templePaymentOnboarding));
+  api.use(createTemplePaymentSubmissionsRouter(templePaymentSubmissions));
   api.use(createTempleOnboardingCompleteRouter(templeOnboardingComplete));
   api.use(createSubscriptionsRouter(subscriptions));
   api.use(createPricingPlansRouter(pricingPlans));
   api.use((_req, res) => {
-    res.status(404).json({ error: "Not found" });
+    sendError(
+      res,
+      404,
+      "NOT_FOUND",
+      "Not found",
+      "No super-admin API route matches this method and path."
+    );
   });
   return api;
 }
