@@ -84,9 +84,10 @@ export default function PlanFeaturesPage() {
   };
 
   const loadFeatures = useCallback(async () => {
+    setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/plan-features?planId=${encodeURIComponent(planId)}`);
+      const res = await fetch(`/api/plan-features?planId=${encodeURIComponent(planId)}`, { cache: "no-store" });
       if (res.ok) {
         setFeatures(await res.json());
       } else {
@@ -107,6 +108,16 @@ export default function PlanFeaturesPage() {
   useEffect(() => {
     loadFeatures();
   }, [loadFeatures]);
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "visible" && !dirty) {
+        void loadFeatures();
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [loadFeatures, dirty]);
 
   useEffect(() => {
     setFetchedPlanName(null);
