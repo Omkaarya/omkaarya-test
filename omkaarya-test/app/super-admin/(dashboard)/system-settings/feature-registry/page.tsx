@@ -10,7 +10,6 @@ import {
   X,
   Trash2,
 } from "lucide-react";
-
 // ── Types ──────────────────────────────────────────────────────────
 
 type LimitType = "none" | "boolean" | "number";
@@ -36,85 +35,10 @@ type Module = {
   features: Feature[];
 };
 
-// ── Initial data matching the HTML prototype ───────────────────────
-
-let nextId = 15;
-
-const INITIAL_MODULES: Module[] = [
-  {
-    key: "devotee", name: "Devotee Management",
-    desc: "All devotee-facing features — profiles, communication, history",
-    open: true, editOpen: false,
-    features: [
-      { id: 1, name: "Devotee Management", key: "devotee_management", desc: "Full devotee database with profiles, booking history and communication.", lt: "none", vis: true, active: true, plans: 3, editOpen: false },
-      { id: 2, name: "Devotee Communication", key: "devotee_communication", desc: "Send emails and notifications to devotees.", lt: "boolean", vis: true, active: true, plans: 2, editOpen: false },
-    ],
-  },
-  {
-    key: "pooja", name: "Pooja Management",
-    desc: "Pooja booking and management features",
-    open: true, editOpen: false,
-    features: [
-      { id: 3, name: "Pooja Booking (Online)", key: "pooja_booking_online", desc: "Online pooja booking through devotee portal.", lt: "none", vis: true, active: true, plans: 3, editOpen: false },
-      { id: 4, name: "Pooja Booking (Manual)", key: "pooja_booking_manual", desc: "Manual pooja booking by temple admin.", lt: "none", vis: true, active: true, plans: 3, editOpen: false },
-      { id: 5, name: "Archana Ticket Printing", key: "archana_ticket_printing", desc: "Print archana tickets with devotee name and birth star.", lt: "boolean", vis: true, active: true, plans: 2, editOpen: false },
-    ],
-  },
-  {
-    key: "donation", name: "Donations Management",
-    desc: "Donation recording, receipts and Gift Aid",
-    open: false, editOpen: false,
-    features: [
-      { id: 6, name: "Donations — Basic Receipts", key: "donation_basic_receipts", desc: "Cash donation recording with basic receipt generation.", lt: "none", vis: true, active: true, plans: 3, editOpen: false },
-      { id: 7, name: "Compliance Tax Receipts", key: "donation_compliance_receipts", desc: "UK Gift Aid, Canadian CRA and EU-compliant tax receipts.", lt: "boolean", vis: true, active: true, plans: 3, editOpen: false },
-    ],
-  },
-  {
-    key: "inventory", name: "Inventory Management",
-    desc: "Stock tracking — consumables, equipment, POS, festival items",
-    open: false, editOpen: false,
-    features: [
-      { id: 8, name: "Inventory Management", key: "inventory_management", desc: "Full inventory tracking — consumables, equipment, POS items.", lt: "none", vis: true, active: true, plans: 2, editOpen: false },
-    ],
-  },
-  {
-    key: "finance", name: "Finance Module",
-    desc: "Income, expenses, surplus reports and NGO accounting",
-    open: false, editOpen: false,
-    features: [
-      { id: 9, name: "Finance Module", key: "finance_management", desc: "Income, expense, donations and surplus (not profit) reports.", lt: "none", vis: true, active: true, plans: 3, editOpen: false },
-    ],
-  },
-  {
-    key: "pos", name: "POS — Counter Sales",
-    desc: "Point of sale for prasad and items",
-    open: false, editOpen: false,
-    features: [
-      { id: 10, name: "POS Counter Sales", key: "pos_counter_sales", desc: "Point of sale for prasad packets, books and devotional items.", lt: "none", vis: true, active: true, plans: 2, editOpen: false },
-    ],
-  },
-  {
-    key: "system", name: "System & Site Features",
-    desc: "Portal microsite, SEO, analytics and admin seats",
-    open: false, editOpen: false,
-    features: [
-      { id: 11, name: "Temple Microsite", key: "temple_microsite", desc: "Public microsite on temple_name.omkaarya.com subdomain.", lt: "none", vis: true, active: true, plans: 3, editOpen: false },
-      { id: 12, name: "Custom Domain", key: "custom_domain", desc: "Connect temple's own domain to Omkaarya portal.", lt: "none", vis: true, active: true, plans: 2, editOpen: false },
-      { id: 13, name: "SEO + Full Branding", key: "seo_branding", desc: "Full SEO meta tags, OpenGraph and structured data.", lt: "none", vis: true, active: true, plans: 2, editOpen: false },
-      { id: 14, name: "Advanced Analytics", key: "advanced_analytics", desc: "Revenue trends, devotee growth and pooja performance dashboards.", lt: "none", vis: true, active: true, plans: 1, editOpen: false },
-    ],
-  },
-  {
-    key: "settings", name: "Temple Settings & Config",
-    desc: "Organization, App, and System configurations",
-    open: false, editOpen: false,
-    features: [
-      { id: 15, name: "General & Web Identity", key: "settings_organization", desc: "Temple logos, localisation, SEO overrides and domains.", lt: "none", vis: true, active: true, plans: 3, editOpen: false },
-      { id: 16, name: "Hardware & POS Routing", key: "settings_hardware", desc: "Map local thermal printers and register defaults.", lt: "none", vis: true, active: true, plans: 2, editOpen: false },
-      { id: 17, name: "Invoice & Gateways", key: "settings_notifications", desc: "Automated prefixes, terms, and Email server configs.", lt: "none", vis: true, active: true, plans: 3, editOpen: false },
-      { id: 18, name: "Finance & Inventory Limits", key: "settings_finance_inventory", desc: "Tax brackets, primary currency, and low-stock thresholds.", lt: "none", vis: true, active: true, plans: 3, editOpen: false },
-    ],
-  },
+const MODULE_OPTIONS = [
+  "pooja", "donation", "inventory", "finance", "device", "staff",
+  "pos", "events", "devotee", "notification", "domain", "integration",
+  "pricing_tier",
 ];
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -249,19 +173,57 @@ export default function FeatureRegistryPage() {
     })));
   };
 
-  const saveL2Edit = (id: number, updates: Partial<Feature>) => {
-    setModules((prev) => prev.map((m) => ({
-      ...m,
-      features: m.features.map((f) => f.id === id ? { ...f, ...updates, editOpen: false } : f),
-    })));
-    showToast("Feature saved!");
-  };
+export default function FeatureRegistryPage() {
+  const [features, setFeatures] = useState<Feature[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [moduleFilter, setModuleFilter] = useState("all");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editFeature, setEditFeature] = useState<Feature | null>(null);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState("");
 
-  const deleteFeature = (id: number) => {
-    const feat = modules.flatMap((m) => m.features).find((f) => f.id === id);
-    if (feat && feat.plans > 0) {
-      showToast(`Cannot delete — feature is used in ${feat.plans} plan(s). Deactivate instead.`);
-      return;
+  const loadFeatures = useCallback(async () => {
+    setLoadError("");
+    try {
+      const res = await fetch("/api/features", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setFeatures(data);
+        } else {
+          setLoadError("Unexpected response from server.");
+        }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setLoadError(err.error || `Failed to load features (${res.status})`);
+        setFeatures([]);
+      }
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Network error");
+      setFeatures([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadFeatures();
+  }, [loadFeatures]);
+
+  // ── Handlers ────────────────────────────────────────────────────
+
+  const handleSave = async (data: FeatureFormData, id?: number) => {
+    const url = id ? `/api/features/${id}` : "/api/features";
+    const method = id ? "PUT" : "POST";
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Request failed" }));
+      throw new Error(err.error || "Failed to save feature");
     }
     setModules((prev) => prev.map((m) => ({
       ...m,
@@ -270,14 +232,14 @@ export default function FeatureRegistryPage() {
     showToast("Feature deleted");
   };
 
-  // ── Add Feature (top panel) ────
-  const addFeature = () => {
-    if (!nfMod || !nfName.trim() || !nfKey.trim()) { showToast("Fill module, name and key"); return; }
-    const newFeat: Feature = { id: nextId++, name: nfName, key: nfKey, desc: nfDesc, lt: nfLt, vis: nfVis, active: true, plans: 0, editOpen: false };
-    setModules((prev) => prev.map((m) => m.key === nfMod ? { ...m, open: true, features: [...m.features, newFeat] } : m));
-    setAddFeatureOpen(false);
-    setNfName(""); setNfKey(""); setNfDesc(""); setNfLt("none"); setNfVis(true);
-    showToast(`Feature "${nfName}" added!`);
+  const handleToggle = async (id: number) => {
+    setTogglingId(id);
+    try {
+      const res = await fetch(`/api/features/${id}`, { method: "PATCH" });
+      if (res.ok) await loadFeatures();
+    } finally {
+      setTogglingId(null);
+    }
   };
 
   // ── Add Module ─────────────────
@@ -355,12 +317,24 @@ export default function FeatureRegistryPage() {
         </div>
       </div>
 
-      {/* ─── Add Feature Panel ───────────────────────────────── */}
-      {addFeatureOpen && (
-        <div className="mb-4 rounded-xl border-2 border-[var(--brand-primary)] bg-white p-5 dark:bg-zinc-900">
-          <div className="mb-4 flex items-center justify-between">
-            <span className="text-sm font-bold text-[var(--brand-primary)]">Add new feature (L2) to a module</span>
-            <button type="button" onClick={() => setAddFeatureOpen(false)} className="text-zinc-400 hover:text-zinc-600"><X className="h-4 w-4" /></button>
+        {loadError && (
+          <div className="mx-6 mt-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            {loadError}
+          </div>
+        )}
+
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-3 px-6 py-4">
+          <div className="relative flex-1 max-w-xs">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+            <input
+              type="text"
+              placeholder="Search features…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-zinc-200 bg-zinc-50 py-2.5 pl-10 pr-4 text-sm outline-none ring-[var(--brand-primary)] focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            />
           </div>
           <div className="mb-3 grid grid-cols-3 gap-3">
             <div>

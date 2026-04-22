@@ -187,3 +187,22 @@ export const passwordResetCompleteBodySchema = z
     message: "Passwords do not match",
     path: ["confirmNewPassword"],
   });
+
+export const createPricingPlanBodySchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  priceMonthly: z.number().int().min(0),
+  priceYearly: z.number().int().min(0),
+  popular: z.boolean().optional(),
+  includedSeats: z.number().int().min(0),
+  extraSeatPriceMonthly: z.number().int().min(0),
+  features: z.array(z.string()),
+});
+
+export const updatePricingPlanBodySchema = createPricingPlanBodySchema
+  .partial()
+  .refine((data) => Object.keys(data).length > 0, {
+    message: "At least one field is required for update",
+  });
+
+export const pricingPlanIdParamSchema = z.string().uuid("Invalid pricing plan id");
