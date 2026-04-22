@@ -2,16 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import {
-  Check,
-  Plus,
-  Settings2,
-  Tag,
-  ToggleLeft,
-  ToggleRight,
-  X,
-  Loader2,
-} from "lucide-react";
+import { Check, Plus, X, Loader2 } from "lucide-react";
 
 type PricingPlan = {
   id: string;
@@ -25,40 +16,18 @@ type PricingPlan = {
   features: string[];
 };
 
-type FeatureRow = {
+type RegistryFeatureRow = {
+  id: number;
   name: string;
-  prarambha: boolean;
-  sankalpa: boolean;
-  aaradhana: boolean;
+  moduleKey: string;
 };
-
-const COMPARISON_FEATURES: FeatureRow[] = [
-  { name: "Devotee management", prarambha: true, sankalpa: true, aaradhana: true },
-  { name: "Pooja booking (online + manual)", prarambha: true, sankalpa: true, aaradhana: true },
-  { name: "Donations + basic receipts", prarambha: true, sankalpa: true, aaradhana: true },
-  { name: "Compliance tax receipts", prarambha: false, sankalpa: true, aaradhana: true },
-  { name: "Temple microsite (subdomain)", prarambha: true, sankalpa: true, aaradhana: true },
-  { name: "Full microsite + SEO branding", prarambha: false, sankalpa: true, aaradhana: true },
-  { name: "Panchangam display", prarambha: true, sankalpa: true, aaradhana: true },
-  { name: "Inventory management", prarambha: false, sankalpa: true, aaradhana: true },
-  { name: "Standard roles", prarambha: true, sankalpa: true, aaradhana: true },
-  { name: "Extended roles (Trustee · Accountant)", prarambha: false, sankalpa: true, aaradhana: true },
-  { name: "Custom roles", prarambha: false, sankalpa: false, aaradhana: true },
-  { name: "Priority support", prarambha: false, sankalpa: true, aaradhana: true },
-  { name: "Advanced analytics", prarambha: false, sankalpa: false, aaradhana: true },
-  { name: "Custom domain", prarambha: false, sankalpa: false, aaradhana: true },
-];
-
-const TEMPLE_ANALYTICS = [
-  { plan: "Prarambha", count: 45, pct: 35 },
-  { plan: "Sankalpa", count: 62, pct: 48 },
-  { plan: "Aaradhana", count: 22, pct: 17 },
-];
 
 export default function PricingPlansPage() {
   const [plans, setPlans] = useState<PricingPlan[]>([]);
+  const [registryFeatures, setRegistryFeatures] = useState<RegistryFeatureRow[]>([]);
   const [loading, setLoading] = useState(true);
-  
+  const [featuresLoading, setFeaturesLoading] = useState(true);
+
   const [billing, setBilling] = useState<"monthly" | "yearly">("yearly");
   const [cardBilling, setCardBilling] = useState<Record<string, "monthly" | "yearly">>({});
 
@@ -78,10 +47,37 @@ export default function PricingPlansPage() {
     fetchPlans();
   }, []);
 
+  useEffect(() => {
+    void (async () => {
+      setFeaturesLoading(true);
+      try {
+        const res = await fetch("/api/features", { cache: "no-store" });
+        if (!res.ok) return;
+        const data: Array<{ id: number; name: string; moduleKey: string; isActive: boolean }> = await res.json();
+        if (Array.isArray(data)) {
+          setRegistryFeatures(
+            data
+              .filter((f) => f.isActive)
+              .map((f) => ({ id: f.id, name: f.name, moduleKey: f.moduleKey }))
+              .sort((a, b) => {
+                const m = a.moduleKey.localeCompare(b.moduleKey);
+                if (m !== 0) return m;
+                return a.name.localeCompare(b.name);
+              })
+          );
+        }
+      } catch (e) {
+        console.error("Failed to load feature registry", e);
+      } finally {
+        setFeaturesLoading(false);
+      }
+    })();
+  }, []);
+
   const fetchPlans = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/pricing-plans");
+      const res = await fetch("/api/pricing-plans", { cache: "no-store" });
       const data = await res.json();
       if (data.success) {
         setPlans(data.data);
@@ -101,35 +97,8 @@ export default function PricingPlansPage() {
     }));
   };
 
-  const togglePlanFeature = async (featureName: string, planId: string) => {
-    const plan = plans.find(p => p.id === planId);
-    if (!plan) return;
-
-    const hasFeature = plan.features.includes(featureName);
-    const updatedFeatures = hasFeature 
-      ? plan.features.filter(f => f !== featureName)
-      : [...plan.features, featureName];
-
-    // Optimistic update
-    setPlans(prev => prev.map(p => p.id === planId ? { ...p, features: updatedFeatures } : p));
-
-    try {
-      const res = await fetch(`/api/pricing-plans/${planId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ features: updatedFeatures }),
-      });
-      if (!res.ok) throw new Error("Failed to patch");
-    } catch (e) {
-      // Revert on error
-      setPlans(prev => prev.map(p => p.id === planId ? { ...p, features: plan.features } : p));
-    }
-  };
-
-  const getFeatureValue = (featureName: string, planId: string): boolean => {
-    const plan = plans.find(p => p.id === planId);
-    return plan?.features.includes(featureName) ?? false;
-  };
+  const planIncludesFeature = (plan: PricingPlan, featureName: string): boolean =>
+    plan.features.includes(featureName);
 
   const formatPrice = (cents: number) => {
     return `$${(cents / 100).toFixed(0)}`;
@@ -325,9 +294,22 @@ export default function PricingPlansPage() {
         <div className="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
           <div className="border-b border-zinc-100 px-6 py-4 dark:border-zinc-800">
             <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Plan Comparison Matrix</h2>
+            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+              Rows come from the Feature Registry (active features). To change what a plan includes, use{" "}
+              <span className="font-medium">Manage Features</span> on that plan’s card.
+            </p>
           </div>
 
           <div className="overflow-x-auto">
+            {featuresLoading && (
+              <p className="px-6 py-4 text-sm text-zinc-500">Loading feature list…</p>
+            )}
+            {!featuresLoading && registryFeatures.length === 0 && (
+              <p className="px-6 py-4 text-sm text-zinc-500">
+                No active features in the registry. Add features in System Settings → Feature Registry.
+              </p>
+            )}
+            {!featuresLoading && registryFeatures.length > 0 && (
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-100 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-800/50">
@@ -342,31 +324,23 @@ export default function PricingPlansPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                {COMPARISON_FEATURES.map((feature) => (
-                  <tr key={feature.name} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20">
+                {registryFeatures.map((feature) => (
+                  <tr key={feature.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20">
                     <td className="px-6 py-3 text-sm text-zinc-700 dark:text-zinc-300">
+                      <span className="text-[10px] font-medium uppercase text-zinc-400 dark:text-zinc-500 block mb-0.5">
+                        {feature.moduleKey}
+                      </span>
                       {feature.name}
                     </td>
                     {plans.map((plan) => {
-                      const enabled = getFeatureValue(feature.name, plan.id);
+                      const enabled = planIncludesFeature(plan, feature.name);
                       return (
-                        <td key={plan.id} className="px-4 py-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => togglePlanFeature(feature.name, plan.id)}
-                            className={`inline-flex transition-colors ${
-                              enabled
-                                ? "text-emerald-600 dark:text-emerald-400"
-                                : "text-zinc-300 dark:text-zinc-600"
-                            }`}
-                            title={enabled ? "Enabled — click to disable" : "Disabled — click to enable"}
-                          >
-                            {enabled ? (
-                              <ToggleRight className="h-6 w-6" />
-                            ) : (
-                              <ToggleLeft className="h-6 w-6" />
-                            )}
-                          </button>
+                        <td key={plan.id} className="px-4 py-3 text-center" aria-label={enabled ? "Included" : "Not included"}>
+                          {enabled ? (
+                            <Check className="inline h-5 w-5 text-emerald-600 dark:text-emerald-400" strokeWidth={2.5} />
+                          ) : (
+                            <X className="inline h-5 w-5 text-zinc-300 dark:text-zinc-600" strokeWidth={2} />
+                          )}
                         </td>
                       );
                     })}
@@ -396,6 +370,7 @@ export default function PricingPlansPage() {
                 </tr>
               </tbody>
             </table>
+            )}
           </div>
         </div>
       )}

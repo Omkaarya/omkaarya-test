@@ -49,6 +49,7 @@ const MODULE_LABELS: Record<string, string> = {
   notification: "🔔 Notifications",
   domain: "🌐 Domain",
   integration: "🔌 Integrations",
+  pricing_tier: "Subscription plans",
 };
 
 const PLAN_META: Record<string, { label: string; tierColor: string }> = {
@@ -83,10 +84,18 @@ export default function PlanFeaturesPage() {
   };
 
   const loadFeatures = useCallback(async () => {
+    setError("");
     try {
       const res = await fetch(`/api/plan-features?planId=${encodeURIComponent(planId)}`);
       if (res.ok) {
         setFeatures(await res.json());
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setError(
+          typeof err === "object" && err && "error" in err
+            ? String((err as { error: string }).error)
+            : "Failed to load plan features"
+        );
       }
     } catch {
       setError("Failed to load features");
@@ -242,9 +251,15 @@ export default function PlanFeaturesPage() {
               <div key={i} className="h-14 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800" />
             ))}
           </div>
-        ) : features.length === 0 ? (
+        ) : error && features.length === 0 ? (
           <div className="px-6 py-12 text-center text-sm text-zinc-500">
-            <p>No features available. Add features in the <Link href="/super-admin/system-settings/feature-registry" className="font-medium text-[var(--brand-primary)] hover:underline">Feature Registry</Link> first.</p>
+            <p>Could not load this plan’s feature configuration. Check the database and try again, or add features in the{" "}
+            <Link href="/super-admin/system-settings/feature-registry" className="font-medium text-[var(--brand-primary)] hover:underline">Feature Registry</Link>.
+            </p>
+          </div>
+        ) : !error && features.length === 0 ? (
+          <div className="px-6 py-12 text-center text-sm text-zinc-500">
+            <p>No active features in the registry. Add features in the <Link href="/super-admin/system-settings/feature-registry" className="font-medium text-[var(--brand-primary)] hover:underline">Feature Registry</Link> first.</p>
           </div>
         ) : (
           <div className="space-y-6 p-6">

@@ -96,6 +96,16 @@ export async function fetchAllFeatures(): Promise<Feature[]> {
   return result.rows.map(rowToFeature);
 }
 
+/** Active features only, registry order (for plan matrix / plan sync). */
+export async function fetchAllActiveFeaturesOrdered(): Promise<Feature[]> {
+  const rows = await fetchAllFeatures();
+  return rows.filter((f) => f.isActive).sort((a, b) => {
+    const mk = a.moduleKey.localeCompare(b.moduleKey);
+    if (mk !== 0) return mk;
+    return a.name.localeCompare(b.name);
+  });
+}
+
 /** Fetch only active features visible in plan config (for Plan Config UI). */
 export async function fetchVisibleFeatures(): Promise<Feature[]> {
   const p = getPool();
