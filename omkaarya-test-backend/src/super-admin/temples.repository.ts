@@ -352,7 +352,7 @@ export class PostgresTempleRepository implements TempleRepository {
              logo_data_url
            ) VALUES (
              $1, $2, $3, $4, $5, $6, $7,
-             (SELECT id FROM public.pricing_plans WHERE name = $7 LIMIT 1),
+             (SELECT id FROM public.pricing_plans WHERE name = $27 LIMIT 1),
              $8, $9, $10, $11, $12,
              $13, $14, $15,
              $16::jsonb, $17::jsonb, $18::jsonb,
@@ -387,6 +387,7 @@ export class PostgresTempleRepository implements TempleRepository {
             primaryDeity,
             billingCycle,
             null,
+            row.plan,
           ]
         );
 
@@ -588,7 +589,7 @@ export class PostgresTempleRepository implements TempleRepository {
                country_flag = $5,
                city = $6,
                plan = $7,
-               pricing_plan_id = (SELECT id FROM public.pricing_plans WHERE name = $7 LIMIT 1),
+               pricing_plan_id = (SELECT id FROM public.pricing_plans WHERE name = $21 LIMIT 1),
                status = $8,
                contact_email = $9,
                contact_phone = $10::jsonb,
@@ -624,6 +625,7 @@ export class PostgresTempleRepository implements TempleRepository {
             primaryDeity,
             billingCycle,
             nextLogo,
+            plan,
           ]
         );
 
