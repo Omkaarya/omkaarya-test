@@ -57,8 +57,10 @@ const navItems: NavItem[] = [
     moduleKey: "inventory",
     items: [
       { href: "/temple-admin/inventory", label: "Products" },
-      { href: "/temple-admin/inventory/categories", label: "Category" },
-      { href: "/temple-admin/inventory/low-stock", label: "Low Stocks" },
+      { href: "/temple-admin/inventory/create", label: "Add Product" },
+      { href: "/temple-admin/inventory/categories", label: "Categories" },
+      { href: "/temple-admin/inventory/low-stock", label: "Stock Alerts" },
+      { href: "/temple-admin/inventory/adjustments", label: "Stock Adjustments" },
       { href: "/temple-admin/inventory/print-barcode", label: "Print Barcode" },
       { href: "/temple-admin/inventory/print-qr", label: "Print QR Code" },
     ],
