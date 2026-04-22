@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { CheckCircle2, X } from "lucide-react";
+import { CheckCircle2, X, Plus, PackageOpen, MoreHorizontal, Check } from "lucide-react";
 
 import { Button } from "@/app/components/ds/atoms/Button";
 
@@ -17,9 +17,9 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 
 // ── PO Data ───────────────────────────────────────────────────────
 const POS = [
-  { num: "PO-0034", supplier: "Sri Lakshmi Traders", date: "18 Apr", items: "Rose garland ×12, Marigold 2kg", amt: "£36.00", status: "Received" },
-  { num: "PO-0033", supplier: "Vedic Supplies UK", date: "15 Apr", items: "Camphor 200g, Ghee 2L, Incense ×10", amt: "£68.00", status: "Received" },
-  { num: "PO-0032", supplier: "Om Flowers London", date: "10 Apr", items: "Jasmine 500g, Lotus ×20", amt: "£45.00", status: "In transit" },
+  { num: "PO-0034", supplier: "Sri Lakshmi Traders", date: "18 Apr", items: "Rose garland ×12, Marigold 2kg", amt: "LKR 3,600", status: "Received" },
+  { num: "PO-0033", supplier: "Vedic Supplies Colombo", date: "15 Apr", items: "Camphor 200g, Ghee 2L, Incense ×10", amt: "LKR 6,800", status: "Received" },
+  { num: "PO-0032", supplier: "Om Flowers Sri Lanka", date: "10 Apr", items: "Jasmine 500g, Lotus ×20", amt: "LKR 4,500", status: "In transit" },
 ];
 
 export default function PurchaseOrdersPage() {
@@ -34,60 +34,69 @@ export default function PurchaseOrdersPage() {
           <h1 className="text-display-xs font-bold tracking-tight text-text-primary">Purchase orders</h1>
           <p className="mt-1 text-sm text-text-tertiary">Supplier purchases — mark as received to auto-update inventory</p>
         </div>
-        <Button variant="primary" size="sm">+ New PO</Button>
+        <Button variant="primary" size="sm" className="gap-2">
+          <Plus className="h-4 w-4" /> New PO
+        </Button>
       </div>
 
       {/* 3 Metrics */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-surface border border-border rounded-xl p-4">
-          <p className="text-[11px] text-text-tertiary font-medium mb-1.5">Total POs this month</p>
-          <p className="text-2xl font-bold text-text-primary">12</p>
+      {/* 3 Metrics */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5 shadow-sm transition-all hover:border-[var(--brand-primary)]">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">Total POs this month</p>
+          <p className="text-2xl font-bold text-[var(--text-primary)]">12</p>
         </div>
-        <div className="bg-surface border border-border rounded-xl p-4">
-          <p className="text-[11px] text-text-tertiary font-medium mb-1.5">Awaiting delivery</p>
+        <div className="bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5 shadow-sm transition-all hover:border-[var(--brand-primary)]">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">Awaiting delivery</p>
           <p className="text-2xl font-bold text-amber-600">3</p>
         </div>
-        <div className="bg-surface border border-border rounded-xl p-4">
-          <p className="text-[11px] text-text-tertiary font-medium mb-1.5">Total spent</p>
-          <p className="text-2xl font-bold text-red-600">£1,120</p>
+        <div className="bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5 shadow-sm transition-all hover:border-[var(--brand-primary)]">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">Total spent</p>
+          <p className="text-2xl font-bold text-red-600">LKR 112,000</p>
         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-surface border border-border rounded-xl overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-subtle">
-              {["PO number", "Supplier", "Date", "Items", "Amount", "Status", "Actions"].map((h) => (
-                <th key={h} className="text-left text-[10px] font-bold text-text-tertiary uppercase tracking-wider px-4 py-2.5 border-b border-border">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {POS.map((po, i) => (
-              <tr key={i} className="border-b border-border-secondary last:border-b-0 hover:bg-subtle transition-colors">
-                <td className="px-4 py-3 text-[11px] font-mono text-text-tertiary">{po.num}</td>
-                <td className="px-4 py-3 text-xs text-text-primary">{po.supplier}</td>
-                <td className="px-4 py-3 text-[11px] text-text-tertiary">{po.date}</td>
-                <td className="px-4 py-3 text-[11px] text-text-secondary">{po.items}</td>
-                <td className="px-4 py-3 text-[13px] font-bold text-red-600">{po.amt}</td>
-                <td className="px-4 py-3">
-                  <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-lg before:w-[5px] before:h-[5px] before:rounded-full before:shrink-0 ${po.status === "Received" ? "bg-green-50 text-green-700 before:bg-green-600" : "bg-amber-50 text-amber-700 before:bg-amber-500"}`}>
-                    {po.status}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex gap-1">
-                    {po.status === "In transit" && (
-                      <button onClick={() => showToast("Marked as received — inventory updated!")} className="text-[11px] border border-border rounded-md px-2 py-1 text-text-secondary hover:border-brand hover:text-brand transition-colors">Mark received</button>
-                    )}
-                    <button className="text-[11px] border border-border rounded-md px-2 py-1 text-text-secondary hover:border-brand hover:text-brand transition-colors">View</button>
-                  </div>
-                </td>
+      {/* Table */}
+      <div className="bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 rounded-[24px] overflow-hidden shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-zinc-50/50 dark:bg-zinc-900/50 border-b border-zinc-100 dark:border-zinc-800">
+                {["PO number", "Supplier", "Date", "Items", "Amount", "Status", "Actions"].map((h) => (
+                  <th key={h} className="text-left text-xs font-bold text-zinc-400 uppercase tracking-wider px-6 py-4">{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
+              {POS.map((po, i) => (
+                <tr key={i} className="group hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors">
+                  <td className="px-6 py-4 text-xs font-mono uppercase tracking-wider text-[var(--text-muted)]">{po.num}</td>
+                  <td className="px-6 py-4 text-sm font-bold text-[var(--text-primary)]">{po.supplier}</td>
+                  <td className="px-6 py-4 text-xs text-[var(--text-muted)]">{po.date}</td>
+                  <td className="px-6 py-4 text-xs text-[var(--text-muted)]">{po.items}</td>
+                  <td className="px-6 py-4 text-sm font-bold text-red-500">{po.amt}</td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-full ${po.status === "Received" ? "bg-green-50 text-green-700 border border-green-100 dark:bg-green-900/20" : "bg-amber-50 text-amber-700 border border-amber-100 dark:bg-amber-900/20"}`}>
+                      {po.status === "Received" ? <Check className="h-3 w-3" /> : <PackageOpen className="h-3 w-3" />}
+                      {po.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex gap-2 items-center">
+                      {po.status === "In transit" && (
+                        <button onClick={() => showToast("Marked as received — inventory updated!")} className="text-xs border border-zinc-200 rounded-lg px-3 py-1.5 font-semibold text-[var(--text-secondary)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)] transition-colors dark:border-zinc-700 whitespace-nowrap">Mark received</button>
+                      )}
+                      <button className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}

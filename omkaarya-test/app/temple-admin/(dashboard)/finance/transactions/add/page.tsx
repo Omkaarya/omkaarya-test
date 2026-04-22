@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { ArrowLeft, CheckCircle2, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, X, Wallet, CreditCard, HeartHandshake, ArrowDownCircle, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -19,11 +19,11 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 
 // ── Type Card ─────────────────────────────────────────────────────
 type TxnType = "Income" | "Expense" | "Donation" | "Refund";
-const TYPE_CARDS: { id: TxnType; icon: string; name: string; desc: string; selClass: string }[] = [
-  { id: "Income", icon: "💰", name: "Income", desc: "Pooja, donations, counter sales", selClass: "border-green-500 bg-green-50" },
-  { id: "Expense", icon: "💸", name: "Expense", desc: "Purchases, maintenance, staff", selClass: "border-red-500 bg-red-50" },
-  { id: "Donation", icon: "💝", name: "Donation", desc: "Cash or in-kind donation received", selClass: "border-blue-500 bg-blue-50" },
-  { id: "Refund", icon: "↩️", name: "Income reversal", desc: "Refund to devotee — income reduced", selClass: "border-red-500 bg-red-50" },
+const TYPE_CARDS = [
+  { id: "Income", icon: Wallet, name: "Income", desc: "Pooja, donations, counter sales", selClass: "border-[var(--brand-primary)] bg-orange-50 text-[var(--brand-primary)] dark:bg-orange-950/20" },
+  { id: "Expense", icon: CreditCard, name: "Expense", desc: "Purchases, maintenance, staff", selClass: "border-red-500 bg-red-50 text-red-600 dark:bg-red-900/20" },
+  { id: "Donation", icon: HeartHandshake, name: "Donation", desc: "Cash or in-kind received", selClass: "border-blue-500 bg-blue-50 text-blue-600 dark:bg-blue-900/20" },
+  { id: "Refund", icon: ArrowDownCircle, name: "Income reversal", desc: "Refund to devotee", selClass: "border-pink-500 bg-pink-50 text-pink-600 dark:bg-pink-900/20" },
 ];
 
 export default function AddTransactionPage() {
@@ -55,27 +55,27 @@ export default function AddTransactionPage() {
       {/* Transaction Type */}
       <div className="bg-surface border border-border rounded-xl p-5">
         <h3 className="text-[13px] font-bold mb-4 pb-3 border-b border-border-secondary">Transaction type</h3>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-4">
           {TYPE_CARDS.map((tc) => (
             <button
               key={tc.id}
-              onClick={() => setTxnType(tc.id)}
-              className={`p-3.5 rounded-xl border-2 text-center transition-all ${txnType === tc.id ? tc.selClass : "border-border bg-surface hover:border-text-quaternary"}`}
+              onClick={() => setTxnType(tc.id as TxnType)}
+              className={`p-4 rounded-2xl border-2 text-center transition-all flex flex-col items-center justify-center gap-2 ${txnType === tc.id ? tc.selClass : "border-zinc-100 bg-white text-[var(--text-primary)] hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-zinc-700"}`}
             >
-              <div className="text-xl mb-1.5">{tc.icon}</div>
-              <div className="text-[11px] font-bold text-text-primary">{tc.name}</div>
-              <div className="text-[10px] text-text-tertiary mt-1 leading-snug">{tc.desc}</div>
+              <tc.icon className="h-6 w-6 mb-1" />
+              <div className="text-sm font-bold">{tc.name}</div>
+              <div className="text-[10px] opacity-80 leading-snug">{tc.desc}</div>
             </button>
           ))}
         </div>
 
         {/* Refund Warning */}
         {txnType === "Refund" && (
-          <div className="mt-4 rounded-xl p-3 flex gap-2 items-start bg-amber-50 border-[1.5px] border-amber-300">
-            <span className="text-base shrink-0 mt-0.5">⚠️</span>
+          <div className="mt-5 rounded-2xl p-4 flex gap-3 items-start bg-amber-50 border border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/30">
+            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <p className="text-xs font-bold text-amber-800 mb-0.5">Income reversal — use only for actual refunds</p>
-              <p className="text-[11px] text-text-secondary leading-relaxed">If a priest is returning unused pooja items, use <strong>Inventory → Return from Pooja</strong> instead. That does NOT affect income. This screen should only be used when money is actually returned to a devotee.</p>
+              <p className="text-sm font-bold text-amber-800 dark:text-amber-500 mb-1">Income reversal — use only for actual refunds</p>
+              <p className="text-xs text-amber-700/80 dark:text-amber-400/80 leading-relaxed max-w-4xl">If a priest is returning unused pooja items, use <strong>Inventory → Return from Pooja</strong> instead. That does NOT affect income. This screen should only be used when money is actually returned to a devotee.</p>
             </div>
           </div>
         )}
@@ -85,57 +85,57 @@ export default function AddTransactionPage() {
       <div className="bg-surface border border-border rounded-xl p-5">
         <h3 className="text-[13px] font-bold mb-4 pb-3 border-b border-border-secondary">Transaction details</h3>
         <div className="grid grid-cols-2 gap-3.5">
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">Category *</label>
-            <select className="border border-border rounded-lg px-3 py-2 text-xs text-text-primary bg-surface outline-none focus:border-brand transition-colors">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Category *</label>
+            <select className="h-11 border border-zinc-100 rounded-xl px-4 text-sm text-[var(--text-primary)] bg-white outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950">
               <option value="">Select category</option>
               <optgroup label="Income"><option>Pooja income</option><option>Counter sales</option><option>Hall rental</option><option>Other income</option></optgroup>
               <optgroup label="Expense"><option>Inventory purchase</option><option>Staff / priest salary</option><option>Maintenance & repair</option><option>Utilities</option><option>Events & festivals</option></optgroup>
               <optgroup label="Donation"><option>Cash donation</option><option>Cheque donation</option><option>Online donation</option><option>In-kind donation</option></optgroup>
             </select>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">Amount (£) *</label>
-            <input type="number" placeholder="0.00" step="0.01" className="border border-border rounded-lg px-3 py-2 text-xs text-text-primary bg-surface outline-none focus:border-brand transition-colors" />
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Amount (LKR) *</label>
+            <input type="number" placeholder="0.00" step="0.01" className="h-11 border border-zinc-100 rounded-xl px-4 text-sm text-[var(--text-primary)] bg-white outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950" />
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">Date *</label>
-            <input type="date" defaultValue="2026-04-20" className="border border-border rounded-lg px-3 py-2 text-xs text-text-primary bg-surface outline-none focus:border-brand transition-colors" />
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Date *</label>
+            <input type="date" defaultValue="2026-04-22" className="h-11 border border-zinc-100 rounded-xl px-4 text-sm text-[var(--text-primary)] bg-white outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950" />
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">Payment method</label>
-            <select className="border border-border rounded-lg px-3 py-2 text-xs text-text-primary bg-surface outline-none focus:border-brand transition-colors">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Payment method</label>
+            <select className="h-11 border border-zinc-100 rounded-xl px-4 text-sm text-[var(--text-primary)] bg-white outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950">
               <option>Cash</option><option>Bank transfer</option><option>Card</option><option>Cheque</option><option>Online</option>
             </select>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">Reference / link to</label>
-            <select className="border border-border rounded-lg px-3 py-2 text-xs text-text-primary bg-surface outline-none focus:border-brand transition-colors">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Reference / link to</label>
+            <select className="h-11 border border-zinc-100 rounded-xl px-4 text-sm text-[var(--text-primary)] bg-white outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950">
               <option value="">None</option><option>Pooja booking</option><option>Purchase order</option><option>POS transaction</option><option>Devotee record</option>
             </select>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">Recorded by</label>
-            <select className="border border-border rounded-lg px-3 py-2 text-xs text-text-primary bg-surface outline-none focus:border-brand transition-colors">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Recorded by</label>
+            <select className="h-11 border border-zinc-100 rounded-xl px-4 text-sm text-[var(--text-primary)] bg-white outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950">
               <option>Temple Admin</option><option>Head Priest</option><option>Trustee</option>
             </select>
           </div>
-          <div className="col-span-2 flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">Description / notes *</label>
-            <input placeholder="e.g. Rudrabhishekam — Rajan Kumar · Monday morning pooja" className="border border-border rounded-lg px-3 py-2 text-xs text-text-primary bg-surface outline-none focus:border-brand transition-colors" />
+          <div className="col-span-2 flex flex-col gap-1.5">
+            <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Description / notes *</label>
+            <input placeholder="e.g. Rudrabhishekam — Rajan Kumar · Monday morning pooja" className="h-11 border border-zinc-100 rounded-xl px-4 text-sm text-[var(--text-primary)] bg-white outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950" />
           </div>
         </div>
 
-        <div className="h-px bg-border-secondary my-4" />
+        <div className="h-px bg-zinc-100 dark:bg-zinc-800 my-6" />
 
-        <div className="grid grid-cols-2 gap-3.5">
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">Devotee (optional)</label>
-            <input placeholder="Search devotee name..." className="border border-border rounded-lg px-3 py-2 text-xs text-text-primary bg-surface outline-none focus:border-brand transition-colors" />
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Devotee (optional)</label>
+            <input placeholder="Search devotee name..." className="h-11 border border-zinc-100 rounded-xl px-4 text-sm text-[var(--text-primary)] bg-white outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950" />
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">Receipt required?</label>
-            <select className="border border-border rounded-lg px-3 py-2 text-xs text-text-primary bg-surface outline-none focus:border-brand transition-colors">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Receipt required?</label>
+            <select className="h-11 border border-zinc-100 rounded-xl px-4 text-sm text-[var(--text-primary)] bg-white outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950">
               <option>No receipt needed</option><option>Generate donation receipt</option><option>Generate Gift Aid receipt</option><option>Generate pooja receipt</option>
             </select>
           </div>
