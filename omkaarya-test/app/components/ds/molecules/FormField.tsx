@@ -5,7 +5,7 @@ import { InputHint } from "@/app/components/ds/atoms/Label";
 
 // ─── FormField ────────────────────────────────────────────────────
 // Molecule: Label + Input + InputHint
-export interface FormFieldProps extends InputProps {
+export interface FormFieldProps extends Omit<InputProps, "error"> {
   label?: string;
   hint?: string;
   error?: string;

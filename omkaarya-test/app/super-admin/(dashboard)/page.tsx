@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Eye, MoreVertical, Pencil, Plus } from "lucide-react";
 import type { MockTemple, TemplePlan } from "@/lib/mock-temples";
-import { apiUrl } from "@/lib/api-base";
 import type { TemplesListResponse, TemplesSortBy } from "@/lib/temples-query";
 import AdminDataTable from "@/app/components/admin/AdminDataTable";
 import AdminFiltersBar from "@/app/components/admin/AdminFiltersBar";
@@ -89,7 +88,9 @@ export default function TemplesAdminPage() {
       });
 
       try {
-        const response = await fetch(apiUrl(`/api/temples?${params.toString()}`), {
+        // Call same-origin Next.js route to avoid browser CORS.
+        // That route proxies to the backend using `NEXT_PUBLIC_API_BASE_URL`.
+        const response = await fetch(`/api/temples?${params.toString()}`, {
           signal: controller.signal,
         });
         if (!response.ok) {

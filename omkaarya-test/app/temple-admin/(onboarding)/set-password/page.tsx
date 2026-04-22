@@ -3,7 +3,6 @@
 import { ArrowRight, Eye, EyeOff, Lock } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiUrl } from "@/lib/api-base";
 import {
   TEMPLE_ONBOARDING_EMAIL_KEY,
   TEMPLE_ONBOARDING_REMEMBER_ME_KEY,
@@ -94,7 +93,7 @@ export default function TempleAdminSetPasswordPage() {
     setLoading(true);
     try {
       localStorage.setItem(TEMPLE_ONBOARDING_REMEMBER_ME_KEY, rememberMe ? "1" : "0");
-      const response = await fetch(apiUrl("/api/set-password"), {
+      const response = await fetch("/api/set-password", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ email, tempPassword, newPassword: newPwd }),

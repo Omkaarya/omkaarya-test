@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import TempleWizard from "../../_components/TempleWizard";
 import type { SuperAdminTempleDetail } from "@/lib/super-admin-temple-detail";
-import { apiUrl } from "@/lib/api-base";
 
 export default function EditTemplePage() {
   const params = useParams();
@@ -25,7 +24,7 @@ export default function EditTemplePage() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(apiUrl(`/api/temples/${encodeURIComponent(tenantId)}`), {
+        const res = await fetch(`/api/temples/${encodeURIComponent(tenantId)}`, {
           signal: ac.signal,
           cache: "no-store",
         });

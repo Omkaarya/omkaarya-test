@@ -3,7 +3,6 @@
 import { Mail, Lock, EyeOff, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiUrl } from "@/lib/api-base";
 
 const inputBase =
   "w-full rounded-lg border border-[var(--border-default)] bg-[var(--surface-elevated)] py-2 text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]";
@@ -31,7 +30,7 @@ export default function InvitationLogin() {
         return;
       }
 
-      const response = await fetch(apiUrl("/api/login"), {
+      const response = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: trimmedEmail, tempPassword }),
