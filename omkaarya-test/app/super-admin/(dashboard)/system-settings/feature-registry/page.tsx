@@ -104,6 +104,17 @@ const INITIAL_MODULES: Module[] = [
       { id: 14, name: "Advanced Analytics", key: "advanced_analytics", desc: "Revenue trends, devotee growth and pooja performance dashboards.", lt: "none", vis: true, active: true, plans: 1, editOpen: false },
     ],
   },
+  {
+    key: "settings", name: "Temple Settings & Config",
+    desc: "Organization, App, and System configurations",
+    open: false, editOpen: false,
+    features: [
+      { id: 15, name: "General & Web Identity", key: "settings_organization", desc: "Temple logos, localisation, SEO overrides and domains.", lt: "none", vis: true, active: true, plans: 3, editOpen: false },
+      { id: 16, name: "Hardware & POS Routing", key: "settings_hardware", desc: "Map local thermal printers and register defaults.", lt: "none", vis: true, active: true, plans: 2, editOpen: false },
+      { id: 17, name: "Invoice & Gateways", key: "settings_notifications", desc: "Automated prefixes, terms, and Email server configs.", lt: "none", vis: true, active: true, plans: 3, editOpen: false },
+      { id: 18, name: "Finance & Inventory Limits", key: "settings_finance_inventory", desc: "Tax brackets, primary currency, and low-stock thresholds.", lt: "none", vis: true, active: true, plans: 3, editOpen: false },
+    ],
+  },
 ];
 
 // ── Helpers ─────────────────────────────────────────────────────────

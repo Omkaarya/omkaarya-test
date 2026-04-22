@@ -75,7 +75,13 @@ Omkaarya is a **multi-tenant SaaS platform** purpose-built for temple management
 | TA-07 | Receipts | Receipt generation + PDF preview | ✅ Shipped |
 | TA-08 | Reports | Report generation | ✅ Shipped |
 | TA-09 | Subscriptions | Current plan, upgrade, billing history | ✅ Shipped |
-| TA-10 | Feature Gate | FeatureGate component, LimitReachedBanner, sidebar filtering | ✅ Shipped |
+| TA-10 | Feature Gate | FeatureGate component, LimitReachedBanner | ✅ Shipped |
+| TA-11 | Settings | Settings Secondary Layout Wrapper (`layout.tsx`) | ✅ Shipped |
+| TA-12 | Settings | General Settings (Logo, info, localization) | ✅ Shipped |
+| TA-13 | Settings | Web Settings (Domain mapping, SEO, Social) | ✅ Shipped |
+| TA-14 | Settings | Invoice & Receipts (Prefix formatting, Terms/Toggles) | ✅ Shipped |
+| TA-15 | Settings | POS & Printers (Hardware mapping, cash drawer rules) | ✅ Shipped |
+| TA-16 | Settings | System Configuration (Email gateways, DB Taxes, Inventory globals) | ✅ Shipped |
 
 ---
 
@@ -102,6 +108,7 @@ Features are defined in a **centralised Feature Registry** and configured per pr
 | Finance Module | finance_management |
 | POS — Counter Sales | pos_counter_sales |
 | System & Site Features | temple_microsite, custom_domain, seo_branding, advanced_analytics |
+| Temple Settings | settings_organization, settings_hardware, settings_notifications, settings_finance_inventory |
 
 **Key rules:**
 - Feature keys are **immutable** after creation

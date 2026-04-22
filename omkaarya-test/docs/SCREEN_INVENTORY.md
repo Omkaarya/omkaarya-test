@@ -250,6 +250,60 @@
 
 ---
 
+### TA-13: System Settings Layout
+| Field | Detail |
+|-------|--------|
+| **Route** | `/temple-portal/settings/layout.tsx` |
+| **Purpose** | Secondary Sidebar layout grouping all sub-settings |
+| **Key elements** | Responsive dual-column structure, Active state pills, categorization into Organization, App, and System Options. |
+
+---
+
+### TA-14: General & Web Settings
+| Field | Detail |
+|-------|--------|
+| **Routes** | `/settings/general` and `/settings/web` |
+| **Purpose** | Base localization and portal routing configurations. |
+| **Key elements** | Logo upload zone, timezone selects, domain mapping, custom SEO metadata fields. |
+
+---
+
+### TA-15: Invoice & Receipts Configuration
+| Field | Detail |
+|-------|--------|
+| **Route** | `/temple-portal/settings/app/invoice` |
+| **Purpose** | Manage document automated prefixes |
+| **Key elements** | BK-, DON-, POS- prefixed inputs, large textareas for Ts & Cs and Thank You footer strings. |
+
+---
+
+### TA-16: POS & Printers
+| Field | Detail |
+|-------|--------|
+| **Routes** | `/settings/app/pos` and `/settings/app/printers` |
+| **Purpose** | Map hardware interactions. |
+| **Key elements** | Cash drawer kicks toggles, Print Node Network IP/Port binding, and Hardware ID role assignments. |
+
+---
+
+### TA-17: Email Notifications
+| Field | Detail |
+|-------|--------|
+| **Route** | `/temple-portal/settings/system/email` |
+| **Purpose** | Transactional message delivery |
+| **Key elements** | Dual-mode tab toggle: Custom SMTP provider credentials versus Twilio SendGrid API key verification. |
+
+---
+
+### TA-18: Finance & Inventory Global Sets
+| Field | Detail |
+|-------|--------|
+| **Routes** | `/settings/system/finance` and `/settings/system/inventory` |
+| **Purpose** | Base metrics. |
+| **Key elements** | Primary currency selector (LKR), Toggleable global tax sets (VAT, SSCL) with percentage inputs, Baseline minimums out of 100 for inventory modules. |
+
+---
+
 ## 3. Shared Components
 
 ### Shell Components
@@ -314,9 +368,16 @@ Operations
 └── POS (if enabled)
 
 Settings
-├── Temple Profile
-├── Subscription
-└── Staff Management
+├── General Settings
+├── Web Settings
+├── App Settings
+│   ├── Invoice & Receipts
+│   ├── POS & Registers
+│   └── Printers
+└── System Options
+    ├── Email Gateway
+    ├── Finance & Taxes
+    └── Inventory Alerts
 ```
 
 ---
@@ -326,5 +387,5 @@ Settings
 | Portal | Screens | Status |
 |--------|---------|--------|
 | Super Admin | 11 | ✅ All shipped |
-| Temple Admin | 12 | ✅ All shipped |
-| **Total** | **23** | **✅ Complete** |
+| Temple Admin | 18 | ✅ All shipped |
+| **Total** | **29** | **✅ Complete** |

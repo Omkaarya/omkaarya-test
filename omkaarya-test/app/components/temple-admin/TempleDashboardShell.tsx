@@ -53,6 +53,7 @@ const navItems: NavItem[] = [
       { href: "/temple-admin/finance/receipts/generate", label: "Generate Receipt" },
       { href: "/temple-admin/finance/reports", label: "Reports" },
       { href: "/temple-admin/finance/purchase-orders", label: "Purchase Orders" },
+      { href: "/temple-admin/finance/assets", label: "Assets Management" },
     ],
   },
   {
@@ -63,6 +64,8 @@ const navItems: NavItem[] = [
       { href: "/temple-admin/inventory", label: "Products" },
       { href: "/temple-admin/inventory/create", label: "Add Product" },
       { href: "/temple-admin/inventory/categories", label: "Categories" },
+      { href: "/temple-admin/inventory/stores", label: "Stores" },
+      { href: "/temple-admin/inventory/suppliers", label: "Suppliers" },
       { href: "/temple-admin/inventory/low-stock", label: "Stock Alerts" },
       { href: "/temple-admin/inventory/adjustments", label: "Stock Adjustments" },
       { href: "/temple-admin/inventory/pooja-bom", label: "Pooja BOM" },
@@ -98,8 +101,17 @@ const navItems: NavItem[] = [
       { href: "/temple-admin/master", label: "All Master Data" },
     ],
   },
-  { href: "#", label: "Staff", icon: Users, moduleKey: "staff" },
-  { href: "#", label: "Settings", icon: Settings },
+  {
+    label: "Peoples",
+    icon: Users,
+    moduleKey: "peoples",
+    items: [
+      { href: "/temple-admin/peoples/staff", label: "Staff Management" },
+      { href: "/temple-admin/peoples/roles", label: "Role & Permissions" },
+      { href: "/temple-admin/peoples/devotees", label: "Devotee Management" },
+    ],
+  },
+  { href: "/temple-admin/settings/general", label: "Settings", icon: Settings },
 ];
 
 // ── Shell Props ────────────────────────────────────────────────────

@@ -145,6 +145,11 @@ The system comprises two web portals:
 - **disabledModules prop**: TempleDashboardShell accepts array of disabled module keys
 - **Backward compatibility**: If no configuration exists, all features default to enabled
 
+#### FR-TA-10: System Settings
+- **Organization & Web**: Base temple details, logo upload, timezone/localization, domain mapping, and SEO settings.
+- **Hardware & App**: Prefix mappings for automated invoices, POS default cash registers, drawer interactions, and mapping Thermal Receipt/Kitchen printers via local IPs.
+- **System Configs**: Toggleable Tax brackets (VAT, SSCL), base currency logic, SendGrid API/Custom SMTP configs, and global low-stock inventory thresholds with email alerts.
+
 ---
 
 ## 3. Data Models
@@ -252,7 +257,19 @@ Static mapping in `lib/feature-module-map.ts` linking sidebar navigation `module
 ├── invoices
 ├── receipts
 ├── reports
-└── subscriptions
+├── subscriptions
+└── settings/
+    ├── layout.tsx (secondary sidebar navigation wrapper)
+    ├── general
+    ├── web
+    ├── app/
+    │   ├── invoice
+    │   ├── pos
+    │   └── printers
+    └── system/
+        ├── email
+        ├── finance
+        └── inventory
 ```
 
 ---
