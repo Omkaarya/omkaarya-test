@@ -126,3 +126,30 @@ export type SuperAdminTempleDetailResponse = {
   planBilling: CreateTemplePayload["planBilling"];
   logoTempleDataUrl: string | null;
 };
+
+export type PricingPlan = {
+  id: string;
+  name: string;
+  description: string | null;
+  priceMonthly: number;
+  priceYearly: number;
+  popular: boolean;
+  includedSeats: number;
+  extraSeatPriceMonthly: number;
+  features: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreatePricingPlanPayload = {
+  name: string;
+  description?: string;
+  priceMonthly: number;
+  priceYearly: number;
+  popular?: boolean;
+  includedSeats: number;
+  extraSeatPriceMonthly: number;
+  features: string[];
+};
+
+export type UpdatePricingPlanPayload = Partial<CreatePricingPlanPayload>;

@@ -1,6 +1,26 @@
 import { NextResponse } from "next/server";
+import { apiUrl } from "@/lib/api-base";
 import { fetchPlanFeatures, upsertPlanFeatures } from "@/lib/plan-features-db";
-import { fetchVisibleFeatures } from "@/lib/features-db";
+import { fetchAllActiveFeaturesOrdered } from "@/lib/features-db";
+
+/** node-pg forwards PostgreSQL error codes (e.g. 42P01 = undefined_table). */
+function pgErrorCode(err: unknown): string | undefined {
+  if (typeof err !== "object" || err === null) return undefined;
+  const c = (err as { code?: unknown }).code;
+  return typeof c === "string" ? c : undefined;
+}
+
+const SCHEMA_MISSING = {
+  code: "schema_missing" as const,
+  error:
+    "Feature registry tables are missing. From `omkaarya-test-backend` run: npm run migrate (applies 015_feature_registry_and_plan_features.sql for public.features and public.plan_features).",
+};
+
+const DB_NOT_CONFIGURED = {
+  code: "db_not_configured" as const,
+  error:
+    "Database not configured. Set DATABASE_URL or DB_USER/DB_HOST/DB_NAME in `omkaarya-test/.env.local`, or add them to `omkaarya-test-backend/.env` (Next loads that file in local dev).",
+};
 
 /** GET /api/plan-features?planId=xxx — Get feature configs for a plan. */
 export async function GET(request: Request) {
@@ -11,14 +31,14 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "planId query param is required" }, { status: 400 });
     }
 
-    const [planFeatures, allFeatures] = await Promise.all([
+    const [planFeatures, allActiveFeatures] = await Promise.all([
       fetchPlanFeatures(planId),
-      fetchVisibleFeatures(),
+      fetchAllActiveFeaturesOrdered(),
     ]);
 
-    // Merge: return all visible features with their plan config (if any)
+    // Merge: all active registry features; plan_features row enables (default off)
     const configMap = new Map(planFeatures.map((pf) => [pf.featureId, pf]));
-    const merged = allFeatures.map((f) => {
+    const merged = allActiveFeatures.map((f) => {
       const existing = configMap.get(f.id);
       return {
         featureId: f.id,
@@ -28,7 +48,7 @@ export async function GET(request: Request) {
         hasLimit: f.hasLimit,
         limitType: f.limitType,
         description: f.description,
-        isEnabled: existing?.isEnabled ?? true, // default enabled
+        isEnabled: existing ? existing.isEnabled : false,
         limitValue: existing?.limitValue ?? null,
       };
     });
@@ -36,6 +56,18 @@ export async function GET(request: Request) {
     return NextResponse.json(merged);
   } catch (err) {
     console.error("GET /api/plan-features error:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    const pgc = pgErrorCode(err);
+    if (message.includes("Database not configured")) {
+      return NextResponse.json(DB_NOT_CONFIGURED, { status: 503 });
+    }
+    if (
+      pgc === "42P01" ||
+      (message.includes("does not exist") &&
+        (message.includes("plan_features") || /\bfeatures\b/.test(message)))
+    ) {
+      return NextResponse.json(SCHEMA_MISSING, { status: 503 });
+    }
     return NextResponse.json({ error: "Failed to fetch plan features" }, { status: 500 });
   }
 }
@@ -62,9 +94,44 @@ export async function POST(request: Request) {
       }))
     );
 
+    // Keep Express `pricing_plans.features` JSONB in sync (super-admin list / comparison)
+    const uuidRe =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (uuidRe.test(planId)) {
+      const allActive = await fetchAllActiveFeaturesOrdered();
+      const byId = new Map(features.map((x) => [x.featureId, x.isEnabled]));
+      const featureNames = allActive
+        .filter((f) => byId.get(f.id) === true)
+        .map((f) => f.name);
+      try {
+        const sync = await fetch(apiUrl(`/api/pricing-plans/${encodeURIComponent(planId)}`), {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ features: featureNames }),
+        });
+        if (!sync.ok) {
+          console.error("POST /api/plan-features: could not sync pricing_plans.features", await sync.text());
+        }
+      } catch (e) {
+        console.error("POST /api/plan-features: sync to Express failed", e);
+      }
+    }
+
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("POST /api/plan-features error:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    const pgc = pgErrorCode(err);
+    if (message.includes("Database not configured")) {
+      return NextResponse.json(DB_NOT_CONFIGURED, { status: 503 });
+    }
+    if (
+      pgc === "42P01" ||
+      (message.includes("does not exist") &&
+        (message.includes("plan_features") || /\bfeatures\b/.test(message)))
+    ) {
+      return NextResponse.json(SCHEMA_MISSING, { status: 503 });
+    }
     return NextResponse.json({ error: "Failed to save plan features" }, { status: 500 });
   }
 }

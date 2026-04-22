@@ -12,8 +12,6 @@ import {
   ChevronDown,
   Search,
 } from "lucide-react";
-import { apiUrl } from "@/lib/api-base";
-
 // ── Types ──────────────────────────────────────────────────────────
 
 type Feature = {
@@ -42,6 +40,7 @@ type FeatureFormData = {
 const MODULE_OPTIONS = [
   "pooja", "donation", "inventory", "finance", "device", "staff",
   "pos", "events", "devotee", "notification", "domain", "integration",
+  "pricing_tier",
 ];
 
 function slugify(name: string): string {
@@ -270,16 +269,27 @@ export default function FeatureRegistryPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editFeature, setEditFeature] = useState<Feature | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState("");
 
   const loadFeatures = useCallback(async () => {
+    setLoadError("");
     try {
-      const res = await fetch(apiUrl("/api/features"));
+      const res = await fetch("/api/features", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
-        setFeatures(data);
+        if (Array.isArray(data)) {
+          setFeatures(data);
+        } else {
+          setLoadError("Unexpected response from server.");
+        }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setLoadError(err.error || `Failed to load features (${res.status})`);
+        setFeatures([]);
       }
-    } catch {
-      // silently fail — features will show empty
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Network error");
+      setFeatures([]);
     } finally {
       setLoading(false);
     }
@@ -292,7 +302,7 @@ export default function FeatureRegistryPage() {
   // ── Handlers ────────────────────────────────────────────────────
 
   const handleSave = async (data: FeatureFormData, id?: number) => {
-    const url = id ? apiUrl(`/api/features/${id}`) : apiUrl("/api/features");
+    const url = id ? `/api/features/${id}` : "/api/features";
     const method = id ? "PUT" : "POST";
     const res = await fetch(url, {
       method,
@@ -309,8 +319,8 @@ export default function FeatureRegistryPage() {
   const handleToggle = async (id: number) => {
     setTogglingId(id);
     try {
-      await fetch(apiUrl(`/api/features/${id}`), { method: "PATCH" });
-      await loadFeatures();
+      const res = await fetch(`/api/features/${id}`, { method: "PATCH" });
+      if (res.ok) await loadFeatures();
     } finally {
       setTogglingId(null);
     }
@@ -366,6 +376,13 @@ export default function FeatureRegistryPage() {
             Feature keys are immutable after creation. Features cannot be deleted — only deactivated.
           </div>
         </div>
+
+        {loadError && (
+          <div className="mx-6 mt-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            {loadError}
+          </div>
+        )}
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3 px-6 py-4">
