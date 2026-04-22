@@ -2,6 +2,25 @@ import { NextResponse } from "next/server";
 import { fetchPlanFeatures, upsertPlanFeatures } from "@/lib/plan-features-db";
 import { fetchVisibleFeatures } from "@/lib/features-db";
 
+/** node-pg forwards PostgreSQL error codes (e.g. 42P01 = undefined_table). */
+function pgErrorCode(err: unknown): string | undefined {
+  if (typeof err !== "object" || err === null) return undefined;
+  const c = (err as { code?: unknown }).code;
+  return typeof c === "string" ? c : undefined;
+}
+
+const SCHEMA_MISSING = {
+  code: "schema_missing" as const,
+  error:
+    "Feature registry tables are missing. From `omkaarya-test-backend` run: npm run migrate (applies 015_feature_registry_and_plan_features.sql for public.features and public.plan_features).",
+};
+
+const DB_NOT_CONFIGURED = {
+  code: "db_not_configured" as const,
+  error:
+    "Database not configured. Set DATABASE_URL or DB_USER/DB_HOST/DB_NAME in `omkaarya-test/.env.local`, or add them to `omkaarya-test-backend/.env` (Next loads that file in local dev).",
+};
+
 /** GET /api/plan-features?planId=xxx — Get feature configs for a plan. */
 export async function GET(request: Request) {
   try {
@@ -36,6 +55,18 @@ export async function GET(request: Request) {
     return NextResponse.json(merged);
   } catch (err) {
     console.error("GET /api/plan-features error:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    const pgc = pgErrorCode(err);
+    if (message.includes("Database not configured")) {
+      return NextResponse.json(DB_NOT_CONFIGURED, { status: 503 });
+    }
+    if (
+      pgc === "42P01" ||
+      (message.includes("does not exist") &&
+        (message.includes("plan_features") || /\bfeatures\b/.test(message)))
+    ) {
+      return NextResponse.json(SCHEMA_MISSING, { status: 503 });
+    }
     return NextResponse.json({ error: "Failed to fetch plan features" }, { status: 500 });
   }
 }
@@ -65,6 +96,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("POST /api/plan-features error:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    const pgc = pgErrorCode(err);
+    if (message.includes("Database not configured")) {
+      return NextResponse.json(DB_NOT_CONFIGURED, { status: 503 });
+    }
+    if (
+      pgc === "42P01" ||
+      (message.includes("does not exist") &&
+        (message.includes("plan_features") || /\bfeatures\b/.test(message)))
+    ) {
+      return NextResponse.json(SCHEMA_MISSING, { status: 503 });
+    }
     return NextResponse.json({ error: "Failed to save plan features" }, { status: 500 });
   }
 }

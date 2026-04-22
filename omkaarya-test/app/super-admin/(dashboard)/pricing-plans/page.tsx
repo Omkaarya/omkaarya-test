@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Check,
@@ -9,75 +9,21 @@ import {
   Tag,
   ToggleLeft,
   ToggleRight,
+  X,
+  Loader2,
 } from "lucide-react";
 
-// ── Plan data from Figma ───────────────────────────────────────────
-
-const PLANS = [
-  {
-    id: "Prarambha",
-    name: "Prarambha",
-    priceMonthly: "$19",
-    priceYearly: "$157",
-    description:
-      "Ideal for small temples starting digital management of daily activities and donations.",
-    included: [
-      "Devotee management",
-      "Pooja booking (online + manual)",
-      "Donations + basic receipts",
-      "Temple microsite (subdomain)",
-      "Panchangam display",
-      "Standard roles",
-      "Inventory management - Basic",
-    ],
-  },
-  {
-    id: "Sankalpa",
-    name: "Sankalpa",
-    popular: true,
-    priceMonthly: "$49",
-    priceYearly: "$539",
-    description:
-      "Ideal for growing temples wanting compliance receipts and advanced features.",
-    included: [
-      "Devotee management",
-      "Pooja booking (online + manual)",
-      "Donations + basic receipts",
-      "Temple microsite (subdomain)",
-      "Panchangam display",
-      "Compliance tax receipts",
-      "Full microsite + SEO branding",
-      "Inventory management",
-      "Extended roles (Trustee · Accountant)",
-      "Priority support",
-    ],
-  },
-  {
-    id: "Aaradhana",
-    name: "Aaradhana",
-    priceMonthly: "$99",
-    priceYearly: "$1089",
-    description:
-      "Ideal for established temples wanting full control with unlimited customisation.",
-    included: [
-      "Devotee management",
-      "Pooja booking (online + manual)",
-      "Donations + basic receipts",
-      "Temple microsite (subdomain)",
-      "Panchangam display",
-      "Compliance tax receipts",
-      "Full microsite + SEO branding",
-      "Inventory management",
-      "Extended roles (Trustee · Accountant)",
-      "Priority support",
-      "Custom domain",
-      "Custom roles",
-      "Advanced analytics",
-    ],
-  },
-];
-
-// ── Feature comparison matrix ──────────────────────────────────────
+type PricingPlan = {
+  id: string;
+  name: string;
+  description: string | null;
+  priceMonthly: number;
+  priceYearly: number;
+  popular: boolean;
+  includedSeats: number;
+  extraSeatPriceMonthly: number;
+  features: string[];
+};
 
 type FeatureRow = {
   name: string;
@@ -103,22 +49,49 @@ const COMPARISON_FEATURES: FeatureRow[] = [
   { name: "Custom domain", prarambha: false, sankalpa: false, aaradhana: true },
 ];
 
-const SEAT_ROW = { label: "Included seats", values: ["3", "5", "10"] };
-const EXTRA_SEAT_ROW = { label: "Extra seat", values: ["$6/mo", "$5/mo", "$4/mo"] };
-
-// ── Temple Analytics mock ──────────────────────────────────────────
-
 const TEMPLE_ANALYTICS = [
   { plan: "Prarambha", count: 45, pct: 35 },
   { plan: "Sankalpa", count: 62, pct: 48 },
   { plan: "Aaradhana", count: 22, pct: 17 },
 ];
 
-// ── Main Page ──────────────────────────────────────────────────────
-
 export default function PricingPlansPage() {
+  const [plans, setPlans] = useState<PricingPlan[]>([]);
+  const [loading, setLoading] = useState(true);
+  
   const [billing, setBilling] = useState<"monthly" | "yearly">("yearly");
   const [cardBilling, setCardBilling] = useState<Record<string, "monthly" | "yearly">>({});
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    priceMonthly: "",
+    priceYearly: "",
+    includedSeats: "",
+    extraSeatPriceMonthly: "",
+    popular: false,
+  });
+
+  useEffect(() => {
+    fetchPlans();
+  }, []);
+
+  const fetchPlans = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/pricing-plans");
+      const data = await res.json();
+      if (data.success) {
+        setPlans(data.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch plans", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getCardBilling = (planId: string) => cardBilling[planId] || billing;
   const toggleCardBilling = (planId: string) => {
@@ -127,28 +100,81 @@ export default function PricingPlansPage() {
       [planId]: (prev[planId] || billing) === "yearly" ? "monthly" : "yearly",
     }));
   };
-  const [featureToggles, setFeatureToggles] = useState<Record<string, Record<string, boolean>>>({});
 
-  const togglePlanFeature = (featureName: string, planKey: string) => {
-    setFeatureToggles((prev) => {
-      const featureRow = prev[featureName] || {};
-      return {
-        ...prev,
-        [featureName]: {
-          ...featureRow,
-          [planKey]: !(featureRow[planKey] ?? COMPARISON_FEATURES.find(f => f.name === featureName)?.[planKey as keyof FeatureRow] ?? false),
-        },
-      };
-    });
-  };
+  const togglePlanFeature = async (featureName: string, planId: string) => {
+    const plan = plans.find(p => p.id === planId);
+    if (!plan) return;
 
-  const getFeatureValue = (featureName: string, planKey: string): boolean => {
-    if (featureToggles[featureName]?.[planKey] !== undefined) {
-      return featureToggles[featureName][planKey];
+    const hasFeature = plan.features.includes(featureName);
+    const updatedFeatures = hasFeature 
+      ? plan.features.filter(f => f !== featureName)
+      : [...plan.features, featureName];
+
+    // Optimistic update
+    setPlans(prev => prev.map(p => p.id === planId ? { ...p, features: updatedFeatures } : p));
+
+    try {
+      const res = await fetch(`/api/pricing-plans/${planId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ features: updatedFeatures }),
+      });
+      if (!res.ok) throw new Error("Failed to patch");
+    } catch (e) {
+      // Revert on error
+      setPlans(prev => prev.map(p => p.id === planId ? { ...p, features: plan.features } : p));
     }
-    const feature = COMPARISON_FEATURES.find(f => f.name === featureName);
-    return feature ? (feature[planKey as keyof FeatureRow] as boolean) : false;
   };
+
+  const getFeatureValue = (featureName: string, planId: string): boolean => {
+    const plan = plans.find(p => p.id === planId);
+    return plan?.features.includes(featureName) ?? false;
+  };
+
+  const formatPrice = (cents: number) => {
+    return `$${(cents / 100).toFixed(0)}`;
+  };
+
+  const handleCreatePlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        name: formData.name,
+        description: formData.description,
+        priceMonthly: parseInt(formData.priceMonthly) * 100,
+        priceYearly: parseInt(formData.priceYearly) * 100,
+        includedSeats: parseInt(formData.includedSeats),
+        extraSeatPriceMonthly: parseInt(formData.extraSeatPriceMonthly) * 100,
+        popular: formData.popular,
+        features: [],
+      };
+
+      const res = await fetch("/api/pricing-plans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIsModalOpen(false);
+        setFormData({ name: "", description: "", priceMonthly: "", priceYearly: "", includedSeats: "", extraSeatPriceMonthly: "", popular: false });
+        fetchPlans();
+      }
+    } catch (e) {
+      console.error("Failed to create plan", e);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-64 w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[var(--brand-primary)]" />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-[min(100rem,calc(100vw-2rem))] space-y-6">
@@ -161,7 +187,7 @@ export default function PricingPlansPage() {
                 Pricing Plans
               </h1>
               <span className="rounded-md bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800 dark:bg-blue-950/50 dark:text-blue-300">
-                {PLANS.length} plans
+                {plans.length} plans
               </span>
             </div>
             <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
@@ -170,7 +196,6 @@ export default function PricingPlansPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Monthly / Yearly tabs */}
             <div className="flex rounded-lg border border-zinc-200 bg-zinc-50 p-0.5 dark:border-zinc-700 dark:bg-zinc-800">
               <button
                 type="button"
@@ -196,9 +221,9 @@ export default function PricingPlansPage() {
               </button>
             </div>
 
-            {/* Create Plan button */}
             <button
               type="button"
+              onClick={() => setIsModalOpen(true)}
               className="inline-flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)]"
             >
               <Plus className="h-4 w-4" />
@@ -209,13 +234,12 @@ export default function PricingPlansPage() {
 
         {/* ─── Plan Cards ──────────────────────────────────────── */}
         <div className="grid gap-6 p-6 lg:grid-cols-3">
-          {PLANS.map((plan) => (
+          {plans.map((plan) => (
             <div
               key={plan.id}
               className="relative flex flex-col rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900"
             >
               <div className="p-5">
-                {/* Name + badge */}
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">{plan.name}</h2>
                   {plan.popular && (
@@ -225,28 +249,25 @@ export default function PricingPlansPage() {
                   )}
                 </div>
 
-                {/* Price */}
                 <div className="mb-3">
                   <span className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">
-                    {getCardBilling(plan.id) === "monthly" ? plan.priceMonthly : plan.priceYearly}
+                    {getCardBilling(plan.id) === "monthly" ? formatPrice(plan.priceMonthly) : formatPrice(plan.priceYearly)}
                   </span>
                   <span className="text-sm text-zinc-500 dark:text-zinc-400">
                     /{getCardBilling(plan.id) === "monthly" ? "month" : "year"}
                   </span>
                 </div>
 
-                {/* Description */}
                 <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
                   {plan.description}
                 </p>
 
-                {/* Included */}
                 <div className="mb-4">
                   <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
                     Included
                   </h4>
                   <ul className="space-y-1.5">
-                    {plan.included.map((item) => (
+                    {plan.features.map((item) => (
                       <li key={item} className="flex items-start gap-2 text-sm text-zinc-700 dark:text-zinc-300">
                         <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" strokeWidth={2.5} />
                         <span>{item}</span>
@@ -255,7 +276,6 @@ export default function PricingPlansPage() {
                   </ul>
                 </div>
 
-                {/* Per-card billing toggle */}
                 <div className="flex items-center gap-2.5 mt-4">
                   <button
                     type="button"
@@ -276,13 +296,12 @@ export default function PricingPlansPage() {
                 </div>
               </div>
 
-              {/* Action buttons */}
               <div className="mt-auto flex items-center gap-2 border-t border-zinc-100 px-5 py-3 dark:border-zinc-800">
                 <Link
                   href={`/super-admin/pricing-plans/${encodeURIComponent(plan.id)}/features`}
                   className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--brand-primary)] px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-primary-hover)]"
                 >
-                  Edit Plan
+                  Manage Features
                 </Link>
                 <button
                   type="button"
@@ -291,136 +310,155 @@ export default function PricingPlansPage() {
                   Available
                 </button>
               </div>
-              <div className="border-t border-zinc-100 px-5 py-2 dark:border-zinc-800 text-center">
-                <button type="button" className="text-xs font-medium text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300">
-                  Downtimes
-                </button>
-              </div>
             </div>
           ))}
-        </div>
-
-        {/* Hint text */}
-        <div className="border-t border-zinc-100 px-6 py-4 dark:border-zinc-800">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            <Tag className="mr-1 inline-block h-3.5 w-3.5" />
-            Features are defined in the{" "}
-            <Link href="/super-admin/system-settings/feature-registry" className="font-medium text-[var(--brand-primary)] hover:underline">
-              Feature Registry
-            </Link>
-            . Only active, plan-visible features appear in the configuration.
-          </p>
+          {plans.length === 0 && (
+             <div className="col-span-3 text-center py-12 text-zinc-500">
+               No pricing plans available. Click "Create Pricing Plan" to add one.
+             </div>
+          )}
         </div>
       </div>
 
       {/* ─── Feature Comparison Table ──────────────────────────── */}
-      <div className="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="border-b border-zinc-100 px-6 py-4 dark:border-zinc-800">
-          <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Plan Comparison</h2>
-        </div>
+      {plans.length > 0 && (
+        <div className="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="border-b border-zinc-100 px-6 py-4 dark:border-zinc-800">
+            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Plan Comparison Matrix</h2>
+          </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-zinc-100 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-800/50">
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500 w-[40%]">
-                  Feature
-                </th>
-                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                  Prarambha
-                </th>
-                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                  Sankalpa
-                </th>
-                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                  Aaradhana
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-              {COMPARISON_FEATURES.map((feature) => (
-                <tr key={feature.name} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20">
-                  <td className="px-6 py-3 text-sm text-zinc-700 dark:text-zinc-300">
-                    {feature.name}
-                  </td>
-                  {(["prarambha", "sankalpa", "aaradhana"] as const).map((planKey) => {
-                    const enabled = getFeatureValue(feature.name, planKey);
-                    return (
-                      <td key={planKey} className="px-4 py-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => togglePlanFeature(feature.name, planKey)}
-                          className={`inline-flex transition-colors ${
-                            enabled
-                              ? "text-emerald-600 dark:text-emerald-400"
-                              : "text-zinc-300 dark:text-zinc-600"
-                          }`}
-                          title={enabled ? "Enabled — click to disable" : "Disabled — click to enable"}
-                        >
-                          {enabled ? (
-                            <ToggleRight className="h-6 w-6" />
-                          ) : (
-                            <ToggleLeft className="h-6 w-6" />
-                          )}
-                        </button>
-                      </td>
-                    );
-                  })}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-100 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-800/50">
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500 w-[40%]">
+                    Feature
+                  </th>
+                  {plans.map(p => (
+                    <th key={p.id} className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                      {p.name}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-
-              {/* Seats row */}
-              <tr className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20">
-                <td className="px-6 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  {SEAT_ROW.label}
-                </td>
-                {SEAT_ROW.values.map((v, i) => (
-                  <td key={i} className="px-4 py-3 text-center text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                    {v}
-                  </td>
+              </thead>
+              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                {COMPARISON_FEATURES.map((feature) => (
+                  <tr key={feature.name} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20">
+                    <td className="px-6 py-3 text-sm text-zinc-700 dark:text-zinc-300">
+                      {feature.name}
+                    </td>
+                    {plans.map((plan) => {
+                      const enabled = getFeatureValue(feature.name, plan.id);
+                      return (
+                        <td key={plan.id} className="px-4 py-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => togglePlanFeature(feature.name, plan.id)}
+                            className={`inline-flex transition-colors ${
+                              enabled
+                                ? "text-emerald-600 dark:text-emerald-400"
+                                : "text-zinc-300 dark:text-zinc-600"
+                            }`}
+                            title={enabled ? "Enabled — click to disable" : "Disabled — click to enable"}
+                          >
+                            {enabled ? (
+                              <ToggleRight className="h-6 w-6" />
+                            ) : (
+                              <ToggleLeft className="h-6 w-6" />
+                            )}
+                          </button>
+                        </td>
+                      );
+                    })}
+                  </tr>
                 ))}
-              </tr>
 
-              {/* Extra seat row */}
-              <tr className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20">
-                <td className="px-6 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  {EXTRA_SEAT_ROW.label}
-                </td>
-                {EXTRA_SEAT_ROW.values.map((v, i) => (
-                  <td key={i} className="px-4 py-3 text-center text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                    {v}
+                <tr className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20">
+                  <td className="px-6 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    Included seats
                   </td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+                  {plans.map((plan) => (
+                    <td key={plan.id} className="px-4 py-3 text-center text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                      {plan.includedSeats}
+                    </td>
+                  ))}
+                </tr>
 
-      {/* ─── Temple Analytics ──────────────────────────────────── */}
-      <div className="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="border-b border-zinc-100 px-6 py-4 dark:border-zinc-800">
-          <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Temple Analytics</h2>
+                <tr className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20">
+                  <td className="px-6 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    Extra seat (/mo)
+                  </td>
+                  {plans.map((plan) => (
+                    <td key={plan.id} className="px-4 py-3 text-center text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                      {formatPrice(plan.extraSeatPriceMonthly)}
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div className="p-6 space-y-4">
-          {TEMPLE_ANALYTICS.map((item) => (
-            <div key={item.plan} className="flex items-center gap-4">
-              <span className="w-24 text-sm font-medium text-zinc-700 dark:text-zinc-300 shrink-0">
-                {item.plan}
-              </span>
-              <div className="flex-1 h-6 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-[var(--brand-primary)] transition-all duration-500"
-                  style={{ width: `${item.pct}%` }}
-                />
-              </div>
-              <span className="w-16 text-right text-sm font-semibold text-zinc-600 dark:text-zinc-400 shrink-0">
-                {item.count} temples
-              </span>
+      )}
+
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl dark:bg-zinc-900 border dark:border-zinc-800">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold dark:text-white">Create Pricing Plan</h2>
+              <button onClick={() => setIsModalOpen(false)} className="text-zinc-500 hover:text-zinc-800 dark:hover:text-white">
+                <X className="w-5 h-5"/>
+              </button>
             </div>
-          ))}
+            
+            <form onSubmit={handleCreatePlan} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1 dark:text-zinc-200">Plan Name</label>
+                <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full rounded-lg border px-3 py-2 text-sm dark:bg-zinc-800 dark:border-zinc-700 dark:text-white" placeholder="e.g. Prarambha" />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1 dark:text-zinc-200">Description</label>
+                <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full rounded-lg border px-3 py-2 text-sm dark:bg-zinc-800 dark:border-zinc-700 dark:text-white" placeholder="Plan description" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1 dark:text-zinc-200">Monthly Price ($)</label>
+                  <input type="number" min="0" required value={formData.priceMonthly} onChange={e => setFormData({...formData, priceMonthly: e.target.value})} className="w-full rounded-lg border px-3 py-2 text-sm dark:bg-zinc-800 dark:border-zinc-700 dark:text-white" placeholder="19" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1 dark:text-zinc-200">Yearly Price ($)</label>
+                  <input type="number" min="0" required value={formData.priceYearly} onChange={e => setFormData({...formData, priceYearly: e.target.value})} className="w-full rounded-lg border px-3 py-2 text-sm dark:bg-zinc-800 dark:border-zinc-700 dark:text-white" placeholder="157" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1 dark:text-zinc-200">Included Seats</label>
+                  <input type="number" min="0" required value={formData.includedSeats} onChange={e => setFormData({...formData, includedSeats: e.target.value})} className="w-full rounded-lg border px-3 py-2 text-sm dark:bg-zinc-800 dark:border-zinc-700 dark:text-white" placeholder="3" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1 dark:text-zinc-200">Extra Seat Price/Mo ($)</label>
+                  <input type="number" min="0" required value={formData.extraSeatPriceMonthly} onChange={e => setFormData({...formData, extraSeatPriceMonthly: e.target.value})} className="w-full rounded-lg border px-3 py-2 text-sm dark:bg-zinc-800 dark:border-zinc-700 dark:text-white" placeholder="6" />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <input type="checkbox" id="popular" checked={formData.popular} onChange={e => setFormData({...formData, popular: e.target.checked})} className="rounded text-[var(--brand-primary)]" />
+                <label htmlFor="popular" className="text-sm font-medium dark:text-zinc-200">Mark as Most Popular</label>
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium border rounded-lg hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:text-zinc-300">Cancel</button>
+                <button disabled={isSubmitting} type="submit" className="px-4 py-2 text-sm font-medium text-white bg-[var(--brand-primary)] rounded-lg hover:bg-[var(--brand-primary-hover)] inline-flex items-center gap-2">
+                  {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Create Plan
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   Loader2,
 } from "lucide-react";
-import { apiUrl } from "@/lib/api-base";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -58,13 +57,16 @@ const PLAN_META: Record<string, { label: string; tierColor: string }> = {
   Mandala: { label: "Aaaradhana (Enterprise)", tierColor: "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-300" },
 };
 
+function isUuidString(s: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
+}
+
 // ── Main Page ──────────────────────────────────────────────────────
 
 export default function PlanFeaturesPage() {
   const params = useParams();
-  const router = useRouter();
   const planId = decodeURIComponent(params.planId as string);
-  const meta = PLAN_META[planId] || { label: planId, tierColor: "bg-zinc-100 text-zinc-700" };
+  const legacyMeta = PLAN_META[planId];
 
   const [features, setFeatures] = useState<PlanFeatureConfig[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,10 +74,17 @@ export default function PlanFeaturesPage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [dirty, setDirty] = useState(false);
+  const [fetchedPlanName, setFetchedPlanName] = useState<string | null>(null);
+
+  const displayPlanName = legacyMeta?.label ?? fetchedPlanName ?? planId;
+  const meta = legacyMeta ?? {
+    label: displayPlanName,
+    tierColor: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200",
+  };
 
   const loadFeatures = useCallback(async () => {
     try {
-      const res = await fetch(apiUrl(`/api/plan-features?planId=${encodeURIComponent(planId)}`));
+      const res = await fetch(`/api/plan-features?planId=${encodeURIComponent(planId)}`);
       if (res.ok) {
         setFeatures(await res.json());
       }
@@ -89,6 +98,23 @@ export default function PlanFeaturesPage() {
   useEffect(() => {
     loadFeatures();
   }, [loadFeatures]);
+
+  useEffect(() => {
+    setFetchedPlanName(null);
+    if (legacyMeta || !isUuidString(planId)) return;
+    let cancelled = false;
+    void (async () => {
+      const res = await fetch(`/api/pricing-plans/${encodeURIComponent(planId)}`);
+      if (cancelled || !res.ok) return;
+      const json: { success?: boolean; data?: { name?: string } } = await res.json().catch(() => ({}));
+      if (json.success && json.data?.name) {
+        setFetchedPlanName(json.data.name);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [planId, legacyMeta]);
 
   // ── Handlers ────────────────────────────────────────────────────
 
@@ -123,7 +149,7 @@ export default function PlanFeaturesPage() {
     setSaving(true);
     setError("");
     try {
-      const res = await fetch(apiUrl("/api/plan-features"), {
+      const res = await fetch("/api/plan-features", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -205,7 +231,7 @@ export default function PlanFeaturesPage() {
         {saved && (
           <div className="mx-6 mt-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
             <CheckCircle2 className="h-4 w-4 shrink-0" />
-            Feature configuration saved successfully for <strong>{planId}</strong> plan.
+            Feature configuration saved successfully for <strong>{displayPlanName}</strong> plan.
           </div>
         )}
 

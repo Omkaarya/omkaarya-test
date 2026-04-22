@@ -73,7 +73,7 @@ function rowToFeature(r: {
     name: r.name,
     key: r.key,
     moduleKey: r.module_key,
-    description: r.description,
+    description: r.description ?? "",
     hasLimit: r.has_limit,
     limitType: r.limit_type as LimitType,
     isActive: r.is_active,

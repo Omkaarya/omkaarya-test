@@ -11,6 +11,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "migrate": "tsx scripts/migrate.ts",
+    "seed:pricing-plans": "tsx scripts/seed-pricing-plans.ts",
     "seed": "tsx scripts/seed.ts",
     "db:setup": "npm run migrate && npm run seed",
     "verify:set-password": "tsx scripts/verify-set-password-smoke.ts"
