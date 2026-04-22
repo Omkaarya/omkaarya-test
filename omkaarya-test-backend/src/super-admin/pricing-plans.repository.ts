@@ -23,7 +23,8 @@ export class PostgresPricingPlansRepository {
     if (!pool) throw new Error("Database pool is not available");
 
     const { rows } = await pool.query(
-      `SELECT * FROM public.pricing_plans ORDER BY created_at ASC`
+      `SELECT * FROM public.pricing_plans
+       ORDER BY price_monthly ASC, price_yearly ASC, name ASC`
     );
     return rows.map(toPricingPlan);
   }

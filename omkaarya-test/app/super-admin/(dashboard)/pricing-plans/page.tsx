@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Check, Plus, X, Loader2 } from "lucide-react";
 
@@ -43,38 +43,7 @@ export default function PricingPlansPage() {
     popular: false,
   });
 
-  useEffect(() => {
-    fetchPlans();
-  }, []);
-
-  useEffect(() => {
-    void (async () => {
-      setFeaturesLoading(true);
-      try {
-        const res = await fetch("/api/features", { cache: "no-store" });
-        if (!res.ok) return;
-        const data: Array<{ id: number; name: string; moduleKey: string; isActive: boolean }> = await res.json();
-        if (Array.isArray(data)) {
-          setRegistryFeatures(
-            data
-              .filter((f) => f.isActive)
-              .map((f) => ({ id: f.id, name: f.name, moduleKey: f.moduleKey }))
-              .sort((a, b) => {
-                const m = a.moduleKey.localeCompare(b.moduleKey);
-                if (m !== 0) return m;
-                return a.name.localeCompare(b.name);
-              })
-          );
-        }
-      } catch (e) {
-        console.error("Failed to load feature registry", e);
-      } finally {
-        setFeaturesLoading(false);
-      }
-    })();
-  }, []);
-
-  const fetchPlans = async () => {
+  const fetchPlans = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/pricing-plans", { cache: "no-store" });
@@ -87,7 +56,48 @@ export default function PricingPlansPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  const loadRegistryFeatures = useCallback(async () => {
+    setFeaturesLoading(true);
+    try {
+      const res = await fetch("/api/features", { cache: "no-store" });
+      if (!res.ok) return;
+      const data: Array<{ id: number; name: string; moduleKey: string; isActive: boolean }> = await res.json();
+      if (Array.isArray(data)) {
+        setRegistryFeatures(
+          data
+            .filter((f) => f.isActive)
+            .map((f) => ({ id: f.id, name: f.name, moduleKey: f.moduleKey }))
+            .sort((a, b) => {
+              const m = a.moduleKey.localeCompare(b.moduleKey);
+              if (m !== 0) return m;
+              return a.name.localeCompare(b.name);
+            })
+        );
+      }
+    } catch (e) {
+      console.error("Failed to load feature registry", e);
+    } finally {
+      setFeaturesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchPlans();
+    void loadRegistryFeatures();
+  }, [fetchPlans, loadRegistryFeatures]);
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "visible") {
+        void fetchPlans();
+        void loadRegistryFeatures();
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [fetchPlans, loadRegistryFeatures]);
 
   const getCardBilling = (planId: string) => cardBilling[planId] || billing;
   const toggleCardBilling = (planId: string) => {
