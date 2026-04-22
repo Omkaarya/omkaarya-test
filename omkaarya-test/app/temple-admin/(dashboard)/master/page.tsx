@@ -18,7 +18,7 @@ import {
   ChevronRight,
   Info,
 } from "lucide-react";
-import { Button } from "@/app/components/ui/button";
+import { Button } from "@/app/components/ds/atoms/Button";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -108,11 +108,10 @@ function TabButton({ active, label, onClick }: { active: boolean; label: string;
   return (
     <button
       onClick={onClick}
-      className={`px-6 py-4 text-sm font-bold transition-all border-b-2 ${
-        active 
-          ? "border-[var(--brand-primary)] text-[var(--brand-primary)]" 
-          : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-      }`}
+      className={`px-6 py-4 text-sm font-bold transition-all border-b-2 ${active
+        ? "border-[var(--brand-primary)] text-[var(--brand-primary)]"
+        : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+        }`}
     >
       {label}
     </button>
@@ -178,7 +177,7 @@ function ScheduleTable({ data }: { data: any[] }) {
               <td className="px-6 py-4 font-bold">{item.pooja}</td>
               <td className="px-6 py-4">
                 <div className="flex flex-wrap gap-1">
-                  {item.days.map((day : string) => (
+                  {item.days.map((day: string) => (
                     <span key={day} className="rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold text-blue-600 dark:bg-blue-900/20">
                       {day}
                     </span>
@@ -227,7 +226,7 @@ function FestivalTable({ data }: { data: any[] }) {
                 </span>
               </td>
               <td className="px-6 py-4 text-right">
-                 <button className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                <button className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
                   <MoreVertical className="h-5 w-5" />
                 </button>
               </td>
@@ -241,7 +240,7 @@ function FestivalTable({ data }: { data: any[] }) {
 
 function PanchTable({ data }: { data: any[] }) {
   return (
-     <div className="overflow-x-auto">
+    <div className="overflow-x-auto">
       <table className="w-full text-left">
         <thead>
           <tr className="border-b border-zinc-50 bg-zinc-50/50 dark:border-zinc-800 dark:bg-zinc-900/50">
@@ -260,14 +259,13 @@ function PanchTable({ data }: { data: any[] }) {
                 <p className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-wider">{item.type}</p>
               </td>
               <td className="px-6 py-4">
-                 <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold ${
-                   item.auspicious.includes('Highly') ? 'text-green-600' : 'text-blue-500'
-                 }`}>
-                   <Info className="h-3 w-3" /> {item.auspicious}
-                 </span>
+                <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold ${item.auspicious.includes('Highly') ? 'text-green-600' : 'text-blue-500'
+                  }`}>
+                  <Info className="h-3 w-3" /> {item.auspicious}
+                </span>
               </td>
               <td className="px-6 py-4 text-right">
-                 <button className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                <button className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
                   <MoreVertical className="h-5 w-5" />
                 </button>
               </td>
@@ -295,16 +293,16 @@ function AddSevaModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <div className="p-6 space-y-4">
-           <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Pooja Name *</label><input type="text" className="h-11 w-full rounded-xl border border-zinc-100 px-4 text-sm outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-900" /></div>
-              <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Category</label><select className="h-11 w-full rounded-xl border border-zinc-100 px-3 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900"><option>Select one</option></select></div>
-           </div>
-           <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Duration (min)</label><input type="number" className="h-11 w-full rounded-xl border border-zinc-100 px-4 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900" /></div>
-              <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Price *</label><input type="number" className="h-11 w-full rounded-xl border border-zinc-100 px-4 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900" /></div>
-              <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Currency</label><select className="h-11 w-full rounded-xl border border-zinc-100 px-3 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900"><option>CHF</option></select></div>
-           </div>
-           <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Description</label><textarea rows={3} className="w-full rounded-xl border border-zinc-100 p-4 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900" /></div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Pooja Name *</label><input type="text" className="h-11 w-full rounded-xl border border-zinc-100 px-4 text-sm outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-900" /></div>
+            <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Category</label><select className="h-11 w-full rounded-xl border border-zinc-100 px-3 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900"><option>Select one</option></select></div>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Duration (min)</label><input type="number" className="h-11 w-full rounded-xl border border-zinc-100 px-4 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900" /></div>
+            <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Price *</label><input type="number" className="h-11 w-full rounded-xl border border-zinc-100 px-4 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900" /></div>
+            <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Currency</label><select className="h-11 w-full rounded-xl border border-zinc-100 px-3 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900"><option>CHF</option></select></div>
+          </div>
+          <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Description</label><textarea rows={3} className="w-full rounded-xl border border-zinc-100 p-4 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900" /></div>
         </div>
         <div className="flex items-center justify-end gap-3 border-t border-zinc-100 p-6 dark:border-zinc-800 bg-zinc-50/30">
           <Button variant="outline" onClick={onClose} className="rounded-xl px-6 font-bold border-zinc-100 dark:border-zinc-800">Cancel</Button>
@@ -329,15 +327,15 @@ function AddScheduleModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <div className="p-6 space-y-4">
-           <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Pooja Seva *</label><select className="h-11 w-full rounded-xl border border-zinc-100 px-3 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900"><option>Select pooja...</option></select></div>
-           <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Time *</label><input type="time" className="h-11 w-full rounded-xl border border-zinc-100 px-4 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900" /></div>
-              <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Priest</label><select className="h-11 w-full rounded-xl border border-zinc-100 px-3 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900"><option>Select priest...</option></select></div>
-           </div>
-           <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Max Slots</label><input type="number" className="h-11 w-full rounded-xl border border-zinc-100 px-4 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900" /></div>
-              <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Cutoff (hrs)</label><input type="number" className="h-11 w-full rounded-xl border border-zinc-100 px-4 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900" /></div>
-           </div>
+          <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Pooja Seva *</label><select className="h-11 w-full rounded-xl border border-zinc-100 px-3 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900"><option>Select pooja...</option></select></div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Time *</label><input type="time" className="h-11 w-full rounded-xl border border-zinc-100 px-4 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900" /></div>
+            <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Priest</label><select className="h-11 w-full rounded-xl border border-zinc-100 px-3 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900"><option>Select priest...</option></select></div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Max Slots</label><input type="number" className="h-11 w-full rounded-xl border border-zinc-100 px-4 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900" /></div>
+            <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Cutoff (hrs)</label><input type="number" className="h-11 w-full rounded-xl border border-zinc-100 px-4 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900" /></div>
+          </div>
         </div>
         <div className="flex items-center justify-end gap-3 border-t border-zinc-100 p-6 dark:border-zinc-800 bg-zinc-50/30">
           <Button variant="outline" onClick={onClose} className="rounded-xl px-6 font-bold border-zinc-100 dark:border-zinc-800">Cancel</Button>

@@ -17,7 +17,7 @@ import {
   Info,
   X,
 } from "lucide-react";
-import { Button } from "@/app/components/ui/button";
+import { Button } from "@/app/components/ds/atoms/Button";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -206,9 +206,8 @@ export default function PrasadItemsPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className={`flex items-center gap-1.5 text-[10px] font-bold ${
-                      item.status === "available" ? "text-green-600" : "text-red-500"
-                    }`}>
+                    <div className={`flex items-center gap-1.5 text-[10px] font-bold ${item.status === "available" ? "text-green-600" : "text-red-500"
+                      }`}>
                       {item.status === "available" ? (
                         <CheckCircle2 className="h-3 w-3" />
                       ) : (

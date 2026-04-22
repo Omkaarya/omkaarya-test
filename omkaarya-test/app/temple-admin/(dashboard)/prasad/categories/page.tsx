@@ -11,7 +11,7 @@ import {
   XCircle,
   X,
 } from "lucide-react";
-import { Button } from "@/app/components/ui/button";
+import { Button } from "@/app/components/ds/atoms/Button";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -110,9 +110,8 @@ export default function PrasadCategoriesPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <div className={`flex items-center gap-1.5 text-[10px] font-bold ${
-                      cat.status === "active" ? "text-green-600" : "text-zinc-400"
-                    }`}>
+                    <div className={`flex items-center gap-1.5 text-[10px] font-bold ${cat.status === "active" ? "text-green-600" : "text-zinc-400"
+                      }`}>
                       {cat.status === "active" ? (
                         <CheckCircle2 className="h-3 w-3" />
                       ) : (

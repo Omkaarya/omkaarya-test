@@ -12,7 +12,6 @@ import {
   Trash2,
   Package,
   History,
-  HoldFull,
   CheckCircle2,
   X,
   Printer,
@@ -20,7 +19,7 @@ import {
   ChevronRight,
   Maximize2,
   LayoutGrid,
-  List,
+  List, 
   Cookie,
   Flower2,
   Waves,
@@ -32,7 +31,7 @@ import {
   Box,
   Utensils
 } from "lucide-react";
-import { Button } from "@/app/components/ui/button";
+import { Button } from "@/app/components/ds/atoms/Button";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -132,11 +131,10 @@ export default function PosPage() {
             key={cat.id}
             onClick={() => setActiveCategory(cat.id as Category)}
             title={cat.label}
-            className={`flex h-14 w-14 items-center justify-center rounded-[18px] transition-all flex-col gap-1 ${
-              activeCategory === cat.id
-                ? "bg-orange-50 text-[var(--brand-primary)] dark:bg-orange-950/20"
-                : "text-[var(--text-muted)] hover:bg-zinc-50 dark:hover:bg-zinc-900"
-            }`}
+            className={`flex h-14 w-14 items-center justify-center rounded-[18px] transition-all flex-col gap-1 ${activeCategory === cat.id
+              ? "bg-orange-50 text-[var(--brand-primary)] dark:bg-orange-950/20"
+              : "text-[var(--text-muted)] hover:bg-zinc-50 dark:hover:bg-zinc-900"
+              }`}
           >
             <cat.icon className="h-5 w-5" />
           </button>
@@ -162,11 +160,10 @@ export default function PosPage() {
           <button
             key={cat.id}
             onClick={() => setActiveCategory(cat.id as Category)}
-            className={`flex items-center gap-3 whitespace-nowrap rounded-2xl border px-6 py-4 transition-all ${
-              activeCategory === cat.id
-                ? "border-[var(--brand-primary)] bg-orange-50 text-[var(--brand-primary)] dark:bg-orange-950/20"
-                : "border-zinc-100 bg-white text-[var(--text-muted)] hover:border-zinc-200 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-zinc-700"
-            }`}
+            className={`flex items-center gap-3 whitespace-nowrap rounded-2xl border px-6 py-4 transition-all ${activeCategory === cat.id
+              ? "border-[var(--brand-primary)] bg-orange-50 text-[var(--brand-primary)] dark:bg-orange-950/20"
+              : "border-zinc-100 bg-white text-[var(--text-muted)] hover:border-zinc-200 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-zinc-700"
+              }`}
           >
             <cat.icon className="h-5 w-5" />
             <span className="text-sm font-bold">{cat.label}</span>
@@ -319,7 +316,7 @@ export default function PosPage() {
                 <span>LKR 0.00</span>
               </div>
             </div>
-            
+
             <div className="pt-5 flex justify-between items-end">
               <span className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)]">Total Amount</span>
               <span className="text-3xl font-black tracking-tight text-[var(--text-primary)]">LKR {subtotal.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}</span>
@@ -381,11 +378,10 @@ function ProductCard({
   return (
     <div
       onClick={onAdd}
-      className={`group relative flex cursor-pointer flex-col overflow-hidden transition-all hover:border-[var(--brand-primary)] hover:shadow-xl hover:shadow-orange-500/5 ${
-        layout === "compact"
-          ? "rounded-2xl border-2 border-zinc-100 bg-white dark:border-zinc-800 dark:bg-zinc-950"
-          : "rounded-[24px] border-2 border-zinc-100 bg-white dark:border-zinc-800 dark:bg-zinc-950"
-      }`}
+      className={`group relative flex cursor-pointer flex-col overflow-hidden transition-all hover:border-[var(--brand-primary)] hover:shadow-xl hover:shadow-orange-500/5 ${layout === "compact"
+        ? "rounded-2xl border-2 border-zinc-100 bg-white dark:border-zinc-800 dark:bg-zinc-950"
+        : "rounded-[24px] border-2 border-zinc-100 bg-white dark:border-zinc-800 dark:bg-zinc-950"
+        }`}
     >
       <div className={`flex items-center justify-center bg-zinc-50 dark:bg-zinc-900/50 text-[var(--text-muted)] group-hover:bg-orange-50 group-hover:text-[var(--brand-primary)] transition-colors ${layout === "compact" ? "h-24" : "h-36"}`}>
         {React.createElement(product.icon as React.ElementType, { className: layout === "compact" ? "h-8 w-8" : "h-12 w-12" })}
@@ -424,7 +420,7 @@ function PaymentModal({ onClose, amount }: { onClose: () => void; amount: number
         </div>
         <h2 className="text-2xl font-black tracking-tight text-[var(--text-primary)]">Payment Success</h2>
         <p className="mt-3 text-sm font-medium text-[var(--text-muted)] lg:px-6 leading-relaxed">
-          The order has been placed successfully for <br/><b className="text-lg text-[var(--text-primary)] mt-1 inline-block">LKR {amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}</b>
+          The order has been placed successfully for <br /><b className="text-lg text-[var(--text-primary)] mt-1 inline-block">LKR {amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}</b>
         </p>
         <div className="mt-10 flex flex-col gap-3">
           <Button onClick={onClose} className="h-14 w-full rounded-2xl font-bold text-base">
@@ -470,10 +466,9 @@ function OrdersModal({ onClose }: { onClose: () => void }) {
                 <div>
                   <div className="flex items-center gap-3">
                     <span className="text-base font-bold text-[var(--text-primary)]">{o.devotee}</span>
-                    <span className={`rounded-xl px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider border ${
-                      o.status === 'active' ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/20 dark:border-green-900/50' : 
+                    <span className={`rounded-xl px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider border ${o.status === 'active' ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/20 dark:border-green-900/50' :
                       o.status === 'hold' ? 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/20 dark:border-orange-900/50' : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/20 dark:border-blue-900/50'
-                    }`}>
+                      }`}>
                       {o.status}
                     </span>
                   </div>
