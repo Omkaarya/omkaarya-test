@@ -495,11 +495,10 @@ export default function FeatureRegistryPage() {
                           </td>
                           <td className="px-4 py-3 text-center">
                             <span
-                              className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                                f.isActive
+                              className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${f.isActive
                                   ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
                                   : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
-                              }`}
+                                }`}
                             >
                               {f.isActive ? "Active" : "Inactive"}
                             </span>
@@ -518,11 +517,10 @@ export default function FeatureRegistryPage() {
                                 type="button"
                                 onClick={() => handleToggle(f.id)}
                                 disabled={togglingId === f.id}
-                                className={`rounded-lg p-2 transition-colors ${
-                                  f.isActive
+                                className={`rounded-lg p-2 transition-colors ${f.isActive
                                     ? "text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
                                     : "text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                                }`}
+                                  }`}
                                 title={f.isActive ? "Deactivate" : "Activate"}
                               >
                                 {f.isActive ? (
