@@ -67,6 +67,12 @@ function clampInt(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, Math.trunc(n)));
 }
 
+/** Same join as billing: prefer temple's catalog id, else match subscription plan name. */
+const PRICING_PLAN_JOIN = `LEFT JOIN public.pricing_plans pp ON pp.id = COALESCE(
+  t.pricing_plan_id,
+  (SELECT p2.id FROM public.pricing_plans p2 WHERE p2.name = s.plan LIMIT 1)
+)`;
+
 export class PostgresSubscriptionsRepository {
   async list(input: ListSubscriptionsInput): Promise<ListSubscriptionsResult> {
     const pool = getPool();
@@ -84,7 +90,9 @@ export class PostgresSubscriptionsRepository {
     if (q) {
       params.push(`%${q}%`);
       const p = `$${params.length}`;
-      where.push(`(LOWER(t.name) LIKE ${p} OR LOWER(s.plan) LIKE ${p} OR LOWER(COALESCE(s.receipt_id, '')) LIKE ${p})`);
+      where.push(
+        `(LOWER(t.name) LIKE ${p} OR LOWER(s.plan) LIKE ${p} OR LOWER(COALESCE(pp.name, '')) LIKE ${p} OR LOWER(COALESCE(s.receipt_id, '')) LIKE ${p})`
+      );
     }
     if (status !== "All") {
       params.push(status);
@@ -97,6 +105,7 @@ export class PostgresSubscriptionsRepository {
       `SELECT COUNT(*)::int AS total
        FROM public.subscriptions s
        JOIN public.temples t ON t.tenant_id = s.tenant_id
+       ${PRICING_PLAN_JOIN}
        ${whereSql}`,
       params
     );
@@ -113,9 +122,9 @@ export class PostgresSubscriptionsRepository {
       invoice_id: string | null;
       tenant_id: string;
       temple_name: string;
-      plan: string;
+      plan_display: string;
       billing_cycle: string;
-      amount: number;
+      amount_display: string;
       payment_date: string;
       receipt_id: string | null;
       status: SubscriptionStatus;
@@ -129,9 +138,15 @@ export class PostgresSubscriptionsRepository {
          s.invoice_id::text AS invoice_id,
          s.tenant_id,
          t.name AS temple_name,
-         s.plan,
+         COALESCE(pp.name, s.plan) AS plan_display,
          s.billing_cycle,
-         s.amount,
+         (CASE
+            WHEN pp.id IS NULL THEN s.amount::numeric
+            ELSE (CASE
+                    WHEN s.billing_cycle = 'Annual' THEN pp.price_yearly::numeric
+                    ELSE pp.price_monthly::numeric
+                  END) / 100.0
+          END)::text AS amount_display,
          s.payment_date::text AS payment_date,
          s.receipt_id,
          s.status,
@@ -141,6 +156,7 @@ export class PostgresSubscriptionsRepository {
          t.admin_email
        FROM public.subscriptions s
        JOIN public.temples t ON t.tenant_id = s.tenant_id
+       ${PRICING_PLAN_JOIN}
        ${whereSql}
        ORDER BY s.payment_date DESC, s.created_at DESC
        LIMIT ${limitParam} OFFSET ${offsetParam}`,
@@ -153,9 +169,9 @@ export class PostgresSubscriptionsRepository {
         invoiceId: r.invoice_id,
         tenantId: r.tenant_id,
         templeName: r.temple_name,
-        plan: r.plan,
+        plan: r.plan_display,
         billingCycle: r.billing_cycle,
-        amount: r.amount,
+        amount: Number.parseFloat(r.amount_display) || 0,
         paymentDate: r.payment_date,
         receiptId: r.receipt_id,
         status: r.status,
@@ -176,7 +192,7 @@ export class PostgresSubscriptionsRepository {
     if (!pool) throw new Error("Database pool is not available");
 
     const q = (input.q ?? "").trim().toLowerCase();
-    const days = clampInt(input.days ?? 60, 1, 365);
+    const days = clampInt(input.days ?? 30, 1, 365);
     const pageSize = clampInt(input.pageSize ?? 10, 1, 100);
     const page = clampInt(input.page ?? 1, 1, 10_000);
     const offset = (page - 1) * pageSize;
@@ -192,7 +208,7 @@ export class PostgresSubscriptionsRepository {
     if (q) {
       params.push(`%${q}%`);
       const p = `$${params.length}`;
-      where.push(`(LOWER(t.name) LIKE ${p} OR LOWER(s.plan) LIKE ${p})`);
+      where.push(`(LOWER(t.name) LIKE ${p} OR LOWER(s.plan) LIKE ${p} OR LOWER(COALESCE(pp.name, '')) LIKE ${p})`);
     }
 
     const whereSql = `WHERE ${where.join(" AND ")}`;
@@ -201,6 +217,7 @@ export class PostgresSubscriptionsRepository {
       `SELECT COUNT(*)::int AS total
        FROM public.subscriptions s
        JOIN public.temples t ON t.tenant_id = s.tenant_id
+       ${PRICING_PLAN_JOIN}
        ${whereSql}`,
       params
     );
@@ -218,9 +235,9 @@ export class PostgresSubscriptionsRepository {
       temple_name: string;
       city: string;
       country_code: string;
-      plan: string;
+      plan_display: string;
       billing_cycle: string;
-      amount: number;
+      amount_cents_out: string;
       expires_on: string;
       invoice_sent: boolean;
       days_left: number;
@@ -231,9 +248,15 @@ export class PostgresSubscriptionsRepository {
          t.name AS temple_name,
          t.city,
          t.country_code,
-         s.plan,
+         COALESCE(pp.name, s.plan) AS plan_display,
          s.billing_cycle,
-         s.amount,
+         (CASE
+            WHEN pp.id IS NULL THEN (s.amount * 100)::int
+            ELSE CASE
+                    WHEN s.billing_cycle = 'Annual' THEN pp.price_yearly
+                    ELSE pp.price_monthly
+                  END
+          END)::text AS amount_cents_out,
          s.expires_on::text AS expires_on,
          (s.expires_on - CURRENT_DATE)::int AS days_left,
          EXISTS (
@@ -246,6 +269,7 @@ export class PostgresSubscriptionsRepository {
          ) AS invoice_sent
        FROM public.subscriptions s
        JOIN public.temples t ON t.tenant_id = s.tenant_id
+       ${PRICING_PLAN_JOIN}
        ${whereSql}
        ORDER BY s.expires_on ASC, t.name ASC
        LIMIT ${lim} OFFSET ${off}`,
@@ -258,9 +282,9 @@ export class PostgresSubscriptionsRepository {
         tenantId: r.tenant_id,
         templeName: r.temple_name,
         location: `${r.city}, ${r.country_code}`,
-        plan: r.plan,
+        plan: r.plan_display,
         billingCycle: r.billing_cycle,
-        amountCents: Math.max(0, Math.trunc((r.amount ?? 0) * 100)),
+        amountCents: Math.max(0, Math.trunc(Number(r.amount_cents_out) || 0)),
         renewalDate: r.expires_on,
         daysLeft: Math.max(0, Math.trunc(r.days_left ?? 0)),
         invoiceSent: Boolean(r.invoice_sent),

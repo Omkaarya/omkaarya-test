@@ -54,7 +54,7 @@ export function createSubscriptionsRouter(repo: PostgresSubscriptionsRepository)
     asyncHandler(async (req, res) => {
       try {
         const q = asString(req.query.q);
-        const days = Number.parseInt(asString(req.query.days) || "60", 10);
+        const days = Number.parseInt(asString(req.query.days) || "30", 10);
         const page = Number.parseInt(asString(req.query.page) || "1", 10);
         const pageSize = Number.parseInt(asString(req.query.pageSize) || "10", 10);
         const payload = await repo.listUpcomingRenewals({

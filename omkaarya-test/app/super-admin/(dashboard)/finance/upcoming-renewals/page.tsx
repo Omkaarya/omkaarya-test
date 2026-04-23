@@ -26,9 +26,10 @@ type RenewalRow = {
 };
 
 function planBadgeColor(p: string) {
+  if (p === "Prarambha") return "success" as const;
   if (p === "Aaradhana") return "purple" as const;
   if (p === "Sankalpa") return "indigo" as const;
-  return "pink" as const;
+  return "gray" as const;
 }
 
 function formatIsoToUi(d: string): string {
@@ -58,7 +59,7 @@ export default function UpcomingRenewalsPage() {
     (async () => {
       setLoadErr(null);
       const p = new URLSearchParams();
-      p.set("days", "60");
+      p.set("days", "30");
       p.set("page", "1");
       p.set("pageSize", "200");
       const res = await fetch(`/api/subscriptions/upcoming-renewals?${p.toString()}`, { cache: "no-store" });
@@ -108,7 +109,7 @@ export default function UpcomingRenewalsPage() {
     {
       key: "daysLeft", header: "Days left",
       cell: (r) => (
-        <span className={`text-sm font-bold tabular-nums ${r.daysLeft < 30 ? "text-red-600" : r.daysLeft < 60 ? "text-amber-600" : "text-text-tertiary"}`}>
+        <span className={`text-sm font-bold tabular-nums ${r.daysLeft <= 7 ? "text-red-600" : r.daysLeft <= 14 ? "text-amber-600" : "text-text-tertiary"}`}>
           {r.daysLeft} days
         </span>
       ),
@@ -148,7 +149,7 @@ export default function UpcomingRenewalsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-display-xs font-bold tracking-tight text-text-primary">Upcoming renewals</h1>
-          <p className="mt-1 text-sm text-text-tertiary">Temples whose subscriptions are due for renewal in the next 60 days</p>
+          <p className="mt-1 text-sm text-text-tertiary">Temples whose subscriptions are due for renewal in the next 30 days</p>
         </div>
       </div>
 
