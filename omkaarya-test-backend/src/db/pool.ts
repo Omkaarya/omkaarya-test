@@ -29,6 +29,14 @@ export function getPool(): Pool | null {
   return pool;
 }
 
+export function requirePool(): Pool {
+  const p = getPool();
+  if (!p) {
+    throw new Error("Database pool is not available");
+  }
+  return p;
+}
+
 export async function closePool(): Promise<void> {
   if (pool) {
     await pool.end();

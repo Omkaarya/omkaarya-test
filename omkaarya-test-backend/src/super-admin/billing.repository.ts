@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
-import { getPool } from "../db/pool.js";
+import { requirePool } from "../db/pool.js";
 import { sqlTempleMatchesSessionEmail } from "./temple-admin-match.js";
 
 export type InvoiceStatus = "proforma" | "pending" | "paid" | "void" | "rejected";
@@ -210,8 +210,7 @@ export class PostgresBillingRepository {
     pageSize: number;
     totalPages: number;
   }> {
-    const pool = getPool();
-    if (!pool) throw new Error("Database pool is not available");
+    const pool = requirePool();
     const q = (input.q ?? "").trim().toLowerCase();
     const pageSize = clampInt(input.pageSize ?? 10, 1, 100);
     const page = clampInt(input.page ?? 1, 1, 10_000);
@@ -329,8 +328,7 @@ export class PostgresBillingRepository {
   }
 
   async getInvoiceById(id: string): Promise<InvoiceListRow | null> {
-    const pool = getPool();
-    if (!pool) throw new Error("Database pool is not available");
+    const pool = requirePool();
     const { rows } = await pool.query<{
       id: string;
       invoice_number: string;
@@ -425,8 +423,7 @@ export class PostgresBillingRepository {
     pageSize: number;
     totalPages: number;
   }> {
-    const pool = getPool();
-    if (!pool) throw new Error("Database pool is not available");
+    const pool = requirePool();
     const q = (input.q ?? "").trim().toLowerCase();
     const pageSize = clampInt(input.pageSize ?? 10, 1, 100);
     const page = clampInt(input.page ?? 1, 1, 10_000);
@@ -438,20 +435,104 @@ export class PostgresBillingRepository {
       const b = parts.length > 1 ? parts[1]![0] : (parts[0]?.[1] ?? "");
       return (a + b).toUpperCase() || "T";
     }
-    function rowSt(
-      bStatus: string,
-      due: string | null,
-      amt: number
-    ): "paid" | "pending" | "overdue" {
-      if (bStatus === "paid") return "paid";
-      if (bStatus === "pending" && due && amt > 0) {
-        if (new Date(due) < new Date(new Date().toDateString())) return "overdue";
-      }
-      if (bStatus === "pending") return "pending";
-      return "pending";
+
+    const params: unknown[] = [];
+    const txFilters: string[] = [`tx.status = 'paid'`];
+    const subFilters: string[] = [`s.status = 'pending'`, `s.invoice_id IS NOT NULL`];
+
+    if (q) {
+      params.push(`%${q}%`);
+      const p = `$${params.length}`;
+      const nameInvoiceFilter = `(LOWER(t.name) LIKE ${p} OR LOWER(b.invoice_number) LIKE ${p})`;
+      txFilters.push(nameInvoiceFilter);
+      subFilters.push(nameInvoiceFilter);
+    }
+    if (planFilter) {
+      params.push(planFilter);
+      const p = `$${params.length}`;
+      txFilters.push(`b.plan = ${p}`);
+      subFilters.push(`b.plan = ${p}`);
     }
 
-    const paid: Array<{
+    const statusFilter =
+      input.status === "paid" || input.status === "pending" || input.status === "overdue" ? input.status : "all";
+    if (statusFilter !== "all") {
+      params.push(statusFilter);
+    }
+
+    const unionSql = `
+      WITH merged AS (
+        SELECT
+          tx.id::text AS id,
+          tx.recorded_at AS sort_ts,
+          t.name,
+          t.city,
+          t.country_code,
+          b.invoice_number,
+          b.id::text AS invoice_id,
+          b.plan,
+          b.amount_cents,
+          b.currency,
+          CASE
+            WHEN b.status = 'paid' THEN 'paid'
+            WHEN b.status = 'pending'
+                 AND b.due_at IS NOT NULL
+                 AND b.amount_cents > 0
+                 AND b.due_at < CURRENT_DATE
+              THEN 'overdue'
+            WHEN b.status = 'pending' THEN 'pending'
+            ELSE 'pending'
+          END AS ui_status
+        FROM public.billing_transactions tx
+        JOIN public.temples t ON t.tenant_id = tx.tenant_id
+        JOIN public.billing_invoices b ON b.id = tx.invoice_id
+        WHERE ${txFilters.join(" AND ")}
+
+        UNION ALL
+
+        SELECT
+          ('sub:' || s.id::text) AS id,
+          s.created_at AS sort_ts,
+          t.name,
+          t.city,
+          t.country_code,
+          b.invoice_number,
+          b.id::text AS invoice_id,
+          b.plan,
+          b.amount_cents,
+          b.currency,
+          CASE
+            WHEN b.status = 'paid' THEN 'paid'
+            WHEN b.status = 'pending'
+                 AND b.due_at IS NOT NULL
+                 AND b.amount_cents > 0
+                 AND b.due_at < CURRENT_DATE
+              THEN 'overdue'
+            WHEN b.status = 'pending' THEN 'pending'
+            ELSE 'pending'
+          END AS ui_status
+        FROM public.temple_payment_submissions s
+        JOIN public.temples t ON t.tenant_id = s.tenant_id
+        JOIN public.billing_invoices b ON b.id = s.invoice_id
+        WHERE ${subFilters.join(" AND ")}
+      )
+    `;
+
+    const statusWhere = statusFilter === "all" ? "" : `WHERE ui_status = $${params.length}`;
+
+    const countRes = await pool.query<{ total: number }>(
+      `${unionSql}
+       SELECT COUNT(*)::int AS total
+       FROM merged
+       ${statusWhere}`,
+      params
+    );
+    const total = countRes.rows[0]?.total ?? 0;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(Math.max(1, page), totalPages);
+    const offset = (safePage - 1) * pageSize;
+
+    const pageRes = await pool.query<{
       id: string;
       sort_ts: string;
       name: string;
@@ -462,119 +543,29 @@ export class PostgresBillingRepository {
       plan: string;
       amount_cents: number;
       currency: string;
-      b_status: string;
-      b_due: string | null;
-    }> = [];
-    if (input.status === "all" || input.status === "paid") {
-      const p: unknown[] = [];
-      const w: string[] = [];
-      if (q) {
-        p.push(`%${q}%`);
-        w.push(`(LOWER(t.name) LIKE $${p.length} OR LOWER(b.invoice_number) LIKE $${p.length})`);
-      }
-      if (planFilter) {
-        p.push(planFilter);
-        w.push(`b.plan = $${p.length}`);
-      }
-      const whereSql = w.length ? `AND ${w.join(" AND ")}` : "";
-      const { rows } = await pool.query<{
-        id: string;
-        sort_ts: string;
-        name: string;
-        city: string;
-        country_code: string;
-        invoice_number: string;
-        invoice_id: string;
-        plan: string;
-        amount_cents: number;
-        currency: string;
-        b_status: string;
-        b_due: string | null;
-      }>(
-        `SELECT
-           tx.id::text AS id,
-           tx.recorded_at::text AS sort_ts,
-           t.name, t.city, t.country_code,
-           b.invoice_number, b.id::text AS invoice_id, b.plan,
-           b.amount_cents, b.currency, b.status AS b_status, b.due_at::text AS b_due
-         FROM public.billing_transactions tx
-         JOIN public.temples t ON t.tenant_id = tx.tenant_id
-         JOIN public.billing_invoices b ON b.id = tx.invoice_id
-         WHERE tx.status = 'paid' ${whereSql}
-         ORDER BY tx.recorded_at DESC`,
-        p
-      );
-      for (const r of rows) {
-        if (input.status === "paid" && rowSt(r.b_status, r.b_due, r.amount_cents) !== "paid") continue;
-        paid.push(r);
-      }
-    }
-
-    const pend: typeof paid = [];
-    if (input.status === "all" || input.status === "pending" || input.status === "overdue") {
-      const p: unknown[] = [];
-      const w: string[] = [
-        `s.status = 'pending'`,
-        `b.status = 'pending'`,
-        `s.invoice_id IS NOT NULL`,
-      ];
-      if (q) {
-        p.push(`%${q}%`);
-        w.push(`(LOWER(t.name) LIKE $${p.length} OR LOWER(b.invoice_number) LIKE $${p.length})`);
-      }
-      if (planFilter) {
-        p.push(planFilter);
-        w.push(`b.plan = $${p.length}`);
-      }
-      if (input.status === "overdue") {
-        w.push(`b.due_at IS NOT NULL AND b.due_at < (CURRENT_DATE) AND b.amount_cents > 0`);
-      } else if (input.status === "pending") {
-        w.push(
-          `(b.due_at IS NULL OR b.due_at >= (CURRENT_DATE) OR b.amount_cents = 0)`
-        );
-      }
-      const { rows } = await pool.query<{
-        id: string;
-        sort_ts: string;
-        name: string;
-        city: string;
-        country_code: string;
-        invoice_number: string;
-        invoice_id: string;
-        plan: string;
-        amount_cents: number;
-        currency: string;
-        b_status: string;
-        b_due: string | null;
-      }>(
-        `SELECT
-           ('sub:' || s.id::text) AS id,
-           s.created_at::text AS sort_ts,
-           t.name, t.city, t.country_code,
-           b.invoice_number, b.id::text AS invoice_id, b.plan,
-           b.amount_cents, b.currency, b.status AS b_status, b.due_at::text AS b_due
-         FROM public.temple_payment_submissions s
-         JOIN public.temples t ON t.tenant_id = s.tenant_id
-         JOIN public.billing_invoices b ON b.id = s.invoice_id
-         WHERE ${w.join(" AND ")}
-         ORDER BY s.created_at DESC`,
-        p
-      );
-      for (const r of rows) {
-        const st = rowSt(r.b_status, r.b_due, r.amount_cents);
-        if (input.status === "overdue" && st !== "overdue") continue;
-        if (input.status === "pending" && (st === "overdue" || st === "paid")) continue;
-        pend.push(r);
-      }
-    }
-
-    const merged = [...pend, ...paid].sort(
-      (a, b) => new Date(b.sort_ts).getTime() - new Date(a.sort_ts).getTime()
+      ui_status: "paid" | "pending" | "overdue";
+    }>(
+      `${unionSql}
+       SELECT
+         id,
+         sort_ts::text AS sort_ts,
+         name,
+         city,
+         country_code,
+         invoice_number,
+         invoice_id,
+         plan,
+         amount_cents,
+         currency,
+         ui_status
+       FROM merged
+       ${statusWhere}
+       ORDER BY sort_ts DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, pageSize, offset]
     );
-    const total = merged.length;
-    const totalPages = Math.max(1, Math.ceil(total / pageSize));
-    const slice = merged.slice((page - 1) * pageSize, page * pageSize);
-    const data = slice.map((r) => ({
+
+    const data = pageRes.rows.map((r) => ({
       id: r.id,
       date: new Date(r.sort_ts).toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
       temple: r.name,
@@ -586,9 +577,10 @@ export class PostgresBillingRepository {
       amountCents: r.amount_cents,
       currency: r.currency,
       method: "Bank transfer",
-      status: rowSt(r.b_status, r.b_due, r.amount_cents),
+      status: r.ui_status,
     }));
-    return { data, total, page, pageSize, totalPages };
+
+    return { data, total, page: safePage, pageSize, totalPages };
   }
 
   async listReceipts(input: { q: string; page: number; pageSize: number }): Promise<{
@@ -608,8 +600,7 @@ export class PostgresBillingRepository {
     pageSize: number;
     totalPages: number;
   }> {
-    const pool = getPool();
-    if (!pool) throw new Error("Database pool is not available");
+    const pool = requirePool();
     const q = (input.q ?? "").trim().toLowerCase();
     const pageSize = clampInt(input.pageSize ?? 10, 1, 100);
     const page = clampInt(input.page ?? 1, 1, 10_000);
@@ -698,8 +689,7 @@ export class PostgresBillingRepository {
     paymentDate: string;
     generatedAt: string;
   } | null> {
-    const pool = getPool();
-    if (!pool) throw new Error("Database pool is not available");
+    const pool = requirePool();
     const simple = await pool.query<{
       id: string;
       receipt_number: string;
@@ -866,8 +856,7 @@ export type PendingPaymentRow = {
 };
 
 export async function listPendingPaymentSubmissionsForConfirm(): Promise<PendingPaymentRow[]> {
-  const pool = getPool();
-  if (!pool) throw new Error("Database pool is not available");
+  const pool = requirePool();
   const { rows } = await pool.query<{
     id: string;
     name: string;
@@ -935,8 +924,7 @@ export async function confirmPaymentSubmission(
   submissionId: string,
   verifiedBy: string
 ): Promise<ConfirmPaymentResult> {
-  const pool = getPool();
-  if (!pool) throw new Error("Database pool is not available");
+  const pool = requirePool();
   const client = await pool.connect();
   const actor = verifiedBy.trim() || "Super Admin";
   try {
@@ -1075,8 +1063,7 @@ export async function confirmPaymentSubmission(
 export async function rejectPaymentSubmission(
   submissionId: string
 ): Promise<{ ok: true } | { ok: false; reason: "not_found" | "bad_state" }> {
-  const pool = getPool();
-  if (!pool) throw new Error("Database pool is not available");
+  const pool = requirePool();
   const res = await pool.query(
     `UPDATE public.temple_payment_submissions
      SET status = 'rejected'
@@ -1102,8 +1089,7 @@ export type TempleOpenInvoice = {
 };
 
 export async function listOpenInvoicesForTempleSession(input: { sessionEmail: string; templeId: string }): Promise<TempleOpenInvoice[]> {
-  const pool = getPool();
-  if (!pool) throw new Error("Database pool is not available");
+  const pool = requirePool();
   const { rows } = await pool.query<{
     id: string;
     invoice_number: string;
