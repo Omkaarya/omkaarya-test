@@ -66,6 +66,16 @@ const systemSettingsNav = [
   { href: "/super-admin/system-settings/feature-registry", label: "Feature Registry", icon: Database },
 ] as const;
 
+/**
+ * A nav href that is a prefix of sibling routes (e.g. /super-admin/finance vs …/transactions)
+ * must be active on exact path only; otherwise "Revenue Dashboard" stays highlighted for all finance pages.
+ */
+function isChildNavActive(pathname: string, href: string): boolean {
+  if (pathname === href) return true;
+  if (href === "/super-admin/finance") return false;
+  return pathname.startsWith(`${href}/`);
+}
+
 // ── Collapsible Section ────────────────────────────────────────────
 
 function NavSection({
@@ -83,7 +93,7 @@ function NavSection({
   onLinkClick: () => void;
   defaultOpen?: boolean;
 }) {
-  const hasActiveChild = items.some((item) => pathname === item.href || pathname.startsWith(item.href + "/"));
+  const hasActiveChild = items.some((item) => isChildNavActive(pathname, item.href));
   const [open, setOpen] = useState(defaultOpen || hasActiveChild);
 
   return (
@@ -110,7 +120,7 @@ function NavSection({
       {open && (
         <ul className="mt-0.5 ml-4 space-y-0.5 border-l border-zinc-200 pl-3 dark:border-zinc-700">
           {items.map(({ href, label: itemLabel, icon: Icon }) => {
-            const active = pathname === href || pathname.startsWith(href + "/");
+            const active = isChildNavActive(pathname, href);
             return (
               <li key={itemLabel}>
                 <Link
