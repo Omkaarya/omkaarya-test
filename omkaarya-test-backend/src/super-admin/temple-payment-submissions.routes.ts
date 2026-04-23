@@ -74,6 +74,7 @@ export function createTemplePaymentSubmissionsRouter(repo: PostgresTemplePayment
         currency: parsed.data.currency,
         transferredDate: parsed.data.transferredDate,
         notes: parsed.data.notes,
+        invoiceId: parsed.data.invoiceId,
         slipFileName: file.originalname || "payment-slip",
         slipMimeType: mime || "application/octet-stream",
         storageProvider: "cloudinary",
@@ -94,12 +95,29 @@ export function createTemplePaymentSubmissionsRouter(repo: PostgresTemplePayment
             reason: "A submission with this payment reference was already recorded.",
           });
         }
+        if (result.reason === "no_payable_invoice") {
+          throw new HttpError(400, "No pending invoice to pay (trial pro-forma only, or all invoices settled).", {
+            code: "NO_PAYABLE_INVOICE",
+            reason: "Create or use a plan invoice before submitting bank transfer details.",
+          });
+        }
+        if (result.reason === "amount_mismatch" || result.reason === "invoice_not_found") {
+          throw new HttpError(400, "Amount or invoice does not match a pending temple invoice.", {
+            code: "INVOICE_MISMATCH",
+            reason: "Check the amount, currency, and optional invoice id.",
+          });
+        }
       }
 
       sendSuccess(
         res,
         201,
-        { saved: true, submissionId: result.ok ? result.submissionId : undefined, slipUrl: secureUrl },
+        {
+          saved: true,
+          submissionId: result.ok ? result.submissionId : undefined,
+          invoiceId: result.ok ? result.invoiceId : undefined,
+          slipUrl: secureUrl,
+        },
         "Payment submission recorded",
         "The server stored the payment details and uploaded the slip to Cloudinary."
       );

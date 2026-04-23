@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { getPool } from "../db/pool.js";
+import { requirePool } from "../db/pool.js";
 import type {
   CreateTemplePayload,
   PhoneRowJson,
@@ -10,9 +10,11 @@ import type {
   TempleRecord,
   TempleSessionProfileResponse,
   TempleStatus,
+  TemplesQueryInput,
   UpdateTemplePayload,
 } from "./types.js";
 import { sqlTempleMatchesSessionEmail } from "./temple-admin-match.js";
+import { createInitialInvoiceForNewTemple, type CreateInitialInvoiceResult } from "./billing.repository.js";
 
 const ADMIN_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -35,7 +37,18 @@ function generateTemporaryPassword(): string {
 
 export interface TempleRepository {
   listAll(): Promise<TempleRecord[]>;
-  createTemple(payload: CreateTemplePayload): Promise<{ templeId: string; temporaryPassword?: string }>;
+  listPage(query: TemplesQueryInput): Promise<{
+    data: TempleRecord[];
+    total: number;
+    totalAll: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+    countries: string[];
+  }>;
+  createTemple(
+    payload: CreateTemplePayload
+  ): Promise<{ templeId: string; temporaryPassword?: string; invoice?: CreateInitialInvoiceResult }>;
   getTempleForEdit(tenantId: string): Promise<SuperAdminTempleDetailResponse | null>;
   updateTemple(tenantId: string, payload: UpdateTemplePayload): Promise<{ ok: true } | { ok: false; reason: "not_found" }>;
 }
@@ -135,10 +148,7 @@ export type SaveTempleProfileDetailsInput = {
 
 export class PostgresTempleRepository implements TempleRepository {
   private async assertTempleEmailsNotInUse(input: { adminEmail: string; templeEmail: string }): Promise<void> {
-    const pool = getPool();
-    if (!pool) {
-      throw new Error("Database pool is not available");
-    }
+    const pool = requirePool();
 
     const normalize = (e: string) => e.trim().toLowerCase();
     const candidates = [normalize(input.adminEmail), normalize(input.templeEmail)].filter(Boolean);
@@ -179,10 +189,7 @@ export class PostgresTempleRepository implements TempleRepository {
   }
 
   async listAll(): Promise<TempleRecord[]> {
-    const pool = getPool();
-    if (!pool) {
-      throw new Error("Database pool is not available");
-    }
+    const pool = requirePool();
     const result = await pool.query<{
       tenant_id: string;
       name: string;
@@ -215,11 +222,121 @@ export class PostgresTempleRepository implements TempleRepository {
     }));
   }
 
-  async getTempleSessionProfileByAdminEmail(adminEmail: string): Promise<TempleSessionProfileResponse | null> {
-    const pool = getPool();
-    if (!pool) {
-      throw new Error("Database pool is not available");
+  async listPage(query: TemplesQueryInput): Promise<{
+    data: TempleRecord[];
+    total: number;
+    totalAll: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+    countries: string[];
+  }> {
+    const pool = requirePool();
+
+    const q = (query.q ?? "").trim().toLowerCase();
+    const status = query.status ?? "all";
+    const country = (query.country ?? "all").trim();
+    const pageSize = Number.isFinite(query.pageSize) && query.pageSize > 0 ? Math.floor(query.pageSize) : 10;
+    const page = Number.isFinite(query.page) && query.page > 0 ? Math.floor(query.page) : 1;
+    const offset = (page - 1) * pageSize;
+
+    const where: string[] = [];
+    const params: unknown[] = [];
+
+    if (q) {
+      params.push(`%${q}%`);
+      const p = `$${params.length}`;
+      where.push(`(LOWER(t.name) LIKE ${p} OR LOWER(t.city) LIKE ${p} OR LOWER(t.admin_email) LIKE ${p})`);
     }
+    if (status !== "all") {
+      params.push(status);
+      where.push(`t.status = $${params.length}`);
+    }
+    if (country !== "all" && country) {
+      params.push(country);
+      where.push(`t.country_code = $${params.length}`);
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const totalAllRes = await pool.query<{ total: number }>(
+      `SELECT COUNT(*)::int AS total FROM public.temples`
+    );
+    const totalAll = totalAllRes.rows[0]?.total ?? 0;
+
+    const countriesRes = await pool.query<{ country_code: string }>(
+      `SELECT DISTINCT t.country_code
+       FROM public.temples t
+       ORDER BY t.country_code ASC`
+    );
+    const countries = countriesRes.rows.map((r) => r.country_code).filter(Boolean);
+
+    const totalRes = await pool.query<{ total: number }>(
+      `SELECT COUNT(*)::int AS total
+       FROM public.temples t
+       ${whereSql}`,
+      params
+    );
+    const total = totalRes.rows[0]?.total ?? 0;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(Math.max(1, page), totalPages);
+    const safeOffset = (safePage - 1) * pageSize;
+
+    const orderBy =
+      query.sortBy === "name"
+        ? `t.name ASC, t.tenant_id::int DESC`
+        : query.sortBy === "devotees"
+          ? `t.devotees DESC, t.tenant_id::int DESC`
+          : `t.tenant_id::int DESC`;
+
+    const dataRes = await pool.query<{
+      tenant_id: string;
+      name: string;
+      slug: string;
+      country_code: string;
+      country_flag: string;
+      city: string;
+      plan: string;
+      devotees: number;
+      status: string;
+      compliance: string;
+      admin_email: string;
+    }>(
+      `SELECT tenant_id, name, slug, country_code, country_flag, city, plan, devotees, status, compliance, admin_email
+       FROM public.temples t
+       ${whereSql}
+       ORDER BY ${orderBy}
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, pageSize, safeOffset]
+    );
+
+    const data = dataRes.rows.map((r) => ({
+      tenantId: r.tenant_id,
+      name: r.name,
+      slug: r.slug,
+      countryCode: r.country_code,
+      countryFlag: r.country_flag,
+      city: r.city,
+      plan: r.plan as TemplePlan,
+      devotees: r.devotees,
+      status: r.status as TempleStatus,
+      compliance: r.compliance as TempleCompliance,
+      adminEmail: r.admin_email,
+    }));
+
+    return {
+      data,
+      total,
+      totalAll,
+      page: safePage,
+      pageSize,
+      totalPages,
+      countries,
+    };
+  }
+
+  async getTempleSessionProfileByAdminEmail(adminEmail: string): Promise<TempleSessionProfileResponse | null> {
+    const pool = requirePool();
     const email = adminEmail.trim();
     if (!email) return null;
 
@@ -279,10 +396,7 @@ export class PostgresTempleRepository implements TempleRepository {
   }
 
   async saveTempleProfileDetails(input: SaveTempleProfileDetailsInput): Promise<{ ok: true } | { ok: false; reason: "not_found" }> {
-    const pool = getPool();
-    if (!pool) {
-      throw new Error("Database pool is not available");
-    }
+    const pool = requirePool();
     const sessionEmail = input.sessionEmail.trim();
     const res = await pool.query<{ tenant_id: string }>(
       `UPDATE public.temples
@@ -308,11 +422,10 @@ export class PostgresTempleRepository implements TempleRepository {
     return { ok: true };
   }
 
-  async createTemple(payload: CreateTemplePayload): Promise<{ templeId: string; temporaryPassword?: string }> {
-    const pool = getPool();
-    if (!pool) {
-      throw new Error("Database pool is not available");
-    }
+  async createTemple(
+    payload: CreateTemplePayload
+  ): Promise<{ templeId: string; temporaryPassword?: string; invoice?: CreateInitialInvoiceResult }> {
+    const pool = requirePool();
 
     await this.assertTempleEmailsNotInUse({
       adminEmail: payload.admin.email,
@@ -356,6 +469,7 @@ export class PostgresTempleRepository implements TempleRepository {
       const billingCycle = payload.planBilling.billingCycle.trim() || null;
 
       let temporaryPassword: string | undefined;
+      let invoice: CreateInitialInvoiceResult | undefined;
       await client.query("BEGIN");
       try {
         let adminUserId: number | null = null;
@@ -461,23 +575,33 @@ export class PostgresTempleRepository implements TempleRepository {
           ]);
         }
 
+        try {
+          invoice = await createInitialInvoiceForNewTemple(client, {
+            tenantId: row.tenantId,
+            planName: row.plan,
+            templeName: row.name,
+            billingCycleRaw: billingCycle ?? "Annually",
+            trial,
+          });
+        } catch (be) {
+          console.error("[createTemple] billing invoice failed, rolling back temple transaction", be);
+          throw be;
+        }
+
         await client.query("COMMIT");
       } catch (e) {
         await client.query("ROLLBACK");
         throw e;
       }
 
-      return { templeId: row.tenantId, temporaryPassword };
+      return { templeId: row.tenantId, temporaryPassword, invoice };
     } finally {
       client.release();
     }
   }
 
   async getTempleForEdit(tenantId: string): Promise<SuperAdminTempleDetailResponse | null> {
-    const pool = getPool();
-    if (!pool) {
-      throw new Error("Database pool is not available");
-    }
+    const pool = requirePool();
     const id = tenantId.trim();
     if (!id) return null;
 
@@ -605,10 +729,7 @@ export class PostgresTempleRepository implements TempleRepository {
     tenantId: string,
     payload: UpdateTemplePayload
   ): Promise<{ ok: true } | { ok: false; reason: "not_found" }> {
-    const pool = getPool();
-    if (!pool) {
-      throw new Error("Database pool is not available");
-    }
+    const pool = requirePool();
     const id = tenantId.trim();
     if (!id) return { ok: false, reason: "not_found" };
 

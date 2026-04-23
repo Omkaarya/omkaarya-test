@@ -25,9 +25,16 @@ import { PostgresSubscriptionsRepository } from "./subscriptions.repository.js";
 import { createSubscriptionsRouter } from "./subscriptions.routes.js";
 import { PostgresPricingPlansRepository } from "./pricing-plans.repository.js";
 import { createPricingPlansRouter } from "./pricing-plans.routes.js";
+import { createBillingRouter } from "./billing.routes.js";
+import { PostgresBillingRepository } from "./billing.repository.js";
+import { createTempleBillingRouter } from "./temple-billing.routes.js";
 
 /**
  * Super-admin HTTP API mounted at `/api`:
+ * - GET  /api/billing/invoices, /api/billing/transactions, /api/billing/receipts, /api/billing/payment-submissions/pending
+ * - GET  /api/billing/receipts/:id
+ * - POST /api/billing/payment-submissions/:id/confirm, /api/billing/payment-submissions/:id/reject
+ * - GET  /api/temple-admin/billing/invoices?sessionEmail=&templeId=
  * - GET  /api/temples
  * - GET  /api/pricing-plans/comparison
  * - GET  /api/temples/:tenantId
@@ -63,9 +70,12 @@ export function createSuperAdminApiRouter(): Router {
   const templeOnboardingComplete = new PostgresTempleOnboardingCompleteRepository();
   const subscriptions = new PostgresSubscriptionsRepository();
   const pricingPlans = new PostgresPricingPlansRepository();
+  const billing = new PostgresBillingRepository();
 
   const api = Router();
   api.use(createTemplesRouter(templesService));
+  api.use(createBillingRouter(billing));
+  api.use(createTempleBillingRouter());
   api.use(createTempleSessionProfileRouter(templeRepo));
   api.use(createAuthRouter(authService));
   api.use(createPasswordResetRouter(passwordResetService));

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getPool } from "../db/pool.js";
+import { attachPayableInvoiceToSubmission } from "./billing.repository.js";
 import { sqlTempleMatchesSessionEmail } from "./temple-admin-match.js";
 
 export type CreatePaymentSubmissionInput = {
@@ -15,12 +16,17 @@ export type CreatePaymentSubmissionInput = {
   storageProvider: "sharepoint" | "cloudinary";
   storageObjectKey: string;
   storagePublicUrl: string;
+  /** Optional: must match a pending payable invoice for this temple */
+  invoiceId?: string | null;
 };
 
 export type CreatePaymentSubmissionResult =
-  | { ok: true; submissionId: string }
+  | { ok: true; submissionId: string; invoiceId: string }
   | { ok: false; reason: "not_found" }
-  | { ok: false; reason: "duplicate" };
+  | { ok: false; reason: "duplicate" }
+  | { ok: false; reason: "no_payable_invoice" }
+  | { ok: false; reason: "amount_mismatch" }
+  | { ok: false; reason: "invoice_not_found" };
 
 export class PostgresTemplePaymentSubmissionsRepository {
   async createPaymentSubmission(input: CreatePaymentSubmissionInput): Promise<CreatePaymentSubmissionResult> {
@@ -74,6 +80,19 @@ export class PostgresTemplePaymentSubmissionsRepository {
           throw e;
         }
 
+        const att = await attachPayableInvoiceToSubmission(client, {
+          submissionId: id,
+          tenantId,
+          amountCents: input.amountCents,
+          currency: input.currency,
+          optionalInvoiceId: input.invoiceId,
+        });
+        if (!att.ok) {
+          await client.query("ROLLBACK");
+          if (att.reason === "not_found") return { ok: false, reason: "invoice_not_found" };
+          return { ok: false, reason: att.reason };
+        }
+
         const updated = await client.query(
           `UPDATE public.temples
            SET payment_onboarding_completed_at = NOW(),
@@ -87,7 +106,7 @@ export class PostgresTemplePaymentSubmissionsRepository {
         }
 
         await client.query("COMMIT");
-        return { ok: true, submissionId: id };
+        return { ok: true, submissionId: id, invoiceId: att.invoiceId };
       } catch (e) {
         await client.query("ROLLBACK");
         throw e;

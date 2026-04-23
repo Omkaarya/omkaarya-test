@@ -23,31 +23,42 @@ import { Badge } from "@/app/components/ds/atoms/Badge";
 import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
 import { Pagination } from "@/app/components/ds/molecules/Pagination";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
+import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
+import { jsonApiErrorMessage } from "@/lib/api-envelope";
 
 // ── Types ──────────────────────────────────────────────────────────
 
 type SubscriptionStatus = "Pending" | "Active" | "Expired" | "Rejected";
-type PlanName = "Prarambha" | "Sankalpa" | "Aaradhana";
-type BillingCycle = "Monthly" | "Annual";
 
 type SubscriptionRow = {
   id: string;
-  invoiceId: string;
+  invoiceId: string | null;
   templeName: string;
   templeInitials: string;
-  templeAddress: string;
-  plan: PlanName;
-  billingCycle: BillingCycle;
-  amount: number;
+  plan: string;
+  billingCycle: string;
+  amountCents: number;
   paymentDate: string;
-  receiptId: string;
+  receiptId: string | null;
   status: SubscriptionStatus;
   verifiedBy: string | null;
   activatedOn: string | null;
   expiresOn: string;
   adminEmail: string;
-  cardLast4: string;
 };
+
+type BillingProfile = {
+  issuer: { name: string; address: string; email: string; website: string; brandLine: string };
+  paymentMethodLabel: string;
+  bank: { bankName: string; accountName: string; accountNumber: string; swift: string; notes: string };
+  tax: { rateBps: number; label: string };
+  money: { currency: string };
+};
+
+function formatMoney(currency: string, amountCents: number): string {
+  const c = (currency || "USD").toUpperCase();
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: c }).format((amountCents ?? 0) / 100);
+}
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -60,12 +71,11 @@ function statusBadgeColor(status: SubscriptionStatus) {
   }
 }
 
-function planBadgeColor(plan: PlanName) {
-  switch (plan) {
-    case "Prarambha": return "success" as const;
-    case "Sankalpa": return "pink" as const;
-    case "Aaradhana": return "indigo" as const;
-  }
+function planBadgeColor(plan: string) {
+  if (plan === "Prarambha") return "success" as const;
+  if (plan === "Sankalpa") return "pink" as const;
+  if (plan === "Aaradhana") return "indigo" as const;
+  return "gray" as const;
 }
 
 function formatDate(dateStr: string) {
@@ -148,12 +158,20 @@ function ActionsDropdown({ actions }: { actions: ActionItem[] }) {
 
 function InvoiceModal({
   subscription,
+  profile,
   onClose,
 }: {
   subscription: SubscriptionRow;
+  profile: BillingProfile | null;
   onClose: () => void;
 }) {
   const invoiceStatus = subscription.status === "Active" || subscription.verifiedBy ? "Paid" : "Unpaid";
+  const currency = profile?.money?.currency || "USD";
+  const taxRateBps = profile?.tax?.rateBps ?? 0;
+  const taxCents = Math.max(0, Math.round(((subscription.amountCents ?? 0) * taxRateBps) / 10_000));
+  const subtotal = formatMoney(currency, subscription.amountCents ?? 0);
+  const tax = formatMoney(currency, taxCents);
+  const total = formatMoney(currency, (subscription.amountCents ?? 0) + taxCents);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
@@ -223,18 +241,13 @@ function InvoiceModal({
           <div className="grid grid-cols-2 gap-8">
             <div>
               <p className="text-sm font-bold text-text-primary mb-2">Invoice From:</p>
-              <p className="text-sm font-medium text-text-primary">Pepulux</p>
-              <p className="text-sm text-text-secondary">
-                2972 Westheimer Rd, Santa Ana, Illinois 85486
-              </p>
-              <p className="text-sm text-text-tertiary">user@example.com</p>
+              <p className="text-sm font-medium text-text-primary">{profile?.issuer?.name ?? "—"}</p>
+              <p className="text-sm text-text-secondary">{profile?.issuer?.address ?? "—"}</p>
+              <p className="text-sm text-text-tertiary">{profile?.issuer?.email ?? "—"}</p>
             </div>
             <div>
               <p className="text-sm font-bold text-text-primary mb-2">Invoice To:</p>
               <p className="text-sm font-medium text-text-primary">{subscription.templeName}</p>
-              <p className="text-sm text-text-secondary">
-                {subscription.templeAddress}
-              </p>
               <p className="text-sm text-text-tertiary">{subscription.adminEmail}</p>
             </div>
           </div>
@@ -267,7 +280,7 @@ function InvoiceModal({
                     {formatDate(subscription.expiresOn)}
                   </td>
                   <td className="px-4 py-3 text-sm text-text-primary tabular-nums">
-                    ₹{subscription.amount.toLocaleString()}
+                    {subtotal}
                   </td>
                   <td className="px-4 py-3">
                     <Badge color={invoiceStatus === "Paid" ? "success" : "warning"} size="sm" dot>
@@ -284,24 +297,24 @@ function InvoiceModal({
             <div>
               <p className="text-sm font-bold text-text-primary mb-2">Payment Info</p>
               <p className="text-sm text-text-secondary">
-                Credit Card: {subscription.cardLast4 ? `4216 **** **** ${subscription.cardLast4}` : "—"}
+                Method: {profile?.paymentMethodLabel ?? "—"}
               </p>
               <p className="text-sm text-text-secondary">
-                Amount: ₹{subscription.amount.toLocaleString()}
+                Amount: {subtotal}
               </p>
             </div>
             <div className="text-right space-y-1 min-w-[200px]">
               <div className="flex justify-between text-sm">
                 <span className="text-text-secondary">Sub Total</span>
-                <span className="text-text-primary tabular-nums">₹{subscription.amount.toLocaleString()}</span>
+                <span className="text-text-primary tabular-nums">{subtotal}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-text-secondary">Tax</span>
-                <span className="text-text-primary tabular-nums">₹0.00</span>
+                <span className="text-text-secondary">{profile?.tax?.label ?? "Tax"}</span>
+                <span className="text-text-primary tabular-nums">{tax}</span>
               </div>
               <div className="flex justify-between text-sm font-bold pt-1 border-t border-border">
                 <span className="text-text-primary">Total</span>
-                <span className="text-text-primary tabular-nums">₹{subscription.amount.toLocaleString()}</span>
+                <span className="text-text-primary tabular-nums">{total}</span>
               </div>
             </div>
           </div>
@@ -402,7 +415,7 @@ function VerifyModal({
             </div>
             <div className="rounded-lg border border-border p-3">
               <p className="text-xs font-medium text-text-tertiary">Amount</p>
-              <p className="mt-1 font-semibold text-text-primary">₹{subscription.amount.toLocaleString()}</p>
+              <p className="mt-1 font-semibold text-text-primary">{formatUsdFromCents(subscription.amountCents)}</p>
             </div>
             <div className="rounded-lg border border-border p-3">
               <p className="text-xs font-medium text-text-tertiary">Payment Date</p>
@@ -416,7 +429,7 @@ function VerifyModal({
                 <FileText className="h-5 w-5 text-fg-tertiary" />
                 <div>
                   <p className="text-sm font-medium text-text-primary">Payment Receipt</p>
-                  <p className="text-xs text-text-tertiary">{subscription.receiptId}.pdf</p>
+                  <p className="text-xs text-text-tertiary">{subscription.receiptId ? `${subscription.receiptId}.pdf` : "—"}</p>
                 </div>
               </div>
               <Button variant="ghost" size="sm">
@@ -475,240 +488,128 @@ function Toast({
 
 export default function SubscriptionsPage() {
   const [searchInput, setSearchInput] = useState("");
+  const [searchDebounced, setSearchDebounced] = useState("");
   const [filter, setFilter] = useState<FilterId>("All");
   const [page, setPage] = useState(1);
   const pageSize = 10;
   const [verifyingRow, setVerifyingRow] = useState<SubscriptionRow | null>(null);
   const [invoiceRow, setInvoiceRow] = useState<SubscriptionRow | null>(null);
+  const [rows, setRows] = useState<SubscriptionRow[]>([]);
+  const [profile, setProfile] = useState<BillingProfile | null>(null);
+  const [totalPages, setTotalPages] = useState(1);
+  const [counts, setCounts] = useState<Record<FilterId, number>>({ All: 0, Pending: 0, Active: 0, Expired: 0, Rejected: 0 });
+  const [loadErr, setLoadErr] = useState<string | null>(null);
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
   } | null>(null);
 
-  // ── Mock Data ────────────────────────────────────────────────────
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounced(searchInput), 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
-  const [rows, setRows] = useState<SubscriptionRow[]>([
-    {
-      id: "Sub ID 001",
-      invoiceId: "INV251001",
-      templeName: "Sri Jagannath Temple",
-      templeInitials: "SJ",
-      templeAddress: "Grand Road, Puri, Odisha 752001",
-      plan: "Prarambha",
-      billingCycle: "Annual",
-      amount: 24999,
-      paymentDate: "2026-04-15",
-      receiptId: "RCP-20260415-001",
-      status: "Pending",
-      verifiedBy: null,
-      activatedOn: null,
-      expiresOn: "2027-04-15",
-      adminEmail: "admin@jagannath.org",
-      cardLast4: "5765",
-    },
-    {
-      id: "Sub ID 002",
-      invoiceId: "INV251002",
-      templeName: "Swaminarayan Mandir",
-      templeInitials: "SM",
-      templeAddress: "Kalupur, Ahmedabad, Gujarat 380001",
-      plan: "Aaradhana",
-      billingCycle: "Monthly",
-      amount: 1999,
-      paymentDate: "2026-04-12",
-      receiptId: "RCP-20260412-002",
-      status: "Pending",
-      verifiedBy: null,
-      activatedOn: null,
-      expiresOn: "2026-05-12",
-      adminEmail: "info@swaminarayan.in",
-      cardLast4: "8842",
-    },
-    {
-      id: "Sub ID 003",
-      invoiceId: "INV251003",
-      templeName: "Meenakshi Amman Temple",
-      templeInitials: "MA",
-      templeAddress: "Madurai, Tamil Nadu 625001",
-      plan: "Sankalpa",
-      billingCycle: "Annual",
-      amount: 14999,
-      paymentDate: "2026-03-20",
-      receiptId: "RCP-20260320-003",
-      status: "Active",
-      verifiedBy: "Super Admin",
-      activatedOn: "2026-03-21",
-      expiresOn: "2027-03-20",
-      adminEmail: "temple@meenakshi.org",
-      cardLast4: "3321",
-    },
-    {
-      id: "Sub ID 004",
-      invoiceId: "INV251004",
-      templeName: "Kashi Vishwanath Temple",
-      templeInitials: "KV",
-      templeAddress: "Lahori Tola, Varanasi, UP 221001",
-      plan: "Prarambha",
-      billingCycle: "Annual",
-      amount: 24999,
-      paymentDate: "2026-02-10",
-      receiptId: "RCP-20260210-004",
-      status: "Active",
-      verifiedBy: "Super Admin",
-      activatedOn: "2026-02-11",
-      expiresOn: "2027-02-10",
-      adminEmail: "admin@kashivishwanath.org",
-      cardLast4: "7209",
-    },
-    {
-      id: "Sub ID 005",
-      invoiceId: "INV251005",
-      templeName: "Tirupati Balaji Temple",
-      templeInitials: "TB",
-      templeAddress: "Tirumala, Tirupati, AP 517504",
-      plan: "Prarambha",
-      billingCycle: "Annual",
-      amount: 24999,
-      paymentDate: "2025-04-01",
-      receiptId: "RCP-20250401-005",
-      status: "Expired",
-      verifiedBy: "Super Admin",
-      activatedOn: "2025-04-02",
-      expiresOn: "2026-04-01",
-      adminEmail: "tirupati@balaji.org",
-      cardLast4: "4410",
-    },
-    {
-      id: "Sub ID 006",
-      invoiceId: "INV251006",
-      templeName: "Somnath Temple",
-      templeInitials: "ST",
-      templeAddress: "Somnath, Prabhas Patan, Gujarat 362268",
-      plan: "Aaradhana",
-      billingCycle: "Monthly",
-      amount: 1999,
-      paymentDate: "2026-04-18",
-      receiptId: "RCP-20260418-006",
-      status: "Pending",
-      verifiedBy: null,
-      activatedOn: null,
-      expiresOn: "2026-05-18",
-      adminEmail: "admin@somnath.temple",
-      cardLast4: "1150",
-    },
-    {
-      id: "Sub ID 007",
-      invoiceId: "INV251007",
-      templeName: "Siddhivinayak Temple",
-      templeInitials: "SV",
-      templeAddress: "Prabhadevi, Mumbai, MH 400028",
-      plan: "Sankalpa",
-      billingCycle: "Monthly",
-      amount: 3999,
-      paymentDate: "2026-04-05",
-      receiptId: "RCP-20260405-007",
-      status: "Rejected",
-      verifiedBy: "Super Admin",
-      activatedOn: null,
-      expiresOn: "2026-05-05",
-      adminEmail: "ops@siddhivinayak.com",
-      cardLast4: "2277",
-    },
-    {
-      id: "Sub ID 008",
-      invoiceId: "INV251008",
-      templeName: "Golden Temple",
-      templeInitials: "GT",
-      templeAddress: "Golden Temple Rd, Amritsar, Punjab 143006",
-      plan: "Prarambha",
-      billingCycle: "Annual",
-      amount: 24999,
-      paymentDate: "2026-01-15",
-      receiptId: "RCP-20260115-008",
-      status: "Active",
-      verifiedBy: "Super Admin",
-      activatedOn: "2026-01-16",
-      expiresOn: "2027-01-15",
-      adminEmail: "admin@goldentemple.org",
-      cardLast4: "6693",
-    },
-    {
-      id: "Sub ID 009",
-      invoiceId: "INV251009",
-      templeName: "Rameshwaram Temple",
-      templeInitials: "RT",
-      templeAddress: "Rameswaram, Tamil Nadu 623526",
-      plan: "Aaradhana",
-      billingCycle: "Annual",
-      amount: 9999,
-      paymentDate: "2026-04-19",
-      receiptId: "RCP-20260419-009",
-      status: "Pending",
-      verifiedBy: null,
-      activatedOn: null,
-      expiresOn: "2027-04-19",
-      adminEmail: "info@rameshwaram.in",
-      cardLast4: "9981",
-    },
-    {
-      id: "Sub ID 010",
-      invoiceId: "INV251010",
-      templeName: "Badrinath Temple",
-      templeInitials: "BT",
-      templeAddress: "Badrinath, Chamoli, Uttarakhand 246422",
-      plan: "Sankalpa",
-      billingCycle: "Annual",
-      amount: 14999,
-      paymentDate: "2025-10-10",
-      receiptId: "RCP-20251010-010",
-      status: "Expired",
-      verifiedBy: "Super Admin",
-      activatedOn: "2025-10-11",
-      expiresOn: "2026-04-10",
-      adminEmail: "admin@badrinath.org",
-      cardLast4: "3587",
-    },
-  ]);
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      const profRes = await fetch("/api/billing/profile", { cache: "no-store" });
+      const prof = (await profRes.json().catch(() => null)) as { success?: boolean; data?: BillingProfile } | null;
+      if (!cancel && prof && prof.success === true && prof.data) setProfile(prof.data);
+    })();
+    return () => { cancel = true; };
+  }, []);
 
-  // ── Filtering ────────────────────────────────────────────────────
+  type ApiRow = {
+    id: string;
+    invoiceId: string | null;
+    tenantId: string;
+    templeName: string;
+    plan: string;
+    billingCycle: string;
+    amount: number;
+    paymentDate: string;
+    receiptId: string | null;
+    status: SubscriptionStatus;
+    verifiedBy: string | null;
+    activatedOn: string | null;
+    expiresOn: string;
+    adminEmail: string;
+  };
 
-  const filtered = useMemo(() => {
-    const q = searchInput.trim().toLowerCase();
-    let list = rows;
-    if (q) {
-      list = list.filter(
-        (r) =>
-          r.templeName.toLowerCase().includes(q) ||
-          r.plan.toLowerCase().includes(q) ||
-          r.receiptId.toLowerCase().includes(q) ||
-          r.id.toLowerCase().includes(q) ||
-          r.adminEmail.toLowerCase().includes(q)
-      );
+  function initials(name: string): string {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    const a = parts[0]?.[0] ?? "T";
+    const b = parts.length > 1 ? parts[1]?.[0] ?? "" : parts[0]?.[1] ?? "";
+    return (a + b).toUpperCase();
+  }
+
+  const loadList = useCallback(async () => {
+    setLoadErr(null);
+    const p = new URLSearchParams();
+    p.set("page", String(page));
+    p.set("pageSize", String(pageSize));
+    p.set("status", filter);
+    if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
+    const res = await fetch(`/api/subscriptions?${p.toString()}`, { cache: "no-store" });
+    const d = (await res.json().catch(() => null)) as
+      | { success?: boolean; data?: { data: ApiRow[]; totalPages: number } }
+      | null;
+    if (!d || d.success !== true || !d.data) {
+      setRows([]);
+      setTotalPages(1);
+      setLoadErr(jsonApiErrorMessage(d) || "Failed to load subscriptions");
+      return;
     }
-    if (filter !== "All") {
-      list = list.filter((r) => r.status === filter);
+    setRows(
+      (d.data.data ?? []).map((r) => ({
+        id: r.id,
+        invoiceId: r.invoiceId,
+        templeName: r.templeName,
+        templeInitials: initials(r.templeName),
+        plan: r.plan,
+        billingCycle: r.billingCycle,
+        amountCents: Math.max(0, Math.trunc((r.amount ?? 0) * 100)),
+        paymentDate: r.paymentDate,
+        receiptId: r.receiptId,
+        status: r.status,
+        verifiedBy: r.verifiedBy,
+        activatedOn: r.activatedOn,
+        expiresOn: r.expiresOn,
+        adminEmail: r.adminEmail,
+      }))
+    );
+    setTotalPages(Math.max(1, d.data.totalPages ?? 1));
+  }, [filter, page, pageSize, searchDebounced]);
+
+  const loadCounts = useCallback(async () => {
+    const tabs: FilterId[] = ["All", "Pending", "Active", "Expired", "Rejected"];
+    const out: Record<FilterId, number> = { All: 0, Pending: 0, Active: 0, Expired: 0, Rejected: 0 };
+    for (const t of tabs) {
+      const p = new URLSearchParams();
+      p.set("page", "1");
+      p.set("pageSize", "1");
+      p.set("status", t);
+      if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
+      const res = await fetch(`/api/subscriptions?${p.toString()}`, { cache: "no-store" });
+      const d = (await res.json().catch(() => null)) as
+        | { success?: boolean; data?: { total?: number } }
+        | null;
+      if (d && d.success === true && d.data && typeof d.data.total === "number") {
+        out[t] = d.data.total;
+      }
     }
-    return list;
-  }, [rows, searchInput, filter]);
+    setCounts(out);
+  }, [searchDebounced]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const pageSafe = Math.min(page, totalPages);
-  const pageRows = filtered.slice(
-    (pageSafe - 1) * pageSize,
-    pageSafe * pageSize
-  );
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => {
+    void loadList();
+  }, [loadList]);
 
-  // ── Metrics (for tab badges) ─────────────────────────────────────
-
-  const counts = useMemo(() => {
-    return {
-      All: rows.length,
-      Pending: rows.filter((r) => r.status === "Pending").length,
-      Active: rows.filter((r) => r.status === "Active").length,
-      Expired: rows.filter((r) => r.status === "Expired").length,
-      Rejected: rows.filter((r) => r.status === "Rejected").length,
-    };
-  }, [rows]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => {
+    void loadCounts();
+  }, [loadCounts]);
 
   // ── Actions ──────────────────────────────────────────────────────
 
@@ -722,37 +623,41 @@ export default function SubscriptionsPage() {
 
   const handleVerify = useCallback(() => {
     if (!verifyingRow) return;
-    setRows((prev) =>
-      prev.map((r) =>
-        r.id === verifyingRow.id
-          ? {
-              ...r,
-              status: "Active" as SubscriptionStatus,
-              verifiedBy: "Super Admin",
-              activatedOn: new Date().toISOString().split("T")[0],
-            }
-          : r
-      )
-    );
-    setVerifyingRow(null);
-    showToast(
-      `Subscription activated for ${verifyingRow.templeName}. Confirmation email sent to ${verifyingRow.adminEmail}.`,
-      "success"
-    );
-  }, [verifyingRow, showToast]);
+    (async () => {
+      const res = await fetch(`/api/subscriptions/${encodeURIComponent(verifyingRow.id)}/verify`, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok || (d && typeof d === "object" && "success" in d && (d as { success?: boolean }).success === false)) {
+        showToast(jsonApiErrorMessage(d) || "Verify failed", "error");
+        return;
+      }
+      setVerifyingRow(null);
+      showToast(`Subscription verified for ${verifyingRow.templeName}`, "success");
+      await loadList();
+      await loadCounts();
+    })();
+  }, [verifyingRow, showToast, loadList, loadCounts]);
 
   const handleReject = useCallback(() => {
     if (!verifyingRow) return;
-    setRows((prev) =>
-      prev.map((r) =>
-        r.id === verifyingRow.id
-          ? { ...r, status: "Rejected" as SubscriptionStatus, verifiedBy: "Super Admin" }
-          : r
-      )
-    );
-    setVerifyingRow(null);
-    showToast(`Subscription rejected for ${verifyingRow.templeName}.`, "error");
-  }, [verifyingRow, showToast]);
+    (async () => {
+      const res = await fetch(`/api/subscriptions/${encodeURIComponent(verifyingRow.id)}/reject`, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok || (d && typeof d === "object" && "success" in d && (d as { success?: boolean }).success === false)) {
+        showToast(jsonApiErrorMessage(d) || "Reject failed", "error");
+        return;
+      }
+      setVerifyingRow(null);
+      showToast(`Subscription rejected for ${verifyingRow.templeName}`, "error");
+      await loadList();
+      await loadCounts();
+    })();
+  }, [verifyingRow, showToast, loadList, loadCounts]);
 
   // ── Row Actions Builder ──────────────────────────────────────────
 
@@ -763,43 +668,7 @@ export default function SubscriptionsPage() {
         icon: <Eye className="h-4 w-4" />,
         onClick: () => setInvoiceRow(row),
       },
-      {
-        label: "Download Invoice",
-        icon: <Download className="h-4 w-4" />,
-        onClick: () =>
-          showToast(`Downloading invoice ${row.invoiceId}…`, "success"),
-      },
-      {
-        label: "Change Plan",
-        icon: <Repeat className="h-4 w-4" />,
-        onClick: () =>
-          showToast(`Change plan dialog for ${row.templeName} — coming soon.`, "success"),
-      },
-      {
-        label: "Reminder",
-        icon: <Bell className="h-4 w-4" />,
-        onClick: () =>
-          showToast(`Payment reminder sent to ${row.adminEmail}.`, "success"),
-      },
     ];
-
-    if (row.status === "Expired") {
-      base.push({
-        label: "Extend",
-        icon: <RefreshCw className="h-4 w-4" />,
-        onClick: () =>
-          showToast(`Extend subscription for ${row.templeName} — coming soon.`, "success"),
-      });
-    }
-
-    if (row.status === "Pending" || row.status === "Expired") {
-      base.push({
-        label: "Convert to Paid",
-        icon: <CreditCard className="h-4 w-4" />,
-        onClick: () =>
-          showToast(`Convert to Paid for ${row.templeName} — coming soon.`, "success"),
-      });
-    }
 
     return base;
   }
@@ -859,7 +728,7 @@ export default function SubscriptionsPage() {
         align: "right",
         cell: (row) => (
           <span className="font-semibold tabular-nums text-text-primary text-sm">
-            ₹{row.amount.toLocaleString()}
+            {formatUsdFromCents(row.amountCents)}
           </span>
         ),
       },
@@ -907,6 +776,11 @@ export default function SubscriptionsPage() {
 
   return (
     <div className="space-y-6">
+      {loadErr && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+          {loadErr}
+        </div>
+      )}
       {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -989,14 +863,14 @@ export default function SubscriptionsPage() {
         {/* Data Table */}
         <DataTable<SubscriptionRow>
           columns={columns}
-          data={pageRows}
+          data={rows}
           keyExtractor={(row) => row.id}
         />
 
         {/* Pagination */}
         <div className="px-6">
           <Pagination
-            currentPage={pageSafe}
+            currentPage={page}
             totalPages={totalPages}
             onPageChange={setPage}
             showResultsCount
@@ -1018,6 +892,7 @@ export default function SubscriptionsPage() {
       {invoiceRow && (
         <InvoiceModal
           subscription={invoiceRow}
+          profile={profile}
           onClose={() => setInvoiceRow(null)}
         />
       )}
