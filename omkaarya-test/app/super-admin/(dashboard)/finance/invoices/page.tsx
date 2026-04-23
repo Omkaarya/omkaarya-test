@@ -41,7 +41,6 @@ type Invoice = {
   issuedDate: string;
   dueDate: string;
   status: InvoiceStatus;
-  cardLast4: string;
   amountCents: number;
   currency: string;
 };
@@ -116,7 +115,35 @@ function DropdownItem({ icon, label, onClick }: { icon: React.ReactNode; label: 
 
 // ── Invoice Detail Modal ────────────────────────────────────────────
 
-function InvoiceModal({ invoice, onClose }: { invoice: Invoice; onClose: () => void }) {
+type BillingProfile = {
+  issuer: { name: string; address: string; email: string; website: string; brandLine: string };
+  paymentMethodLabel: string;
+  bank: { bankName: string; accountName: string; accountNumber: string; swift: string; notes: string };
+  tax: { rateBps: number; label: string };
+  money: { currency: string };
+};
+
+function formatMoney(currency: string, amountCents: number): string {
+  const c = (currency || "USD").toUpperCase();
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: c }).format((amountCents ?? 0) / 100);
+}
+
+function InvoiceModal({
+  invoice,
+  profile,
+  onClose,
+}: {
+  invoice: Invoice;
+  profile: BillingProfile | null;
+  onClose: () => void;
+}) {
+  const currency = invoice.currency || profile?.money?.currency || "USD";
+  const taxRateBps = profile?.tax?.rateBps ?? 0;
+  const taxCents = Math.max(0, Math.round(((invoice.amountCents ?? 0) * taxRateBps) / 10_000));
+  const subtotal = formatMoney(currency, invoice.amountCents ?? 0);
+  const tax = formatMoney(currency, taxCents);
+  const total = formatMoney(currency, (invoice.amountCents ?? 0) + taxCents);
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
       <div className="absolute inset-0 bg-gray-950/60 backdrop-blur-sm" onClick={onClose} />
@@ -147,9 +174,9 @@ function InvoiceModal({ invoice, onClose }: { invoice: Invoice; onClose: () => v
           <div className="grid grid-cols-2 gap-8">
             <div>
               <p className="text-sm font-bold text-text-primary mb-2">Invoice From:</p>
-              <p className="text-sm font-medium text-text-primary">Pepulux Pvt Ltd</p>
-              <p className="text-sm text-text-secondary">Colombo 03, Sri Lanka</p>
-              <p className="text-sm text-text-tertiary">billing@omkaarya.com</p>
+              <p className="text-sm font-medium text-text-primary">{profile?.issuer?.name ?? "—"}</p>
+              <p className="text-sm text-text-secondary">{profile?.issuer?.address ?? "—"}</p>
+              <p className="text-sm text-text-tertiary">{profile?.issuer?.email ?? "—"}</p>
             </div>
             <div>
               <p className="text-sm font-bold text-text-primary mb-2">Invoice To:</p>
@@ -181,13 +208,15 @@ function InvoiceModal({ invoice, onClose }: { invoice: Invoice; onClose: () => v
           <div className="flex items-start justify-between gap-8">
             <div>
               <p className="text-sm font-bold text-text-primary mb-2">Payment Info</p>
-              <p className="text-sm text-text-secondary">Bank transfer — Pepulux Pvt Ltd</p>
-              <p className="text-sm text-text-secondary">Amount: {invoice.amount}</p>
+              <p className="text-sm text-text-secondary">
+                {(profile?.paymentMethodLabel ?? "—")}{profile?.bank?.accountName ? ` — ${profile.bank.accountName}` : ""}
+              </p>
+              <p className="text-sm text-text-secondary">Amount: {subtotal}</p>
             </div>
             <div className="text-right space-y-1 min-w-[200px]">
-              <div className="flex justify-between text-sm"><span className="text-text-secondary">Sub Total</span><span className="text-text-primary tabular-nums">{invoice.amount}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-text-secondary">Tax</span><span className="text-text-primary tabular-nums">$0.00</span></div>
-              <div className="flex justify-between text-sm font-bold pt-1 border-t border-border"><span className="text-text-primary">Total</span><span className="text-text-primary tabular-nums">{invoice.amount}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-text-secondary">Sub Total</span><span className="text-text-primary tabular-nums">{subtotal}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-text-secondary">{profile?.tax?.label ?? "Tax"}</span><span className="text-text-primary tabular-nums">{tax}</span></div>
+              <div className="flex justify-between text-sm font-bold pt-1 border-t border-border"><span className="text-text-primary">Total</span><span className="text-text-primary tabular-nums">{total}</span></div>
             </div>
           </div>
           <div className="rounded-xl bg-rose-50 dark:bg-rose-950/20 p-5">
@@ -249,7 +278,6 @@ function mapApiRow(r: ApiRow): Invoice {
     issuedDate: r.issuedDate,
     dueDate: r.dueDate ?? "—",
     status: r.status,
-    cardLast4: "—",
     amountCents: r.amountCents,
     currency: r.currency,
   };
@@ -264,6 +292,7 @@ export default function InvoicesPage() {
   const [viewInvoice, setViewInvoice] = useState<Invoice | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [rows, setRows] = useState<Invoice[]>([]);
+  const [profile, setProfile] = useState<BillingProfile | null>(null);
   const [listTotal, setListTotal] = useState(0);
   const [listTotalPages, setListTotalPages] = useState(1);
   const [kpi, setKpi] = useState({ all: 0, paid: 0, pending: 0, overdue: 0, draft: 0, loading: true, error: "" });
@@ -320,6 +349,16 @@ export default function InvoicesPage() {
       const err = e instanceof Error ? e.message : "Load failed";
       setKpi((k) => ({ ...k, loading: false, error: err }));
     }
+  }, []);
+
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      const profRes = await fetch("/api/billing/profile", { cache: "no-store" });
+      const prof = (await profRes.json().catch(() => null)) as { success?: boolean; data?: BillingProfile } | null;
+      if (!cancel && prof && prof.success === true && prof.data) setProfile(prof.data);
+    })();
+    return () => { cancel = true; };
   }, []);
 
   const loadList = useCallback(async () => {
@@ -387,14 +426,34 @@ export default function InvoicesPage() {
       key: "actions", header: "", align: "right",
       cell: (r) => {
         const items: React.ReactNode[] = [];
-        if (r.status === "paid") items.push(<DropdownItem key="receipt" icon={<Eye className="h-4 w-4" />} label="Receipt" onClick={() => showToast("Opening receipt…")} />);
-        if (r.status === "pending" || r.status === "overdue") {
-          items.push(<DropdownItem key="confirm" icon={<CheckCircle2 className="h-4 w-4" />} label="Confirm" onClick={() => showToast("Navigating to confirm…")} />);
-          items.push(<DropdownItem key="remind" icon={<Bell className="h-4 w-4" />} label="Remind" onClick={() => showToast("Reminder sent!")} />);
+        if (r.status === "paid") {
+          items.push(
+            <DropdownItem
+              key="receipt"
+              icon={<Eye className="h-4 w-4" />}
+              label="Receipt"
+              onClick={async () => {
+                const res = await fetch(`/api/billing/invoices/${encodeURIComponent(r.id)}/receipt`, { cache: "no-store" });
+                const d = (await res.json().catch(() => null)) as { success?: boolean; data?: { receiptId?: string } } | null;
+                const rid = d && d.success === true && d.data && typeof d.data.receiptId === "string" ? d.data.receiptId : "";
+                if (!rid) {
+                  showToast(jsonApiErrorMessage(d) || "Receipt not found for this invoice");
+                  return;
+                }
+                window.open(`/super-admin/finance/receipts/view?id=${encodeURIComponent(rid)}`, "_blank", "noopener,noreferrer");
+              }}
+            />
+          );
         }
-        if (r.status === "draft") {
-          items.push(<DropdownItem key="edit" icon={<FileText className="h-4 w-4" />} label="Edit" onClick={() => showToast("Opening editor…")} />);
-          items.push(<DropdownItem key="send" icon={<Send className="h-4 w-4" />} label="Send" onClick={() => showToast("Invoice sent!")} />);
+        if (r.status === "pending" || r.status === "overdue") {
+          items.push(
+            <DropdownItem
+              key="confirm"
+              icon={<CheckCircle2 className="h-4 w-4" />}
+              label="Confirm payments"
+              onClick={() => window.open("/super-admin/finance/confirm-payments", "_self")}
+            />
+          );
         }
         items.push(<DropdownItem key="view" icon={<Eye className="h-4 w-4" />} label="View" onClick={() => setViewInvoice(r)} />);
         items.push(
@@ -442,7 +501,6 @@ export default function InvoicesPage() {
           <p className="mt-1 text-sm text-text-tertiary">Subscription invoices sent to temples — track payment status and generate receipts</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" leadingIcon={<Send className="h-4 w-4" />} onClick={() => showToast("Reminder flow not implemented yet")}>Send reminders</Button>
           <Link href="/super-admin/finance/invoices/generate">
             <Button variant="primary" size="sm" leadingIcon={<Plus className="h-4 w-4" />}>Generate invoice</Button>
           </Link>
@@ -494,7 +552,7 @@ export default function InvoicesPage() {
         <div className="px-6"><Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} showResultsCount /></div>
       </div>
 
-      {viewInvoice && <InvoiceModal invoice={viewInvoice} onClose={() => setViewInvoice(null)} />}
+      {viewInvoice && <InvoiceModal invoice={viewInvoice} profile={profile} onClose={() => setViewInvoice(null)} />}
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
     </div>
   );

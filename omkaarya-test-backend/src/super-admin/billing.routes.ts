@@ -8,6 +8,14 @@ function asString(v: unknown): string {
   return typeof v === "string" ? v : Array.isArray(v) ? String(v[0] ?? "") : "";
 }
 
+function parsePeriod(raw: string): Parameters<PostgresBillingRepository["revenueDashboard"]>[0]["period"] {
+  const s = (raw || "").trim();
+  if (s === "this-month" || s === "last-month" || s === "this-year") return s;
+  const m = /^(\d{4})-(\d{2})$/.exec(s);
+  if (m) return s as Parameters<PostgresBillingRepository["revenueDashboard"]>[0]["period"];
+  return "this-month";
+}
+
 function parseListStatus(
   raw: string
 ):
@@ -39,6 +47,39 @@ function parseListStatus(
 
 export function createBillingRouter(billing: PostgresBillingRepository): Router {
   const r = Router();
+
+  r.get(
+    "/billing/profile",
+    asyncHandler(async (_req, res) => {
+      const profile = {
+        issuer: {
+          name: process.env.BILLING_ISSUER_NAME || "",
+          address: process.env.BILLING_ISSUER_ADDRESS || "",
+          email: process.env.BILLING_ISSUER_EMAIL || "",
+          website: process.env.BILLING_ISSUER_WEBSITE || "",
+          brandLine: process.env.BILLING_BRAND_LINE || "",
+        },
+        paymentMethodLabel: process.env.BILLING_PAYMENT_METHOD_LABEL || "Bank transfer",
+        bank: {
+          bankName: process.env.BILLING_BANK_NAME || "",
+          accountName: process.env.BILLING_BANK_ACCOUNT_NAME || "",
+          accountNumber: process.env.BILLING_BANK_ACCOUNT_NUMBER || "",
+          swift: process.env.BILLING_BANK_SWIFT || "",
+          notes:
+            process.env.BILLING_PAYMENT_NOTES || "",
+        },
+        tax: {
+          rateBps: Number.parseInt(process.env.BILLING_TAX_RATE_BPS || "0", 10) || 0,
+          label: process.env.BILLING_TAX_LABEL || "Tax",
+        },
+        money: {
+          currency: (process.env.BILLING_CURRENCY || "USD").toUpperCase(),
+        },
+      };
+
+      sendSuccess(res, 200, profile, "Billing profile", "Issuer + bank + tax settings for finance screens.");
+    })
+  );
 
   r.get(
     "/billing/invoices/export",
@@ -92,7 +133,8 @@ export function createBillingRouter(billing: PostgresBillingRepository): Router 
       const q = asString(req.query.q);
       const st = (asString(req.query.status) || "all") as "all" | "paid" | "pending" | "overdue";
       const plan = asString(req.query.plan) || "all";
-      const payload = await billing.listTransactions({ q, status: st, plan, page: 1, pageSize: 10_000 });
+      const period = parsePeriod(asString(req.query.period));
+      const payload = await billing.listTransactions({ q, status: st, plan, period, page: 1, pageSize: 10_000 });
       const header = [
         "id",
         "date",
@@ -137,7 +179,8 @@ export function createBillingRouter(billing: PostgresBillingRepository): Router 
     "/billing/receipts/export",
     asyncHandler(async (req, res) => {
       const q = asString(req.query.q);
-      const payload = await billing.listReceipts({ q, page: 1, pageSize: 10_000 });
+      const period = parsePeriod(asString(req.query.period));
+      const payload = await billing.listReceipts({ q, period, page: 1, pageSize: 10_000 });
       const header = ["receiptNumber", "temple", "templeLocation", "invoiceRef", "plan", "amountCents", "paymentDate", "method"];
       const lines = [header.join(",")].concat(
         payload.data.map((r) =>
@@ -166,9 +209,27 @@ export function createBillingRouter(billing: PostgresBillingRepository): Router 
   r.get(
     "/billing/revenue-dashboard",
     asyncHandler(async (req, res) => {
-      const period = (asString(req.query.period) || "this-month") as Parameters<PostgresBillingRepository["revenueDashboard"]>[0]["period"];
+      const period = parsePeriod(asString(req.query.period));
       const payload = await billing.revenueDashboard({ period });
       sendSuccess(res, 200, payload, "Revenue dashboard", "Hybrid finance overview for the selected period.");
+    })
+  );
+
+  r.get(
+    "/billing/transactions/kpis",
+    asyncHandler(async (req, res) => {
+      const period = parsePeriod(asString(req.query.period));
+      const payload = await billing.transactionsKpis({ period });
+      sendSuccess(res, 200, payload, "Transaction KPIs", "Finance KPI cards for transactions page.");
+    })
+  );
+
+  r.get(
+    "/billing/receipts/kpis",
+    asyncHandler(async (req, res) => {
+      const period = parsePeriod(asString(req.query.period));
+      const payload = await billing.receiptsKpis({ period });
+      sendSuccess(res, 200, payload, "Receipt KPIs", "Finance KPI cards for receipts page.");
     })
   );
 
@@ -265,14 +326,28 @@ export function createBillingRouter(billing: PostgresBillingRepository): Router 
   );
 
   r.get(
+    "/billing/invoices/:id/receipt",
+    asyncHandler(async (req, res) => {
+      const id = asString((req.params as { id?: string }).id);
+      const row = await billing.getReceiptForInvoice(id);
+      if (!row) {
+        sendError(res, 404, "NOT_FOUND", "Receipt not found.", "No receipt exists for the given invoice id.");
+        return;
+      }
+      sendSuccess(res, 200, row, "Invoice receipt", "Receipt associated with this invoice.");
+    })
+  );
+
+  r.get(
     "/billing/transactions",
     asyncHandler(async (req, res) => {
       const q = asString(req.query.q);
       const st = (asString(req.query.status) || "all") as "all" | "paid" | "pending" | "overdue";
       const plan = asString(req.query.plan) || "all";
+      const period = parsePeriod(asString(req.query.period));
       const page = Number.parseInt(asString(req.query.page) || "1", 10);
       const pageSize = Number.parseInt(asString(req.query.pageSize) || "10", 10);
-      const payload = await billing.listTransactions({ q, status: st, plan, page, pageSize });
+      const payload = await billing.listTransactions({ q, status: st, plan, period, page, pageSize });
       sendSuccess(res, 200, payload, "Transactions", "Paginated billing transactions.");
     })
   );
@@ -281,9 +356,10 @@ export function createBillingRouter(billing: PostgresBillingRepository): Router 
     "/billing/receipts",
     asyncHandler(async (req, res) => {
       const q = asString(req.query.q);
+      const period = parsePeriod(asString(req.query.period));
       const page = Number.parseInt(asString(req.query.page) || "1", 10);
       const pageSize = Number.parseInt(asString(req.query.pageSize) || "10", 10);
-      const payload = await billing.listReceipts({ q, page, pageSize });
+      const payload = await billing.listReceipts({ q, period, page, pageSize });
       sendSuccess(res, 200, payload, "Receipts", "Paginated receipts.");
     })
   );
@@ -413,7 +489,10 @@ export function createBillingRouter(billing: PostgresBillingRepository): Router 
     asyncHandler(async (req, res) => {
       const id = asString((req.params as { id?: string }).id);
       const body = (req.body ?? {}) as { verifiedBy?: string };
-      const verifiedBy = typeof body.verifiedBy === "string" ? body.verifiedBy : "Super Admin";
+      const verifiedBy =
+        typeof body.verifiedBy === "string"
+          ? body.verifiedBy
+          : process.env.SUPER_ADMIN_VERIFIER_NAME || "System";
       const out = await confirmPaymentSubmission(id, verifiedBy);
       if (!out.ok) {
         const code = out.reason === "not_found" || out.reason === "not_linked" ? 404 : 409;

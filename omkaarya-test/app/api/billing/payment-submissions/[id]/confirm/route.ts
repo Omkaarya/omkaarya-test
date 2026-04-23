@@ -11,7 +11,7 @@ export async function POST(request: NextRequest, ctx: Ctx) {
     const res = await fetch(apiUrl(`/api/billing/payment-submissions/${encodeURIComponent(id)}/confirm`), {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ verifiedBy: body.verifiedBy ?? "Super Admin" }),
+      body: JSON.stringify({ ...(typeof body.verifiedBy === "string" ? { verifiedBy: body.verifiedBy } : {}) }),
     });
     const data = await res.json().catch(() => null);
     return NextResponse.json(data, { status: res.status });

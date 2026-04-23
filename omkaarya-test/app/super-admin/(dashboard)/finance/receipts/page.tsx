@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
-import { CheckCircle2, Download, Eye, MoreVertical, Send, X } from "lucide-react";
+import { CheckCircle2, Download, X } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/app/components/ds/atoms/Button";
@@ -30,37 +30,6 @@ function planBadgeColor(p: string) {
   if (p === "Aaradhana") return "purple" as const;
   if (p === "Sankalpa") return "indigo" as const;
   return "pink" as const;
-}
-
-// ── Actions Dropdown ────────────────────────────────────────────────
-
-function ActionsDropdown({ actions }: { actions: { label: string; icon: React.ReactNode; onClick: () => void }[] }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    if (open) document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  return (
-    <div className="relative" ref={ref}>
-      <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(!open); }} className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors">
-        <MoreVertical className="h-4 w-4" />
-      </button>
-      {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-xl border border-border bg-surface shadow-xl animate-in fade-in zoom-in-95 duration-150">
-          <div className="p-1.5">
-            {actions.map((a, i) => (
-              <button key={i} type="button" onClick={(e) => { e.stopPropagation(); setOpen(false); a.onClick(); }} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary hover:bg-subtle hover:text-text-primary transition-colors">
-                {a.icon}{a.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
 }
 
 type ApiR = {
@@ -101,10 +70,17 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 export default function ReceiptsPage() {
   const [search, setSearch] = useState("");
   const [searchDebounced, setSearchDebounced] = useState("");
+  const [periodFilter, setPeriodFilter] = useState<"this-year" | "this-month">("this-month");
   const [page, setPage] = useState(1);
   const [toast, setToast] = useState<string | null>(null);
   const [rows, setRows] = useState<ReceiptRow[]>([]);
   const [totalPages, setTotalPages] = useState(1);
+  const [kpis, setKpis] = useState<{
+    receiptsIssuedAllTime: number;
+    receiptsIssuedThisPeriod: number;
+    confirmedAmountCentsThisPeriod: number;
+    pendingCount: number;
+  } | null>(null);
   const pageSize = 10;
 
   const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 4000); }, []);
@@ -119,6 +95,7 @@ export default function ReceiptsPage() {
     p.set("page", String(page));
     p.set("pageSize", String(pageSize));
     if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
+    p.set("period", periodFilter);
     const res = await fetch(`/api/billing/receipts?${p.toString()}`, { cache: "no-store" });
     const d = (await res.json().catch(() => null)) as
       | { success?: boolean; data?: { data: ApiR[]; totalPages: number } }
@@ -131,11 +108,31 @@ export default function ReceiptsPage() {
     }
     setRows((d.data.data ?? []).map(mapR));
     setTotalPages(Math.max(1, d.data.totalPages));
-  }, [page, pageSize, searchDebounced, showToast]);
+  }, [page, pageSize, searchDebounced, showToast, periodFilter]);
 
+  const loadKpis = useCallback(async () => {
+    const p = new URLSearchParams();
+    p.set("period", periodFilter);
+    const res = await fetch(`/api/billing/receipts/kpis?${p.toString()}`, { cache: "no-store" });
+    const d = (await res.json().catch(() => null)) as
+      | { success?: boolean; data?: { receiptsIssuedAllTime: number; receiptsIssuedThisPeriod: number; confirmedAmountCentsThisPeriod: number; pendingCount: number } }
+      | null;
+    if (!d || d.success !== true || !d.data) {
+      setKpis(null);
+      return;
+    }
+    setKpis(d.data);
+  }, [periodFilter]);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     void load();
   }, [load]);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => {
+    void loadKpis();
+  }, [loadKpis]);
 
   const pageRows = rows;
 
@@ -163,8 +160,31 @@ export default function ReceiptsPage() {
       cell: (r) => (
         <div className="flex items-center gap-1.5">
           <Link href={`/super-admin/finance/receipts/view?id=${encodeURIComponent(r.id)}`}><Button variant="outline" size="sm">View</Button></Link>
-          <Button variant="outline" size="sm" onClick={() => showToast(`Downloading ${r.num}…`)}>PDF</Button>
-          <Button variant="outline" size="sm" onClick={() => showToast(`Emailed to ${r.temple}!`)}>Email</Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(`/api/billing/receipts/${encodeURIComponent(r.id)}/print`, "_blank", "noopener,noreferrer")}
+          >
+            PDF
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              const res = await fetch(`/api/billing/receipts/${encodeURIComponent(r.id)}/email`, {
+                method: "POST",
+                headers: { Accept: "application/json" },
+              });
+              const d = await res.json().catch(() => null);
+              if (!res.ok || (d && typeof d === "object" && "success" in d && (d as { success?: boolean }).success === false)) {
+                showToast(jsonApiErrorMessage(d) || "Failed to email receipt");
+                return;
+              }
+              showToast(`Receipt emailed to ${r.temple}`);
+            }}
+          >
+            Email
+          </Button>
         </div>
       ),
     },
@@ -184,6 +204,7 @@ export default function ReceiptsPage() {
           onClick={() => {
             const p = new URLSearchParams();
             if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
+            p.set("period", periodFilter);
             window.open(`/api/billing/receipts/export?${p.toString()}`, "_blank", "noopener,noreferrer");
           }}
         >
@@ -195,17 +216,17 @@ export default function ReceiptsPage() {
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-surface rounded-xl border border-border p-4">
           <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Receipts issued</p>
-          <p className="text-2xl font-bold text-green-600">18</p>
+          <p className="text-2xl font-bold text-green-600">{kpis?.receiptsIssuedAllTime ?? 0}</p>
           <p className="text-[10px] text-text-tertiary mt-1">all time</p>
         </div>
         <div className="bg-surface rounded-xl border border-border p-4">
-          <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">This month</p>
-          <p className="text-xl font-bold text-text-primary">4</p>
-          <p className="text-[10px] text-text-tertiary mt-1">$4,295 confirmed</p>
+          <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">{periodFilter === "this-year" ? "This year" : "This month"}</p>
+          <p className="text-xl font-bold text-text-primary">{kpis?.receiptsIssuedThisPeriod ?? 0}</p>
+          <p className="text-[10px] text-text-tertiary mt-1">{formatUsdFromCents(kpis?.confirmedAmountCentsThisPeriod ?? 0)} confirmed</p>
         </div>
         <div className="bg-surface rounded-xl border border-border p-4">
           <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Pending (no receipt yet)</p>
-          <p className="text-xl font-bold text-text-primary">2</p>
+          <p className="text-xl font-bold text-text-primary">{kpis?.pendingCount ?? 0}</p>
           <p className="text-[10px] text-text-tertiary mt-1">awaiting payment confirmation</p>
         </div>
       </div>
@@ -215,10 +236,9 @@ export default function ReceiptsPage() {
         <div className="w-full max-w-[260px]">
           <SearchInput value={search} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setPage(1); }} onClear={search ? () => { setSearch(""); setPage(1); } : undefined} placeholder="Search temple or receipt…" />
         </div>
-        <select className="rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text-secondary outline-none focus:border-brand transition-colors cursor-pointer">
-          <option>This year</option>
-          <option>This month</option>
-          <option>Custom range</option>
+        <select value={periodFilter} onChange={(e) => { setPeriodFilter(e.target.value as "this-year" | "this-month"); setPage(1); }} className="rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text-secondary outline-none focus:border-brand transition-colors cursor-pointer">
+          <option value="this-year">This year</option>
+          <option value="this-month">This month</option>
         </select>
       </div>
 

@@ -31,6 +31,45 @@ function addYears(d: Date, y: number): Date {
   return o;
 }
 
+function startOfUtcMonth(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1, 0, 0, 0, 0));
+}
+function addUtcMonths(d: Date, n: number): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, 1, 0, 0, 0, 0));
+}
+function isoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function periodRange(input: { period: RevenueDashboardPeriod }): { start: Date; endExclusive: Date; label: { startDate: string; endDateExclusive: string } } {
+  const now = new Date();
+  const thisMonthStart = startOfUtcMonth(now);
+  let start: Date;
+  let endExclusive: Date;
+  if (input.period === "this-month") {
+    start = thisMonthStart;
+    endExclusive = addUtcMonths(thisMonthStart, 1);
+  } else if (input.period === "last-month") {
+    start = addUtcMonths(thisMonthStart, -1);
+    endExclusive = thisMonthStart;
+  } else if (input.period === "this-year") {
+    start = new Date(Date.UTC(now.getUTCFullYear(), 0, 1, 0, 0, 0, 0));
+    endExclusive = new Date(Date.UTC(now.getUTCFullYear() + 1, 0, 1, 0, 0, 0, 0));
+  } else {
+    const m = /^(\d{4})-(\d{2})$/.exec(String(input.period).trim());
+    if (m) {
+      const y = Number(m[1]);
+      const mm = Number(m[2]);
+      start = new Date(Date.UTC(y, Math.max(0, mm - 1), 1, 0, 0, 0, 0));
+      endExclusive = addUtcMonths(start, 1);
+    } else {
+      start = thisMonthStart;
+      endExclusive = addUtcMonths(thisMonthStart, 1);
+    }
+  }
+  return { start, endExclusive, label: { startDate: isoDate(start), endDateExclusive: isoDate(endExclusive) } };
+}
+
 export async function nextInvoiceNumber(client: Pick<PoolClient, "query">): Promise<string> {
   const y = new Date().getUTCFullYear();
   const { rows } = await client.query<{ seq: string }>(`SELECT nextval('public.billing_invoice_number_seq')::text AS seq`);
@@ -205,6 +244,132 @@ function invoiceUiStatus(
 }
 
 export class PostgresBillingRepository {
+  async getReceiptForInvoice(invoiceId: string): Promise<{ receiptId: string; receiptNumber: string } | null> {
+    const pool = requirePool();
+    const { rows } = await pool.query<{ id: string; receipt_number: string }>(
+      `SELECT r.id::text AS id, r.receipt_number
+       FROM public.billing_receipts r
+       WHERE r.invoice_id = $1::uuid
+       ORDER BY r.issued_at DESC
+       LIMIT 1`,
+      [invoiceId.trim()]
+    );
+    const r = rows[0];
+    if (!r) return null;
+    return { receiptId: r.id, receiptNumber: r.receipt_number };
+  }
+
+  async transactionsKpis(input: { period: RevenueDashboardPeriod }): Promise<{
+    period: { startDate: string; endDateExclusive: string };
+    paidAmountCents: number;
+    paidCount: number;
+    pendingAmountCents: number;
+    pendingCount: number;
+    overdueAmountCents: number;
+    overdueCount: number;
+    avgCollectionDays: number | null;
+  }> {
+    const pool = requirePool();
+    const pr = periodRange({ period: input.period });
+
+    const paidAgg = await pool.query<{ amount_cents: number; cnt: number }>(
+      `SELECT COALESCE(SUM(tx.amount_cents), 0)::int AS amount_cents,
+              COUNT(*)::int AS cnt
+       FROM public.billing_transactions tx
+       WHERE tx.status = 'paid'
+         AND tx.recorded_at >= $1::timestamptz
+         AND tx.recorded_at < $2::timestamptz`,
+      [pr.start.toISOString(), pr.endExclusive.toISOString()]
+    );
+
+    const invoiceAgg = await pool.query<{
+      pending_amount_cents: number;
+      pending_cnt: number;
+      overdue_amount_cents: number;
+      overdue_cnt: number;
+    }>(
+      `SELECT
+         COALESCE(SUM(CASE WHEN b.status = 'pending'
+                              AND (b.due_at IS NULL OR b.due_at >= CURRENT_DATE OR b.amount_cents = 0)
+                           THEN b.amount_cents ELSE 0 END), 0)::int AS pending_amount_cents,
+         COALESCE(SUM(CASE WHEN b.status = 'pending'
+                              AND b.due_at IS NOT NULL
+                              AND b.due_at < CURRENT_DATE
+                              AND b.amount_cents > 0
+                           THEN b.amount_cents ELSE 0 END), 0)::int AS overdue_amount_cents,
+         COUNT(*) FILTER (WHERE b.status = 'pending'
+                              AND (b.due_at IS NULL OR b.due_at >= CURRENT_DATE OR b.amount_cents = 0))::int AS pending_cnt,
+         COUNT(*) FILTER (WHERE b.status = 'pending'
+                              AND b.due_at IS NOT NULL
+                              AND b.due_at < CURRENT_DATE
+                              AND b.amount_cents > 0)::int AS overdue_cnt
+       FROM public.billing_invoices b`,
+      []
+    );
+
+    const avgRes = await pool.query<{ avg_days: number | null }>(
+      `SELECT AVG(EXTRACT(EPOCH FROM (tx.recorded_at - b.issued_at)) / 86400.0)::float AS avg_days
+       FROM public.billing_transactions tx
+       JOIN public.billing_invoices b ON b.id = tx.invoice_id
+       WHERE tx.status = 'paid'
+         AND tx.recorded_at >= $1::timestamptz
+         AND tx.recorded_at < $2::timestamptz`,
+      [pr.start.toISOString(), pr.endExclusive.toISOString()]
+    );
+
+    const rawAvg = avgRes.rows[0]?.avg_days ?? null;
+    const avgCollectionDays = rawAvg === null ? null : Math.max(0, Math.round(rawAvg * 10) / 10);
+
+    return {
+      period: pr.label,
+      paidAmountCents: paidAgg.rows[0]?.amount_cents ?? 0,
+      paidCount: paidAgg.rows[0]?.cnt ?? 0,
+      pendingAmountCents: invoiceAgg.rows[0]?.pending_amount_cents ?? 0,
+      pendingCount: invoiceAgg.rows[0]?.pending_cnt ?? 0,
+      overdueAmountCents: invoiceAgg.rows[0]?.overdue_amount_cents ?? 0,
+      overdueCount: invoiceAgg.rows[0]?.overdue_cnt ?? 0,
+      avgCollectionDays,
+    };
+  }
+
+  async receiptsKpis(input: { period: RevenueDashboardPeriod }): Promise<{
+    period: { startDate: string; endDateExclusive: string };
+    receiptsIssuedAllTime: number;
+    receiptsIssuedThisPeriod: number;
+    confirmedAmountCentsThisPeriod: number;
+    pendingCount: number;
+  }> {
+    const pool = requirePool();
+    const pr = periodRange({ period: input.period });
+
+    const allRes = await pool.query<{ total: number }>(
+      `SELECT COUNT(*)::int AS total FROM public.billing_receipts r`,
+      []
+    );
+    const perRes = await pool.query<{ cnt: number; amount_cents: number }>(
+      `SELECT COUNT(*)::int AS cnt,
+              COALESCE(SUM(r.amount_cents), 0)::int AS amount_cents
+       FROM public.billing_receipts r
+       WHERE r.issued_at >= $1::timestamptz
+         AND r.issued_at < $2::timestamptz`,
+      [pr.start.toISOString(), pr.endExclusive.toISOString()]
+    );
+    const pendingRes = await pool.query<{ pending_cnt: number }>(
+      `SELECT COUNT(*) FILTER (WHERE b.status = 'pending'
+                                AND (b.due_at IS NULL OR b.due_at >= CURRENT_DATE OR b.amount_cents = 0))::int AS pending_cnt
+       FROM public.billing_invoices b`,
+      []
+    );
+
+    return {
+      period: pr.label,
+      receiptsIssuedAllTime: allRes.rows[0]?.total ?? 0,
+      receiptsIssuedThisPeriod: perRes.rows[0]?.cnt ?? 0,
+      confirmedAmountCentsThisPeriod: perRes.rows[0]?.amount_cents ?? 0,
+      pendingCount: pendingRes.rows[0]?.pending_cnt ?? 0,
+    };
+  }
+
   async listTempleOptions(): Promise<Array<{ tenantId: string; name: string; portalUrl: string; adminEmail: string }>> {
     const pool = requirePool();
     const { rows } = await pool.query<{ tenant_id: string; name: string; slug: string; admin_email: string }>(
@@ -381,44 +546,10 @@ export class PostgresBillingRepository {
     }>;
   }> {
     const pool = requirePool();
-
-    function startOfUtcMonth(d: Date): Date {
-      return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1, 0, 0, 0, 0));
-    }
-    function addUtcMonths(d: Date, n: number): Date {
-      return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, 1, 0, 0, 0, 0));
-    }
-    function isoDate(d: Date): string {
-      return d.toISOString().slice(0, 10);
-    }
-
-    const now = new Date();
-    const thisMonthStart = startOfUtcMonth(now);
-    let start: Date;
-    let endExclusive: Date;
-    if (input.period === "this-month") {
-      start = thisMonthStart;
-      endExclusive = addUtcMonths(thisMonthStart, 1);
-    } else if (input.period === "last-month") {
-      start = addUtcMonths(thisMonthStart, -1);
-      endExclusive = thisMonthStart;
-    } else if (input.period === "this-year") {
-      start = new Date(Date.UTC(now.getUTCFullYear(), 0, 1, 0, 0, 0, 0));
-      endExclusive = new Date(Date.UTC(now.getUTCFullYear() + 1, 0, 1, 0, 0, 0, 0));
-    } else {
-      const m = /^(\d{4})-(\d{2})$/.exec(String(input.period).trim());
-      if (m) {
-        const y = Number(m[1]);
-        const mm = Number(m[2]);
-        start = new Date(Date.UTC(y, Math.max(0, mm - 1), 1, 0, 0, 0, 0));
-        endExclusive = addUtcMonths(start, 1);
-      } else {
-        start = thisMonthStart;
-        endExclusive = addUtcMonths(thisMonthStart, 1);
-      }
-    }
-
-    const period = { startDate: isoDate(start), endDateExclusive: isoDate(endExclusive) };
+    const pr = periodRange({ period: input.period });
+    const start = pr.start;
+    const endExclusive = pr.endExclusive;
+    const period = pr.label;
 
     const paidAgg = await pool.query<{ amount_cents: number; cnt: number }>(
       `SELECT COALESCE(SUM(tx.amount_cents), 0)::int AS amount_cents,
@@ -760,6 +891,7 @@ export class PostgresBillingRepository {
     q: string;
     status: "all" | "paid" | "pending" | "overdue";
     plan: string;
+    period?: RevenueDashboardPeriod;
     page: number;
     pageSize: number;
   }): Promise<{
@@ -787,6 +919,8 @@ export class PostgresBillingRepository {
     const pageSize = clampInt(input.pageSize ?? 10, 1, 100);
     const page = clampInt(input.page ?? 1, 1, 10_000);
     const planFilter = input.plan !== "all" && input.plan.trim() ? input.plan.trim() : "";
+    const pr = periodRange({ period: input.period ?? "this-month" });
+    const usePeriod = Boolean(input.period);
 
     function initials(name: string): string {
       const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -798,6 +932,15 @@ export class PostgresBillingRepository {
     const params: unknown[] = [];
     const txFilters: string[] = [`tx.status = 'paid'`];
     const subFilters: string[] = [`s.status = 'pending'`, `s.invoice_id IS NOT NULL`];
+
+    if (usePeriod) {
+      params.push(pr.start.toISOString());
+      const pStart = `$${params.length}`;
+      params.push(pr.endExclusive.toISOString());
+      const pEnd = `$${params.length}`;
+      txFilters.push(`tx.recorded_at >= ${pStart}::timestamptz AND tx.recorded_at < ${pEnd}::timestamptz`);
+      subFilters.push(`s.created_at >= ${pStart}::timestamptz AND s.created_at < ${pEnd}::timestamptz`);
+    }
 
     if (q) {
       params.push(`%${q}%`);
@@ -942,7 +1085,7 @@ export class PostgresBillingRepository {
     return { data, total, page: safePage, pageSize, totalPages };
   }
 
-  async listReceipts(input: { q: string; page: number; pageSize: number }): Promise<{
+  async listReceipts(input: { q: string; period?: RevenueDashboardPeriod; page: number; pageSize: number }): Promise<{
     data: Array<{
       id: string;
       num: string;
@@ -964,6 +1107,9 @@ export class PostgresBillingRepository {
     const pageSize = clampInt(input.pageSize ?? 10, 1, 100);
     const page = clampInt(input.page ?? 1, 1, 10_000);
     const offset = (page - 1) * pageSize;
+    const period = input.period;
+    const pr = periodRange({ period: period ?? "this-month" });
+    const usePeriod = Boolean(period);
     const params: unknown[] = [];
     const where: string[] = [];
     if (q) {
@@ -972,6 +1118,13 @@ export class PostgresBillingRepository {
       where.push(
         `(LOWER(t.name) LIKE ${p} OR LOWER(r.receipt_number) LIKE ${p} OR LOWER(b.invoice_number) LIKE ${p})`
       );
+    }
+    if (usePeriod) {
+      params.push(pr.start.toISOString());
+      const pStart = `$${params.length}`;
+      params.push(pr.endExclusive.toISOString());
+      const pEnd = `$${params.length}`;
+      where.push(`(r.issued_at >= ${pStart}::timestamptz AND r.issued_at < ${pEnd}::timestamptz)`);
     }
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
@@ -1285,7 +1438,7 @@ export async function confirmPaymentSubmission(
 ): Promise<ConfirmPaymentResult> {
   const pool = requirePool();
   const client = await pool.connect();
-  const actor = verifiedBy.trim() || "Super Admin";
+  const actor = verifiedBy.trim() || "System";
   try {
     await client.query("BEGIN");
     const s = await client.query<{

@@ -58,9 +58,10 @@ function planBadgeColor(p: string) {
   return "pink" as const;
 }
 
-// ── Mock Data ──────────────────────────────────────────────────────
+// ── API Types ──────────────────────────────────────────────────────
 
 type ApiDashboard = {
+  period?: { startDate: string; endDateExclusive: string };
   kpis: {
     paidAmountCents: number;
     paidCount: number;
@@ -84,6 +85,14 @@ type ApiDashboard = {
     status: "active" | "pending" | "trial";
     nextRenewal: string | null;
   }>;
+};
+
+type BillingProfile = {
+  issuer: { name: string; address: string; email: string; website: string; brandLine: string };
+  paymentMethodLabel: string;
+  bank: { bankName: string; accountName: string; accountNumber: string; swift: string; notes: string };
+  tax: { rateBps: number; label: string };
+  money: { currency: string };
 };
 
 // ── Bar Chart Component ──────────────────────────────────────────
@@ -136,12 +145,17 @@ export default function RevenueDashboard() {
   const [toast, setToast] = useState<string | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [dash, setDash] = useState<ApiDashboard | null>(null);
+  const [profile, setProfile] = useState<BillingProfile | null>(null);
   const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 4000); }, []);
 
   useEffect(() => {
     let cancel = false;
     (async () => {
       setLoadErr(null);
+      const profRes = await fetch("/api/billing/profile", { cache: "no-store" });
+      const prof = (await profRes.json().catch(() => null)) as { success?: boolean; data?: BillingProfile } | null;
+      if (!cancel && prof && prof.success === true && prof.data) setProfile(prof.data);
+
       const res = await fetch(`/api/billing/revenue-dashboard?period=this-month`, { cache: "no-store" });
       const d = (await res.json().catch(() => null)) as { success?: boolean; data?: ApiDashboard } | null;
       if (cancel) return;
@@ -162,7 +176,7 @@ export default function RevenueDashboard() {
     portalUrl: r.portalUrl,
     initials: (r.templeName.trim().split(/\s+/).filter(Boolean)[0]?.[0] ?? "T") + (r.templeName.trim().split(/\s+/).filter(Boolean)[1]?.[0] ?? ""),
     plan: r.plan,
-    billing: "Bank transfer",
+    billing: profile?.paymentMethodLabel || "—",
     amount: r.amountCents ? `${formatUsdFromCents(r.amountCents)}${r.billingCycle === "Annual" ? "/yr" : "/mo"}` : "—",
     status: r.status,
     nextRenewal: r.nextRenewal ?? "—",
@@ -198,7 +212,7 @@ export default function RevenueDashboard() {
     },
     {
       key: "billing", header: "Billing",
-      cell: () => <Badge color="indigo" size="sm">Bank transfer</Badge>,
+      cell: (r) => <Badge color="indigo" size="sm">{r.billing}</Badge>,
     },
     {
       key: "amount", header: "Amount",
@@ -219,7 +233,6 @@ export default function RevenueDashboard() {
           <Link href="/super-admin/finance/invoices/generate">
             <Button variant="outline" size="sm">Invoice</Button>
           </Link>
-          <Button variant="outline" size="sm" onClick={() => showToast("Opening receipt…")}>Receipt</Button>
         </div>
       ),
     },
@@ -236,10 +249,13 @@ export default function RevenueDashboard() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-display-xs font-bold tracking-tight text-text-primary">Revenue Dashboard</h1>
-          <p className="mt-1 text-sm text-text-tertiary">Pepulux subscription revenue from all onboarded temples · April 2026</p>
+          <p className="mt-1 text-sm text-text-tertiary">
+            {(profile?.issuer?.name ? `${profile.issuer.name} ` : "")}
+            subscription revenue from all onboarded temples
+            {dash?.period?.startDate ? ` · ${dash.period.startDate}` : ""}
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" leadingIcon={<Download className="h-4 w-4" />} onClick={() => showToast("Exporting report…")}>Export</Button>
           <Link href="/super-admin/finance/invoices/generate">
             <Button variant="primary" size="sm" leadingIcon={<Plus className="h-4 w-4" />}>Generate invoice</Button>
           </Link>

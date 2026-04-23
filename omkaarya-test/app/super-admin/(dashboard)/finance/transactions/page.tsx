@@ -20,6 +20,7 @@ type Transaction = {
   templeLocation: string;
   initials: string;
   invoiceId: string;
+  invoiceUuid: string;
   plan: string;
   amount: string;
   method: string;
@@ -74,6 +75,7 @@ function mapTx(r: ApiTx): Transaction {
     templeLocation: r.templeLocation,
     initials: r.templeInitials,
     invoiceId: r.invoiceRef,
+    invoiceUuid: r.invoiceId,
     plan: r.plan,
     amount: formatUsdFromCents(r.amountCents),
     method: r.method,
@@ -91,6 +93,15 @@ export default function TransactionsPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [rows, setRows] = useState<Transaction[]>([]);
   const [totalPages, setTotalPages] = useState(1);
+  const [kpis, setKpis] = useState<{
+    paidAmountCents: number;
+    paidCount: number;
+    pendingAmountCents: number;
+    pendingCount: number;
+    overdueAmountCents: number;
+    overdueCount: number;
+    avgCollectionDays: number | null;
+  } | null>(null);
   const pageSize = 10;
 
   const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 4000); }, []);
@@ -107,7 +118,7 @@ export default function TransactionsPage() {
     if (statusFilter !== "all") p.set("status", statusFilter);
     if (planFilter !== "all") p.set("plan", planFilter);
     if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
-    void periodFilter; // not wired to API yet
+    if (periodFilter !== "custom") p.set("period", periodFilter);
     const res = await fetch(`/api/billing/transactions?${p.toString()}`, { cache: "no-store" });
     const d = (await res.json().catch(() => null)) as
       | { success?: boolean; data?: { data: ApiTx[]; totalPages: number } }
@@ -122,9 +133,29 @@ export default function TransactionsPage() {
     setTotalPages(Math.max(1, d.data.totalPages));
   }, [page, pageSize, statusFilter, planFilter, searchDebounced, showToast, periodFilter]);
 
+  const loadKpis = useCallback(async () => {
+    const p = new URLSearchParams();
+    if (periodFilter !== "custom") p.set("period", periodFilter);
+    const res = await fetch(`/api/billing/transactions/kpis?${p.toString()}`, { cache: "no-store" });
+    const d = (await res.json().catch(() => null)) as
+      | { success?: boolean; data?: { paidAmountCents: number; paidCount: number; pendingAmountCents: number; pendingCount: number; overdueAmountCents: number; overdueCount: number; avgCollectionDays: number | null } }
+      | null;
+    if (!d || d.success !== true || !d.data) {
+      setKpis(null);
+      return;
+    }
+    setKpis(d.data);
+  }, [periodFilter]);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     void load();
   }, [load]);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => {
+    void loadKpis();
+  }, [loadKpis]);
 
   const pageRows = rows;
 
@@ -151,9 +182,29 @@ export default function TransactionsPage() {
       key: "actions", header: "Actions", align: "right",
       cell: (r) => (
         <div className="flex items-center gap-1.5">
-          {r.status === "paid" && <Button variant="outline" size="sm" onClick={() => showToast("Opening receipt…")}>Receipt</Button>}
-          {r.status === "pending" && <Button variant="primary" size="sm" onClick={() => showToast("Navigating to confirm…")}>Confirm</Button>}
-          {r.status === "overdue" && <Button variant="outline" size="sm" onClick={() => showToast("Reminder sent!")}>Remind</Button>}
+          {r.status === "paid" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                const res = await fetch(`/api/billing/invoices/${encodeURIComponent(r.invoiceUuid)}/receipt`, { cache: "no-store" });
+                const d = (await res.json().catch(() => null)) as { success?: boolean; data?: { receiptId?: string } } | null;
+                const rid = d && d.success === true && d.data && typeof d.data.receiptId === "string" ? d.data.receiptId : "";
+                if (!rid) {
+                  showToast(jsonApiErrorMessage(d) || "Receipt not found for this invoice");
+                  return;
+                }
+                window.open(`/super-admin/finance/receipts/view?id=${encodeURIComponent(rid)}`, "_blank", "noopener,noreferrer");
+              }}
+            >
+              Receipt
+            </Button>
+          )}
+          {(r.status === "pending" || r.status === "overdue") && (
+            <Button variant="primary" size="sm" onClick={() => window.open("/super-admin/finance/confirm-payments", "_self")}>
+              Confirm payments
+            </Button>
+          )}
         </div>
       ),
     },
@@ -175,6 +226,7 @@ export default function TransactionsPage() {
             if (statusFilter !== "all") p.set("status", statusFilter);
             if (planFilter !== "all") p.set("plan", planFilter);
             if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
+            if (periodFilter !== "custom") p.set("period", periodFilter);
             window.open(`/api/billing/transactions/export?${p.toString()}`, "_blank", "noopener,noreferrer");
           }}
         >
@@ -185,23 +237,23 @@ export default function TransactionsPage() {
       {/* Metric Cards */}
       <div className="grid grid-cols-4 gap-3">
         <div className="bg-surface rounded-xl border border-border p-4">
-          <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Total received (Apr)</p>
-          <p className="text-2xl font-bold text-green-600">$5,592</p>
-          <p className="text-[10px] text-text-tertiary mt-1">6 payments confirmed</p>
+          <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Total received</p>
+          <p className="text-2xl font-bold text-green-600">{formatUsdFromCents(kpis?.paidAmountCents ?? 0)}</p>
+          <p className="text-[10px] text-text-tertiary mt-1">{kpis?.paidCount ?? 0} payment(s) confirmed</p>
         </div>
         <div className="bg-surface rounded-xl border border-border p-4">
           <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Pending confirmation</p>
-          <p className="text-2xl font-bold text-amber-600">$2,198</p>
-          <p className="text-[10px] text-text-tertiary mt-1">2 transfers submitted</p>
+          <p className="text-2xl font-bold text-amber-600">{formatUsdFromCents(kpis?.pendingAmountCents ?? 0)}</p>
+          <p className="text-[10px] text-text-tertiary mt-1">{kpis?.pendingCount ?? 0} invoice(s) awaiting bank transfer</p>
         </div>
         <div className="bg-surface rounded-xl border border-border p-4">
           <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Overdue</p>
-          <p className="text-2xl font-bold text-red-600">$1,099</p>
-          <p className="text-[10px] text-text-tertiary mt-1">1 temple — 18 days overdue</p>
+          <p className="text-2xl font-bold text-red-600">{formatUsdFromCents(kpis?.overdueAmountCents ?? 0)}</p>
+          <p className="text-[10px] text-text-tertiary mt-1">{kpis?.overdueCount ?? 0} invoice(s) past due date</p>
         </div>
         <div className="bg-surface rounded-xl border border-border p-4">
           <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Avg collection time</p>
-          <p className="text-xl font-bold text-text-primary">4.2 days</p>
+          <p className="text-xl font-bold text-text-primary">{kpis?.avgCollectionDays === null || kpis === null ? "—" : `${kpis.avgCollectionDays} days`}</p>
           <p className="text-[10px] text-text-tertiary mt-1">invoice to payment</p>
         </div>
       </div>

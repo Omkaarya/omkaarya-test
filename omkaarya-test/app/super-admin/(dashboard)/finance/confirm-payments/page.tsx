@@ -101,7 +101,7 @@ export default function ConfirmPaymentsPage() {
       const res = await fetch(`/api/billing/payment-submissions/${encodeURIComponent(payment.id)}/confirm`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ verifiedBy: "Super Admin" }),
+        body: JSON.stringify({}),
       });
       const d = await res.json().catch(() => null);
       if (!res.ok || (d && typeof d === "object" && "success" in d && d.success === false)) {
@@ -207,7 +207,6 @@ export default function ConfirmPaymentsPage() {
               {/* Right: Action Buttons */}
               <div className="flex flex-col gap-2 shrink-0">
                 <Button variant="primary" size="sm" onClick={() => void handleConfirm(payment)}>✓ Confirm &amp; activate</Button>
-                <Button variant="outline" size="sm" onClick={() => showToast("Requesting more info from temple…", "success")}>Ask for info</Button>
                 <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:border-red-400 hover:text-red-700" onClick={() => void handleReject(payment)}>Reject</Button>
               </div>
             </div>

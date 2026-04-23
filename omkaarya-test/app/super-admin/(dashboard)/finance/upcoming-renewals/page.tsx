@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
-import { Bell, CheckCircle2, Download, FileText, X } from "lucide-react";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { Bell, CheckCircle2, X } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Badge } from "@/app/components/ds/atoms/Badge";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
+import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
+import { jsonApiErrorMessage } from "@/lib/api-envelope";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -15,9 +17,9 @@ type RenewalRow = {
   temple: string;
   templeLocation: string;
   initials: string;
-  plan: "Aaradhana" | "Sankalpa" | "Praramba";
-  amount: string;
-  renewalDate: string;
+  plan: string;
+  amountCents: number;
+  renewalDate: string; // YYYY-MM-DD
   daysLeft: number;
   invoiceSent: boolean;
   status: "active";
@@ -29,14 +31,11 @@ function planBadgeColor(p: string) {
   return "pink" as const;
 }
 
-// ── Mock Data ──────────────────────────────────────────────────────
-
-const mockRenewals: RenewalRow[] = [
-  { id: "RNW-001", temple: "Shiva Temple", templeLocation: "London", initials: "ST", plan: "Aaradhana", amount: "$1,099", renewalDate: "20 Apr 2027", daysLeft: 364, invoiceSent: false, status: "active" },
-  { id: "RNW-002", temple: "Sri Mariamman", templeLocation: "Copenhagen", initials: "SM", plan: "Sankalpa", amount: "$699", renewalDate: "19 Mar 2027", daysLeft: 332, invoiceSent: false, status: "active" },
-  { id: "RNW-003", temple: "Balaji Tirupati Mandir", templeLocation: "Mississauga", initials: "BT", plan: "Praramba", amount: "$299", renewalDate: "4 Jan 2027", daysLeft: 258, invoiceSent: false, status: "active" },
-  { id: "RNW-004", temple: "Ganesh Temple", templeLocation: "Singapore", initials: "GT", plan: "Praramba", amount: "$299", renewalDate: "28 Feb 2027", daysLeft: 313, invoiceSent: false, status: "active" },
-];
+function formatIsoToUi(d: string): string {
+  const dt = new Date(d);
+  if (Number.isNaN(dt.getTime())) return d;
+  return dt.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
@@ -49,7 +48,46 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 
 export default function UpcomingRenewalsPage() {
   const [toast, setToast] = useState<string | null>(null);
+  const [rows, setRows] = useState<RenewalRow[]>([]);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
   const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 4000); }, []);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      setLoadErr(null);
+      const p = new URLSearchParams();
+      p.set("days", "60");
+      p.set("page", "1");
+      p.set("pageSize", "200");
+      const res = await fetch(`/api/subscriptions/upcoming-renewals?${p.toString()}`, { cache: "no-store" });
+      const d = (await res.json().catch(() => null)) as
+        | { success?: boolean; data?: { data: Array<{ id: string; templeName: string; location: string; plan: string; billingCycle: string; amountCents: number; renewalDate: string; daysLeft: number; invoiceSent: boolean }> } }
+        | null;
+      if (cancel) return;
+      if (!d || d.success !== true || !d.data) {
+        setRows([]);
+        setLoadErr(jsonApiErrorMessage(d) || "Failed to load upcoming renewals");
+        return;
+      }
+      setRows(
+        (d.data.data ?? []).map((r) => ({
+          id: r.id,
+          temple: r.templeName,
+          templeLocation: r.location,
+          initials: (r.templeName.trim().split(/\s+/).filter(Boolean)[0]?.[0] ?? "T") + (r.templeName.trim().split(/\s+/).filter(Boolean)[1]?.[0] ?? ""),
+          plan: r.plan,
+          amountCents: r.amountCents,
+          renewalDate: r.renewalDate,
+          daysLeft: r.daysLeft,
+          invoiceSent: r.invoiceSent,
+          status: "active",
+        }))
+      );
+    })();
+    return () => { cancel = true; };
+  }, []);
 
   const columns = useMemo<ColumnDef<RenewalRow>[]>(() => [
     {
@@ -65,8 +103,8 @@ export default function UpcomingRenewalsPage() {
       ),
     },
     { key: "plan", header: "Plan", cell: (r) => <Badge color={planBadgeColor(r.plan)} size="sm" dot>{r.plan}</Badge> },
-    { key: "amount", header: "Amount due", cell: (r) => <span className="text-sm font-bold text-green-600">{r.amount}</span> },
-    { key: "renewalDate", header: "Renewal date", cell: (r) => <span className="text-xs text-text-tertiary">{r.renewalDate}</span> },
+    { key: "amountCents", header: "Amount due", cell: (r) => <span className="text-sm font-bold text-green-600">{formatUsdFromCents(r.amountCents)}</span> },
+    { key: "renewalDate", header: "Renewal date", cell: (r) => <span className="text-xs text-text-tertiary">{formatIsoToUi(r.renewalDate)}</span> },
     {
       key: "daysLeft", header: "Days left",
       cell: (r) => (
@@ -94,7 +132,6 @@ export default function UpcomingRenewalsPage() {
           <Link href="/super-admin/finance/invoices/generate">
             <Button variant="primary" size="sm">Generate invoice</Button>
           </Link>
-          <Button variant="outline" size="sm" onClick={() => showToast("Reminder sent!")}>Remind</Button>
         </div>
       ),
     },
@@ -102,13 +139,17 @@ export default function UpcomingRenewalsPage() {
 
   return (
     <div className="space-y-5">
+      {loadErr && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+          {loadErr}
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-display-xs font-bold tracking-tight text-text-primary">Upcoming renewals</h1>
           <p className="mt-1 text-sm text-text-tertiary">Temples whose subscriptions are due for renewal in the next 60 days</p>
         </div>
-        <Button variant="primary" size="sm" leadingIcon={<Bell className="h-4 w-4" />} onClick={() => showToast("Sending renewal reminders…")}>Send all reminders</Button>
       </div>
 
       {/* Info Alert Banner */}
@@ -124,7 +165,7 @@ export default function UpcomingRenewalsPage() {
 
       {/* Table */}
       <div className="bg-surface rounded-xl border border-border shadow-xs">
-        <DataTable<RenewalRow> columns={columns} data={mockRenewals} keyExtractor={(r) => r.id} />
+        <DataTable<RenewalRow> columns={columns} data={rows} keyExtractor={(r) => r.id} />
       </div>
 
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
