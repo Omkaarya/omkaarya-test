@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
+import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import { CheckCircle2, X, XCircle } from "lucide-react";
 
 import { Button } from "@/app/components/ds/atoms/Button";
@@ -13,41 +15,13 @@ type PendingPayment = {
   location: string;
   plan: string;
   amount: string;
-  invoiceId: string;
+  invoiceId: string | null;
   paymentRef: string;
   submitted: string;
   note: string;
+  slipUrl: string;
   slipUploaded: boolean;
 };
-
-// ── Mock Data ──────────────────────────────────────────────────────
-
-const initialPayments: PendingPayment[] = [
-  {
-    id: "PP-001",
-    temple: "Lakshmi Mandir",
-    location: "Toronto, CA",
-    plan: "Aaradhana",
-    amount: "$1,099.00",
-    invoiceId: "INV-2026-0025",
-    paymentRef: "LAKSHMI-TORONTO-INV-0025",
-    submitted: "Today 10:32",
-    note: "Transferred from trustee account — slip uploaded",
-    slipUploaded: true,
-  },
-  {
-    id: "PP-002",
-    temple: "Sri Murugan Kovil",
-    location: "Zurich, CH",
-    plan: "Sankalpa",
-    amount: "$699.00",
-    invoiceId: "INV-2026-0024",
-    paymentRef: "MURUGAN-ZURICH-INV-0024",
-    submitted: "Yesterday 15:20",
-    note: "Transfer from temple account, receipt attached",
-    slipUploaded: true,
-  },
-];
 
 // ── Toast ──────────────────────────────────────────────────────────
 
@@ -63,8 +37,40 @@ function Toast({ message, type, onClose }: { message: string; type: "success" | 
 
 // ── Page ────────────────────────────────────────────────────────────
 
+type ApiP = {
+  id: string;
+  temple: string;
+  location: string;
+  plan: string;
+  amountCents: number;
+  currency: string;
+  invoiceId: string | null;
+  invoiceRef: string | null;
+  paymentRef: string;
+  submitted: string;
+  note: string;
+  slipUrl: string;
+};
+
+function toUi(r: ApiP): PendingPayment {
+  return {
+    id: r.id,
+    temple: r.temple,
+    location: r.location,
+    plan: r.plan,
+    amount: formatUsdFromCents(r.amountCents),
+    invoiceId: r.invoiceRef,
+    paymentRef: r.paymentRef,
+    submitted: r.submitted,
+    note: r.note,
+    slipUrl: r.slipUrl,
+    slipUploaded: Boolean((r.slipUrl ?? "").trim()),
+  };
+}
+
 export default function ConfirmPaymentsPage() {
-  const [payments, setPayments] = useState(initialPayments);
+  const [payments, setPayments] = useState<PendingPayment[]>([]);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   const showToast = useCallback((msg: string, type: "success" | "error") => {
@@ -72,18 +78,67 @@ export default function ConfirmPaymentsPage() {
     setTimeout(() => setToast(null), 5000);
   }, []);
 
-  const handleConfirm = useCallback((payment: PendingPayment) => {
-    setPayments(prev => prev.filter(p => p.id !== payment.id));
-    showToast(`✅ Payment confirmed! Portal activated. Receipt auto-generated and emailed to ${payment.temple}`, "success");
-  }, [showToast]);
+  const load = useCallback(async () => {
+    setLoadErr(null);
+    const res = await fetch("/api/billing/payment-submissions/pending", { cache: "no-store" });
+    const d = (await res.json().catch(() => null)) as
+      | { success?: boolean; data?: { data: ApiP[] } }
+      | null;
+    if (!d || d.success !== true || !d.data) {
+      setLoadErr(jsonApiErrorMessage(d) || "Failed to load pending payments");
+      setPayments([]);
+      return;
+    }
+    setPayments((d.data.data ?? []).map(toUi));
+  }, []);
 
-  const handleReject = useCallback((payment: PendingPayment) => {
-    setPayments(prev => prev.filter(p => p.id !== payment.id));
-    showToast(`Marked as unresolved for ${payment.temple}`, "error");
-  }, [showToast]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const handleConfirm = useCallback(
+    async (payment: PendingPayment) => {
+      const res = await fetch(`/api/billing/payment-submissions/${encodeURIComponent(payment.id)}/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ verifiedBy: "Super Admin" }),
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok || (d && typeof d === "object" && "success" in d && d.success === false)) {
+        showToast(jsonApiErrorMessage(d) || "Confirm failed", "error");
+        return;
+      }
+      setPayments((prev) => prev.filter((p) => p.id !== payment.id));
+      showToast(`Payment confirmed! Receipt generated and emailed to ${payment.temple}.`, "success");
+    },
+    [showToast]
+  );
+
+  const handleReject = useCallback(
+    async (payment: PendingPayment) => {
+      const res = await fetch(`/api/billing/payment-submissions/${encodeURIComponent(payment.id)}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({}),
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok || (d && typeof d === "object" && "success" in d && d.success === false)) {
+        showToast(jsonApiErrorMessage(d) || "Reject failed", "error");
+        return;
+      }
+      setPayments((prev) => prev.filter((p) => p.id !== payment.id));
+      showToast(`Submission rejected for ${payment.temple}.`, "error");
+    },
+    [showToast]
+  );
 
   return (
     <div className="space-y-5">
+      {loadErr && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+          {loadErr}
+        </div>
+      )}
       {/* Header */}
       <div>
         <h1 className="text-display-xs font-bold tracking-tight text-text-primary">Confirm payment</h1>
@@ -111,7 +166,7 @@ export default function ConfirmPaymentsPage() {
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand-50 border border-brand-100 text-xl">🛕</div>
                 <div className="flex-1">
                   <h3 className="text-sm font-bold text-text-primary mb-0.5">{payment.temple}</h3>
-                  <p className="text-xs text-text-tertiary mb-3">{payment.location} · {payment.invoiceId} · {payment.plan} plan</p>
+                  <p className="text-xs text-text-tertiary mb-3">{payment.location} · {payment.invoiceId ?? "—"} · {payment.plan} plan</p>
 
                   {/* Detail Grid */}
                   <div className="grid grid-cols-4 gap-3 mb-3">
@@ -141,8 +196,8 @@ export default function ConfirmPaymentsPage() {
                   </div>
 
                   {/* Payment slip link */}
-                  {payment.slipUploaded ? (
-                    <Button variant="outline" size="sm" onClick={() => showToast("Opening payment slip PDF…", "success")}>📎 View payment slip</Button>
+                  {payment.slipUploaded && payment.slipUrl ? (
+                    <Button variant="outline" size="sm" onClick={() => window.open(payment.slipUrl, "_blank", "noopener,noreferrer")}>📎 View payment slip</Button>
                   ) : (
                     <p className="text-xs text-amber-600">⚠️ Temple did not upload a payment slip — verify bank statement directly</p>
                   )}
@@ -151,9 +206,9 @@ export default function ConfirmPaymentsPage() {
 
               {/* Right: Action Buttons */}
               <div className="flex flex-col gap-2 shrink-0">
-                <Button variant="primary" size="sm" onClick={() => handleConfirm(payment)}>✓ Confirm &amp; activate</Button>
+                <Button variant="primary" size="sm" onClick={() => void handleConfirm(payment)}>✓ Confirm &amp; activate</Button>
                 <Button variant="outline" size="sm" onClick={() => showToast("Requesting more info from temple…", "success")}>Ask for info</Button>
-                <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:border-red-400 hover:text-red-700" onClick={() => handleReject(payment)}>Reject</Button>
+                <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:border-red-400 hover:text-red-700" onClick={() => void handleReject(payment)}>Reject</Button>
               </div>
             </div>
           </div>

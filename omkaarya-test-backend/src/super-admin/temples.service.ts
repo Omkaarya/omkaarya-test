@@ -5,6 +5,7 @@ import {
   parseTemplesQuery,
   sortTemples,
 } from "./temples.query.js";
+import type { CreateInitialInvoiceResult } from "./billing.repository.js";
 import type { TempleRepository } from "./temples.repository.js";
 import type {
   CreateTemplePayload,
@@ -30,7 +31,9 @@ export class TemplesService {
     };
   }
 
-  async createTemple(payload: CreateTemplePayload): Promise<{ templeId: string; temporaryPassword?: string }> {
+  async createTemple(
+    payload: CreateTemplePayload
+  ): Promise<{ templeId: string; temporaryPassword?: string; invoice?: CreateInitialInvoiceResult }> {
     return this.repo.createTemple(payload);
   }
 

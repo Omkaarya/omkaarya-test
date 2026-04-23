@@ -144,6 +144,10 @@ export const templePaymentSubmissionFieldsSchema = z.object({
   currency: z.string().trim().pipe(z.string().min(3).max(8)),
   transferredDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date (expected YYYY-MM-DD)"),
   notes: z.string().optional(),
+  invoiceId: z
+    .union([z.string().uuid(), z.literal("")])
+    .optional()
+    .transform((s) => (s === "" || s === undefined ? undefined : s)),
 });
 
 export const templeOnboardingCompleteBodySchema = z

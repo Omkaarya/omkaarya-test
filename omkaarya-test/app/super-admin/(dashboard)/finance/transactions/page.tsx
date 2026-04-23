@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
+import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import { CheckCircle2, Download, X } from "lucide-react";
 
 import { Button } from "@/app/components/ds/atoms/Button";
@@ -18,7 +20,7 @@ type Transaction = {
   templeLocation: string;
   initials: string;
   invoiceId: string;
-  plan: "Aaradhana" | "Sankalpa" | "Praramba";
+  plan: string;
   amount: string;
   method: string;
   status: "paid" | "pending" | "overdue";
@@ -40,19 +42,6 @@ function planBadgeColor(p: string) {
   return "pink" as const;
 }
 
-// ── Mock Data ──────────────────────────────────────────────────────
-
-const mockTransactions: Transaction[] = [
-  { id: "TXN-001", date: "18 Apr", temple: "Shiva Temple", templeLocation: "London", initials: "ST", invoiceId: "INV-2026-0022", plan: "Aaradhana", amount: "$1,099.00", method: "Bank transfer", status: "paid" },
-  { id: "TXN-002", date: "28 Mar", temple: "Ganesh Temple", templeLocation: "Singapore", initials: "GT", invoiceId: "INV-2026-0021", plan: "Praramba", amount: "$299.00", method: "Bank transfer", status: "paid" },
-  { id: "TXN-003", date: "22 Mar", temple: "Sri Mariamman", templeLocation: "Copenhagen", initials: "SM", invoiceId: "INV-2026-0020", plan: "Sankalpa", amount: "$699.00", method: "Bank transfer", status: "paid" },
-  { id: "TXN-004", date: "14 Mar", temple: "Balaji Tirupati", templeLocation: "Mississauga", initials: "BT", invoiceId: "INV-2026-0019", plan: "Praramba", amount: "$299.00", method: "Bank transfer", status: "paid" },
-  { id: "TXN-005", date: "4 Mar", temple: "Sri Murugan Kovil", templeLocation: "Zurich", initials: "MK", invoiceId: "INV-2026-0018", plan: "Sankalpa", amount: "$699.00", method: "Bank transfer", status: "paid" },
-  { id: "TXN-006", date: "21 Apr", temple: "Lakshmi Mandir", templeLocation: "Toronto", initials: "LM", invoiceId: "INV-2026-0025", plan: "Aaradhana", amount: "$1,099.00", method: "Bank transfer", status: "pending" },
-  { id: "TXN-007", date: "18 Apr", temple: "Sri Murugan Kovil", templeLocation: "Zurich", initials: "MK", invoiceId: "INV-2026-0024", plan: "Sankalpa", amount: "$699.00", method: "Bank transfer", status: "pending" },
-  { id: "TXN-008", date: "10 Apr", temple: "Venkateswara", templeLocation: "Oslo", initials: "VT", invoiceId: "INV-2026-0023", plan: "Praramba", amount: "$299.00", method: "Bank transfer", status: "overdue" },
-];
-
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-[200] flex items-center gap-3 rounded-xl border border-success-500/20 bg-status-success-bg text-status-success-text px-5 py-4 shadow-xl">
@@ -62,28 +51,82 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   );
 }
 
+type ApiTx = {
+  id: string;
+  date: string;
+  temple: string;
+  templeLocation: string;
+  templeInitials: string;
+  invoiceId: string;
+  invoiceRef: string;
+  plan: string;
+  amountCents: number;
+  currency: string;
+  method: string;
+  status: "paid" | "pending" | "overdue";
+};
+
+function mapTx(r: ApiTx): Transaction {
+  return {
+    id: r.id,
+    date: r.date,
+    temple: r.temple,
+    templeLocation: r.templeLocation,
+    initials: r.templeInitials,
+    invoiceId: r.invoiceRef,
+    plan: r.plan,
+    amount: formatUsdFromCents(r.amountCents),
+    method: r.method,
+    status: r.status,
+  };
+}
+
 export default function TransactionsPage() {
   const [search, setSearch] = useState("");
+  const [searchDebounced, setSearchDebounced] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [planFilter, setPlanFilter] = useState("all");
   const [periodFilter, setPeriodFilter] = useState("this-month");
   const [page, setPage] = useState(1);
   const [toast, setToast] = useState<string | null>(null);
+  const [rows, setRows] = useState<Transaction[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
   const pageSize = 10;
 
   const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 4000); }, []);
 
-  const filtered = useMemo(() => {
-    let list = mockTransactions;
-    const q = search.trim().toLowerCase();
-    if (q) list = list.filter(t => t.temple.toLowerCase().includes(q) || t.invoiceId.toLowerCase().includes(q));
-    if (statusFilter !== "all") list = list.filter(t => t.status === statusFilter);
-    if (planFilter !== "all") list = list.filter(t => t.plan === planFilter);
-    return list;
-  }, [search, statusFilter, planFilter]);
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounced(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const load = useCallback(async () => {
+    const p = new URLSearchParams();
+    p.set("page", String(page));
+    p.set("pageSize", String(pageSize));
+    if (statusFilter !== "all") p.set("status", statusFilter);
+    if (planFilter !== "all") p.set("plan", planFilter);
+    if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
+    void periodFilter; // not wired to API yet
+    const res = await fetch(`/api/billing/transactions?${p.toString()}`, { cache: "no-store" });
+    const d = (await res.json().catch(() => null)) as
+      | { success?: boolean; data?: { data: ApiTx[]; totalPages: number } }
+      | null;
+    if (!d || d.success !== true || !d.data) {
+      setRows([]);
+      setTotalPages(1);
+      showToast(jsonApiErrorMessage(d) || "Failed to load transactions");
+      return;
+    }
+    setRows((d.data.data ?? []).map(mapTx));
+    setTotalPages(Math.max(1, d.data.totalPages));
+  }, [page, pageSize, statusFilter, planFilter, searchDebounced, showToast, periodFilter]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const pageRows = rows;
 
   const columns = useMemo<ColumnDef<Transaction>[]>(() => [
     { key: "date", header: "Date", cell: (r) => <span className="text-xs text-text-tertiary">{r.date}</span> },
@@ -99,7 +142,7 @@ export default function TransactionsPage() {
         </div>
       ),
     },
-    { key: "invoiceId", header: "Invoice", cell: (r) => <span className="text-xs font-mono text-text-tertiary">{r.invoiceId}</span> },
+    { key: "invoiceId", header: "Invoice", cell: (r) => <span className="text-xs font-mono text-text-tertiary" title={r.id}>{r.invoiceId}</span> },
     { key: "plan", header: "Plan", cell: (r) => <Badge color={planBadgeColor(r.plan)} size="sm" dot>{r.plan}</Badge> },
     { key: "amount", header: "Amount", cell: (r) => <span className="text-sm font-bold text-green-600">{r.amount}</span> },
     { key: "method", header: "Method", cell: (r) => <Badge color="indigo" size="sm">🏦 {r.method}</Badge> },
@@ -165,7 +208,7 @@ export default function TransactionsPage() {
           <option value="all">All plans</option>
           <option value="Aaradhana">Aaradhana</option>
           <option value="Sankalpa">Sankalpa</option>
-          <option value="Praramba">Praramba</option>
+          <option value="Prarambha">Prarambha</option>
         </select>
         <select value={periodFilter} onChange={e => setPeriodFilter(e.target.value)} className="rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text-secondary outline-none focus:border-brand transition-colors cursor-pointer">
           <option value="this-month">This month</option>

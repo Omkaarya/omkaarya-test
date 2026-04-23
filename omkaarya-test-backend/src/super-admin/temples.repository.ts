@@ -13,6 +13,7 @@ import type {
   UpdateTemplePayload,
 } from "./types.js";
 import { sqlTempleMatchesSessionEmail } from "./temple-admin-match.js";
+import { createInitialInvoiceForNewTemple, type CreateInitialInvoiceResult } from "./billing.repository.js";
 
 const ADMIN_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -35,7 +36,9 @@ function generateTemporaryPassword(): string {
 
 export interface TempleRepository {
   listAll(): Promise<TempleRecord[]>;
-  createTemple(payload: CreateTemplePayload): Promise<{ templeId: string; temporaryPassword?: string }>;
+  createTemple(
+    payload: CreateTemplePayload
+  ): Promise<{ templeId: string; temporaryPassword?: string; invoice?: CreateInitialInvoiceResult }>;
   getTempleForEdit(tenantId: string): Promise<SuperAdminTempleDetailResponse | null>;
   updateTemple(tenantId: string, payload: UpdateTemplePayload): Promise<{ ok: true } | { ok: false; reason: "not_found" }>;
 }
@@ -308,7 +311,9 @@ export class PostgresTempleRepository implements TempleRepository {
     return { ok: true };
   }
 
-  async createTemple(payload: CreateTemplePayload): Promise<{ templeId: string; temporaryPassword?: string }> {
+  async createTemple(
+    payload: CreateTemplePayload
+  ): Promise<{ templeId: string; temporaryPassword?: string; invoice?: CreateInitialInvoiceResult }> {
     const pool = getPool();
     if (!pool) {
       throw new Error("Database pool is not available");
@@ -356,6 +361,7 @@ export class PostgresTempleRepository implements TempleRepository {
       const billingCycle = payload.planBilling.billingCycle.trim() || null;
 
       let temporaryPassword: string | undefined;
+      let invoice: CreateInitialInvoiceResult | undefined;
       await client.query("BEGIN");
       try {
         let adminUserId: number | null = null;
@@ -461,13 +467,26 @@ export class PostgresTempleRepository implements TempleRepository {
           ]);
         }
 
+        try {
+          invoice = await createInitialInvoiceForNewTemple(client, {
+            tenantId: row.tenantId,
+            planName: row.plan,
+            templeName: row.name,
+            billingCycleRaw: billingCycle ?? "Annually",
+            trial,
+          });
+        } catch (be) {
+          console.error("[createTemple] billing invoice failed, rolling back temple transaction", be);
+          throw be;
+        }
+
         await client.query("COMMIT");
       } catch (e) {
         await client.query("ROLLBACK");
         throw e;
       }
 
-      return { templeId: row.tenantId, temporaryPassword };
+      return { templeId: row.tenantId, temporaryPassword, invoice };
     } finally {
       client.release();
     }

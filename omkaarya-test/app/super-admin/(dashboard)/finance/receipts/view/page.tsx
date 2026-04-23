@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
+import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import { ArrowLeft, CheckCircle2, Download, Mail, X } from "lucide-react";
 import Link from "next/link";
 
@@ -28,29 +31,70 @@ function DetailRow({ label, value, bold, mono, color }: { label: string; value: 
   );
 }
 
+type ReceiptD = {
+  num: string;
+  invoiceRef: string;
+  temple: string;
+  templeLine: string;
+  portal: string;
+  email: string;
+  plan: string;
+  amountCents: number;
+  currency: string;
+  paymentRef: string;
+  method: string;
+  periodFrom: string;
+  periodTo: string;
+  nextRenewal: string;
+  description: string;
+  paymentDate: string;
+  generatedAt: string;
+};
+
 export default function ReceiptViewPage() {
   const [toast, setToast] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<ReceiptD | null>(null);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
   const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 4000); }, []);
+  const searchParams = useSearchParams();
+  const id = searchParams.get("id")?.trim() ?? "";
 
-  // Mock receipt data (matches HTML reference)
-  const receipt = {
-    num: "RCPT-2026-0018",
-    invoiceRef: "INV-2026-0022",
-    temple: "Shiva Temple — London",
-    portal: "shiva-london.omkaarya.com",
-    email: "admin@shivatemple.com",
-    plan: "Aaradhana (Yearly)",
-    amount: "USD 1,099.00",
-    amountFormatted: "$1,099.00",
-    paymentDate: "18 Apr 2026",
-    paymentRef: "SHIVA-TEMPLE-INV-0022",
-    method: "Bank transfer",
-    periodFrom: "21 Apr 2026",
-    periodTo: "20 Apr 2027",
-    nextRenewal: "20 Apr 2027",
-    description: "Aaradhana Plan — Annual subscription",
-    generatedAt: "18 Apr 2026 at 14:32 UTC",
-  };
+  useEffect(() => {
+    if (!id) {
+      setLoadErr("Missing receipt id");
+      return;
+    }
+    let cancel = false;
+    (async () => {
+      setLoadErr(null);
+      const res = await fetch(`/api/billing/receipts/${encodeURIComponent(id)}`, { cache: "no-store" });
+      const d = (await res.json().catch(() => null)) as
+        | { success?: boolean; data?: Record<string, unknown> }
+        | null;
+      if (cancel) return;
+      if (!d || d.success !== true || !d.data) {
+        setLoadErr(jsonApiErrorMessage(d) || "Failed to load receipt");
+        return;
+      }
+      setReceipt(d.data as unknown as ReceiptD);
+    })();
+    return () => { cancel = true; };
+  }, [id]);
+
+  if (loadErr && !receipt) {
+    return (
+      <div className="p-6 text-sm text-text-tertiary">
+        {loadErr}
+        <Link href="/super-admin/finance/receipts" className="ml-2 text-brand">Back</Link>
+      </div>
+    );
+  }
+  if (!receipt) {
+    return <div className="p-6 text-sm text-text-tertiary">Loading…</div>;
+  }
+
+  const amountFormatted = formatUsdFromCents(receipt.amountCents);
+  const amount = `${receipt.currency} ${(receipt.amountCents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <div className="space-y-5">
@@ -67,7 +111,7 @@ export default function ReceiptViewPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-display-xs font-bold tracking-tight text-text-primary">Payment receipt</h1>
-          <p className="mt-1 text-sm text-text-tertiary">{receipt.temple} · {receipt.invoiceRef} · Paid {receipt.paymentDate}</p>
+          <p className="mt-1 text-sm text-text-tertiary">{receipt.templeLine} · {receipt.invoiceRef} · Paid {receipt.paymentDate}</p>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/super-admin/finance/receipts">
@@ -95,7 +139,7 @@ export default function ReceiptViewPage() {
           {/* Amount Box */}
           <div className="bg-green-600 rounded-xl p-5 text-center mb-5">
             <p className="text-[11px] text-white/80 mb-1.5">Total amount received</p>
-            <p className="text-[28px] font-extrabold text-white leading-tight">{receipt.amount}</p>
+            <p className="text-[28px] font-extrabold text-white leading-tight">{amount}</p>
             <p className="text-[11px] text-white/80 mt-1">{receipt.description} · {receipt.paymentDate}</p>
           </div>
 
@@ -110,7 +154,7 @@ export default function ReceiptViewPage() {
             {/* Temple details */}
             <div className="bg-subtle rounded-lg p-3.5">
               <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider mb-2">Temple details</p>
-              <DetailRow label="Temple" value={receipt.temple} />
+              <DetailRow label="Temple" value={receipt.templeLine} />
               <DetailRow label="Portal" value={receipt.portal} />
               <DetailRow label="Admin email" value={receipt.email} />
             </div>
@@ -136,9 +180,9 @@ export default function ReceiptViewPage() {
             {/* Amount breakdown */}
             <div className="bg-subtle rounded-lg p-3.5">
               <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider mb-2">Amount breakdown</p>
-              <DetailRow label="Subscription fee" value={receipt.amountFormatted} />
+              <DetailRow label="Subscription fee" value={amountFormatted} />
               <DetailRow label="Tax" value="$0.00" />
-              <DetailRow label="Total paid" value={receipt.amountFormatted} bold color="text-green-600" />
+              <DetailRow label="Total paid" value={amountFormatted} bold color="text-green-600" />
             </div>
           </div>
 

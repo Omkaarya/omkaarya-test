@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
+import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import {
   Bell,
   Calendar,
@@ -33,13 +35,15 @@ type Invoice = {
   templeLocation: string;
   templeAddress: string;
   adminEmail: string;
-  plan: "Aaradhana" | "Sankalpa" | "Praramba";
+  plan: string;
   period: string;
   amount: string;
   issuedDate: string;
   dueDate: string;
   status: InvoiceStatus;
   cardLast4: string;
+  amountCents: number;
+  currency: string;
 };
 
 function statusColor(s: InvoiceStatus) {
@@ -67,7 +71,9 @@ function planBadgeColor(p: string) {
 }
 
 function formatDate(d: string) {
+  if (!d || d === "—") return "—";
   const dt = new Date(d);
+  if (Number.isNaN(dt.getTime())) return d;
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   return `${dt.getDate()} ${months[dt.getMonth()]} ${dt.getFullYear()}`;
 }
@@ -212,18 +218,42 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   );
 }
 
-// ── Mock Data ──────────────────────────────────────────────────────
+type ApiRow = {
+  id: string;
+  num: string;
+  temple: string;
+  templeLocation: string;
+  templeAddress: string;
+  adminEmail: string;
+  plan: string;
+  period: string;
+  amountCents: number;
+  issuedDate: string;
+  dueDate: string | null;
+  status: InvoiceStatus;
+  currency: string;
+  isTrialProforma: boolean;
+};
 
-const mockInvoices: Invoice[] = [
-  { id: "1", num: "INV-2026-0025", temple: "Lakshmi Mandir", templeLocation: "Toronto", templeAddress: "Toronto, CA", adminEmail: "admin@lakshmitoronto.ca", plan: "Aaradhana", period: "Yearly", amount: "$1,099.00", issuedDate: "2026-04-21", dueDate: "2026-05-05", status: "pending", cardLast4: "—" },
-  { id: "2", num: "INV-2026-0024", temple: "Sri Murugan Kovil", templeLocation: "Zurich", templeAddress: "Zurich, CH", adminEmail: "admin@murugan.ch", plan: "Sankalpa", period: "Yearly", amount: "$699.00", issuedDate: "2026-04-18", dueDate: "2026-05-02", status: "pending", cardLast4: "—" },
-  { id: "3", num: "INV-2026-0023", temple: "Venkateswara Temple", templeLocation: "Oslo", templeAddress: "Oslo, NO", adminEmail: "info@venkatno.org", plan: "Praramba", period: "Yearly", amount: "$299.00", issuedDate: "2026-04-10", dueDate: "2026-04-24", status: "overdue", cardLast4: "—" },
-  { id: "4", num: "INV-2026-0022", temple: "Shiva Temple", templeLocation: "London", templeAddress: "London, UK", adminEmail: "admin@shivatemple.com", plan: "Aaradhana", period: "Yearly", amount: "$1,099.00", issuedDate: "2026-04-01", dueDate: "2026-04-15", status: "paid", cardLast4: "5765" },
-  { id: "5", num: "INV-2026-0021", temple: "Ganesh Temple", templeLocation: "Singapore", templeAddress: "Singapore", adminEmail: "info@ganeshsg.com", plan: "Praramba", period: "Yearly", amount: "$299.00", issuedDate: "2026-03-15", dueDate: "2026-03-29", status: "paid", cardLast4: "—" },
-  { id: "6", num: "INV-2026-0020", temple: "Sri Mariamman", templeLocation: "Copenhagen", templeAddress: "Copenhagen, DK", adminEmail: "admin@mariammandk.org", plan: "Sankalpa", period: "Yearly", amount: "$699.00", issuedDate: "2026-03-10", dueDate: "2026-03-24", status: "paid", cardLast4: "—" },
-  { id: "7", num: "INV-2026-0019", temple: "Balaji Tirupati Mandir", templeLocation: "Mississauga", templeAddress: "Mississauga, CA", adminEmail: "info@balajimississauga.ca", plan: "Praramba", period: "Yearly", amount: "$299.00", issuedDate: "2026-03-01", dueDate: "2026-03-15", status: "paid", cardLast4: "—" },
-  { id: "8", num: "INV-2026-0018", temple: "Durga Devi Temple", templeLocation: "Amsterdam", templeAddress: "Amsterdam, NL", adminEmail: "info@durgaamsterdam.nl", plan: "Sankalpa", period: "Yearly", amount: "$699.00", issuedDate: "2026-02-20", dueDate: "2026-03-06", status: "draft", cardLast4: "—" },
-];
+function mapApiRow(r: ApiRow): Invoice {
+  return {
+    id: r.id,
+    num: r.num,
+    temple: r.temple,
+    templeLocation: r.templeLocation,
+    templeAddress: r.templeAddress,
+    adminEmail: r.adminEmail,
+    plan: r.plan,
+    period: r.period,
+    amount: formatUsdFromCents(r.amountCents),
+    issuedDate: r.issuedDate,
+    dueDate: r.dueDate ?? "—",
+    status: r.status,
+    cardLast4: "—",
+    amountCents: r.amountCents,
+    currency: r.currency,
+  };
+}
 
 // ── Page ────────────────────────────────────────────────────────────
 
@@ -233,28 +263,105 @@ export default function InvoicesPage() {
   const [page, setPage] = useState(1);
   const [viewInvoice, setViewInvoice] = useState<Invoice | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [rows, setRows] = useState<Invoice[]>([]);
+  const [listTotal, setListTotal] = useState(0);
+  const [listTotalPages, setListTotalPages] = useState(1);
+  const [kpi, setKpi] = useState({ all: 0, paid: 0, pending: 0, overdue: 0, draft: 0, loading: true, error: "" });
+  const [searchDebounced, setSearchDebounced] = useState("");
   const pageSize = 10;
+
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounced(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 4000); }, []);
 
-  const counts = useMemo(() => ({
-    all: mockInvoices.length,
-    paid: mockInvoices.filter(i => i.status === "paid").length,
-    pending: mockInvoices.filter(i => i.status === "pending").length,
-    overdue: mockInvoices.filter(i => i.status === "overdue").length,
-    draft: mockInvoices.filter(i => i.status === "draft").length,
-  }), []);
+  const statusForApi = (tab: string) => {
+    if (tab === "all") return "all";
+    if (tab === "pending") return "awaiting";
+    return tab;
+  };
 
-  const filtered = useMemo(() => {
-    let list = mockInvoices;
-    const q = search.trim().toLowerCase();
-    if (q) list = list.filter(i => i.temple.toLowerCase().includes(q) || i.num.toLowerCase().includes(q));
-    if (filter !== "all") list = list.filter(i => i.status === filter);
-    return list;
-  }, [search, filter]);
+  const loadKpi = useCallback(async () => {
+    setKpi((k) => ({ ...k, loading: true, error: "" }));
+    const paths = [
+      { key: "all" as const, s: "all" },
+      { key: "paid" as const, s: "paid" },
+      { key: "pending" as const, s: "awaiting" },
+      { key: "overdue" as const, s: "overdue" },
+      { key: "draft" as const, s: "draft" },
+    ];
+    try {
+      const out: Record<string, number> = { all: 0, paid: 0, pending: 0, overdue: 0, draft: 0 };
+      for (const { key, s } of paths) {
+        const p = new URLSearchParams();
+        p.set("status", s);
+        p.set("page", "1");
+        p.set("pageSize", "1");
+        const res = await fetch(`/api/billing/invoices?${p.toString()}`, { cache: "no-store" });
+        const d = (await res.json().catch(() => null)) as
+          | { success?: boolean; data?: { total?: number } }
+          | null;
+        if (d && typeof d === "object" && "success" in d && d.success && d.data && typeof d.data.total === "number") {
+          out[key] = d.data.total;
+        }
+      }
+      setKpi({
+        all: out.all ?? 0,
+        paid: out.paid ?? 0,
+        pending: out.pending ?? 0,
+        overdue: out.overdue ?? 0,
+        draft: out.draft ?? 0,
+        loading: false,
+        error: "",
+      });
+    } catch (e) {
+      const err = e instanceof Error ? e.message : "Load failed";
+      setKpi((k) => ({ ...k, loading: false, error: err }));
+    }
+  }, []);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const loadList = useCallback(async () => {
+    const p = new URLSearchParams();
+    p.set("status", statusForApi(filter));
+    p.set("page", String(page));
+    p.set("pageSize", String(pageSize));
+    if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
+    const res = await fetch(`/api/billing/invoices?${p.toString()}`, { cache: "no-store" });
+    const d = (await res.json().catch(() => null)) as
+      | { success?: boolean; data?: { data: ApiRow[]; total: number; totalPages: number } }
+      | null;
+    if (!d || d.success !== true || !d.data) {
+      setRows([]);
+      setListTotal(0);
+      setListTotalPages(1);
+      showToast(jsonApiErrorMessage(d) || "Failed to load invoices");
+      return;
+    }
+    setRows((d.data.data ?? []).map(mapApiRow));
+    setListTotal(d.data.total);
+    setListTotalPages(Math.max(1, d.data.totalPages));
+  }, [filter, page, pageSize, searchDebounced, showToast]);
+
+  useEffect(() => {
+    void loadKpi();
+  }, [loadKpi]);
+
+  useEffect(() => {
+    void loadList();
+  }, [loadList]);
+
+  const counts = {
+    all: kpi.all,
+    paid: kpi.paid,
+    pending: kpi.pending,
+    overdue: kpi.overdue,
+    draft: kpi.draft,
+  };
+
+  const pageRows = rows;
+  const totalPages = listTotalPages;
 
   const columns = useMemo<ColumnDef<Invoice>[]>(() => [
     { key: "num", header: "Invoice no.", cell: (r) => <span className="text-xs font-mono text-text-tertiary">{r.num}</span> },
@@ -315,23 +422,23 @@ export default function InvoicesPage() {
       <div className="grid grid-cols-4 gap-3">
         <div className="bg-surface rounded-xl border border-border p-4">
           <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Paid invoices</p>
-          <p className="text-2xl font-bold text-green-600">{counts.paid}</p>
-          <p className="text-[10px] text-text-tertiary mt-1">$15,840 collected</p>
+          <p className="text-2xl font-bold text-green-600">{kpi.loading ? "…" : counts.paid}</p>
+          <p className="text-[10px] text-text-tertiary mt-1">all time (total count)</p>
         </div>
         <div className="bg-surface rounded-xl border border-border p-4">
           <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Awaiting payment</p>
-          <p className="text-2xl font-bold text-amber-600">{counts.pending}</p>
-          <p className="text-[10px] text-text-tertiary mt-1">$3,297 outstanding</p>
+          <p className="text-2xl font-bold text-amber-600">{kpi.loading ? "…" : counts.pending}</p>
+          <p className="text-[10px] text-text-tertiary mt-1">pending in system</p>
         </div>
         <div className="bg-surface rounded-xl border border-border p-4">
           <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Overdue (&gt;14 days)</p>
-          <p className="text-2xl font-bold text-red-600">{counts.overdue}</p>
-          <p className="text-[10px] text-text-tertiary mt-1">$1,099 — 18 days late</p>
+          <p className="text-2xl font-bold text-red-600">{kpi.loading ? "…" : counts.overdue}</p>
+          <p className="text-[10px] text-text-tertiary mt-1">past due date</p>
         </div>
         <div className="bg-surface rounded-xl border border-border p-4">
           <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Draft invoices</p>
-          <p className="text-xl font-bold text-text-primary">{counts.draft}</p>
-          <p className="text-[10px] text-text-tertiary mt-1">not yet sent</p>
+          <p className="text-xl font-bold text-text-primary">{kpi.loading ? "…" : counts.draft}</p>
+          <p className="text-[10px] text-text-tertiary mt-1">pro-forma or draft</p>
         </div>
       </div>
 

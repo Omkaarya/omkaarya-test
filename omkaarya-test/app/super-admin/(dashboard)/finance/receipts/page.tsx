@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
+import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import { CheckCircle2, Download, Eye, MoreVertical, Send, X } from "lucide-react";
 import Link from "next/link";
 
@@ -18,7 +20,7 @@ type ReceiptRow = {
   temple: string;
   templeLocation: string;
   invoiceRef: string;
-  plan: "Aaradhana" | "Sankalpa" | "Praramba";
+  plan: string;
   amount: string;
   paymentDate: string;
   method: string;
@@ -61,15 +63,31 @@ function ActionsDropdown({ actions }: { actions: { label: string; icon: React.Re
   );
 }
 
-// ── Mock Data ──────────────────────────────────────────────────────
+type ApiR = {
+  id: string;
+  num: string;
+  temple: string;
+  templeLocation: string;
+  invoiceRef: string;
+  plan: string;
+  amountCents: number;
+  paymentDate: string;
+  method: string;
+};
 
-const mockReceipts: ReceiptRow[] = [
-  { id: "1", num: "RCPT-2026-0018", temple: "Shiva Temple", templeLocation: "London", invoiceRef: "INV-2026-0022", plan: "Aaradhana", amount: "$1,099.00", paymentDate: "18 Apr 2026", method: "Bank transfer" },
-  { id: "2", num: "RCPT-2026-0017", temple: "Ganesh Temple", templeLocation: "Singapore", invoiceRef: "INV-2026-0021", plan: "Praramba", amount: "$299.00", paymentDate: "28 Mar 2026", method: "Bank transfer" },
-  { id: "3", num: "RCPT-2026-0016", temple: "Sri Mariamman", templeLocation: "Copenhagen", invoiceRef: "INV-2026-0020", plan: "Sankalpa", amount: "$699.00", paymentDate: "22 Mar 2026", method: "Bank transfer" },
-  { id: "4", num: "RCPT-2026-0015", temple: "Balaji Tirupati Mandir", templeLocation: "Mississauga", invoiceRef: "INV-2026-0019", plan: "Praramba", amount: "$299.00", paymentDate: "14 Mar 2026", method: "Bank transfer" },
-  { id: "5", num: "RCPT-2026-0014", temple: "Sri Murugan Kovil", templeLocation: "Zurich", invoiceRef: "INV-2026-0018", plan: "Sankalpa", amount: "$699.00", paymentDate: "4 Mar 2026", method: "Bank transfer" },
-];
+function mapR(r: ApiR): ReceiptRow {
+  return {
+    id: r.id,
+    num: r.num,
+    temple: r.temple,
+    templeLocation: r.templeLocation,
+    invoiceRef: r.invoiceRef,
+    plan: r.plan,
+    amount: formatUsdFromCents(r.amountCents),
+    paymentDate: r.paymentDate,
+    method: r.method,
+  };
+}
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
@@ -82,20 +100,44 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 
 export default function ReceiptsPage() {
   const [search, setSearch] = useState("");
+  const [searchDebounced, setSearchDebounced] = useState("");
   const [page, setPage] = useState(1);
   const [toast, setToast] = useState<string | null>(null);
+  const [rows, setRows] = useState<ReceiptRow[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
   const pageSize = 10;
 
   const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 4000); }, []);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return mockReceipts;
-    return mockReceipts.filter(r => r.temple.toLowerCase().includes(q) || r.num.toLowerCase().includes(q) || r.invoiceRef.toLowerCase().includes(q));
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounced(search), 400);
+    return () => clearTimeout(t);
   }, [search]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const load = useCallback(async () => {
+    const p = new URLSearchParams();
+    p.set("page", String(page));
+    p.set("pageSize", String(pageSize));
+    if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
+    const res = await fetch(`/api/billing/receipts?${p.toString()}`, { cache: "no-store" });
+    const d = (await res.json().catch(() => null)) as
+      | { success?: boolean; data?: { data: ApiR[]; totalPages: number } }
+      | null;
+    if (!d || d.success !== true || !d.data) {
+      setRows([]);
+      setTotalPages(1);
+      showToast(jsonApiErrorMessage(d) || "Failed to load receipts");
+      return;
+    }
+    setRows((d.data.data ?? []).map(mapR));
+    setTotalPages(Math.max(1, d.data.totalPages));
+  }, [page, pageSize, searchDebounced, showToast]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const pageRows = rows;
 
   const columns = useMemo<ColumnDef<ReceiptRow>[]>(() => [
     { key: "num", header: "Receipt no.", cell: (r) => <span className="text-xs font-mono text-text-tertiary">{r.num}</span> },
@@ -120,7 +162,7 @@ export default function ReceiptsPage() {
       key: "actions", header: "Actions", align: "right",
       cell: (r) => (
         <div className="flex items-center gap-1.5">
-          <Link href="/super-admin/finance/receipts/view"><Button variant="outline" size="sm">View</Button></Link>
+          <Link href={`/super-admin/finance/receipts/view?id=${encodeURIComponent(r.id)}`}><Button variant="outline" size="sm">View</Button></Link>
           <Button variant="outline" size="sm" onClick={() => showToast(`Downloading ${r.num}…`)}>PDF</Button>
           <Button variant="outline" size="sm" onClick={() => showToast(`Emailed to ${r.temple}!`)}>Email</Button>
         </div>
