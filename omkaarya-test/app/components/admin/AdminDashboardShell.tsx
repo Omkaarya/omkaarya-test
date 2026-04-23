@@ -185,7 +185,7 @@ export function AdminDashboardShell({
       >
         <div className="flex h-16 items-center border-b border-white px-6 dark:border-zinc-950">
           <Image 
-            src="/brand-logo/Omkaarya 1.svg" 
+            src="/brand-logo/Omkaarya 9.svg" 
             alt="Omkaarya" 
             width={120} 
             height={32} 

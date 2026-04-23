@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 
 export function Footer() {
   return (
@@ -10,8 +11,13 @@ export function Footer() {
           {/* Brand */}
           <div className="footer-brand">
             <div className="footer-logo">
-              <div className="footer-logo-icon"></div>
-              <span>Omkaarya</span>
+              <Image 
+                src="/brand-logo/Omkaarya 9.svg" 
+                alt="Omkaarya" 
+                width={140} 
+                height={32} 
+                className="h-8 w-auto dark:invert" 
+              />
             </div>
             <p className="footer-tagline">Complete management platform for Hindu temples worldwide.</p>
             <a href="#contact" className="footer-contact-btn">Contact us ›</a>

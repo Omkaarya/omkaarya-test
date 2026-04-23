@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect } from "react";
 
 export function Navigation() {
@@ -24,15 +25,13 @@ export function Navigation() {
         <div className="nav-pill">
           {/* Logo */}
           <Link href="#" className="nav-logo">
-            <div className="nav-logo-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2L3 22h18L12 2z"/>
-                <line x1="12" y1="8" x2="12" y2="16"/>
-                <line x1="8" y1="22" x2="8" y2="16"/>
-                <line x1="16" y1="22" x2="16" y2="16"/>
-              </svg>
-            </div>
-            <span className="nav-logo-text">Omkaarya</span>
+            <Image 
+              src="/brand-logo/Omkaarya 9.svg" 
+              alt="Omkaarya" 
+              width={140} 
+              height={32} 
+              className="h-8 w-auto dark:invert" 
+            />
           </Link>
           {/* Divider */}
           <div className="nav-divider"></div>

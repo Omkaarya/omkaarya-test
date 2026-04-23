@@ -91,8 +91,8 @@ export function PricingTable() {
                 <span className="price-number">{getPrice(0)}</span>
                 <span className="price-period">/mo</span>
               </div>
-              <div className="saving-text" style={{visibility: isYearly ? 'visible' : 'hidden'}}>
-                Save {data.symbol}{savings[0].toLocaleString()}/yr
+              <div className="saving-text">
+                {isYearly ? `Save ${data.symbol}${savings[0].toLocaleString()}/yr` : ''}
               </div>
               <div className="setup-fee-row">
                 <span>One-time setup fee</span>
@@ -134,8 +134,8 @@ export function PricingTable() {
                 <span className="price-number">{getPrice(1)}</span>
                 <span className="price-period">/mo</span>
               </div>
-              <div className="saving-text" style={{visibility: isYearly ? 'visible' : 'hidden'}}>
-                Save {data.symbol}{savings[1].toLocaleString()}/yr
+              <div className="saving-text">
+                {isYearly ? `Save ${data.symbol}${savings[1].toLocaleString()}/yr` : ''}
               </div>
               <div className="setup-fee-row">
                 <span>One-time setup fee</span>
@@ -179,8 +179,8 @@ export function PricingTable() {
                 <span className="price-number aaradhana-price">{getPrice(2)}</span>
                 <span className="price-period">/mo</span>
               </div>
-              <div className="saving-text" style={{visibility: isYearly ? 'visible' : 'hidden'}}>
-                Save {data.symbol}{savings[2].toLocaleString()}/yr
+              <div className="saving-text">
+                {isYearly ? `Save ${data.symbol}${savings[2].toLocaleString()}/yr` : ''}
               </div>
               <div className="setup-fee-row">
                 <span>One-time setup fee</span>

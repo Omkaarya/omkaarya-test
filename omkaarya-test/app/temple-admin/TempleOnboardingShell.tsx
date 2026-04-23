@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Suspense, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import ForgotPasswordShellStepper from "@/app/components/temple-admin/ForgotPasswordShellStepper";
@@ -94,8 +95,13 @@ export default function TempleOnboardingShell({ children }: { children: React.Re
               isCompletePage ? "" : "self-start lg:self-center",
             ].join(" ")}
           >
-            <OmkaaryaMark />
-            <span className="text-lg font-bold tracking-wide text-[var(--text-primary)]">OMKAARYA</span>
+            <Image 
+              src="/brand-logo/Omkaarya 9.svg" 
+              alt="Omkaarya" 
+              width={140} 
+              height={32} 
+              className="h-8 w-auto dark:invert" 
+            />
           </Link>
 
           {!isCompletePage ? (
