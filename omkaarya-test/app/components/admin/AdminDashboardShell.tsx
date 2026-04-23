@@ -64,6 +64,7 @@ const userNav = [
 
 const systemSettingsNav = [
   { href: "/super-admin/system-settings/feature-registry", label: "Feature Registry", icon: Database },
+  { href: "/super-admin/cms", label: "Website CMS", icon: Globe },
 ] as const;
 
 // ── Collapsible Section ────────────────────────────────────────────
