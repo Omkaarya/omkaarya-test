@@ -11,6 +11,7 @@ As an AI Agent testing the application, strictly adhere to the following product
 2. **Role-Based Rendering:** Verify that `Super Admin`, `Temple Admin`, and `Staff` roles have appropriately restricted views (testing negative/denied access scenarios).
 3. **Form Integrity:** Always test edge cases in forms (e.g., invalid data types, extreme limits) before verifying the "happy path".
 4. **Execution Protocol:** Rely on the `browser_subagent` to simulate exact user interactions. Visual confirmations of toasts, loading spinners, and redirects are mandatory.
+5. **Theme & Design Token Validation:** Explicitly test Dark Mode and Light Mode toggles. Ensure all background layers, cards, and text use semantic design tokens (e.g., `var(--background)`, `var(--surface)`, `bg-surface`) rather than hardcoded colors (like `bg-white` or `#ffffff`). This prevents glaring unreadable sections when switching themes.
 
 ---
 

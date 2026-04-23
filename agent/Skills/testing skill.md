@@ -319,4 +319,6 @@ e2e/auth/login.spec.ts
 - [ ] 80%+ coverage — confirmed by CI report
 - [ ] Integration tests cover all new API endpoints
 - [ ] E2E tests updated if a critical user flow changed
+- [ ] Theme validation passes: Dark mode/Light mode toggles render using semantic design tokens (no glaring white backgrounds in dark mode)
+- [ ] UI Component checks: Rounded corners (`border-radius`) properly clip inner content (`overflow: hidden`) per Figma specs
 - [ ] All tests passing in CI before PR merge
