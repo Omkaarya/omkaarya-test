@@ -1,20 +1,15 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { ArrowLeft, CheckCircle2, Eye, Send, X } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/app/components/ds/atoms/Button";
+import { jsonApiErrorMessage } from "@/lib/api-envelope";
 
 // ── Temple Data ──────────────────────────────────────────────────
 
-const TEMPLE_OPTIONS = [
-  { id: "shiva", name: "Shiva Temple — London", portal: "shiva-london.omkaarya.com", email: "admin@shivatemple.com" },
-  { id: "murugan", name: "Sri Murugan Kovil — Zurich", portal: "murugan-zurich.omkaarya.com", email: "admin@murugan.ch" },
-  { id: "lakshmi", name: "Lakshmi Mandir — Toronto", portal: "lakshmi-toronto.omkaarya.com", email: "admin@lakshmitoronto.ca" },
-  { id: "ganesh", name: "Ganesh Temple — Singapore", portal: "ganesh-sg.omkaarya.com", email: "info@ganeshsg.com" },
-  { id: "durga", name: "Durga Devi Temple — Amsterdam", portal: "durga-amsterdam.omkaarya.com", email: "info@durgaamsterdam.nl" },
-];
+type TempleOption = { tenantId: string; name: string; portalUrl: string; adminEmail: string };
 
 // ── Toast ──────────────────────────────────────────────────────────
 
@@ -45,6 +40,8 @@ const readonlyClass = "w-full rounded-lg border border-border bg-subtle px-3 py-
 
 export default function GenerateInvoicePage() {
   const [templeId, setTempleId] = useState("");
+  const [temples, setTemples] = useState<TempleOption[]>([]);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
   const [invoiceNum] = useState("INV-2026-0025");
   const [invoiceDate, setInvoiceDate] = useState("2026-04-21");
   const [dueDate, setDueDate] = useState("2026-05-05");
@@ -62,8 +59,25 @@ export default function GenerateInvoicePage() {
 
   const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 4000); }, []);
 
-  const selectedTemple = TEMPLE_OPTIONS.find(t => t.id === templeId);
-  const paymentRef = templeId ? `${templeId.toUpperCase()}-INV-0025` : "—";
+  const selectedTemple = temples.find(t => t.tenantId === templeId);
+  const paymentRef = templeId ? `${templeId}-INV` : "—";
+
+  // Load temple options once
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      setLoadErr(null);
+      const res = await fetch("/api/billing/temples/options", { cache: "no-store" });
+      const d = (await res.json().catch(() => null)) as { success?: boolean; data?: { data?: TempleOption[] } } | null;
+      if (cancel) return;
+      if (!d || d.success !== true || !d.data) {
+        setLoadErr(jsonApiErrorMessage(d) || "Failed to load temples");
+        return;
+      }
+      setTemples(d.data.data ?? []);
+    })();
+    return () => { cancel = true; };
+  }, []);
 
   const formatInvDate = (d: string) => {
     if (!d) return "—";
@@ -96,6 +110,11 @@ export default function GenerateInvoicePage() {
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-5">
         {/* LEFT: Form */}
         <div className="space-y-4">
+          {loadErr && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+              {loadErr}
+            </div>
+          )}
           {/* Invoice Details */}
           <div className="bg-surface rounded-xl border border-border p-5">
             <h3 className="text-sm font-bold text-text-primary mb-4 pb-3 border-b border-border">Invoice details</h3>
@@ -103,7 +122,7 @@ export default function GenerateInvoicePage() {
               <Field label="Temple *">
                 <select value={templeId} onChange={e => setTempleId(e.target.value)} className={inputClass + " cursor-pointer"}>
                   <option value="">Select temple...</option>
-                  {TEMPLE_OPTIONS.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  {temples.map(t => <option key={t.tenantId} value={t.tenantId}>{t.name}</option>)}
                 </select>
               </Field>
               <Field label="Invoice number (auto)">
@@ -176,9 +195,60 @@ export default function GenerateInvoicePage() {
             {/* Footer Buttons */}
             <div className="flex gap-2 justify-end pt-4 mt-4 border-t border-border">
               <Link href="/super-admin/finance/invoices"><Button variant="outline">Cancel</Button></Link>
-              <Button variant="outline" onClick={() => showToast("Saved as draft")}>Save as draft</Button>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  const res = await fetch("/api/billing/invoices/generate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Accept: "application/json" },
+                    body: JSON.stringify({
+                      tenantId: templeId,
+                      planName: description.includes("Sankalpa") ? "Sankalpa" : description.includes("Prarambha") ? "Prarambha" : "Aaradhana",
+                      billingCycleRaw: "Annually",
+                      issueDate: invoiceDate,
+                      dueDate,
+                      description,
+                      sendEmail: false,
+                    }),
+                  });
+                  const d = await res.json().catch(() => null);
+                  if (!res.ok || (d && typeof d === "object" && "success" in d && (d as { success?: boolean }).success === false)) {
+                    showToast(jsonApiErrorMessage(d) || "Failed to save draft");
+                    return;
+                  }
+                  showToast("Saved as draft (created invoice row)");
+                }}
+              >
+                Save as draft
+              </Button>
               <Button variant="outline" leadingIcon={<Eye className="h-4 w-4" />} onClick={() => showToast("Opening PDF preview…")}>Preview PDF</Button>
-              <Button variant="primary" leadingIcon={<Send className="h-4 w-4" />} onClick={() => showToast("Invoice sent to temple! Email delivered.")}>Send to temple</Button>
+              <Button
+                variant="primary"
+                leadingIcon={<Send className="h-4 w-4" />}
+                onClick={async () => {
+                  const res = await fetch("/api/billing/invoices/generate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Accept: "application/json" },
+                    body: JSON.stringify({
+                      tenantId: templeId,
+                      planName: description.includes("Sankalpa") ? "Sankalpa" : description.includes("Prarambha") ? "Prarambha" : "Aaradhana",
+                      billingCycleRaw: "Annually",
+                      issueDate: invoiceDate,
+                      dueDate,
+                      description,
+                      sendEmail: true,
+                    }),
+                  });
+                  const d = await res.json().catch(() => null);
+                  if (!res.ok || (d && typeof d === "object" && "success" in d && (d as { success?: boolean }).success === false)) {
+                    showToast(jsonApiErrorMessage(d) || "Failed to send invoice");
+                    return;
+                  }
+                  showToast("Invoice generated and emailed to temple!");
+                }}
+              >
+                Send to temple
+              </Button>
             </div>
           </div>
         </div>
@@ -215,7 +285,7 @@ export default function GenerateInvoicePage() {
               <div>
                 <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider mb-1.5">Bill to</p>
                 <p className="text-sm font-bold text-text-primary">{selectedTemple?.name || "Select a temple above"}</p>
-                <p className="text-[11px] text-text-tertiary leading-relaxed">{selectedTemple ? `${selectedTemple.portal}\n${selectedTemple.email}` : "temple portal · admin email"}</p>
+                <p className="text-[11px] text-text-tertiary leading-relaxed">{selectedTemple ? `${selectedTemple.portalUrl}\n${selectedTemple.adminEmail}` : "temple portal · admin email"}</p>
               </div>
             </div>
 

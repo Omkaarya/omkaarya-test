@@ -397,7 +397,38 @@ export default function InvoicesPage() {
           items.push(<DropdownItem key="send" icon={<Send className="h-4 w-4" />} label="Send" onClick={() => showToast("Invoice sent!")} />);
         }
         items.push(<DropdownItem key="view" icon={<Eye className="h-4 w-4" />} label="View" onClick={() => setViewInvoice(r)} />);
-        items.push(<DropdownItem key="pdf" icon={<Download className="h-4 w-4" />} label="PDF" onClick={() => showToast(`Downloading ${r.num}…`)} />);
+        items.push(
+          <DropdownItem
+            key="email"
+            icon={<Send className="h-4 w-4" />}
+            label="Email to temple"
+            onClick={async () => {
+              const res = await fetch(`/api/billing/invoices/${encodeURIComponent(r.id)}/email`, {
+                method: "POST",
+                headers: { Accept: "application/json" },
+              });
+              const d = await res.json().catch(() => null);
+              if (!res.ok || (d && typeof d === "object" && "success" in d && (d as { success?: boolean }).success === false)) {
+                showToast(jsonApiErrorMessage(d) || "Failed to email invoice");
+                return;
+              }
+              showToast(`Invoice emailed to ${r.temple}`);
+            }}
+          />
+        );
+        items.push(
+          <DropdownItem
+            key="export"
+            icon={<Download className="h-4 w-4" />}
+            label="Export CSV"
+            onClick={() => {
+              const p = new URLSearchParams();
+              if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
+              p.set("status", statusForApi(filter));
+              window.open(`/api/billing/invoices/export?${p.toString()}`, "_blank", "noopener,noreferrer");
+            }}
+          />
+        );
         return <ActionsDropdown>{items}</ActionsDropdown>;
       },
     },
@@ -411,7 +442,7 @@ export default function InvoicesPage() {
           <p className="mt-1 text-sm text-text-tertiary">Subscription invoices sent to temples — track payment status and generate receipts</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" leadingIcon={<Send className="h-4 w-4" />} onClick={() => showToast("Sending reminders…")}>Send reminders</Button>
+          <Button variant="outline" size="sm" leadingIcon={<Send className="h-4 w-4" />} onClick={() => showToast("Reminder flow not implemented yet")}>Send reminders</Button>
           <Link href="/super-admin/finance/invoices/generate">
             <Button variant="primary" size="sm" leadingIcon={<Plus className="h-4 w-4" />}>Generate invoice</Button>
           </Link>

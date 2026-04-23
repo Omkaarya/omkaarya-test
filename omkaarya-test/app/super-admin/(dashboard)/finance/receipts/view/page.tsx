@@ -117,8 +117,35 @@ export default function ReceiptViewPage() {
           <Link href="/super-admin/finance/receipts">
             <Button variant="outline" size="sm" leadingIcon={<ArrowLeft className="h-4 w-4" />}>Back</Button>
           </Link>
-          <Button variant="outline" size="sm" leadingIcon={<Download className="h-4 w-4" />} onClick={() => showToast("Downloading PDF…")}>Download PDF</Button>
-          <Button variant="primary" size="sm" leadingIcon={<Mail className="h-4 w-4" />} onClick={() => showToast("Receipt emailed to temple!")}>Email to temple</Button>
+          <Button
+            variant="outline"
+            size="sm"
+            leadingIcon={<Download className="h-4 w-4" />}
+            onClick={() => {
+              window.open(`/api/billing/receipts/${encodeURIComponent(id)}/print`, "_blank", "noopener,noreferrer");
+            }}
+          >
+            Download PDF
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            leadingIcon={<Mail className="h-4 w-4" />}
+            onClick={async () => {
+              const res = await fetch(`/api/billing/receipts/${encodeURIComponent(id)}/email`, {
+                method: "POST",
+                headers: { Accept: "application/json" },
+              });
+              const d = await res.json().catch(() => null);
+              if (!res.ok || (d && typeof d === "object" && "success" in d && (d as { success?: boolean }).success === false)) {
+                showToast(jsonApiErrorMessage(d) || "Failed to send receipt email");
+                return;
+              }
+              showToast("Receipt emailed to temple!");
+            }}
+          >
+            Email to temple
+          </Button>
         </div>
       </div>
 

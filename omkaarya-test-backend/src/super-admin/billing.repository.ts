@@ -11,6 +11,8 @@ function clampInt(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, Math.trunc(n)));
 }
 
+export type RevenueDashboardPeriod = "this-month" | "last-month" | "this-year" | `${number}-${string}`;
+
 /** Map wizard "Annually" to DB and subscriptions UI. */
 export function toBillingCycleStore(raw: string | null | undefined): BillingCycleStore {
   const s = (raw ?? "").trim();
@@ -203,6 +205,363 @@ function invoiceUiStatus(
 }
 
 export class PostgresBillingRepository {
+  async listTempleOptions(): Promise<Array<{ tenantId: string; name: string; portalUrl: string; adminEmail: string }>> {
+    const pool = requirePool();
+    const { rows } = await pool.query<{ tenant_id: string; name: string; slug: string; admin_email: string }>(
+      `SELECT tenant_id, name, slug, admin_email
+       FROM public.temples
+       ORDER BY tenant_id::int DESC`
+    );
+    return rows.map((r) => ({
+      tenantId: r.tenant_id,
+      name: r.name,
+      portalUrl: r.slug,
+      adminEmail: r.admin_email,
+    }));
+  }
+
+  async generateInvoice(input: {
+    tenantId: string;
+    planName: string;
+    billingCycleRaw: string;
+    issueDate: string;
+    dueDate: string;
+    description: string;
+    sendEmail: boolean;
+  }): Promise<{
+    invoiceId: string;
+    invoiceNumber: string;
+    amountCents: number;
+    currency: string;
+    status: InvoiceStatus;
+    emailed: boolean;
+    adminEmail: string;
+    templeName: string;
+  }> {
+    const pool = requirePool();
+    const tenantId = input.tenantId.trim();
+    if (!tenantId) throw new Error("Missing tenantId");
+    const planName = input.planName.trim() || "Sankalpa";
+    const billingCycle = toBillingCycleStore(input.billingCycleRaw);
+    const issuedAt = (input.issueDate || "").trim() || new Date().toISOString().slice(0, 10);
+    const dueAt = (input.dueDate || "").trim() || issuedAt;
+    const description = (input.description ?? "").trim();
+
+    const templeRes = await pool.query<{ name: string; admin_email: string }>(
+      `SELECT name, admin_email
+       FROM public.temples
+       WHERE tenant_id = $1
+       LIMIT 1`,
+      [tenantId]
+    );
+    const temple = templeRes.rows[0];
+    if (!temple) throw new Error("Temple not found");
+
+    const pr = await pool.query<{ price_monthly: number; price_yearly: number }>(
+      `SELECT price_monthly, price_yearly
+       FROM public.pricing_plans
+       WHERE name = $1
+       LIMIT 1`,
+      [planName]
+    );
+    if (pr.rows.length === 0) throw new Error(`Pricing plan not found for name: ${planName}`);
+    const amountCents = billingCycle === "Annual" ? pr.rows[0]!.price_yearly : pr.rows[0]!.price_monthly;
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const invoiceId = randomUUID();
+      const invoiceNumber = await nextInvoiceNumber(client);
+      await client.query(
+        `INSERT INTO public.billing_invoices (
+           id, tenant_id, invoice_number, plan, billing_cycle, amount_cents, currency, status, is_trial_proforma, issued_at, due_at, metadata
+         ) VALUES ($1, $2, $3, $4, $5, $6, 'USD', 'pending', false, $7::date, $8::date, $9::jsonb)`,
+        [
+          invoiceId,
+          tenantId,
+          invoiceNumber,
+          planName,
+          billingCycle,
+          amountCents,
+          issuedAt,
+          dueAt,
+          JSON.stringify({ description }),
+        ]
+      );
+      await client.query("COMMIT");
+
+      return {
+        invoiceId,
+        invoiceNumber,
+        amountCents,
+        currency: "USD",
+        status: "pending",
+        emailed: false,
+        adminEmail: temple.admin_email,
+        templeName: temple.name,
+      };
+    } catch (e) {
+      await client.query("ROLLBACK");
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  async getInvoiceEmailContext(id: string): Promise<{
+    to: string;
+    templeName: string;
+    invoiceNumber: string;
+    amountCents: number;
+    isTrialProforma: boolean;
+    planName: string;
+    dueDate: string | null;
+  } | null> {
+    const pool = requirePool();
+    const { rows } = await pool.query<{
+      invoice_number: string;
+      amount_cents: number;
+      is_trial_proforma: boolean;
+      plan: string;
+      due_at: string | null;
+      temple_name: string;
+      admin_email: string;
+    }>(
+      `SELECT
+         b.invoice_number,
+         b.amount_cents,
+         b.is_trial_proforma,
+         b.plan,
+         b.due_at::text AS due_at,
+         t.name AS temple_name,
+         t.admin_email
+       FROM public.billing_invoices b
+       JOIN public.temples t ON t.tenant_id = b.tenant_id
+       WHERE b.id = $1::uuid
+       LIMIT 1`,
+      [id.trim()]
+    );
+    const r = rows[0];
+    if (!r) return null;
+    return {
+      to: r.admin_email,
+      templeName: r.temple_name,
+      invoiceNumber: r.invoice_number,
+      amountCents: r.amount_cents,
+      isTrialProforma: r.is_trial_proforma,
+      planName: r.plan,
+      dueDate: r.due_at,
+    };
+  }
+
+  async revenueDashboard(input: { period: RevenueDashboardPeriod }): Promise<{
+    period: { startDate: string; endDateExclusive: string };
+    kpis: {
+      paidAmountCents: number;
+      paidCount: number;
+      pendingAmountCents: number;
+      pendingCount: number;
+      overdueAmountCents: number;
+      overdueCount: number;
+      activeTemples: number;
+      trialTemples: number;
+    };
+    revenueByPlan: Array<{ plan: string; amountCents: number; count: number }>;
+    trend: Array<{ month: string; amountCents: number }>;
+    subscriptionSummary: Array<{
+      tenantId: string;
+      templeName: string;
+      location: string;
+      portalUrl: string;
+      plan: string;
+      billingCycle: string;
+      amountCents: number;
+      status: "active" | "pending" | "trial";
+      nextRenewal: string | null;
+    }>;
+  }> {
+    const pool = requirePool();
+
+    function startOfUtcMonth(d: Date): Date {
+      return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1, 0, 0, 0, 0));
+    }
+    function addUtcMonths(d: Date, n: number): Date {
+      return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, 1, 0, 0, 0, 0));
+    }
+    function isoDate(d: Date): string {
+      return d.toISOString().slice(0, 10);
+    }
+
+    const now = new Date();
+    const thisMonthStart = startOfUtcMonth(now);
+    let start: Date;
+    let endExclusive: Date;
+    if (input.period === "this-month") {
+      start = thisMonthStart;
+      endExclusive = addUtcMonths(thisMonthStart, 1);
+    } else if (input.period === "last-month") {
+      start = addUtcMonths(thisMonthStart, -1);
+      endExclusive = thisMonthStart;
+    } else if (input.period === "this-year") {
+      start = new Date(Date.UTC(now.getUTCFullYear(), 0, 1, 0, 0, 0, 0));
+      endExclusive = new Date(Date.UTC(now.getUTCFullYear() + 1, 0, 1, 0, 0, 0, 0));
+    } else {
+      const m = /^(\d{4})-(\d{2})$/.exec(String(input.period).trim());
+      if (m) {
+        const y = Number(m[1]);
+        const mm = Number(m[2]);
+        start = new Date(Date.UTC(y, Math.max(0, mm - 1), 1, 0, 0, 0, 0));
+        endExclusive = addUtcMonths(start, 1);
+      } else {
+        start = thisMonthStart;
+        endExclusive = addUtcMonths(thisMonthStart, 1);
+      }
+    }
+
+    const period = { startDate: isoDate(start), endDateExclusive: isoDate(endExclusive) };
+
+    const paidAgg = await pool.query<{ amount_cents: number; cnt: number }>(
+      `SELECT COALESCE(SUM(tx.amount_cents), 0)::int AS amount_cents,
+              COUNT(*)::int AS cnt
+       FROM public.billing_transactions tx
+       WHERE tx.status = 'paid'
+         AND tx.recorded_at >= $1::timestamptz
+         AND tx.recorded_at < $2::timestamptz`,
+      [start.toISOString(), endExclusive.toISOString()]
+    );
+
+    const invoiceAgg = await pool.query<{
+      pending_amount_cents: number;
+      pending_cnt: number;
+      overdue_amount_cents: number;
+      overdue_cnt: number;
+    }>(
+      `SELECT
+         COALESCE(SUM(CASE WHEN b.status = 'pending'
+                              AND (b.due_at IS NULL OR b.due_at >= CURRENT_DATE OR b.amount_cents = 0)
+                           THEN b.amount_cents ELSE 0 END), 0)::int AS pending_amount_cents,
+         COALESCE(SUM(CASE WHEN b.status = 'pending'
+                              AND b.due_at IS NOT NULL
+                              AND b.due_at < CURRENT_DATE
+                              AND b.amount_cents > 0
+                           THEN b.amount_cents ELSE 0 END), 0)::int AS overdue_amount_cents,
+         COUNT(*) FILTER (WHERE b.status = 'pending'
+                              AND (b.due_at IS NULL OR b.due_at >= CURRENT_DATE OR b.amount_cents = 0))::int AS pending_cnt,
+         COUNT(*) FILTER (WHERE b.status = 'pending'
+                              AND b.due_at IS NOT NULL
+                              AND b.due_at < CURRENT_DATE
+                              AND b.amount_cents > 0)::int AS overdue_cnt
+       FROM public.billing_invoices b`,
+      []
+    );
+
+    const templeAgg = await pool.query<{ active: number; trial: number }>(
+      `SELECT
+         COUNT(*) FILTER (WHERE status = 'Active')::int AS active,
+         COUNT(*) FILTER (WHERE status = 'Trial')::int AS trial
+       FROM public.temples`,
+      []
+    );
+
+    const byPlanRes = await pool.query<{ plan: string; amount_cents: number; cnt: number }>(
+      `SELECT b.plan,
+              COALESCE(SUM(tx.amount_cents), 0)::int AS amount_cents,
+              COUNT(*)::int AS cnt
+       FROM public.billing_transactions tx
+       JOIN public.billing_invoices b ON b.id = tx.invoice_id
+       WHERE tx.status = 'paid'
+         AND tx.recorded_at >= $1::timestamptz
+         AND tx.recorded_at < $2::timestamptz
+       GROUP BY b.plan
+       ORDER BY amount_cents DESC, b.plan ASC`,
+      [start.toISOString(), endExclusive.toISOString()]
+    );
+
+    const trendStart = addUtcMonths(thisMonthStart, -5);
+    const trendRes = await pool.query<{ month: string; amount_cents: number }>(
+      `SELECT to_char(date_trunc('month', tx.recorded_at), 'YYYY-MM') AS month,
+              COALESCE(SUM(tx.amount_cents), 0)::int AS amount_cents
+       FROM public.billing_transactions tx
+       WHERE tx.status = 'paid'
+         AND tx.recorded_at >= $1::timestamptz
+       GROUP BY 1
+       ORDER BY 1 ASC`,
+      [trendStart.toISOString()]
+    );
+
+    const summaryRes = await pool.query<{
+      tenant_id: string;
+      temple_name: string;
+      city: string;
+      country_code: string;
+      slug: string;
+      temple_status: string;
+      sub_plan: string | null;
+      sub_cycle: string | null;
+      sub_amount: number | null;
+      sub_status: string | null;
+      sub_expires_on: string | null;
+    }>(
+      `SELECT
+         t.tenant_id,
+         t.name AS temple_name,
+         t.city,
+         t.country_code,
+         t.slug,
+         t.status AS temple_status,
+         s.plan AS sub_plan,
+         s.billing_cycle AS sub_cycle,
+         s.amount AS sub_amount,
+         s.status AS sub_status,
+         s.expires_on::text AS sub_expires_on
+       FROM public.temples t
+       LEFT JOIN LATERAL (
+         SELECT s.*
+         FROM public.subscriptions s
+         WHERE s.tenant_id = t.tenant_id
+         ORDER BY s.payment_date DESC, s.created_at DESC
+         LIMIT 1
+       ) s ON true
+       ORDER BY t.tenant_id::int DESC`,
+      []
+    );
+
+    const subscriptionSummary = summaryRes.rows.map((r) => {
+      const trial = r.temple_status === "Trial";
+      const pending = !trial && r.sub_status === "Pending";
+      const status: "active" | "pending" | "trial" = trial ? "trial" : pending ? "pending" : "active";
+      const amountCents = Math.max(0, Math.trunc((r.sub_amount ?? 0) * 100));
+      return {
+        tenantId: r.tenant_id,
+        templeName: r.temple_name,
+        location: `${r.city}, ${r.country_code}`,
+        portalUrl: r.slug,
+        plan: r.sub_plan ?? "—",
+        billingCycle: r.sub_cycle ?? "—",
+        amountCents,
+        status,
+        nextRenewal: r.sub_expires_on,
+      };
+    });
+
+    return {
+      period,
+      kpis: {
+        paidAmountCents: paidAgg.rows[0]?.amount_cents ?? 0,
+        paidCount: paidAgg.rows[0]?.cnt ?? 0,
+        pendingAmountCents: invoiceAgg.rows[0]?.pending_amount_cents ?? 0,
+        pendingCount: invoiceAgg.rows[0]?.pending_cnt ?? 0,
+        overdueAmountCents: invoiceAgg.rows[0]?.overdue_amount_cents ?? 0,
+        overdueCount: invoiceAgg.rows[0]?.overdue_cnt ?? 0,
+        activeTemples: templeAgg.rows[0]?.active ?? 0,
+        trialTemples: templeAgg.rows[0]?.trial ?? 0,
+      },
+      revenueByPlan: byPlanRes.rows.map((r) => ({ plan: r.plan, amountCents: r.amount_cents, count: r.cnt })),
+      trend: trendRes.rows.map((r) => ({ month: r.month, amountCents: r.amount_cents })),
+      subscriptionSummary,
+    };
+  }
+
   async listInvoices(input: ListInvoicesInput): Promise<{
     data: InvoiceListRow[];
     total: number;

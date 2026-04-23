@@ -166,7 +166,20 @@ export default function TransactionsPage() {
           <h1 className="text-display-xs font-bold tracking-tight text-text-primary">Transactions</h1>
           <p className="mt-1 text-sm text-text-tertiary">All subscription payments received from temples — bank transfers and confirmed payments</p>
         </div>
-        <Button variant="outline" size="sm" leadingIcon={<Download className="h-4 w-4" />} onClick={() => showToast("Exporting…")}>Export</Button>
+        <Button
+          variant="outline"
+          size="sm"
+          leadingIcon={<Download className="h-4 w-4" />}
+          onClick={() => {
+            const p = new URLSearchParams();
+            if (statusFilter !== "all") p.set("status", statusFilter);
+            if (planFilter !== "all") p.set("plan", planFilter);
+            if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
+            window.open(`/api/billing/transactions/export?${p.toString()}`, "_blank", "noopener,noreferrer");
+          }}
+        >
+          Export
+        </Button>
       </div>
 
       {/* Metric Cards */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   ArrowUpRight,
   CheckCircle2,
@@ -18,6 +18,8 @@ import Link from "next/link";
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Badge } from "@/app/components/ds/atoms/Badge";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
+import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
+import { jsonApiErrorMessage } from "@/lib/api-envelope";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -27,7 +29,7 @@ type TempleSummary = {
   location: string;
   portalUrl: string;
   initials: string;
-  plan: "Aaradhana" | "Sankalpa" | "Praramba";
+  plan: string;
   billing: string;
   amount: string;
   status: "active" | "pending" | "trial";
@@ -58,14 +60,31 @@ function planBadgeColor(p: string) {
 
 // ── Mock Data ──────────────────────────────────────────────────────
 
-const TEMPLES: TempleSummary[] = [
-  { id: "1", name: "Shiva Temple", location: "London, UK", portalUrl: "shiva-london.omkaarya.com", initials: "ST", plan: "Aaradhana", billing: "Bank transfer", amount: "$1,099/yr", status: "active", nextRenewal: "20 Apr 2027" },
-  { id: "2", name: "Sri Murugan Kovil", location: "Zurich, CH", portalUrl: "murugan-zurich.omkaarya.com", initials: "SM", plan: "Sankalpa", billing: "Bank transfer", amount: "$699/yr", status: "active", nextRenewal: "14 Feb 2027" },
-  { id: "3", name: "Lakshmi Mandir", location: "Toronto, CA", portalUrl: "lakshmi-toronto.omkaarya.com", initials: "LM", plan: "Aaradhana", billing: "Bank transfer", amount: "$1,099/yr", status: "pending", nextRenewal: "—" },
-  { id: "4", name: "Ganesh Temple", location: "Singapore", portalUrl: "ganesh-sg.omkaarya.com", initials: "GT", plan: "Praramba", billing: "Bank transfer", amount: "$299/yr", status: "active", nextRenewal: "28 Feb 2027" },
-  { id: "5", name: "Durga Devi Temple", location: "Amsterdam, NL", portalUrl: "durga-amsterdam.omkaarya.com", initials: "DD", plan: "Sankalpa", billing: "Bank transfer", amount: "$699/yr", status: "trial", nextRenewal: "—" },
-  { id: "6", name: "Balaji Tirupati Mandir", location: "Mississauga, CA", portalUrl: "balaji-ca.omkaarya.com", initials: "BT", plan: "Praramba", billing: "Bank transfer", amount: "$299/yr", status: "active", nextRenewal: "4 Jan 2027" },
-];
+type ApiDashboard = {
+  kpis: {
+    paidAmountCents: number;
+    paidCount: number;
+    pendingAmountCents: number;
+    pendingCount: number;
+    overdueAmountCents: number;
+    overdueCount: number;
+    activeTemples: number;
+    trialTemples: number;
+  };
+  revenueByPlan: Array<{ plan: string; amountCents: number; count: number }>;
+  trend: Array<{ month: string; amountCents: number }>;
+  subscriptionSummary: Array<{
+    tenantId: string;
+    templeName: string;
+    location: string;
+    portalUrl: string;
+    plan: string;
+    billingCycle: string;
+    amountCents: number;
+    status: "active" | "pending" | "trial";
+    nextRenewal: string | null;
+  }>;
+};
 
 // ── Bar Chart Component ──────────────────────────────────────────
 
@@ -115,7 +134,50 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 
 export default function RevenueDashboard() {
   const [toast, setToast] = useState<string | null>(null);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [dash, setDash] = useState<ApiDashboard | null>(null);
   const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 4000); }, []);
+
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      setLoadErr(null);
+      const res = await fetch(`/api/billing/revenue-dashboard?period=this-month`, { cache: "no-store" });
+      const d = (await res.json().catch(() => null)) as { success?: boolean; data?: ApiDashboard } | null;
+      if (cancel) return;
+      if (!d || d.success !== true || !d.data) {
+        setDash(null);
+        setLoadErr(jsonApiErrorMessage(d) || "Failed to load revenue dashboard");
+        return;
+      }
+      setDash(d.data);
+    })();
+    return () => { cancel = true; };
+  }, []);
+
+  const temples: TempleSummary[] = (dash?.subscriptionSummary ?? []).map((r) => ({
+    id: r.tenantId,
+    name: r.templeName,
+    location: r.location,
+    portalUrl: r.portalUrl,
+    initials: (r.templeName.trim().split(/\s+/).filter(Boolean)[0]?.[0] ?? "T") + (r.templeName.trim().split(/\s+/).filter(Boolean)[1]?.[0] ?? ""),
+    plan: r.plan,
+    billing: "Bank transfer",
+    amount: r.amountCents ? `${formatUsdFromCents(r.amountCents)}${r.billingCycle === "Annual" ? "/yr" : "/mo"}` : "—",
+    status: r.status,
+    nextRenewal: r.nextRenewal ?? "—",
+  }));
+
+  const kpis = dash?.kpis ?? {
+    paidAmountCents: 0,
+    paidCount: 0,
+    pendingAmountCents: 0,
+    pendingCount: 0,
+    overdueAmountCents: 0,
+    overdueCount: 0,
+    activeTemples: 0,
+    trialTemples: 0,
+  };
 
   const columns = useMemo<ColumnDef<TempleSummary>[]>(() => [
     {
@@ -165,6 +227,11 @@ export default function RevenueDashboard() {
 
   return (
     <div className="space-y-5">
+      {loadErr && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+          {loadErr}
+        </div>
+      )}
       {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -184,28 +251,27 @@ export default function RevenueDashboard() {
         <div className="bg-surface rounded-xl border border-border p-4">
           <div className="text-lg mb-2">💰</div>
           <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">MRR (Monthly Recurring)</p>
-          <p className="text-2xl font-bold text-green-600">$2,847</p>
-          <p className="text-[10px] text-text-tertiary mt-1">from 8 active temples</p>
-          <p className="text-[10px] font-semibold text-green-600 mt-1">↑ 18% vs last month</p>
+          <p className="text-2xl font-bold text-green-600">{formatUsdFromCents(kpis.paidAmountCents)}</p>
+          <p className="text-[10px] text-text-tertiary mt-1">from {kpis.paidCount} payment(s) confirmed</p>
         </div>
         <div className="bg-surface rounded-xl border border-border p-4">
           <div className="text-lg mb-2">📈</div>
           <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">ARR (Annual Recurring)</p>
-          <p className="text-2xl font-bold text-brand">$34,164</p>
-          <p className="text-[10px] text-text-tertiary mt-1">projected annual revenue</p>
+          <p className="text-2xl font-bold text-brand">{formatUsdFromCents(kpis.paidAmountCents * 12)}</p>
+          <p className="text-[10px] text-text-tertiary mt-1">simple annualized from this period</p>
         </div>
         <div className="bg-surface rounded-xl border border-border p-4">
           <div className="text-lg mb-2">⏳</div>
           <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Pending payments</p>
-          <p className="text-2xl font-bold text-amber-600">$3,297</p>
-          <p className="text-[10px] text-text-tertiary mt-1">3 invoices awaiting bank transfer</p>
-          <p className="text-[10px] font-semibold text-amber-600 mt-1">2 overdue &gt; 14 days</p>
+          <p className="text-2xl font-bold text-amber-600">{formatUsdFromCents(kpis.pendingAmountCents)}</p>
+          <p className="text-[10px] text-text-tertiary mt-1">{kpis.pendingCount} invoice(s) awaiting bank transfer</p>
+          <p className="text-[10px] font-semibold text-amber-600 mt-1">{kpis.overdueCount} overdue</p>
         </div>
         <div className="bg-surface rounded-xl border border-border p-4">
           <div className="text-lg mb-2">🛕</div>
           <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Active temples</p>
-          <p className="text-2xl font-bold text-indigo-600">8</p>
-          <p className="text-[10px] text-text-tertiary mt-1">2 on trial · 6 paying</p>
+          <p className="text-2xl font-bold text-indigo-600">{kpis.activeTemples}</p>
+          <p className="text-[10px] text-text-tertiary mt-1">{kpis.trialTemples} on trial</p>
         </div>
       </div>
 
@@ -214,20 +280,28 @@ export default function RevenueDashboard() {
         <HorizontalBarChart
           title="Revenue by plan"
           subtitle="this month"
-          bars={[
-            { label: "Aaradhana (Yearly)", value: "$1,099 × 2", percentage: 62, color: "bg-brand" },
-            { label: "Sankalpa (Yearly)", value: "$699 × 3", percentage: 38, color: "bg-indigo-500" },
-            { label: "Praramba (Yearly)", value: "$299 × 3", percentage: 20, color: "bg-purple-500" },
-          ]}
+          bars={(dash?.revenueByPlan ?? []).map((b, i) => {
+            const colors = ["bg-brand", "bg-indigo-500", "bg-purple-500", "bg-green-500", "bg-amber-500"];
+            const total = (dash?.revenueByPlan ?? []).reduce((a, x) => a + x.amountCents, 0) || 1;
+            return {
+              label: b.plan,
+              value: `${formatUsdFromCents(b.amountCents)} × ${b.count}`,
+              percentage: Math.max(0, Math.min(100, Math.round((b.amountCents / total) * 100))),
+              color: colors[i % colors.length]!,
+            };
+          })}
         />
         <HorizontalBarChart
           title="Monthly revenue trend"
-          bars={[
-            { label: "January", value: "$997", percentage: 35, color: "bg-green-500" },
-            { label: "February", value: "$1,398", percentage: 48, color: "bg-green-500" },
-            { label: "March", value: "$2,097", percentage: 62, color: "bg-green-500" },
-            { label: "April (current)", value: "$2,847", percentage: 78, color: "bg-brand" },
-          ]}
+          bars={(dash?.trend ?? []).map((t, i, arr) => {
+            const max = Math.max(1, ...arr.map((x) => x.amountCents));
+            return {
+              label: t.month,
+              value: formatUsdFromCents(t.amountCents),
+              percentage: Math.max(0, Math.min(100, Math.round((t.amountCents / max) * 100))),
+              color: i === arr.length - 1 ? "bg-brand" : "bg-green-500",
+            };
+          })}
         />
       </div>
 
@@ -240,7 +314,7 @@ export default function RevenueDashboard() {
           </Link>
         </div>
         <div className="bg-surface rounded-xl border border-border shadow-xs">
-          <DataTable<TempleSummary> columns={columns} data={TEMPLES} keyExtractor={(r) => r.id} />
+          <DataTable<TempleSummary> columns={columns} data={temples} keyExtractor={(r) => r.id} />
         </div>
       </div>
 

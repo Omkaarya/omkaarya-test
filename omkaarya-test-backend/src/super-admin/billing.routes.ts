@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { sendSuccess, sendError } from "../middleware/api-envelope.js";
 import { asyncHandler } from "../middleware/async-handler.js";
-import { sendPaymentReceiptEmail } from "../email/send-temple-billing.js";
+import { sendInvoiceOnlyEmail, sendPaymentReceiptEmail } from "../email/send-temple-billing.js";
 import { PostgresBillingRepository, confirmPaymentSubmission, listPendingPaymentSubmissionsForConfirm, rejectPaymentSubmission } from "./billing.repository.js";
 
 function asString(v: unknown): string {
@@ -39,6 +39,205 @@ function parseListStatus(
 
 export function createBillingRouter(billing: PostgresBillingRepository): Router {
   const r = Router();
+
+  r.get(
+    "/billing/invoices/export",
+    asyncHandler(async (req, res) => {
+      const q = asString(req.query.q);
+      const status = parseListStatus(asString(req.query.status));
+      const payload = await billing.listInvoices({ q, status, page: 1, pageSize: 10_000 });
+      const header = [
+        "invoiceNumber",
+        "temple",
+        "templeLocation",
+        "adminEmail",
+        "plan",
+        "period",
+        "amountCents",
+        "currency",
+        "issuedDate",
+        "dueDate",
+        "status",
+      ];
+      const lines = [header.join(",")].concat(
+        payload.data.map((r) =>
+          [
+            r.num,
+            r.temple,
+            r.templeLocation,
+            r.adminEmail,
+            r.plan,
+            r.period,
+            String(r.amountCents),
+            r.currency,
+            r.issuedDate,
+            r.dueDate ?? "",
+            r.status,
+          ]
+            .map(csvCell)
+            .join(",")
+        )
+      );
+      res
+        .status(200)
+        .type("text/csv; charset=utf-8")
+        .setHeader("Content-Disposition", `attachment; filename="invoices.csv"`)
+        .send(lines.join("\n"));
+    })
+  );
+
+  r.get(
+    "/billing/transactions/export",
+    asyncHandler(async (req, res) => {
+      const q = asString(req.query.q);
+      const st = (asString(req.query.status) || "all") as "all" | "paid" | "pending" | "overdue";
+      const plan = asString(req.query.plan) || "all";
+      const payload = await billing.listTransactions({ q, status: st, plan, page: 1, pageSize: 10_000 });
+      const header = [
+        "id",
+        "date",
+        "temple",
+        "templeLocation",
+        "invoiceId",
+        "invoiceRef",
+        "plan",
+        "amountCents",
+        "currency",
+        "method",
+        "status",
+      ];
+      const lines = [header.join(",")].concat(
+        payload.data.map((r) =>
+          [
+            r.id,
+            r.date,
+            r.temple,
+            r.templeLocation,
+            r.invoiceId,
+            r.invoiceRef,
+            r.plan,
+            String(r.amountCents),
+            r.currency,
+            r.method,
+            r.status,
+          ]
+            .map(csvCell)
+            .join(",")
+        )
+      );
+      res
+        .status(200)
+        .type("text/csv; charset=utf-8")
+        .setHeader("Content-Disposition", `attachment; filename="transactions.csv"`)
+        .send(lines.join("\n"));
+    })
+  );
+
+  r.get(
+    "/billing/receipts/export",
+    asyncHandler(async (req, res) => {
+      const q = asString(req.query.q);
+      const payload = await billing.listReceipts({ q, page: 1, pageSize: 10_000 });
+      const header = ["receiptNumber", "temple", "templeLocation", "invoiceRef", "plan", "amountCents", "paymentDate", "method"];
+      const lines = [header.join(",")].concat(
+        payload.data.map((r) =>
+          [
+            r.num,
+            r.temple,
+            r.templeLocation,
+            r.invoiceRef,
+            r.plan,
+            String(r.amountCents),
+            r.paymentDate,
+            r.method,
+          ]
+            .map(csvCell)
+            .join(",")
+        )
+      );
+      res
+        .status(200)
+        .type("text/csv; charset=utf-8")
+        .setHeader("Content-Disposition", `attachment; filename="receipts.csv"`)
+        .send(lines.join("\n"));
+    })
+  );
+
+  r.get(
+    "/billing/revenue-dashboard",
+    asyncHandler(async (req, res) => {
+      const period = (asString(req.query.period) || "this-month") as Parameters<PostgresBillingRepository["revenueDashboard"]>[0]["period"];
+      const payload = await billing.revenueDashboard({ period });
+      sendSuccess(res, 200, payload, "Revenue dashboard", "Hybrid finance overview for the selected period.");
+    })
+  );
+
+  r.get(
+    "/billing/temples/options",
+    asyncHandler(async (_req, res) => {
+      const data = await billing.listTempleOptions();
+      sendSuccess(res, 200, { data }, "Temple options", "Temples for invoice generation dropdown.");
+    })
+  );
+
+  r.post(
+    "/billing/invoices/generate",
+    asyncHandler(async (req, res) => {
+      const body = (req.body ?? {}) as Partial<{
+        tenantId: string;
+        planName: string;
+        billingCycleRaw: string;
+        issueDate: string;
+        dueDate: string;
+        description: string;
+        sendEmail: boolean;
+      }>;
+      const out = await billing.generateInvoice({
+        tenantId: String(body.tenantId ?? ""),
+        planName: String(body.planName ?? ""),
+        billingCycleRaw: String(body.billingCycleRaw ?? ""),
+        issueDate: String(body.issueDate ?? ""),
+        dueDate: String(body.dueDate ?? ""),
+        description: String(body.description ?? ""),
+        sendEmail: body.sendEmail !== false,
+      });
+
+      let emailed = false;
+      if (body.sendEmail !== false) {
+        try {
+          const ctx = await billing.getInvoiceEmailContext(out.invoiceId);
+          if (ctx) {
+            const em = await sendInvoiceOnlyEmail(ctx);
+            emailed = em.sent;
+          }
+        } catch (e) {
+          console.error("[billing-generate] invoice email failed", e);
+        }
+      }
+
+      sendSuccess(
+        res,
+        200,
+        { ...out, emailed },
+        "Invoice generated",
+        "Invoice row created and optionally emailed to the temple admin."
+      );
+    })
+  );
+
+  r.post(
+    "/billing/invoices/:id/email",
+    asyncHandler(async (req, res) => {
+      const id = asString((req.params as { id?: string }).id);
+      const ctx = await billing.getInvoiceEmailContext(id);
+      if (!ctx) {
+        sendError(res, 404, "NOT_FOUND", "Invoice not found.", "No invoice exists for the given id.");
+        return;
+      }
+      const em = await sendInvoiceOnlyEmail(ctx);
+      sendSuccess(res, 200, { emailed: em.sent, reason: em.sent ? "sent" : em.reason }, "Invoice email", "Invoice email attempt completed.");
+    })
+  );
 
   r.get(
     "/billing/invoices",
@@ -99,6 +298,99 @@ export function createBillingRouter(billing: PostgresBillingRepository): Router 
         return;
       }
       sendSuccess(res, 200, row, "Receipt", "Receipt details.");
+    })
+  );
+
+  r.post(
+    "/billing/receipts/:id/email",
+    asyncHandler(async (req, res) => {
+      const id = asString((req.params as { id?: string }).id);
+      const row = await billing.getReceiptDetail(id);
+      if (!row) {
+        sendError(res, 404, "NOT_FOUND", "Receipt not found.", "No row for the given id.");
+        return;
+      }
+      const em = await sendPaymentReceiptEmail({
+        to: row.email,
+        templeName: row.temple,
+        receiptNumber: row.num,
+        invoiceNumber: row.invoiceRef,
+        amountCents: row.amountCents,
+        currency: row.currency,
+      });
+      sendSuccess(
+        res,
+        200,
+        { emailed: em.sent, reason: em.sent ? "sent" : em.reason },
+        "Receipt email",
+        "Receipt email attempt completed."
+      );
+    })
+  );
+
+  r.get(
+    "/billing/receipts/:id/print",
+    asyncHandler(async (req, res) => {
+      const id = asString((req.params as { id?: string }).id);
+      const row = await billing.getReceiptDetail(id);
+      if (!row) {
+        res.status(404).type("text/plain").send("Receipt not found");
+        return;
+      }
+      const amount = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: row.currency || "USD",
+      }).format(row.amountCents / 100);
+      const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(row.num)} — Receipt</title>
+    <style>
+      body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 32px; color: #111; }
+      .muted { color: #555; }
+      .box { border: 1px solid #e5e7eb; border-radius: 10px; padding: 18px; }
+      .row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+      .row:last-child { border-bottom: 0; }
+      h1 { margin: 0 0 6px 0; font-size: 20px; }
+      h2 { margin: 0; font-size: 14px; }
+      .amt { font-size: 24px; font-weight: 800; margin: 0; }
+      @media print { body { margin: 0; } }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px;">
+        <div>
+          <h1>Payment receipt</h1>
+          <div class="muted">${escapeHtml(row.num)} · Linked to ${escapeHtml(row.invoiceRef)}</div>
+          <div class="muted">${escapeHtml(row.templeLine)}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="muted">Amount received</div>
+          <p class="amt">${escapeHtml(amount)}</p>
+        </div>
+      </div>
+
+      <h2>Details</h2>
+      <div class="row"><div class="muted">Temple</div><div>${escapeHtml(row.templeLine)}</div></div>
+      <div class="row"><div class="muted">Portal</div><div>${escapeHtml(row.portal)}</div></div>
+      <div class="row"><div class="muted">Admin email</div><div>${escapeHtml(row.email)}</div></div>
+      <div class="row"><div class="muted">Plan</div><div>${escapeHtml(row.plan)}</div></div>
+      <div class="row"><div class="muted">Payment ref</div><div>${escapeHtml(row.paymentRef)}</div></div>
+      <div class="row"><div class="muted">Method</div><div>${escapeHtml(row.method)}</div></div>
+      <div class="row"><div class="muted">Payment date</div><div>${escapeHtml(row.paymentDate)}</div></div>
+      <div class="row"><div class="muted">Period</div><div>${escapeHtml(row.periodFrom)} – ${escapeHtml(row.periodTo)}</div></div>
+      <div class="row"><div class="muted">Next renewal</div><div>${escapeHtml(row.nextRenewal)}</div></div>
+
+      <p class="muted" style="margin-top:18px;font-size:12px;">
+        Generated by Omkaarya on ${escapeHtml(row.generatedAt)}. Receipt number: ${escapeHtml(row.num)}.
+      </p>
+    </div>
+  </body>
+</html>`;
+      res.status(200).type("text/html; charset=utf-8").send(html);
     })
   );
 
@@ -172,4 +464,29 @@ export function createBillingRouter(billing: PostgresBillingRepository): Router 
   );
 
   return r;
+}
+
+function escapeHtml(value: string): string {
+  return String(value ?? "").replace(/[&<>"']/g, (c) => {
+    switch (c) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      case "'":
+        return "&#39;";
+      default:
+        return c;
+    }
+  });
+}
+
+function csvCell(v: unknown): string {
+  const s = String(v ?? "");
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
 }

@@ -177,7 +177,18 @@ export default function ReceiptsPage() {
           <h1 className="text-display-xs font-bold tracking-tight text-text-primary">Receipts</h1>
           <p className="mt-1 text-sm text-text-tertiary">Payment receipts issued to temples after bank transfer confirmed — PDF auto-generated</p>
         </div>
-        <Button variant="outline" size="sm" leadingIcon={<Download className="h-4 w-4" />} onClick={() => showToast("Exporting…")}>Export</Button>
+        <Button
+          variant="outline"
+          size="sm"
+          leadingIcon={<Download className="h-4 w-4" />}
+          onClick={() => {
+            const p = new URLSearchParams();
+            if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
+            window.open(`/api/billing/receipts/export?${p.toString()}`, "_blank", "noopener,noreferrer");
+          }}
+        >
+          Export
+        </Button>
       </div>
 
       {/* Metric Cards */}
