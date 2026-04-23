@@ -68,7 +68,7 @@ export function Footer() {
 
         {/* Bottom bar */}
         <div className="footer-bottom">
-          <span>© 2024–2026 Pepulux Pvt Ltd. All Rights Reserved.</span>
+          <span>© 2024–2026 Omkaarya. All Rights Reserved.</span>
           <div className="footer-bottom-links">
             <a href="#">Terms & Conditions</a>
             <span>·</span>

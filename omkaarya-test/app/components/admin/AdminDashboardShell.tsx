@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import {
   Bell,
@@ -183,10 +184,13 @@ export function AdminDashboardShell({
         ].join(" ")}
       >
         <div className="flex h-16 items-center border-b border-white px-6 dark:border-zinc-950">
-          <span className="text-xl font-semibold tracking-tight" aria-label="Pepulux">
-            <span className="text-[var(--text-primary)]">pep</span>
-            <span className="text-[var(--brand-primary)]">ulux</span>
-          </span>
+          <Image 
+            src="/brand-logo/Omkaarya 1.svg" 
+            alt="Omkaarya" 
+            width={120} 
+            height={32} 
+            className="h-8 w-auto dark:invert" 
+          />
         </div>
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           {/* Primary Nav */}
