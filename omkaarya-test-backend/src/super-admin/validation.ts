@@ -76,6 +76,8 @@ export const createTempleBodySchema = z.object({
   temple: templeNested,
   admin: adminNested,
   planBilling: planBillingNested,
+  logoTempleDataUrl: z.string().nullable().optional(),
+  adminProfileDataUrl: z.string().nullable().optional(),
 });
 
 const adminNestedUpdate = z.object({

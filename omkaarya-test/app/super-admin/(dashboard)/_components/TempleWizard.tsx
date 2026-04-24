@@ -672,7 +672,36 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
     setSubmitError(null);
     setSubmitSuccess(null);
 
-    const payload = {
+    const payload: {
+      temple: {
+        tradition: string;
+        name: string;
+        deity: string;
+        country: string;
+        city: string;
+        address: string;
+        email: string;
+        phone: PhoneRowValue;
+        whatsapp: PhoneRowValue;
+        fax: PhoneRowValue;
+        website: string;
+        subdomain: string;
+        establishedYear: string;
+      };
+      admin: {
+        fullName: string;
+        email: string;
+        whatsapp: string;
+        role: string;
+      };
+      planBilling: {
+        selectedPlan: string;
+        billingCycle: BillingCycle | "";
+        trial: { enabled: boolean; days: number | null };
+      };
+      logoTempleDataUrl?: string;
+      adminProfileDataUrl?: string;
+    } = {
       temple: {
         tradition,
         name: templeName.trim(),
@@ -703,6 +732,25 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
         },
       },
     };
+
+    if (logoFile) {
+      try {
+        payload.logoTempleDataUrl = await readFileAsDataUrl(logoFile);
+      } catch {
+        setSubmitError("Could not read the temple logo image.");
+        setIsSubmitting(false);
+        return;
+      }
+    }
+    if (adminProfileFile) {
+      try {
+        payload.adminProfileDataUrl = await readFileAsDataUrl(adminProfileFile);
+      } catch {
+        setSubmitError("Could not read the admin profile image.");
+        setIsSubmitting(false);
+        return;
+      }
+    }
 
     try {
       const response = await fetch("/api/temples/create", {

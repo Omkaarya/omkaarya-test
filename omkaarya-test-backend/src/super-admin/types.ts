@@ -104,6 +104,10 @@ export type CreateTemplePayload = {
       days: number | null;
     };
   };
+  /** Base64 `data:` URL or existing `https` URL; stored as Cloudinary public URL. */
+  logoTempleDataUrl?: string | null;
+  /** Base64 `data:` URL or existing `https` URL; stored on `users.profile_image_url`. */
+  adminProfileDataUrl?: string | null;
 };
 
 /** PATCH /api/temples/:tenantId — admin email is not modified server-side. */

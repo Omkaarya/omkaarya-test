@@ -15,6 +15,7 @@ import type {
 } from "./types.js";
 import { sqlTempleMatchesSessionEmail } from "./temple-admin-match.js";
 import { createInitialInvoiceForNewTemple, type CreateInitialInvoiceResult } from "./billing.repository.js";
+import { storeBrandingImageIfNeeded } from "../storage/cloudinary.js";
 
 const ADMIN_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -432,6 +433,11 @@ export class PostgresTempleRepository implements TempleRepository {
       templeEmail: payload.temple.email,
     });
 
+    const [logoStoredUrl, adminProfileStoredUrl] = await Promise.all([
+      storeBrandingImageIfNeeded(payload.logoTempleDataUrl, "temple-logo", "temple-logo"),
+      storeBrandingImageIfNeeded(payload.adminProfileDataUrl, "admin-profile", "admin-profile"),
+    ]);
+
     const client = await pool.connect();
     try {
       const maxRes = await client.query<{ m: number | null }>(
@@ -486,29 +492,31 @@ export class PostgresTempleRepository implements TempleRepository {
           if (existing.rows.length === 0) {
             temporaryPassword = generateTemporaryPassword();
             await client.query(
-              `INSERT INTO public.users (email, temp_password, full_name, whatsapp, roles)
-               VALUES ($1, $2, $3, $4, $5)`,
-              [row.adminEmail, temporaryPassword, adminFullName, adminWhatsapp, adminRoles]
+              `INSERT INTO public.users (email, temp_password, full_name, whatsapp, roles, profile_image_url)
+               VALUES ($1, $2, $3, $4, $5, $6)`,
+              [row.adminEmail, temporaryPassword, adminFullName, adminWhatsapp, adminRoles, adminProfileStoredUrl]
             );
           } else if (existing.rows[0]!.password_hash != null) {
             // User already has a permanent password — do not reset password fields, but do overwrite profile fields.
             await client.query(
               `UPDATE public.users
-               SET full_name = $1, whatsapp = $2, roles = $3
-               WHERE email = $4`,
-              [adminFullName, adminWhatsapp, adminRoles, row.adminEmail]
+               SET full_name = $1, whatsapp = $2, roles = $3,
+                   profile_image_url = COALESCE($4, profile_image_url)
+               WHERE email = $5`,
+              [adminFullName, adminWhatsapp, adminRoles, adminProfileStoredUrl, row.adminEmail]
             );
           } else {
             temporaryPassword = generateTemporaryPassword();
             await client.query(
-              `INSERT INTO public.users (email, temp_password, full_name, whatsapp, roles)
-               VALUES ($1, $2, $3, $4, $5)
+              `INSERT INTO public.users (email, temp_password, full_name, whatsapp, roles, profile_image_url)
+               VALUES ($1, $2, $3, $4, $5, $6)
                ON CONFLICT (email) DO UPDATE
                SET temp_password = EXCLUDED.temp_password,
                    full_name = EXCLUDED.full_name,
                    whatsapp = EXCLUDED.whatsapp,
-                   roles = EXCLUDED.roles`,
-              [row.adminEmail, temporaryPassword, adminFullName, adminWhatsapp, adminRoles]
+                   roles = EXCLUDED.roles,
+                   profile_image_url = COALESCE(EXCLUDED.profile_image_url, public.users.profile_image_url)`,
+              [row.adminEmail, temporaryPassword, adminFullName, adminWhatsapp, adminRoles, adminProfileStoredUrl]
             );
           }
           const idRes = await client.query<{ id: number }>(
@@ -563,7 +571,7 @@ export class PostgresTempleRepository implements TempleRepository {
             tradition,
             primaryDeity,
             billingCycle,
-            null,
+            logoStoredUrl,
             row.plan,
           ]
         );
@@ -741,8 +749,10 @@ export class PostgresTempleRepository implements TempleRepository {
       );
       if (existing.rows.length === 0) return { ok: false, reason: "not_found" };
       const adminEmail = existing.rows[0]!.admin_email.trim();
-      const nextLogo =
-        payload.logoTempleDataUrl !== undefined ? payload.logoTempleDataUrl : existing.rows[0]!.logo_data_url;
+      const nextLogo: string | null =
+        payload.logoTempleDataUrl !== undefined
+          ? await storeBrandingImageIfNeeded(payload.logoTempleDataUrl, "temple-logo", "temple-logo")
+          : existing.rows[0]!.logo_data_url;
 
       const countryCode = payload.temple.country.trim() || "GB";
       const plan = normalizePlan(payload.planBilling.selectedPlan);
