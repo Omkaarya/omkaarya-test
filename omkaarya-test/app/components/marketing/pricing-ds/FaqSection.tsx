@@ -13,7 +13,7 @@ const FAQItem = ({ question, answer, defaultOpen = false }: FAQItemProps) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className={\`flex flex-col rounded-[24px] p-2 transition-colors duration-300 \${isOpen ? "bg-white border border-gray-200 shadow-sm" : "bg-gray-100 hover:bg-gray-200"}\`}>
+    <div className={`flex flex-col rounded-[24px] p-2 transition-colors duration-300 \${isOpen ? "bg-white border border-gray-200 shadow-sm" : "bg-gray-100 hover:bg-gray-200"}`}>
       <button 
         className="flex justify-between items-center w-full text-left p-3 pl-5"
         onClick={() => setIsOpen(!isOpen)}

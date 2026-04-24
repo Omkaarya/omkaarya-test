@@ -60,11 +60,11 @@ export function ComparePlansTable() {
           <span className="font-bold text-gray-900 text-lg">Features</span>
         </div>
         
-        {/* Free */}
+        {/* Prarambha */}
         <div className="col-span-1 flex flex-col items-center text-center px-4">
-          <span className="text-sm font-semibold text-gray-900 mb-1">Free Plan</span>
+          <span className="text-sm font-semibold text-gray-900 mb-1">Prarambha</span>
           <div className="mb-4">
-            <span className="text-2xl font-bold text-gray-900">$0</span>
+            <span className="text-2xl font-bold text-gray-900">$20</span>
             <span className="text-xs text-gray-500">/month</span>
           </div>
           <Button variant="outline" className="w-full rounded-full text-xs h-9 font-semibold text-gray-700 bg-white hover:bg-gray-50 border-gray-300">
@@ -72,11 +72,11 @@ export function ComparePlansTable() {
           </Button>
         </div>
 
-        {/* Pro */}
+        {/* Sankalpa */}
         <div className="col-span-1 flex flex-col items-center text-center px-4 border-l border-gray-100">
-          <span className="text-sm font-semibold text-gray-900 mb-1">Pro Plan</span>
+          <span className="text-sm font-semibold text-gray-900 mb-1">Sankalpa</span>
           <div className="mb-4">
-            <span className="text-2xl font-bold text-gray-900">$19</span>
+            <span className="text-2xl font-bold text-gray-900">$49</span>
             <span className="text-xs text-gray-500">/month</span>
           </div>
           <Button variant="outline" className="w-full rounded-full text-xs h-9 font-semibold text-gray-700 bg-white hover:bg-gray-50 border-gray-300">
@@ -84,11 +84,11 @@ export function ComparePlansTable() {
           </Button>
         </div>
 
-        {/* Business */}
+        {/* Aaradhana */}
         <div className="col-span-1 flex flex-col items-center text-center px-4 border-l border-gray-100">
-          <span className="text-sm font-semibold text-gray-900 mb-1">Business Plan</span>
+          <span className="text-sm font-semibold text-gray-900 mb-1">Aaradhana</span>
           <div className="mb-4">
-            <span className="text-2xl font-bold text-gray-900">$38</span>
+            <span className="text-2xl font-bold text-gray-900">$99</span>
             <span className="text-xs text-gray-500">/month</span>
           </div>
           <Button variant="outline" className="w-full rounded-full text-xs h-9 font-semibold text-gray-700 bg-white hover:bg-gray-50 border-gray-300">

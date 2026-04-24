@@ -57,8 +57,8 @@ Omkaarya is a **multi-tenant SaaS platform** purpose-built for temple management
 | SA-05 | Feature Registry | L1/L2 hierarchy, stat cards, info banner, inline edit, quick add, module edit, filters, expand/collapse | ✅ Shipped |
 | SA-06 | Plan Feature Config | Per-plan toggle + limits for each feature | ✅ Shipped |
 | SA-07 | Domains | Domain management | ✅ Shipped |
-| SA-08 | Users | User management | ✅ Shipped |
-| SA-09 | Role & Permissions | RBAC configuration | ✅ Shipped |
+| SA-08 | User Management | User list, search, filters, actions | 🏗️ In Progress |
+| SA-09 | Role & Permissions | Hierarchical RBAC, permission matrix, module mapping | 🏗️ In Progress |
 | SA-10 | Delete Account Requests | Account deletion workflow | ✅ Shipped |
 | SA-11 | System Settings | Feature Registry link | ✅ Shipped |
 

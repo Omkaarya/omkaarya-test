@@ -2,7 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Check, Plus, X, Loader2 } from "lucide-react";
+import { Check, Plus, X, Loader2, Users2, Shield, Info } from "lucide-react";
+import { PricingPlanCard, PricingFeature } from "../../../components/ds/molecules/PricingPlanCard";
+
+// ── Types ──────────────────────────────────────────────────────────
 
 type PricingPlan = {
   id: string;
@@ -11,8 +14,8 @@ type PricingPlan = {
   priceMonthly: number;
   priceYearly: number;
   popular: boolean;
-  includedSeats: number;
-  extraSeatPriceMonthly: number;
+  totalSeats: number;
+  roleQuotas: Array<{ roleName: string; count: number }>;
   features: string[];
 };
 
@@ -21,6 +24,10 @@ type RegistryFeatureRow = {
   name: string;
   moduleKey: string;
 };
+
+const DEFAULT_TEMPLE_ROLES = ["Temple Admin", "Head Priest", "Priest", "Accountant", "Trustee", "Manager", "Operations Manager", "Counter Staff / POS"];
+
+// ── Page Component ──────────────────────────────────────────────────
 
 export default function PricingPlansPage() {
   const [plans, setPlans] = useState<PricingPlan[]>([]);
@@ -33,14 +40,15 @@ export default function PricingPlansPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     priceMonthly: "",
     priceYearly: "",
-    includedSeats: "",
-    extraSeatPriceMonthly: "",
+    totalSeats: "3",
     popular: false,
+    selectedRoles: [{ roleName: "Temple Admin", count: 1 }]
   });
 
   const fetchPlans = useCallback(async () => {
@@ -49,7 +57,16 @@ export default function PricingPlansPage() {
       const res = await fetch("/api/pricing-plans", { cache: "no-store" });
       const data = await res.json();
       if (data.success) {
-        setPlans(data.data);
+        // Mocking the new data structure for now until API is updated
+        setPlans(data.data.map((p: any) => ({
+          ...p,
+          totalSeats: p.includedSeats || 3,
+          roleQuotas: p.roleQuotas || [
+            { roleName: "Temple Admin", count: 1 },
+            { roleName: "Head Priest", count: 1 },
+            { roleName: "Accountant", count: 1 }
+          ]
+        })));
       }
     } catch (error) {
       console.error("Failed to fetch plans", error);
@@ -63,20 +80,11 @@ export default function PricingPlansPage() {
     try {
       const res = await fetch("/api/features", { cache: "no-store" });
       if (!res.ok) return;
-      const j = (await res.json()) as
-        | { success?: boolean; data?: Array<{ id: number; name: string; moduleKey: string; isActive: boolean }> }
-        | Array<{ id: number; name: string; moduleKey: string; isActive: boolean }>;
+      const j = await res.json();
       const data = Array.isArray(j) ? j : j?.success && Array.isArray(j.data) ? j.data : null;
       if (Array.isArray(data)) {
         setRegistryFeatures(
-          data
-            .filter((f) => f.isActive)
-            .map((f) => ({ id: f.id, name: f.name, moduleKey: f.moduleKey }))
-            .sort((a, b) => {
-              const m = a.moduleKey.localeCompare(b.moduleKey);
-              if (m !== 0) return m;
-              return a.name.localeCompare(b.name);
-            })
+          data.filter((f) => f.isActive).map((f) => ({ id: f.id, name: f.name, moduleKey: f.moduleKey }))
         );
       }
     } catch (e) {
@@ -91,18 +99,6 @@ export default function PricingPlansPage() {
     void loadRegistryFeatures();
   }, [fetchPlans, loadRegistryFeatures]);
 
-  useEffect(() => {
-    const onVis = () => {
-      if (document.visibilityState === "visible") {
-        void fetchPlans();
-        void loadRegistryFeatures();
-      }
-    };
-    document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
-  }, [fetchPlans, loadRegistryFeatures]);
-
-  const getCardBilling = (planId: string) => cardBilling[planId] || billing;
   const toggleCardBilling = (planId: string) => {
     setCardBilling((prev) => ({
       ...prev,
@@ -110,11 +106,33 @@ export default function PricingPlansPage() {
     }));
   };
 
-  const planIncludesFeature = (plan: PricingPlan, featureName: string): boolean =>
-    plan.features.includes(featureName);
+  const handleRoleCountChange = (index: number, delta: number) => {
+    const next = [...formData.selectedRoles];
+    const newCount = Math.max(1, (next[index].count || 0) + delta);
+    next[index].count = newCount;
+    
+    // Update total seats based on sum of roles
+    const total = next.reduce((sum, r) => sum + r.count, 0);
+    setFormData({ ...formData, selectedRoles: next, totalSeats: String(total) });
+  };
 
-  const formatPrice = (cents: number) => {
-    return `$${(cents / 100).toFixed(0)}`;
+  const addRoleToPlan = () => {
+    setFormData({
+      ...formData,
+      selectedRoles: [...formData.selectedRoles, { roleName: DEFAULT_TEMPLE_ROLES[0], count: 1 }],
+      totalSeats: String(parseInt(formData.totalSeats) + 1)
+    });
+  };
+
+  const removeRoleFromPlan = (index: number) => {
+    const next = [...formData.selectedRoles];
+    const removedCount = next[index].count;
+    next.splice(index, 1);
+    setFormData({
+      ...formData,
+      selectedRoles: next,
+      totalSeats: String(parseInt(formData.totalSeats) - removedCount)
+    });
   };
 
   const handleCreatePlan = async (e: React.FormEvent) => {
@@ -126,8 +144,8 @@ export default function PricingPlansPage() {
         description: formData.description,
         priceMonthly: parseInt(formData.priceMonthly) * 100,
         priceYearly: parseInt(formData.priceYearly) * 100,
-        includedSeats: parseInt(formData.includedSeats),
-        extraSeatPriceMonthly: parseInt(formData.extraSeatPriceMonthly) * 100,
+        totalSeats: parseInt(formData.totalSeats),
+        roleQuotas: formData.selectedRoles,
         popular: formData.popular,
         features: [],
       };
@@ -140,7 +158,6 @@ export default function PricingPlansPage() {
       const data = await res.json();
       if (data.success) {
         setIsModalOpen(false);
-        setFormData({ name: "", description: "", priceMonthly: "", priceYearly: "", includedSeats: "", extraSeatPriceMonthly: "", popular: false });
         fetchPlans();
       }
     } catch (e) {
@@ -150,303 +167,171 @@ export default function PricingPlansPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex h-64 w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-[var(--brand-primary)]" />
-      </div>
-    );
-  }
+  if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-[var(--brand-primary)]" /></div>;
 
   return (
-    <div className="mx-auto w-full max-w-[min(100rem,calc(100vw-2rem))] space-y-6">
-      {/* ─── Header ──────────────────────────────────────────── */}
-      <div className="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex flex-col gap-4 border-b border-zinc-100 p-6 dark:border-zinc-800 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-                Pricing Plans
-              </h1>
-              <span className="rounded-md bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800 dark:bg-blue-950/50 dark:text-blue-300">
-                {plans.length} plans
-              </span>
-            </div>
-            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-              Manage and configure your pricing tiers
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex rounded-lg border border-zinc-200 bg-zinc-50 p-0.5 dark:border-zinc-700 dark:bg-zinc-800">
-              <button
-                type="button"
-                onClick={() => setBilling("monthly")}
-                className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-                  billing === "monthly"
-                    ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50"
-                    : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400"
-                }`}
-              >
-                Monthly
-              </button>
-              <button
-                type="button"
-                onClick={() => setBilling("yearly")}
-                className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-                  billing === "yearly"
-                    ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50"
-                    : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400"
-                }`}
-              >
-                Yearly&nbsp;<span className="text-emerald-600 dark:text-emerald-400">Save 15%</span>
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)]"
-            >
-              <Plus className="h-4 w-4" />
-              Create Pricing Plan
-            </button>
-          </div>
+    <div className="mx-auto w-full max-w-[min(100rem,calc(100vw-2rem))] space-y-8 animate-in fade-in duration-500">
+      
+      {/* Page Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white dark:bg-zinc-900 p-8 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Pricing Architecture</h1>
+          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 font-medium max-w-lg">
+            Configure temple subscription tiers based on fixed seat quotas and included roles. 
+            <span className="text-emerald-600 block mt-1">Per-user extra charging is disabled.</span>
+          </p>
         </div>
 
-        {/* ─── Plan Cards ──────────────────────────────────────── */}
-        <div className="grid gap-6 p-6 lg:grid-cols-3">
-          {plans.map((plan) => (
-            <div
-              key={plan.id}
-              className="relative flex flex-col rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900"
-            >
-              <div className="p-5">
-                <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">{plan.name}</h2>
-                  {plan.popular && (
-                    <span className="rounded-full border border-zinc-300 px-2.5 py-0.5 text-[10px] font-semibold text-zinc-500 dark:border-zinc-600 dark:text-zinc-400">
-                      Most Popular
-                    </span>
-                  )}
-                </div>
-
-                <div className="mb-3">
-                  <span className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">
-                    {getCardBilling(plan.id) === "monthly" ? formatPrice(plan.priceMonthly) : formatPrice(plan.priceYearly)}
-                  </span>
-                  <span className="text-sm text-zinc-500 dark:text-zinc-400">
-                    /{getCardBilling(plan.id) === "monthly" ? "month" : "year"}
-                  </span>
-                </div>
-
-                <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  {plan.description}
-                </p>
-
-                <div className="mb-4">
-                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-                    Included
-                  </h4>
-                  <ul className="space-y-1.5">
-                    {plan.features.map((item) => (
-                      <li key={item} className="flex items-start gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" strokeWidth={2.5} />
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="flex items-center gap-2.5 mt-4">
-                  <button
-                    type="button"
-                    onClick={() => toggleCardBilling(plan.id)}
-                    className={`relative h-5 w-9 rounded-full transition-colors ${
-                      getCardBilling(plan.id) === "yearly"
-                        ? "bg-zinc-900 dark:bg-zinc-100"
-                        : "bg-zinc-300 dark:bg-zinc-600"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform shadow-sm ${
-                        getCardBilling(plan.id) === "yearly" ? "translate-x-4 dark:bg-zinc-900" : "dark:bg-zinc-300"
-                      }`}
-                    />
-                  </button>
-                  <span className="text-sm text-zinc-500 dark:text-zinc-400">Billed yearly</span>
-                </div>
-              </div>
-
-              <div className="mt-auto flex items-center gap-2 border-t border-zinc-100 px-5 py-3 dark:border-zinc-800">
-                <Link
-                  href={`/super-admin/pricing-plans/${encodeURIComponent(plan.id)}/features`}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--brand-primary)] px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-primary-hover)]"
-                >
-                  Manage Features
-                </Link>
-                <button
-                  type="button"
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300"
-                >
-                  Available
-                </button>
-              </div>
-            </div>
-          ))}
-          {plans.length === 0 && (
-             <div className="col-span-3 text-center py-12 text-zinc-500">
-               No pricing plans available. Click "Create Pricing Plan" to add one.
-             </div>
-          )}
+        <div className="flex flex-col items-end gap-3">
+          <div className="flex rounded-xl bg-zinc-100 p-1 dark:bg-zinc-800">
+            <button onClick={() => setBilling("monthly")} className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${billing === "monthly" ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50" : "text-zinc-500"}`}>MONTHLY</button>
+            <button onClick={() => setBilling("yearly")} className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${billing === "yearly" ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50" : "text-zinc-500"}`}>ANNUAL (SAVE 15%)</button>
+          </div>
+          <button onClick={() => setIsModalOpen(true)} className="h-11 px-6 rounded-xl bg-[var(--brand-primary)] text-white text-sm font-bold shadow-md shadow-orange-500/20 hover:scale-105 transition-all flex items-center gap-2">
+            <Plus className="w-4 h-4" /> Create Pricing Tier
+          </button>
         </div>
       </div>
 
-      {/* ─── Feature Comparison Table ──────────────────────────── */}
-      {plans.length > 0 && (
-        <div className="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="border-b border-zinc-100 px-6 py-4 dark:border-zinc-800">
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Plan Comparison Matrix</h2>
-            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-              Rows come from the Feature Registry (active features). To change what a plan includes, use{" "}
-              <span className="font-medium">Manage Features</span> on that plan’s card.
-            </p>
-          </div>
-
-          <div className="overflow-x-auto">
-            {featuresLoading && (
-              <p className="px-6 py-4 text-sm text-zinc-500">Loading feature list…</p>
-            )}
-            {!featuresLoading && registryFeatures.length === 0 && (
-              <p className="px-6 py-4 text-sm text-zinc-500">
-                No active features in the registry. Add features in System Settings → Feature Registry.
-              </p>
-            )}
-            {!featuresLoading && registryFeatures.length > 0 && (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-zinc-100 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-800/50">
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500 w-[40%]">
-                    Feature
-                  </th>
-                  {plans.map(p => (
-                    <th key={p.id} className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                      {p.name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                {registryFeatures.map((feature) => (
-                  <tr key={feature.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20">
-                    <td className="px-6 py-3 text-sm text-zinc-700 dark:text-zinc-300">
-                      <span className="text-[10px] font-medium uppercase text-zinc-400 dark:text-zinc-500 block mb-0.5">
-                        {feature.moduleKey}
-                      </span>
-                      {feature.name}
-                    </td>
-                    {plans.map((plan) => {
-                      const enabled = planIncludesFeature(plan, feature.name);
-                      return (
-                        <td key={plan.id} className="px-4 py-3 text-center" aria-label={enabled ? "Included" : "Not included"}>
-                          {enabled ? (
-                            <Check className="inline h-5 w-5 text-emerald-600 dark:text-emerald-400" strokeWidth={2.5} />
-                          ) : (
-                            <X className="inline h-5 w-5 text-zinc-300 dark:text-zinc-600" strokeWidth={2} />
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-
-                <tr className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20">
-                  <td className="px-6 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                    Included seats
-                  </td>
-                  {plans.map((plan) => (
-                    <td key={plan.id} className="px-4 py-3 text-center text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                      {plan.includedSeats}
-                    </td>
-                  ))}
-                </tr>
-
-                <tr className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20">
-                  <td className="px-6 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                    Extra seat (/mo)
-                  </td>
-                  {plans.map((plan) => (
-                    <td key={plan.id} className="px-4 py-3 text-center text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                      {formatPrice(plan.extraSeatPriceMonthly)}
-                    </td>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
-            )}
-          </div>
-        </div>
-      )}
-
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-zinc-900 border dark:border-zinc-800">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold dark:text-white">Create Pricing Plan</h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-zinc-500 hover:text-zinc-800 dark:hover:text-white">
-                <X className="w-5 h-5"/>
-              </button>
-            </div>
+      {/* Plan Cards */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {plans.map((plan) => (
+          <div key={plan.id} className={`relative flex flex-col p-8 rounded-3xl border-2 transition-all hover:shadow-2xl ${plan.popular ? 'border-[var(--brand-primary)] bg-white dark:bg-zinc-900' : 'border-zinc-100 bg-white dark:bg-zinc-900 dark:border-zinc-800'}`}>
+            {plan.popular && <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-[var(--brand-primary)] text-white px-4 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase shadow-lg">Most Popular</div>}
             
-            <form onSubmit={handleCreatePlan} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-zinc-200">Plan Name</label>
-                <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full rounded-lg border px-3 py-2 text-sm dark:bg-zinc-800 dark:border-zinc-700 dark:text-white" placeholder="e.g. Prarambha" />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-zinc-200">Description</label>
-                <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full rounded-lg border px-3 py-2 text-sm dark:bg-zinc-800 dark:border-zinc-700 dark:text-white" placeholder="Plan description" />
-              </div>
+            <div className="mb-8">
+               <h3 className="text-xl font-bold text-zinc-900 dark:text-white">{plan.name}</h3>
+               <p className="text-sm text-zinc-500 font-medium mt-1">{plan.description}</p>
+            </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-zinc-200">Monthly Price ($)</label>
-                  <input type="number" min="0" required value={formData.priceMonthly} onChange={e => setFormData({...formData, priceMonthly: e.target.value})} className="w-full rounded-lg border px-3 py-2 text-sm dark:bg-zinc-800 dark:border-zinc-700 dark:text-white" placeholder="19" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-zinc-200">Yearly Price ($)</label>
-                  <input type="number" min="0" required value={formData.priceYearly} onChange={e => setFormData({...formData, priceYearly: e.target.value})} className="w-full rounded-lg border px-3 py-2 text-sm dark:bg-zinc-800 dark:border-zinc-700 dark:text-white" placeholder="157" />
-                </div>
-              </div>
+            <div className="mb-8">
+               <div className="flex items-baseline gap-1">
+                 <span className="text-4xl font-bold text-zinc-900 dark:text-white">₹{((cardBilling[plan.id] || billing) === "yearly" ? plan.priceYearly : plan.priceMonthly) / 100}</span>
+                 <span className="text-sm font-bold text-zinc-400">/{(cardBilling[plan.id] || billing) === "yearly" ? "year" : "mo"}</span>
+               </div>
+            </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-zinc-200">Included Seats</label>
-                  <input type="number" min="0" required value={formData.includedSeats} onChange={e => setFormData({...formData, includedSeats: e.target.value})} className="w-full rounded-lg border px-3 py-2 text-sm dark:bg-zinc-800 dark:border-zinc-700 dark:text-white" placeholder="3" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-zinc-200">Extra Seat Price/Mo ($)</label>
-                  <input type="number" min="0" required value={formData.extraSeatPriceMonthly} onChange={e => setFormData({...formData, extraSeatPriceMonthly: e.target.value})} className="w-full rounded-lg border px-3 py-2 text-sm dark:bg-zinc-800 dark:border-zinc-700 dark:text-white" placeholder="6" />
-                </div>
-              </div>
+            <div className="flex-1 space-y-6">
+               <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Users2 className="w-4 h-4 text-[var(--brand-primary)]" />
+                    <span className="text-xs font-bold text-zinc-900 dark:text-zinc-200 uppercase tracking-wide">Included Seats: {plan.totalSeats}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {plan.roleQuotas.map((rq, i) => (
+                      <div key={i} className="flex justify-between items-center text-xs font-medium">
+                        <span className="text-zinc-600 dark:text-zinc-400">{rq.roleName}</span>
+                        <span className="bg-white dark:bg-zinc-800 px-2 py-0.5 rounded-lg border border-zinc-100 dark:border-zinc-700 text-zinc-900 dark:text-white font-bold">{rq.count}</span>
+                      </div>
+                    ))}
+                  </div>
+               </div>
 
-              <div className="flex items-center gap-2 pt-2">
-                <input type="checkbox" id="popular" checked={formData.popular} onChange={e => setFormData({...formData, popular: e.target.checked})} className="rounded text-[var(--brand-primary)]" />
-                <label htmlFor="popular" className="text-sm font-medium dark:text-zinc-200">Mark as Most Popular</label>
-              </div>
+               <div className="space-y-3">
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Key Features</p>
+                  {registryFeatures.slice(0, 5).map(f => (
+                    <div key={f.id} className="flex items-center gap-3">
+                      <div className="w-5 h-5 rounded-full bg-emerald-50 dark:bg-emerald-950/20 flex items-center justify-center">
+                        <Check className="w-3 h-3 text-emerald-600" />
+                      </div>
+                      <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">{f.name}</span>
+                    </div>
+                  ))}
+               </div>
+            </div>
 
-              <div className="pt-4 flex justify-end gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium border rounded-lg hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:text-zinc-300">Cancel</button>
-                <button disabled={isSubmitting} type="submit" className="px-4 py-2 text-sm font-medium text-white bg-[var(--brand-primary)] rounded-lg hover:bg-[var(--brand-primary-hover)] inline-flex items-center gap-2">
-                  {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  Create Plan
+            <Link href={`/super-admin/pricing-plans/${plan.id}/features`} className="mt-8">
+               <button className="w-full py-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-bold text-zinc-600 dark:text-zinc-300 hover:bg-[var(--brand-primary)] hover:text-white hover:border-[var(--brand-primary)] transition-all">
+                 Configure Features
+               </button>
+            </Link>
+          </div>
+        ))}
+      </div>
+
+      {/* Create Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
+          <div className="relative z-10 w-full max-w-2xl bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
+            <div className="p-8">
+              <div className="flex justify-between items-center mb-8">
+                <div>
+                  <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Create Pricing Tier</h2>
+                  <p className="text-xs text-zinc-500 font-medium">Define seat limits and role quotas for this plan.</p>
+                </div>
+                <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors">
+                  <X className="w-5 h-5 text-zinc-400" />
                 </button>
               </div>
-            </form>
+
+              <form onSubmit={handleCreatePlan} className="space-y-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-2">Plan Name</label>
+                    <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full h-12 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-bold focus:border-[var(--brand-primary)] outline-none" placeholder="e.g. Prarambha" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-2">Total Seats (Auto)</label>
+                    <div className="w-full h-12 px-4 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center text-sm font-bold text-zinc-900 dark:text-white">
+                      <Users2 className="w-4 h-4 mr-2 text-[var(--brand-primary)]" /> {formData.totalSeats} Users
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-6 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50">
+                   <div className="flex items-center justify-between mb-4">
+                      <label className="text-[10px] font-bold text-zinc-400 uppercase">Role Quota Configuration</label>
+                      <button type="button" onClick={addRoleToPlan} className="text-[10px] font-bold text-[var(--brand-primary)] uppercase hover:underline">+ Add Role</button>
+                   </div>
+                   <div className="space-y-3">
+                      {formData.selectedRoles.map((role, i) => (
+                        <div key={i} className="flex items-center gap-3">
+                          <select 
+                            value={role.roleName}
+                            onChange={(e) => {
+                              const next = [...formData.selectedRoles];
+                              next[i].roleName = e.target.value;
+                              setFormData({...formData, selectedRoles: next});
+                            }}
+                            className="flex-1 h-10 px-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-bold"
+                          >
+                            {DEFAULT_TEMPLE_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                          </select>
+                          <div className="flex items-center gap-2">
+                             <button type="button" onClick={() => handleRoleCountChange(i, -1)} className="w-8 h-8 rounded-lg bg-white border border-zinc-200 flex items-center justify-center font-bold text-zinc-400 hover:text-zinc-900">-</button>
+                             <span className="w-8 text-center text-xs font-bold">{role.count}</span>
+                             <button type="button" onClick={() => handleRoleCountChange(i, 1)} className="w-8 h-8 rounded-lg bg-white border border-zinc-200 flex items-center justify-center font-bold text-zinc-400 hover:text-zinc-900">+</button>
+                          </div>
+                          <button type="button" onClick={() => removeRoleFromPlan(i)} className="p-2 text-zinc-300 hover:text-red-500"><X className="w-4 h-4"/></button>
+                        </div>
+                      ))}
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                   <div>
+                    <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-2">Monthly Price (₹)</label>
+                    <input type="number" required value={formData.priceMonthly} onChange={e => setFormData({...formData, priceMonthly: e.target.value})} className="w-full h-12 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-bold" placeholder="999" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-2">Annual Price (₹)</label>
+                    <input type="number" required value={formData.priceYearly} onChange={e => setFormData({...formData, priceYearly: e.target.value})} className="w-full h-12 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-bold" placeholder="9999" />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="h-12 px-6 rounded-xl text-sm font-bold text-zinc-400 hover:bg-zinc-50 transition-all">Cancel</button>
+                  <button disabled={isSubmitting} type="submit" className="h-12 px-8 rounded-xl bg-[var(--brand-primary)] text-white text-sm font-bold shadow-md shadow-orange-500/20 hover:scale-105 transition-all flex items-center gap-2">
+                    {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />} Save Pricing Tier
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
+
     </div>
   );
 }

@@ -14,6 +14,7 @@ export interface BadgeProps {
   dot?: boolean;
   leadingIcon?: React.ReactNode;
   onDismiss?: () => void;
+  className?: string;
 }
 
 // ─── Color map (Figma-matched) ─────────────────────────────────────
@@ -44,6 +45,7 @@ export const Badge: React.FC<BadgeProps> = ({
   dot = false,
   leadingIcon,
   onDismiss,
+  className = "",
 }) => {
   const c = colorStyles[color];
   const s = sizeStyles[size];
@@ -55,6 +57,7 @@ export const Badge: React.FC<BadgeProps> = ({
         ${c.bg} ${c.text}
         ${s.badge} ${s.text}
         ${c.border ? `border ${c.border}` : ""}
+        ${className}
       `}
     >
       {dot && !leadingIcon && (
