@@ -1,6 +1,6 @@
 import type { TempleStatus } from "@/lib/mock-temples";
 
-export default function StatusBadge({ status }: { status: TempleStatus }) {
+export default function StatusBadge({ status }: { status: TempleStatus | "Inactive" }) {
   const styles =
     status === "Active"
       ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"

@@ -36,6 +36,7 @@ import {
   BarChart3,
   TrendingUp,
   LineChart,
+  Flower2
 } from "lucide-react";
 import { AdminBreadcrumbs } from "@/app/components/admin/adminBreadcrumbs";
 
@@ -76,6 +77,7 @@ const NAV_GROUPS: L1Group[] = [
     icon: Building2,
     children: [
       { href: "/super-admin/core/temples", label: "Temples", icon: Building2 },
+      { href: "/super-admin/core/deities", label: "Deities", icon: Flower2 },
       { href: "/super-admin/pricing-plans", label: "Pricing Plans", icon: Tag },
       { href: "/super-admin/cms", label: "Website CMS", icon: Globe },
     ],

@@ -177,7 +177,9 @@ function RoleDefinitionCard({ role }: { role: TempleRoleDef }) {
                 {role.name}
               </span>
               {role.isSystem && (
-                <Lock className="w-3 h-3 text-zinc-400 dark:text-zinc-500 shrink-0" title="System role — cannot be deleted" />
+                <span title="System role — cannot be deleted">
+                  <Lock className="w-3 h-3 text-zinc-400 dark:text-zinc-500 shrink-0" />
+                </span>
               )}
             </div>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-snug">

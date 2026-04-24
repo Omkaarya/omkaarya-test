@@ -136,7 +136,17 @@ export default function TemplesAdminPage() {
 
       <div className="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 overflow-hidden">
         <div className="p-0 border-b border-zinc-100 dark:border-zinc-800">
-          <AdminFiltersBar search={searchInput} onSearchChange={setSearchInput} status={statusFilter} onStatusChange={setStatusFilter} country={country} onCountryChange={setCountry} countries={countries} sortBy={sortBy} onSortByChange={setSortBy} />
+          <AdminFiltersBar 
+            search={searchInput} 
+            onSearchChange={setSearchInput} 
+            status={statusFilter} 
+            onStatusChange={setStatusFilter} 
+            country={country} 
+            onCountryChange={setCountry} 
+            countries={countries} 
+            sortBy={sortBy} 
+            onSortByChange={(val) => setSortBy(val as TemplesSortBy)} 
+          />
         </div>
 
         {loading ? (

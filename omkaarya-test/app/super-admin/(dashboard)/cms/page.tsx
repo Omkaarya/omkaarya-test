@@ -111,7 +111,7 @@ function HomePageEditor() {
             ].map((feature, i) => (
               <div key={i} className="flex gap-3 items-start p-3 rounded-lg border border-border bg-subtle">
                 <div className="flex-1 space-y-2">
-                  <Input defaultValue={feature.title} size="sm" />
+                  <Input defaultValue={feature.title} />
                   <textarea 
                     className="w-full rounded-md border border-border bg-surface px-2 py-1 text-xs text-text-primary outline-none focus:border-brand-500"
                     defaultValue={feature.desc}
