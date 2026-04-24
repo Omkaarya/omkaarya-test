@@ -10,7 +10,7 @@ import type { NextConfig } from "next";
  * @see https://react.dev/reference/react/StrictMode#fixing-bugs-found-by-double-rendering-in-development
  */
 const nextConfig: NextConfig = {
-  // reactStrictMode: true, // default; set false only for temporary debugging
+  reactStrictMode: false,
 };
 
 export default nextConfig;

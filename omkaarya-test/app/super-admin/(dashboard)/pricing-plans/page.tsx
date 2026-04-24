@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { Check, Plus, X, Loader2 } from "lucide-react";
 
@@ -27,6 +27,7 @@ export default function PricingPlansPage() {
   const [registryFeatures, setRegistryFeatures] = useState<RegistryFeatureRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [featuresLoading, setFeaturesLoading] = useState(true);
+  const visGuardRef = useRef<number>(Date.now());
 
   const [billing, setBilling] = useState<"monthly" | "yearly">("yearly");
   const [cardBilling, setCardBilling] = useState<Record<string, "monthly" | "yearly">>({});
@@ -93,6 +94,9 @@ export default function PricingPlansPage() {
 
   useEffect(() => {
     const onVis = () => {
+      // Some browsers/environments may fire a visibility event shortly after mount.
+      // Avoid an immediate duplicate fetch on initial page load.
+      if (Date.now() - visGuardRef.current < 750) return;
       if (document.visibilityState === "visible") {
         void fetchPlans();
         void loadRegistryFeatures();
