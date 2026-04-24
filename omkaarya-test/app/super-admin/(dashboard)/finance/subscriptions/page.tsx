@@ -427,7 +427,7 @@ function VerifyModal({
         </div>
 
         <div className="flex justify-end gap-3 border-t border-border px-6 py-4">
-          <Button variant="destructive-outline" onClick={onReject}>
+          <Button variant="destructive" onClick={onReject}>
             <XCircle className="h-4 w-4 mr-1.5" /> Reject
           </Button>
           <Button variant="primary" onClick={onVerify}>

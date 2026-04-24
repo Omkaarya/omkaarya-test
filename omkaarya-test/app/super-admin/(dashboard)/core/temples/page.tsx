@@ -29,31 +29,12 @@ import StatusBadge from "@/app/components/admin/StatusBadge";
 
 // ── Components ─────────────────────────────────────────────────────
 
-function MetricCard({ 
-  title, 
-  value, 
-  subtitle, 
-  icon: Icon, 
-  iconBg 
-}: { 
-  title: string; 
-  value: string; 
-  subtitle: string; 
-  icon: any; 
-  iconBg: string;
-}) {
+function TableSkeleton() {
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 flex flex-col justify-between hover:shadow-md transition-all">
-      <div className="flex justify-between items-start mb-4">
-        <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{title}</h3>
-        <div className={`p-2 rounded-lg ${iconBg}`}>
-          <Icon className="w-4 h-4" />
-        </div>
-      </div>
-      <div>
-        <p className="text-2xl font-bold text-zinc-900 dark:text-white">{value}</p>
-        <p className="text-[11px] mt-1 text-zinc-400 font-medium">{subtitle}</p>
-      </div>
+    <div className="w-full space-y-4 px-8 py-6">
+      {[...Array(10)].map((_, i) => (
+        <div key={i} className="h-10 w-full bg-zinc-100 dark:bg-zinc-800/50 rounded-xl animate-pulse" />
+      ))}
     </div>
   );
 }
@@ -66,10 +47,10 @@ function initials(name: string): string {
 
 function planPillClass(plan: TemplePlan): string {
   switch (plan) {
-    case "Prarambha": return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300";
-    case "Sankalpa": return "bg-pink-100 text-pink-800 dark:bg-pink-950/50 dark:text-pink-300";
-    case "Aaradhana": return "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-300";
-    default: return "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300";
+    case "Prarambha": return "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300";
+    case "Sankalpa": return "bg-pink-50 text-pink-700 dark:bg-pink-950/50 dark:text-pink-300";
+    case "Aaradhana": return "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300";
+    default: return "bg-zinc-50 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300";
   }
 }
 
@@ -123,19 +104,27 @@ export default function TemplesAdminPage() {
   const tableHeaders = useMemo(() => ["Tenant ID", "Temples Name", "Country", "Plan", "Devotees", "Status", "Compliance", "Actions"], []);
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Temples</h1>
-          <span className="rounded-md bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800 dark:bg-red-950/50 dark:text-red-300">{totalAll} temples</span>
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-400">
+      
+      {/* INTEGRATED CARD MODULE (Source: Latest Figma Reference) */}
+      <div className="rounded-[32px] border border-zinc-100 bg-white shadow-[0_8px_40px_-12px_rgba(0,0,0,0.03)] dark:border-zinc-800 dark:bg-zinc-900 overflow-hidden">
+        
+        {/* Module Header Section */}
+        <div className="p-8 pb-6 flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Temples</h1>
+              <span className="rounded-md bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-600 dark:bg-red-950/50 dark:text-red-300 uppercase tracking-tight">{totalAll} temples</span>
+            </div>
+            <p className="text-sm font-medium text-zinc-400">Manage and monitor your temples here.</p>
+          </div>
+          <Link href="/super-admin/create-temple" className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 px-6 text-[13px] font-bold text-white shadow-lg shadow-orange-500/20 transition-all hover:bg-orange-600 active:scale-95">
+            <Plus className="h-4 w-4" /> Create Temple
+          </Link>
         </div>
-        <Link href="/super-admin/create-temple" className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[var(--brand-primary)] px-6 text-sm font-bold text-white shadow-md shadow-orange-500/20 transition-all hover:bg-[var(--brand-primary-hover)] active:scale-95">
-          <Plus className="h-4 w-4" /> Create New Temple
-        </Link>
-      </div>
 
-      <div className="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 overflow-hidden">
-        <div className="p-0 border-b border-zinc-100 dark:border-zinc-800">
+        {/* Toolbar Section (Filters) */}
+        <div className="px-8 pb-6 border-b border-zinc-50 dark:border-zinc-800/50">
           <AdminFiltersBar 
             search={searchInput} 
             onSearchChange={setSearchInput} 
@@ -149,44 +138,58 @@ export default function TemplesAdminPage() {
           />
         </div>
 
-        {loading ? (
-          <div className="p-12 text-center text-zinc-400">Syncing temple data...</div>
-        ) : error ? (
-          <div className="px-6 py-8 text-center text-red-500 font-bold flex flex-col items-center gap-2">
-            <AlertTriangle className="w-8 h-8" /> {error}
-          </div>
-        ) : (
-          <AdminDataTable headers={tableHeaders} isEmpty={rows.length === 0} empty={<div className="px-4 py-16 text-center text-zinc-400">No temples found matching filters</div>}>
-            {rows.map((row) => (
-              <tr key={row.tenantId} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30 group transition-colors">
-                <td className="px-6 py-4"><span className="text-xs font-bold text-zinc-400">#{row.tenantId}</span></td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-sm font-bold border border-zinc-200">{initials(row.name)}</span>
-                    <div className="min-w-0"><p className="font-bold text-zinc-900 dark:text-zinc-100 truncate">{row.name}</p><p className="text-[11px] text-zinc-500 truncate">{row.slug}</p></div>
-                  </div>
-                </td>
-                <td className="px-6 py-4"><div className="flex items-center gap-2"><span className="text-lg leading-none">{row.countryFlag}</span><span className="text-xs font-bold text-zinc-700">{row.city}</span></div></td>
-                <td className="px-6 py-4"><span className={`inline-flex rounded-lg px-3 py-1 text-[11px] font-bold ${planPillClass(row.plan)}`}>{row.plan}</span></td>
-                <td className="px-6 py-4 tabular-nums text-sm font-bold text-zinc-700">{row.devotees.toLocaleString()}</td>
-                <td className="px-6 py-4"><StatusBadge status={row.status} /></td>
-                <td className="px-6 py-4"><ComplianceBadge compliance={row.compliance} /></td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <button className="p-2 rounded-lg text-zinc-400 hover:text-[var(--brand-primary)]"><Eye className="h-4 w-4" /></button>
-                    <Link href={`/super-admin/edit-temple/${encodeURIComponent(row.tenantId)}`} className="p-2 rounded-lg text-zinc-400 hover:text-[var(--brand-primary)]"><Pencil className="h-4 w-4" /></Link>
-                    <button className="p-2 rounded-lg text-zinc-400 hover:text-zinc-800"><MoreVertical className="h-4 w-4" /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </AdminDataTable>
-        )}
+        {/* Table Content Section */}
+        <div className="relative min-h-[500px]">
+          {loading ? (
+            <TableSkeleton />
+          ) : error ? (
+            <div className="p-20 text-center text-red-500 font-bold flex flex-col items-center gap-2">
+              <AlertTriangle className="w-10 h-10" /> {error}
+            </div>
+          ) : (
+            <AdminDataTable headers={tableHeaders} isEmpty={rows.length === 0} empty={<div className="p-20 text-center text-zinc-400 font-bold">No temples found matching filters</div>}>
+              {rows.map((row) => (
+                <tr key={row.tenantId} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 group transition-all duration-200">
+                  <td className="px-8 py-5"><span className="text-[12px] font-bold text-zinc-400 tracking-tight">Temp ID {row.tenantId}</span></td>
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-4">
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-zinc-100 text-xs font-black border border-zinc-200 text-zinc-500">{initials(row.name)}</span>
+                      <div className="min-w-0">
+                        <p className="font-bold text-[14px] text-zinc-900 dark:text-zinc-100 truncate group-hover:text-orange-500 transition-colors">{row.name}</p>
+                        <p className="text-[11px] text-zinc-400 font-medium truncate tracking-tight">{row.slug}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <span className="text-[13px] font-bold text-zinc-500">Chennai</span>
+                  </td>
+                  <td className="px-8 py-5">
+                    <span className={`inline-flex rounded-lg px-3 py-1 text-[11px] font-black uppercase tracking-tight ${planPillClass(row.plan)}`}>
+                      {row.plan}
+                    </span>
+                  </td>
+                  <td className="px-8 py-5 tabular-nums text-[13px] font-bold text-zinc-500">{row.devotees.toLocaleString()}</td>
+                  <td className="px-8 py-5"><StatusBadge status={row.status} /></td>
+                  <td className="px-8 py-5"><ComplianceBadge compliance={row.compliance} /></td>
+                  <td className="px-8 py-5">
+                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button className="p-2.5 rounded-xl text-zinc-400 hover:text-orange-500 hover:bg-orange-50 transition-all"><Eye className="h-4.5 w-4.5" /></button>
+                      <Link href={`/super-admin/edit-temple/${encodeURIComponent(row.tenantId)}`} className="p-2.5 rounded-xl text-zinc-400 hover:text-orange-500 hover:bg-orange-50 transition-all"><Pencil className="h-4.5 w-4.5" /></Link>
+                      <button className="p-2.5 rounded-xl text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-all"><MoreVertical className="h-4.5 w-4.5" /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </AdminDataTable>
+          )}
+        </div>
 
-        <div className="px-6 py-4 border-t border-zinc-100 dark:border-zinc-800">
+        {/* Pagination Section */}
+        <div className="px-8 py-6 border-t border-zinc-50 dark:border-zinc-800/50 bg-white/50">
           <AdminPagination page={page} pageSize={pageSize} totalPages={totalPages} onPageChange={setPage} onPageSizeChange={setPageSize} />
         </div>
       </div>
+
     </div>
   );
 }

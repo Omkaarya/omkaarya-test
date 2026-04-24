@@ -1,76 +1,135 @@
 "use client";
 
-import { Save, UploadCloud } from "lucide-react";
+import { Save, UploadCloud, Building2, Mail, Phone, MapPin, Globe, Languages, Clock } from "lucide-react";
+import { Button } from "@/app/components/ds/atoms/Button";
+import { Input } from "@/app/components/ds/atoms/Input";
 
 export default function GeneralSettingsPage() {
   return (
-    <div className="space-y-8 max-w-3xl animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <div>
-        <h2 className="text-xl font-black text-[var(--text-primary)]">General Settings</h2>
-        <p className="text-sm font-medium text-[var(--text-muted)] mt-1">Configure your temple's core identity and localization.</p>
+    <div className="space-y-10 max-w-4xl animate-in fade-in duration-500">
+      
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-100 dark:border-zinc-800 pb-8">
+        <div>
+          <h1 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tight">General Settings</h1>
+          <p className="text-zinc-500 dark:text-zinc-400 font-medium mt-1">Configure your temple's core identity, localization, and contact details.</p>
+        </div>
+        <Button size="lg" leadingIcon={<Save className="w-4 h-4" />}>
+          Save Changes
+        </Button>
       </div>
 
-      <div className="space-y-5">
-        {/* Logo Upload */}
-        <div className="flex items-start gap-5 p-5 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30">
-          <div className="w-20 h-20 rounded-xl border-2 border-dashed border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 flex flex-col items-center justify-center text-[var(--brand-primary)] shrink-0 cursor-pointer hover:border-[var(--brand-primary)] transition-colors">
-            <UploadCloud className="w-5 h-5 mb-1" />
-            <span className="text-[10px] font-bold uppercase tracking-wider">Logo</span>
-          </div>
-          <div className="flex-1">
-            <h4 className="text-sm font-bold text-[var(--text-primary)]">Temple Logo</h4>
-            <p className="text-xs font-medium text-[var(--text-muted)] mt-1 mb-3">Upload your official temple logo. Used on receipts, portals, and emails. Recommended ratio 1:1, max 2MB.</p>
-            <button className="px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-xs font-bold text-[var(--text-secondary)] hover:text-[var(--brand-primary)] hover:border-[var(--brand-primary)] transition-colors">Choose File...</button>
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+        
+        {/* Left Column: Branding & Media */}
+        <div className="space-y-6">
+           <div>
+              <h3 className="text-sm font-black text-zinc-900 dark:text-white uppercase tracking-widest mb-4">Branding</h3>
+              <div className="group relative w-full aspect-square rounded-[40px] border-2 border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 flex flex-col items-center justify-center transition-all hover:border-[var(--brand-primary)] hover:bg-orange-50/30 cursor-pointer overflow-hidden">
+                 <div className="flex flex-col items-center text-zinc-400 group-hover:text-[var(--brand-primary)] transition-colors">
+                    <UploadCloud className="w-10 h-10 mb-2 stroke-[1.5px]" />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Upload Temple Logo</span>
+                    <span className="text-[9px] mt-1 font-medium text-zinc-400">SVG, PNG, JPG (Max 2MB)</span>
+                 </div>
+                 {/* Hidden input overlay */}
+                 <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" />
+              </div>
+              <p className="text-[11px] text-zinc-400 mt-4 leading-relaxed font-medium">This logo will appear on all printed receipts, digital invoices, and official communications.</p>
+           </div>
         </div>
 
-        {/* Basic Info */}
-        <div className="grid grid-cols-2 gap-5">
-          <div className="col-span-2">
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Temple Name *</label>
-            <input type="text" defaultValue="Omkaarya Main Temple" className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-bold text-[var(--text-primary)] outline-none focus:border-[var(--brand-primary)] transition-colors" />
-          </div>
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Primary Contact Number</label>
-            <input type="text" defaultValue="+94 77 123 4567" className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-semibold text-[var(--text-secondary)] outline-none focus:border-[var(--brand-primary)] transition-colors" />
-          </div>
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Official Email</label>
-            <input type="email" defaultValue="admin@omkaaryatemple.lk" className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-semibold text-[var(--text-secondary)] outline-none focus:border-[var(--brand-primary)] transition-colors" />
-          </div>
-          <div className="col-span-2">
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Address</label>
-            <textarea rows={3} defaultValue="123 Temple Road, Colombo 06" className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-semibold text-[var(--text-secondary)] outline-none focus:border-[var(--brand-primary)] transition-colors resize-none" />
-          </div>
-        </div>
+        {/* Right Column: Information & Localization */}
+        <div className="lg:col-span-2 space-y-10">
+           
+           {/* Temple Information */}
+           <div className="space-y-6">
+              <div className="flex items-center gap-3 text-[var(--brand-primary)]">
+                 <Building2 className="w-5 h-5" />
+                 <h3 className="text-sm font-black uppercase tracking-widest">Temple Information</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div className="md:col-span-2">
+                    <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2 px-1">Official Temple Name</label>
+                    <Input 
+                      defaultValue="Omkaarya Main Temple" 
+                      placeholder="Enter temple name..."
+                      leadingIcon={<Building2 />}
+                    />
+                 </div>
+                 <div>
+                    <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2 px-1">Contact Email</label>
+                    <Input 
+                      defaultValue="admin@omkaaryatemple.lk" 
+                      placeholder="admin@temple.com"
+                      leadingIcon={<Mail />}
+                    />
+                 </div>
+                 <div>
+                    <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2 px-1">Primary Phone</label>
+                    <Input 
+                      defaultValue="+94 77 123 4567" 
+                      placeholder="+94 ..."
+                      leadingIcon={<Phone />}
+                    />
+                 </div>
+                 <div className="md:col-span-2">
+                    <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2 px-1">Physical Address</label>
+                    <Input 
+                      defaultValue="123 Temple Road, Colombo 06" 
+                      placeholder="Street, City, Zip..."
+                      leadingIcon={<MapPin />}
+                    />
+                 </div>
+              </div>
+           </div>
 
-        <hr className="border-t border-zinc-100 dark:border-zinc-800" />
+           <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
 
-        {/* Localization */}
-        <div className="grid grid-cols-2 gap-5">
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Timezone</label>
-            <select className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-semibold text-[var(--text-secondary)] outline-none focus:border-[var(--brand-primary)] transition-colors cursor-pointer">
-              <option>Asia/Colombo (IST)</option>
-              <option>Asia/Kolkata (IST)</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">System Language</label>
-            <select className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-semibold text-[var(--text-secondary)] outline-none focus:border-[var(--brand-primary)] transition-colors cursor-pointer">
-              <option>English</option>
-              <option>Tamil</option>
-              <option>Sinhala</option>
-            </select>
-          </div>
+           {/* Localization */}
+           <div className="space-y-6">
+              <div className="flex items-center gap-3 text-[var(--brand-primary)]">
+                 <Globe className="w-5 h-5" />
+                 <h3 className="text-sm font-black uppercase tracking-widest">Localization</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div>
+                    <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2 px-1">System Language</label>
+                    <div className="relative">
+                       <select className="w-full h-11 pl-11 pr-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-bold text-zinc-900 dark:text-white outline-none focus:ring-4 focus:ring-[var(--brand-primary)]/10 focus:border-[var(--brand-primary)] transition-all appearance-none cursor-pointer">
+                          <option>English (Universal)</option>
+                          <option>Tamil (Thamizh)</option>
+                          <option>Sinhala (Sihala)</option>
+                          <option>Hindi (Bharatiya)</option>
+                       </select>
+                       <Languages className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                    </div>
+                 </div>
+                 <div>
+                    <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2 px-1">Primary Timezone</label>
+                    <div className="relative">
+                       <select className="w-full h-11 pl-11 pr-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-bold text-zinc-900 dark:text-white outline-none focus:ring-4 focus:ring-[var(--brand-primary)]/10 focus:border-[var(--brand-primary)] transition-all appearance-none cursor-pointer">
+                          <option>Asia/Colombo (IST)</option>
+                          <option>Asia/Kolkata (IST)</option>
+                          <option>UTC (GMT)</option>
+                       </select>
+                       <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                    </div>
+                 </div>
+              </div>
+           </div>
+
         </div>
       </div>
 
-      <div className="pt-6 flex justify-end">
-        <button className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-hover)] text-white text-sm font-bold shadow-md shadow-orange-500/20 transition-all">
-          <Save className="w-4 h-4" /> Save General Settings
-        </button>
+      {/* Save Button (Sticky/Fixed variant could also work, but here it's at the bottom too) */}
+      <div className="flex justify-end pt-10 border-t border-zinc-100 dark:border-zinc-800">
+         <Button size="lg" leadingIcon={<Save className="w-4 h-4" />}>
+           Save All Settings
+         </Button>
       </div>
+
     </div>
   );
 }

@@ -5,40 +5,12 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import {
-  Bell,
-  Building2,
-  Calendar,
-  ChevronRight,
-  Cog,
-  CreditCard,
-  Database,
-  FileText,
-  Globe,
-  LayoutDashboard,
-  Mail,
-  Maximize2,
-  Menu,
-  Receipt,
-  Search,
-  Settings,
-  Shield,
-  Sun,
-  Moon,
-  Tag,
-  User,
-  Users,
-  UserX,
-  Wallet,
-  CheckSquare,
-  RefreshCw,
-  DollarSign,
-  HeartHandshake,
-  BarChart3,
-  TrendingUp,
-  LineChart,
-  Flower2
+  Bell, Building2, Calendar, ChevronRight, CreditCard,
+  FileText, Globe, LayoutDashboard, Mail, Maximize2,
+  Menu, Receipt, Search, Settings, Shield, Sun, Moon,
+  Tag, User, Users, History, Languages, Home, Wallet,
+  UserX, ShieldCheck, Settings2
 } from "lucide-react";
-import { AdminBreadcrumbs } from "@/app/components/admin/adminBreadcrumbs";
 
 // ── Navigation Config ──────────────────────────────────────────────
 
@@ -53,65 +25,36 @@ type L1Group = {
 };
 
 const NAV_GROUPS: L1Group[] = [
-  {
-    id: "dashboard",
-    label: "Dashboard",
-    icon: LayoutDashboard,
-    children: [
-      { href: "/super-admin", label: "Overview", icon: LayoutDashboard },
-      { href: "/super-admin/finance", label: "Finance Analytics", icon: LineChart },
-    ],
-  },
-  {
-    id: "subscriptions_group",
-    label: "Subscriptions",
-    icon: CreditCard,
-    children: [
-      { href: "/super-admin/subscriptions", label: "Overview", icon: BarChart3 },
-      { href: "/super-admin/subscriptions/domains", label: "Domains", icon: Globe },
-      { href: "/super-admin/finance/upcoming-renewals", label: "Upcoming Renewals", icon: RefreshCw },
-    ],
-  },
-  {
-    id: "core",
-    label: "Core",
-    icon: Building2,
-    children: [
-      { href: "/super-admin/core/temples", label: "Temples", icon: Building2 },
-      { href: "/super-admin/core/deities", label: "Deities", icon: Flower2 },
-      { href: "/super-admin/pricing-plans", label: "Pricing Plans", icon: Tag },
-      { href: "/super-admin/cms", label: "Website CMS", icon: Globe },
-    ],
-  },
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, href: "/super-admin" },
+  { id: "temples", label: "Temples", icon: Building2, href: "/super-admin/core/temples" },
+  { id: "pricing", label: "Pricing Plans", icon: Tag, href: "/super-admin/pricing-plans" },
+  { id: "domains", label: "Domains", icon: Globe, href: "/super-admin/subscriptions/domains" },
+  { id: "panchangam", label: "Panchangam", icon: Calendar, href: "/super-admin/cms" },
   {
     id: "finance",
-    label: "Finance",
+    label: "Finance & Billing",
     icon: Wallet,
     children: [
       { href: "/super-admin/finance/transactions", label: "Transactions", icon: Receipt },
       { href: "/super-admin/finance/invoices", label: "Invoices", icon: FileText },
-      { href: "/super-admin/finance/receipts", label: "Receipts", icon: Wallet },
-      { href: "/super-admin/finance/confirm-payments", label: "Confirm Payments", icon: CheckSquare },
     ],
   },
   {
-    id: "users",
-    label: "Users",
-    icon: Users,
-    children: [
-      { href: "/super-admin/user-management/users", label: "Users List", icon: Users },
-      { href: "/super-admin/user-management/roles", label: "Roles & Permissions", icon: Shield },
-      { href: "/super-admin/delete-account-requests", label: "Delete Requests", icon: UserX },
-    ],
+    id: "subscriptions",
+    label: "Subscriptions",
+    icon: CreditCard,
+    href: "/super-admin/subscriptions",
   },
-  {
-    id: "system",
-    label: "System",
-    icon: Cog,
-    children: [
-      { href: "/super-admin/system-settings/feature-registry", label: "Feature Registry", icon: Database },
-    ],
-  },
+];
+
+const USER_MGMT_NAV = [
+  { href: "/super-admin/user-management/users", label: "Users", icon: Users },
+  { href: "/super-admin/user-management/roles", label: "Role & Permissions", icon: Shield },
+  { href: "/super-admin/user-management/delete-requests", label: "Delete Account Requests", icon: UserX },
+];
+
+const SYSTEM_NAV = [
+  { href: "/super-admin/system-settings", label: "System Settings", icon: Settings2, hasChildren: true },
 ];
 
 export function AdminDashboardShell({
@@ -124,20 +67,15 @@ export function AdminDashboardShell({
 }: any) {
   
   const getActiveGroup = () => {
-    let bestMatch: { id: string; len: number } | null = null;
     for (const g of NAV_GROUPS) {
+      if (g.href && (pathname === g.href || pathname.startsWith(g.href + "/"))) return g.id;
       if (g.children) {
         for (const c of g.children) {
-          const exact = pathname === c.href;
-          const prefix = c.href !== "/super-admin" && pathname.startsWith(c.href + "/");
-          if (exact || prefix) {
-            const len = c.href.length;
-            if (!bestMatch || len > bestMatch.len) bestMatch = { id: g.id, len };
-          }
+          if (pathname === c.href || pathname.startsWith(c.href + "/")) return g.id;
         }
       }
     }
-    return bestMatch?.id ?? null;
+    return null;
   };
 
   const activeGroupId = getActiveGroup();
@@ -162,109 +100,163 @@ export function AdminDashboardShell({
     });
   };
 
-  // Notch component with corrected Z-Index and color blending
-  const Notch = ({ active }: { active: boolean }) => (
-    <div className={`absolute inset-y-0 right-0 w-6 pointer-events-none transition-opacity duration-200 ${active ? 'opacity-100' : 'opacity-0'}`}>
-       <div className="absolute -top-[24px] right-0 w-6 h-6 bg-transparent rounded-br-[24px] shadow-[10px_10px_0_10px_white] dark:shadow-[10px_10px_0_10px_#09090b]" />
-       <div className="absolute -bottom-[24px] right-0 w-6 h-6 bg-transparent rounded-tr-[24px] shadow-[10px_-10px_0_10px_white] dark:shadow-[10px_-10px_0_10px_#09090b]" />
-    </div>
-  );
-
   return (
-    <div className="flex h-screen min-h-0 overflow-hidden bg-white dark:bg-[var(--background)] font-sans text-[var(--foreground)]">
-      {sidebarOpen && (
-        <button className="fixed inset-0 z-40 bg-black/40 lg:hidden backdrop-blur-sm" onClick={() => onSidebarOpenChange(false)} />
-      )}
-
-      <aside className={`fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 flex-col transition-transform duration-300 bg-[var(--brand-primary)] dark:bg-zinc-950 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-        <div className="flex h-16 items-center border-b border-white/10 px-6 shrink-0">
-          <Image src="/brand-logo/Omkaarya 9.svg" alt="Omkaarya" width={120} height={32} className="h-8 w-auto brightness-0 invert" />
+    <div className="flex h-screen min-h-0 overflow-hidden bg-white dark:bg-zinc-950 font-sans text-zinc-900 dark:text-zinc-100">
+      
+      {/* 1. SIDEBAR (Solid White Column) */}
+      <aside className={`fixed inset-y-0 left-0 z-50 flex w-[260px] shrink-0 flex-col transition-transform duration-300 bg-white dark:bg-zinc-900 border-r border-zinc-100 dark:border-zinc-800 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+        <div className="flex h-16 items-center px-8 shrink-0">
+          <Link href="/super-admin" className="flex items-center gap-0.5">
+             <span className="text-xl font-black tracking-tighter text-zinc-900"><span className="text-orange-500">pepu</span>lux</span>
+          </Link>
         </div>
 
-        {/* Removed scrollbar-none to prevent notch clipping on hover */}
-        <nav className="flex-1 py-8 space-y-3 pl-3 overflow-y-visible">
+        <nav className="flex-1 py-4 space-y-0.5 overflow-y-auto scrollbar-none px-4">
           {NAV_GROUPS.map((group) => {
             const isOpen = openGroups.has(group.id);
             const isActiveGroup = activeGroupId === group.id;
             const GroupIcon = group.icon;
+            const isDirect = !!group.href;
 
             return (
               <div key={group.id} className="flex flex-col">
-                <button 
-                  onClick={() => toggleGroup(group.id)}
-                  className={`
-                    relative flex items-center gap-3 px-4 py-3.5 rounded-l-full transition-all duration-200 w-full text-left group
-                    ${isActiveGroup && !isOpen ? 'bg-white dark:bg-[var(--background)] text-[var(--brand-primary)] shadow-sm' : 'text-white hover:bg-white dark:hover:bg-[var(--background)] hover:text-[var(--brand-primary)]'}
-                  `}
-                >
-                  <Notch active={(isActiveGroup && !isOpen)} />
-                  {/* Separate hover notch to avoid logic flicker */}
-                  <div className="absolute inset-y-0 right-0 w-6 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    <div className="absolute -top-[24px] right-0 w-6 h-6 bg-transparent rounded-br-[24px] shadow-[10px_10px_0_10px_white] dark:shadow-[10px_10px_0_10px_#09090b]" />
-                    <div className="absolute -bottom-[24px] right-0 w-6 h-6 bg-transparent rounded-tr-[24px] shadow-[10px_-10px_0_10px_white] dark:shadow-[10px_-10px_0_10px_#09090b]" />
-                  </div>
-
-                  <GroupIcon className={`w-5 h-5 shrink-0 ${isActiveGroup && !isOpen ? 'text-[var(--brand-primary)]' : 'group-hover:scale-110'}`} />
-                  <span className="font-bold text-[14px] flex-1 truncate">{group.label}</span>
-                  <ChevronRight className={`w-4 h-4 shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
-                </button>
-
-                {isOpen && (
-                  <div className="flex flex-col mt-1 space-y-1">
-                    {group.children!.map(child => {
-                      const active = isActiveGroup && (pathname === child.href || (child.href !== "/super-admin" && pathname.startsWith(child.href + "/")));
-                      const ChildIcon = child.icon || GroupIcon;
-                      
-                      return (
-                        <Link 
-                          key={child.href} 
-                          href={child.href} 
-                          className={`
-                            relative flex items-center gap-3 pl-12 pr-4 py-2.5 rounded-l-full transition-all duration-200 group
-                            ${active ? 'bg-white dark:bg-[var(--background)] text-[var(--brand-primary)] shadow-sm' : 'text-white/80 hover:bg-white dark:hover:bg-[var(--background)] hover:text-[var(--brand-primary)]'}
-                          `}
-                        >
-                           <Notch active={active} />
-                           <div className="absolute inset-y-0 right-0 w-6 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                             <div className="absolute -top-[24px] right-0 w-6 h-6 bg-transparent rounded-br-[24px] shadow-[10px_10px_0_10px_white] dark:shadow-[10px_10px_0_10px_#09090b]" />
-                             <div className="absolute -bottom-[24px] right-0 w-6 h-6 bg-transparent rounded-tr-[24px] shadow-[10px_-10px_0_10px_white] dark:shadow-[10px_-10px_0_10px_#09090b]" />
-                           </div>
-                           <ChildIcon className={`w-4 h-4 ${active ? 'text-[var(--brand-primary)]' : 'text-white/50 group-hover:text-[var(--brand-primary)]'}`} />
-                           <span className="font-bold text-[13px] truncate">{child.label}</span>
-                        </Link>
-                      )
-                    })}
-                  </div>
+                {isDirect ? (
+                  <Link 
+                    href={group.href!}
+                    className={`
+                      flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 font-bold text-[13px]
+                      ${isActiveGroup ? 'bg-zinc-50 text-orange-500' : 'text-zinc-500 hover:bg-zinc-50/80 hover:text-zinc-900'}
+                    `}
+                  >
+                    <GroupIcon className={`w-5 h-5 shrink-0 ${isActiveGroup ? 'text-orange-500' : 'text-zinc-400'}`} />
+                    <span className="truncate">{group.label}</span>
+                  </Link>
+                ) : (
+                  <>
+                    <button 
+                      onClick={() => toggleGroup(group.id)}
+                      className={`
+                        flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 w-full text-left font-bold text-[13px]
+                        ${isActiveGroup ? 'text-zinc-900' : 'text-zinc-500 hover:bg-zinc-50/80 hover:text-zinc-900'}
+                      `}
+                    >
+                      <GroupIcon className={`w-5 h-5 shrink-0 ${isActiveGroup ? 'text-orange-500' : 'text-zinc-400'}`} />
+                      <span className="flex-1 truncate">{group.label}</span>
+                      <ChevronRight className={`w-4 h-4 shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                    </button>
+                    {isOpen && (
+                      <div className="flex flex-col mt-0.5 space-y-0.5">
+                        {group.children!.map(child => {
+                          const active = pathname === child.href || pathname.startsWith(child.href + "/");
+                          return (
+                            <Link 
+                              key={child.href} 
+                              href={child.href} 
+                              className={`
+                                flex items-center gap-3 pl-11 pr-4 py-2 rounded-lg transition-all duration-200 font-bold text-[12px]
+                                ${active ? 'text-orange-500 bg-zinc-50/50' : 'text-zinc-400 hover:text-zinc-900'}
+                              `}
+                            >
+                               <span className="truncate">{child.label}</span>
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             );
           })}
-        </nav>
 
-        <div className="p-4 border-t border-white/10 shrink-0">
-           <div className="flex items-center gap-3 px-2 py-1 text-white/60">
-             <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-bold text-xs text-white">SA</div>
-             <div className="flex flex-col"><span className="text-[11px] font-bold text-white">Super Admin</span><span className="text-[10px]">Portal v1.0.6</span></div>
-           </div>
-        </div>
+          <div className="pt-6 mt-6 border-t border-zinc-100 space-y-0.5">
+             <p className="px-3 py-2 text-[10px] font-black text-zinc-400 uppercase tracking-widest">User Management</p>
+             {USER_MGMT_NAV.map((item) => (
+                <Link key={item.href} href={item.href} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-[13px] transition-all ${pathname.includes(item.href) ? 'bg-zinc-50 text-orange-500' : 'text-zinc-500 hover:bg-zinc-50/80'}`}>
+                   <item.icon className={`w-5 h-5 ${pathname.includes(item.href) ? 'text-orange-500' : 'text-zinc-400'}`} />
+                   <span className="truncate">{item.label}</span>
+                </Link>
+             ))}
+          </div>
+
+          <div className="pt-6 mt-6 border-t border-zinc-100 space-y-0.5">
+             <p className="px-3 py-2 text-[10px] font-black text-zinc-400 uppercase tracking-widest">System</p>
+             {SYSTEM_NAV.map((item) => (
+                <Link key={item.href} href={item.href} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-[13px] transition-all ${pathname.includes(item.href) ? 'bg-zinc-50 text-orange-500' : 'text-zinc-500 hover:bg-zinc-50/80'}`}>
+                   <item.icon className={`w-5 h-5 ${pathname.includes(item.href) ? 'text-orange-500' : 'text-zinc-400'}`} />
+                   <span className="flex-1 truncate">{item.label}</span>
+                   {item.hasChildren && <ChevronRight className="w-4 h-4 text-zinc-400" />}
+                </Link>
+             ))}
+          </div>
+        </nav>
       </aside>
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:pl-64">
-        <header className="flex h-16 shrink-0 items-center gap-4 border-b border-zinc-200 bg-white px-6 dark:border-zinc-800 dark:bg-zinc-950 shadow-sm">
-          <button type="button" className="lg:hidden p-2 text-zinc-500" onClick={() => onSidebarOpenChange(true)}><Menu className="h-5 w-5" /></button>
-          <AdminBreadcrumbs pathname={pathname} />
-          <div className="ml-auto flex items-center gap-3">
-             <button onClick={onToggleTheme} className="p-2 rounded-lg text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors">
-               {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-             </button>
-             <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center"><User className="w-4 h-4 text-zinc-500" /></div>
-          </div>
-        </header>
-        <main className="flex-1 overflow-y-auto bg-zinc-50 dark:bg-zinc-950 p-6 lg:p-8">{children}</main>
-        <footer className="shrink-0 border-t border-zinc-200 bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950 text-xs text-zinc-500 font-medium flex justify-between items-center">
-           <p>© 2024 - 2026 Om Kaaryaa. All Rights Reserved.</p>
-           <div className="flex gap-4"><a href="#" className="hover:text-[var(--brand-primary)]">Terms</a><a href="#" className="hover:text-[var(--brand-primary)]">Privacy</a></div>
-        </footer>
+      {/* 2. MAIN FRAME (Differentiated Content Unit) */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:pl-[260px] bg-white dark:bg-zinc-900">
+        
+        {/* The 3-Layer Container (Inset with Radius) */}
+        <div className="flex-1 flex flex-col mt-2.5 ml-2.5 mb-2.5 rounded-tl-[24px] rounded-bl-[24px] overflow-hidden bg-[#F8F9FB] dark:bg-zinc-950 border-l border-t border-b border-zinc-100 dark:border-zinc-800 shadow-[-8px_0_24px_rgba(0,0,0,0.015)]">
+          
+          {/* Layer 1: Nav Bar (White + Rounded Top Left) */}
+          <header className="flex h-16 shrink-0 items-center gap-4 bg-white px-8 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 rounded-tl-[24px]">
+            <button type="button" className="lg:hidden p-2 text-zinc-500" onClick={() => onSidebarOpenChange(true)}><Menu className="h-5 w-5" /></button>
+            
+            <div className="flex items-center gap-3">
+               <Home className="w-4 h-4 text-zinc-400" />
+               <ChevronRight className="w-3.5 h-3.5 text-zinc-300" />
+               <span className="text-[13px] font-bold text-orange-500">Temples</span>
+            </div>
+
+            {/* Search Bar Sync */}
+            <div className="hidden md:flex flex-1 max-w-lg relative ml-8">
+               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+               <input 
+                 className="w-full h-10 pl-10 pr-10 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 text-[13px] font-medium placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-200 transition-all"
+                 placeholder="Search.."
+               />
+               <div className="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 text-[10px] font-bold text-zinc-400 tracking-tighter">⌘K</div>
+            </div>
+            
+            <div className="ml-auto flex items-center gap-1">
+               <button className="p-2 text-zinc-400 hover:text-zinc-900"><Languages className="w-5 h-5" /></button>
+               <button className="p-2 text-zinc-400 hover:text-zinc-900"><Maximize2 className="w-5 h-5" /></button>
+               <button className="p-2 text-zinc-400 hover:text-zinc-900"><Mail className="w-5 h-5" /></button>
+               <button className="p-2 text-zinc-400 hover:text-zinc-900 relative">
+                  <Bell className="w-5 h-5" />
+                  <span className="absolute top-2 right-2 w-2 h-2 bg-orange-500 rounded-full border-2 border-white" />
+               </button>
+               <button className="p-2 text-zinc-400 hover:text-zinc-900"><Settings className="w-5 h-5" /></button>
+               <button onClick={onToggleTheme} className="p-2 text-zinc-400 hover:text-zinc-900">
+                 {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+               </button>
+               <div className="w-9 h-9 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center border border-zinc-200 dark:border-zinc-700 ml-2 cursor-pointer hover:border-orange-200 transition-all overflow-hidden">
+                  <User className="w-5 h-5 text-zinc-400" />
+               </div>
+            </div>
+          </header>
+
+          {/* Layer 2: Main Content Area (Tertiary Gray) */}
+          <main className="flex-1 overflow-y-auto p-6 lg:p-10 scrollbar-none">
+             <div className="max-w-[1600px] mx-auto">
+               {children}
+             </div>
+          </main>
+
+          {/* Layer 3: Footer (Branding Integration) */}
+          <footer className="px-10 py-5 bg-transparent flex items-center justify-between text-[11px] font-bold text-zinc-400 tracking-tight shrink-0 border-t border-zinc-50 dark:border-zinc-800/50">
+             <p>2024 - 2026 © <span className="text-orange-500 font-black tracking-tighter">Om Kaaryaa</span> All Right Reserved</p>
+             <div className="flex items-center gap-8 uppercase tracking-widest text-[10px]">
+                <div className="flex items-center gap-1.5 font-bold">Powered By <span className="text-orange-500 font-black">Pepulux</span> All Right Reserved</div>
+                <div className="flex gap-4 font-bold">
+                   <a href="#" className="hover:text-zinc-900 transition-colors">Terms</a>
+                   <a href="#" className="hover:text-zinc-900 transition-colors">Privacy</a>
+                   <a href="#" className="hover:text-zinc-900 transition-colors">Help</a>
+                   <a href="#" className="hover:text-zinc-900 transition-colors">Status</a>
+                </div>
+             </div>
+          </footer>
+        </div>
       </div>
     </div>
   );

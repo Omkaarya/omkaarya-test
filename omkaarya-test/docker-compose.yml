@@ -1,0 +1,59 @@
+# docker-compose.yml — Omkaarya Platform Development Environment
+
+version: "3.9"
+
+services:
+  # ── PostgreSQL Database ───────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: omkaarya_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: omkaarya_user
+      POSTGRES_PASSWORD: omkaarya_pass
+      POSTGRES_DB: omkaarya_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U omkaarya_user -d omkaarya_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Next.js Application ───────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: omkaarya_app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env.local
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - DATABASE_URL=postgres://omkaarya_user:omkaarya_pass@postgres:5432/omkaarya_db
+
+  # ── pgAdmin (Database UI) ────────────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: omkaarya_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@omkaarya.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
