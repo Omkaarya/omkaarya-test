@@ -183,8 +183,20 @@ export type TempleSessionProfileDetails = {
   };
 };
 
+export type TempleSessionProvisioningPlan = {
+  pricingPlanId: string | null;
+  planName: string | null;
+  billing: "monthly" | "annual";
+};
+
 export type GetTempleSessionProfileResult =
-  | { ok: true; templeId: string; core: TempleSessionProfileCore; details: TempleSessionProfileDetails }
+  | {
+      ok: true;
+      templeId: string;
+      core: TempleSessionProfileCore;
+      details: TempleSessionProfileDetails;
+      provisioningPlan: TempleSessionProvisioningPlan;
+    }
   | ErrResult;
 
 export async function getTempleSessionProfileAction(sessionEmail: string): Promise<GetTempleSessionProfileResult> {
@@ -194,6 +206,7 @@ export async function getTempleSessionProfileAction(sessionEmail: string): Promi
     templeId: string;
     core: TempleSessionProfileCore;
     details: TempleSessionProfileDetails;
+    provisioningPlan?: TempleSessionProvisioningPlan;
   }>(`/api/temple-admin/temple-profile?${search.toString()}`, {
     method: "GET",
     headers: { Accept: "application/json" },
@@ -204,11 +217,17 @@ export async function getTempleSessionProfileAction(sessionEmail: string): Promi
   if (!res.data.templeId || !res.data.core || !res.data.details) {
     return { ok: false, status: 502, message: "Invalid temple profile response." };
   }
+  const provisioningPlan: TempleSessionProvisioningPlan = res.data.provisioningPlan ?? {
+    pricingPlanId: null,
+    planName: null,
+    billing: "annual",
+  };
   return {
     ok: true,
     templeId: res.data.templeId,
     core: res.data.core,
     details: res.data.details,
+    provisioningPlan,
   };
 }
 
@@ -220,6 +239,8 @@ export type SaveTempleProfileDetailsPayload = {
   establishedYear: string;
   fullAddress: TempleSessionProfileDetails["fullAddress"];
   logoDataUrl: string | null;
+  charityRegistered: boolean;
+  charityRegistrationNumber: string;
 };
 
 export async function saveTempleProfileDetailsAction(

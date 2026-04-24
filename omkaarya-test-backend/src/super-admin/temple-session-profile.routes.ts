@@ -55,12 +55,24 @@ export function createTempleSessionProfileRouter(repo: PostgresTempleRepository)
           street: string;
         };
         logoDataUrl: string | null;
+        charityRegistered: boolean;
+        charityRegistrationNumber: string;
       };
       const logoStored = await storeBrandingImageIfNeeded(
         body.logoDataUrl,
         "temple-logo",
         "temple-logo"
       );
+      if (
+        process.env.NODE_ENV !== "production" &&
+        logoStored != null &&
+        !/^https:\/\//i.test(logoStored)
+      ) {
+        console.warn(
+          "[temple-profile/details] Expected HTTPS logo URL after upload (Cloudinary secure_url), got:",
+          logoStored.slice(0, 80)
+        );
+      }
       const result = await repo.saveTempleProfileDetails({
         sessionEmail: body.sessionEmail,
         websiteUrl: body.websiteUrl,
@@ -69,6 +81,8 @@ export function createTempleSessionProfileRouter(repo: PostgresTempleRepository)
         establishedYear: body.establishedYear,
         fullAddress: body.fullAddress,
         logoDataUrl: logoStored,
+        charityRegistered: body.charityRegistered,
+        charityRegistrationNumber: body.charityRegistrationNumber,
       });
       if (!result.ok) {
         throw new HttpError(404, "Temple not found for this session email.", {
