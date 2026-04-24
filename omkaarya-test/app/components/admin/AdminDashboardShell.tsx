@@ -67,7 +67,8 @@ const NAV_GROUPS: L1Group[] = [
     label: "Subscriptions",
     icon: CreditCard,
     children: [
-      { href: "/super-admin/subscriptions", label: "Subscription List", icon: CreditCard },
+      { href: "/super-admin/subscriptions", label: "Overview", icon: BarChart3 },
+      { href: "/super-admin/subscriptions/domains", label: "Domains", icon: Globe },
       { href: "/super-admin/finance/upcoming-renewals", label: "Upcoming Renewals", icon: RefreshCw },
     ],
   },
