@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 
 // ─── Types ─────────────────────────────────────────────────────────
@@ -11,6 +13,7 @@ export interface BadgeProps {
   children: React.ReactNode;
   color?: BadgeColor;
   size?: BadgeSize;
+  variant?: "filled" | "subtle" | "outline";
   dot?: boolean;
   leadingIcon?: React.ReactNode;
   onDismiss?: () => void;
@@ -43,6 +46,7 @@ export const Badge: React.FC<BadgeProps> = ({
   children,
   color = "gray",
   size = "md",
+  variant = "subtle",
   dot = false,
   leadingIcon,
   onDismiss,
@@ -52,14 +56,40 @@ export const Badge: React.FC<BadgeProps> = ({
   const c = colorStyles[color];
   const s = sizeStyles[size];
 
+  const variantStyles = {
+    filled: `${c.bg.replace('bg-', 'bg-').replace('-50', '-500').replace('bg-subtle', 'bg-zinc-900')} text-white`,
+    subtle: `${c.bg} ${c.text}`,
+    outline: `bg-transparent border ${c.border || 'border-zinc-200'} ${c.text}`,
+  };
+  
+  // Custom mapping for filled since the color map is designed for subtle
+  const filledBackgrounds: Record<BadgeColor, string> = {
+    gray: "bg-zinc-900",
+    brand: "bg-brand",
+    error: "bg-red-600",
+    warning: "bg-amber-500",
+    success: "bg-emerald-600",
+    blue: "bg-blue-600",
+    indigo: "bg-indigo-600",
+    purple: "bg-purple-600",
+    pink: "bg-pink-600",
+    orange: "bg-orange-600",
+  };
+
+  const currentVariantStyle = variant === "filled" 
+    ? `${filledBackgrounds[color]} text-white`
+    : variant === "outline"
+      ? `bg-transparent border ${c.border || 'border-zinc-200'} ${c.text}`
+      : `${c.bg} ${c.text}`;
+
   return (
     <span
       onClick={onClick}
       className={`
-        inline-flex items-center rounded-full font-medium
-        ${c.bg} ${c.text}
+        inline-flex items-center rounded-full font-bold uppercase tracking-tight
+        ${currentVariantStyle}
         ${s.badge} ${s.text}
-        ${c.border ? `border ${c.border}` : ""}
+        ${variant === "subtle" && c.border ? `border ${c.border}` : ""}
         ${onClick ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}
         ${className}
       `}
