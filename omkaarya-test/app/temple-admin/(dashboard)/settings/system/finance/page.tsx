@@ -74,15 +74,15 @@ export default function FinanceSettingsPage() {
                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                  <div className="space-y-2">
                     <label className="block text-[10px] font-black uppercase tracking-wider text-zinc-400 px-1">VAT Percentage</label>
-                    <Input defaultValue="18.00" suffix="%" className="font-mono" />
+                    <Input defaultValue="18.00" suffixText="%" className="font-mono" />
                  </div>
                  <div className="space-y-2">
                     <label className="block text-[10px] font-black uppercase tracking-wider text-zinc-400 px-1">SSCL Percentage</label>
-                    <Input defaultValue="2.50" suffix="%" className="font-mono" />
+                    <Input defaultValue="2.50" suffixText="%" className="font-mono" />
                  </div>
                  <div className="space-y-2">
                     <label className="block text-[10px] font-black uppercase tracking-wider text-zinc-400 px-1">Service Charge</label>
-                    <Input defaultValue="0.00" suffix="%" className="font-mono" />
+                    <Input defaultValue="0.00" suffixText="%" className="font-mono" />
                  </div>
                </div>
 

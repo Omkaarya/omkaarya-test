@@ -43,25 +43,25 @@ export default function InventorySettingsPage() {
                  <label className="block text-[10px] font-black uppercase tracking-wider text-zinc-400 px-1 flex items-center gap-2">
                     <Package className="w-3 h-3" /> Consumables (Oil / Ghee)
                  </label>
-                 <Input defaultValue="50" type="number" suffix="Units" className="font-mono" />
+                 <Input defaultValue="50" type="number" suffixText="Units" className="font-mono" />
                </div>
                <div className="space-y-2">
                  <label className="block text-[10px] font-black uppercase tracking-wider text-zinc-400 px-1 flex items-center gap-2">
                     <Book className="w-3 h-3" /> Retail Items (Books)
                  </label>
-                 <Input defaultValue="20" type="number" suffix="Units" className="font-mono" />
+                 <Input defaultValue="20" type="number" suffixText="Units" className="font-mono" />
                </div>
                <div className="space-y-2">
                  <label className="block text-[10px] font-black uppercase tracking-wider text-zinc-400 px-1 flex items-center gap-2">
                     <Layers className="w-3 h-3" /> Raw Materials (BOM)
                  </label>
-                 <Input defaultValue="15" type="number" suffix="Units" className="font-mono" />
+                 <Input defaultValue="15" type="number" suffixText="Units" className="font-mono" />
                </div>
                <div className="space-y-2">
                  <label className="block text-[10px] font-black uppercase tracking-wider text-zinc-400 px-1 flex items-center gap-2">
                     <Box className="w-3 h-3" /> Fixed Assets
                  </label>
-                 <Input defaultValue="1" type="number" suffix="Units" className="font-mono" />
+                 <Input defaultValue="1" type="number" suffixText="Units" className="font-mono" />
                </div>
             </div>
           </div>

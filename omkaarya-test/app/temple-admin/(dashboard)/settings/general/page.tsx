@@ -1,6 +1,6 @@
 "use client";
 
-import { Save, UploadCloud, Building2, Mail, Phone, MapPin, Globe, Languages, Clock } from "lucide-react";
+import { Save, UploadCloud, Building2, Mail, Phone, MapPin, Globe, Languages, Clock, ChevronDown } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Input } from "@/app/components/ds/atoms/Input";
 

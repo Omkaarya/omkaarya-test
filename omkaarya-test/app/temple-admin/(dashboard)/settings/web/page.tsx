@@ -1,6 +1,6 @@
 "use client";
 
-import { Save, Link as LinkIcon, Globe, Search, Facebook, Instagram, Youtube, Check } from "lucide-react";
+import { Save, Link as LinkIcon, Globe, Search, Check, Share2, Play } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Input } from "@/app/components/ds/atoms/Input";
 import { Badge } from "@/app/components/ds/atoms/Badge";
@@ -91,28 +91,31 @@ export default function WebSettingsPage() {
            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="flex items-center gap-4 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-sm">
                  <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/20 text-blue-600 flex items-center justify-center shrink-0">
-                    <Facebook className="w-5 h-5" />
+                    <Share2 className="w-5 h-5" />
                  </div>
-                 <div className="flex-1">
-                    <Input placeholder="Facebook URL" variant="ghost" className="h-10 text-xs px-0" />
+                 <div className="flex-1 space-y-1">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Facebook</p>
+                    <Input placeholder="Facebook URL" className="h-8 text-xs px-0 bg-transparent border-none shadow-none focus:ring-0" />
                  </div>
               </div>
 
               <div className="flex items-center gap-4 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-sm">
                  <div className="w-10 h-10 rounded-xl bg-pink-50 dark:bg-pink-950/20 text-pink-600 flex items-center justify-center shrink-0">
-                    <Instagram className="w-5 h-5" />
+                    <Globe className="w-5 h-5" />
                  </div>
-                 <div className="flex-1">
-                    <Input placeholder="Instagram URL" variant="ghost" className="h-10 text-xs px-0" />
+                 <div className="flex-1 space-y-1">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Instagram</p>
+                    <Input placeholder="Instagram URL" className="h-8 text-xs px-0 bg-transparent border-none shadow-none focus:ring-0" />
                  </div>
               </div>
 
               <div className="flex items-center gap-4 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-sm">
                  <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-950/20 text-red-600 flex items-center justify-center shrink-0">
-                    <Youtube className="w-5 h-5" />
+                    <Play className="w-5 h-5" />
                  </div>
-                 <div className="flex-1">
-                    <Input placeholder="Youtube URL" variant="ghost" className="h-10 text-xs px-0" />
+                 <div className="flex-1 space-y-1">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">YouTube</p>
+                    <Input placeholder="YouTube URL" className="h-8 text-xs px-0 bg-transparent border-none shadow-none focus:ring-0" />
                  </div>
               </div>
            </div>

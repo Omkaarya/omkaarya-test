@@ -81,16 +81,16 @@ const UNIT_TYPES: UnitType[] = [
   "Store", "Gopuram", "Office", "Donation Counter", "Custom",
 ];
 
-const TYPE_COLOR: Record<UnitType, "brand" | "success" | "warning" | "danger" | "info" | "neutral"> = {
+const TYPE_COLOR: Record<UnitType, "brand" | "success" | "warning" | "error" | "blue" | "gray" | "orange"> = {
   "Main Temple":      "brand",
   "Madapalli":        "warning",
-  "Moolasthanam":     "danger",
-  "Mandapam":         "info",
+  "Moolasthanam":     "error",
+  "Mandapam":         "blue",
   "Store":            "success",
-  "Gopuram":          "info",
-  "Office":           "neutral",
+  "Gopuram":          "orange",
+  "Office":           "gray",
   "Donation Counter": "success",
-  "Custom":           "neutral",
+  "Custom":           "gray",
 };
 
 // ── Helper: flatten tree ───────────────────────────────────────────
@@ -262,7 +262,7 @@ function UnitDrawer({
             <Input
               value={name} onChange={(e) => handleNameChange(e.target.value)}
               placeholder="e.g. Moolasthanam"
-              size="lg"
+              inputSize="lg"
             />
           </div>
 
@@ -273,7 +273,7 @@ function UnitDrawer({
             <Input
               value={code} onChange={(e) => setCode(e.target.value.toUpperCase())}
               placeholder="e.g. MLSTH"
-              size="lg"
+              inputSize="lg"
               className="font-mono"
             />
             <p className="text-[10px] font-medium text-zinc-400 px-1 uppercase tracking-tight">Used for inventory tracking and reporting.</p>
@@ -310,7 +310,7 @@ function UnitDrawer({
             <Input
               value={headOfUnit} onChange={(e) => setHeadOfUnit(e.target.value)}
               placeholder="e.g. Sri Annamalai Pujari"
-              size="lg"
+              inputSize="lg"
             />
           </div>
 
