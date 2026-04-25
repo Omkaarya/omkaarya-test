@@ -14,6 +14,7 @@ export interface BadgeProps {
   dot?: boolean;
   leadingIcon?: React.ReactNode;
   onDismiss?: () => void;
+  onClick?: () => void;
   className?: string;
 }
 
@@ -45,6 +46,7 @@ export const Badge: React.FC<BadgeProps> = ({
   dot = false,
   leadingIcon,
   onDismiss,
+  onClick,
   className = "",
 }) => {
   const c = colorStyles[color];
@@ -52,11 +54,13 @@ export const Badge: React.FC<BadgeProps> = ({
 
   return (
     <span
+      onClick={onClick}
       className={`
         inline-flex items-center rounded-full font-medium
         ${c.bg} ${c.text}
         ${s.badge} ${s.text}
         ${c.border ? `border ${c.border}` : ""}
+        ${onClick ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}
         ${className}
       `}
     >

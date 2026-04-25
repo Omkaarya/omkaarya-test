@@ -1,143 +1,289 @@
 "use client";
 
-import Link from "next/link";
-import { Plus, Search, ShieldAlert, Check, X } from "lucide-react";
 import { useState } from "react";
+import { 
+  Plus, 
+  ShieldAlert, 
+  Check, 
+  X, 
+  Lock, 
+  Copy, 
+  ChevronDown, 
+  ChevronUp,
+  ShieldCheck,
+  MoreVertical
+} from "lucide-react";
+import { Button } from "@/app/components/ds/atoms/Button";
+import { Badge } from "@/app/components/ds/atoms/Badge";
 
 const MODULES = [
-  "Dashboard Analytics",
-  "Devotee CRM",
-  "Pooja Bookings",
-  "Donations & Receipts",
-  "Inventory & Products",
-  "Purchase Orders",
-  "Finance Transactions",
-  "Reports & Exports",
-  "Master Data",
-  "Settings Configuration"
+  "Core",
+  "Inventory",
+  "Sales",
+  "Finance",
+  "Manufacturing",
+  "Pawning",
+  "Stock Transfer",
+  "Reports",
+  "Logs"
 ];
 
+type RoleData = {
+  id: string;
+  name: string;
+  description: string;
+  permissions: number;
+  totalPermissions: number;
+  users: number;
+  isSystem: boolean;
+  plan: "Prarambha" | "Sankalpa" | "Aaradhana";
+};
+
 export default function RolesPermissionsPage() {
-  const [activeRole, setActiveRole] = useState("manager");
+  const [currentPlan] = useState<"Prarambha" | "Sankalpa" | "Aaradhana">("Prarambha");
+  const [expandedRole, setExpandedRole] = useState<string | null>("super-admin");
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  const roles: RoleData[] = [
+    { 
+      id: "super-admin", 
+      name: "Super Admin", 
+      description: "Full system access — cannot be restricted.", 
+      permissions: 45, 
+      totalPermissions: 45, 
+      users: 1, 
+      isSystem: true,
+      plan: "Prarambha"
+    },
+    { 
+      id: "admin", 
+      name: "Admin", 
+      description: "Full operational access, limited system settings.", 
+      permissions: 44, 
+      totalPermissions: 45, 
+      users: 2, 
+      isSystem: true,
+      plan: "Prarambha"
+    },
+    { 
+      id: "manager", 
+      name: "Manager", 
+      description: "Operational oversight, approvals and reporting.", 
+      permissions: 24, 
+      totalPermissions: 45, 
+      users: 4, 
+      isSystem: true,
+      plan: "Sankalpa"
+    },
+    { 
+      id: "cashier", 
+      name: "Cashier", 
+      description: "POS sales and basic inventory view.", 
+      permissions: 6, 
+      totalPermissions: 45, 
+      users: 6, 
+      isSystem: true,
+      plan: "Prarambha"
+    },
+    { 
+      id: "inventory-manager", 
+      name: "Inventory Manager", 
+      description: "Full inventory control, purchases and manufacturing.", 
+      permissions: 16, 
+      totalPermissions: 45, 
+      users: 2, 
+      isSystem: true,
+      plan: "Sankalpa"
+    },
+  ];
+
+  const canAccessRole = (rolePlan: string) => {
+    if (currentPlan === "Aaradhana") return true;
+    if (currentPlan === "Sankalpa") return rolePlan !== "Aaradhana";
+    return rolePlan === "Prarambha";
+  };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-500 max-w-7xl mx-auto">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-3 duration-500 max-w-7xl mx-auto pb-20">
       
       {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">
-            Roles & Permissions
-          </h1>
+          <div className="flex items-center gap-3">
+             <h1 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-50 uppercase">
+               Roles & Permissions
+             </h1>
+             <Badge color="brand" size="sm">{currentPlan} Plan</Badge>
+          </div>
           <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mt-1">
-            Define access constraints and module visibility for your temple staff.
+            Define what each role can do across modules.
           </p>
         </div>
-        <button
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--brand-primary)] px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-orange-500/20 hover:bg-[var(--brand-primary-hover)] hover:-translate-y-0.5 transition-all w-full sm:w-auto"
+        <Button
+          variant="primary"
+          onClick={() => currentPlan === "Prarambha" ? setShowUpgradeModal(true) : null}
+          leadingIcon={<Plus className="h-4 w-4" />}
         >
-          <Plus className="h-4 w-4" /> Create Custom Role
-        </button>
+          Add Role
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-6 items-start">
-         
-         {/* Sidebar: Role Selector */}
-         <div className="bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 rounded-[24px] p-2 shadow-sm space-y-1">
-            <div className="px-3 pt-3 pb-2">
-               <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Standard Roles</h4>
-            </div>
-            
-            <button onClick={() => setActiveRole('admin')} className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-left text-sm font-bold transition-colors ${activeRole === 'admin' ? "bg-orange-50 text-[var(--brand-primary)] dark:bg-orange-950/20" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900"}`}>
-               Temple Admin
-            </button>
-            <button onClick={() => setActiveRole('manager')} className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-left text-sm font-bold transition-colors ${activeRole === 'manager' ? "bg-orange-50 text-[var(--brand-primary)] dark:bg-orange-950/20" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900"}`}>
-               Operations Manager
-            </button>
-            <button onClick={() => setActiveRole('accountant')} className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-left text-sm font-bold transition-colors ${activeRole === 'accountant' ? "bg-orange-50 text-[var(--brand-primary)] dark:bg-orange-950/20" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900"}`}>
-               Accountant
-            </button>
-            <button onClick={() => setActiveRole('priest')} className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-left text-sm font-bold transition-colors ${activeRole === 'priest' ? "bg-orange-50 text-[var(--brand-primary)] dark:bg-orange-950/20" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900"}`}>
-               Head Priest
-            </button>
-            <button onClick={() => setActiveRole('counter')} className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-left text-sm font-bold transition-colors ${activeRole === 'counter' ? "bg-orange-50 text-[var(--brand-primary)] dark:bg-orange-950/20" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900"}`}>
-               Counter Staff / POS
-            </button>
+      {/* ── Roles Grid ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {roles.map((role) => {
+          const isExpanded = expandedRole === role.id;
+          const isLocked = !canAccessRole(role.plan);
 
-            <div className="px-3 pt-4 pb-2 mt-2 border-t border-zinc-100 dark:border-zinc-800">
-               <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Custom Roles</h4>
-            </div>
-            <div className="px-3 py-4 text-center">
-               <p className="text-xs text-zinc-400 italic font-medium">No custom roles created. Available on Aaradhana Plan.</p>
-            </div>
-         </div>
+          return (
+            <div 
+              key={role.id}
+              className={`
+                flex flex-col rounded-[24px] border transition-all duration-300 bg-white dark:bg-zinc-950
+                ${isExpanded ? "ring-2 ring-brand-500 border-brand-500 shadow-xl lg:col-span-1" : "border-zinc-100 dark:border-zinc-800 shadow-sm hover:border-zinc-200 dark:hover:border-zinc-700"}
+                ${isLocked ? "opacity-60 grayscale" : ""}
+              `}
+            >
+              <div className="p-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-black text-zinc-900 dark:text-zinc-50">{role.name}</h3>
+                    {role.isSystem && <Lock className="h-3.5 w-3.5 text-zinc-400" />}
+                  </div>
+                  {isLocked && (
+                    <Badge color="warning" size="sm" onClick={() => setShowUpgradeModal(true)}>
+                       Upgrade
+                    </Badge>
+                  )}
+                </div>
+                
+                <p className="mt-2 text-xs font-medium text-zinc-500 dark:text-zinc-400 leading-relaxed min-h-[32px]">
+                  {role.description}
+                </p>
 
-         {/* Matrix Data */}
-         <div className="bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 rounded-[24px] shadow-sm overflow-hidden flex flex-col">
-            
-            <div className="p-5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50 dark:bg-zinc-900/50">
-               <div>
-                 <h2 className="text-lg font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-tight">Permissions Matrix</h2>
-                 <p className="text-xs font-semibold text-zinc-500 mt-1">
-                   Viewing access rights for: <span className="text-[var(--brand-primary)]">Operations Manager</span>
-                 </p>
-               </div>
-               
-               {/* Display lock for standard roles */}
-               <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-500 rounded-lg text-xs font-bold border border-amber-200 dark:border-amber-900/50">
-                 <ShieldAlert className="w-3.5 h-3.5" /> Standard roles cannot be modified.
-               </div>
+                <div className="mt-6 flex items-center gap-6">
+                   <div>
+                      <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                        {role.permissions} <span className="text-zinc-400 font-medium">/ {role.totalPermissions} permissions</span>
+                      </p>
+                   </div>
+                   <div>
+                      <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                        {role.users} <span className="text-zinc-400 font-medium">users</span>
+                      </p>
+                   </div>
+                </div>
+
+                <div className="mt-6 flex items-center gap-2">
+                   <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1 rounded-xl"
+                    onClick={() => setExpandedRole(isExpanded ? null : role.id)}
+                    leadingIcon={isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                   >
+                     {isExpanded ? "Hide Permissions" : "View Permissions"}
+                   </Button>
+                   <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="rounded-xl px-3"
+                    leadingIcon={<Copy className="h-4 w-4" />}
+                   >
+                     Clone
+                   </Button>
+                </div>
+              </div>
+
+              {/* ── Expandable Permission Table ── */}
+              {isExpanded && (
+                <div className="border-t border-zinc-100 dark:border-zinc-800 animate-in fade-in slide-in-from-top-2 duration-300">
+                   <div className="overflow-x-auto">
+                      <table className="w-full text-left text-[10px] font-bold uppercase tracking-widest">
+                         <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-zinc-400 border-b border-zinc-100 dark:border-zinc-800">
+                            <tr>
+                               <th className="px-6 py-3">Module</th>
+                               <th className="px-2 py-3 text-center">Create</th>
+                               <th className="px-2 py-3 text-center">Read</th>
+                               <th className="px-2 py-3 text-center">Update</th>
+                               <th className="px-2 py-3 text-center">Delete</th>
+                            </tr>
+                         </thead>
+                         <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                            {MODULES.map((mod) => (
+                              <tr key={mod} className="text-zinc-600 dark:text-zinc-400">
+                                 <td className="px-6 py-3 font-black text-zinc-800 dark:text-zinc-200">{mod}</td>
+                                 <td className="px-2 py-3">
+                                    <div className="flex justify-center">
+                                       <div className="w-4 h-4 rounded bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center">
+                                          <Check className="h-2.5 w-2.5 text-emerald-600" strokeWidth={4} />
+                                       </div>
+                                    </div>
+                                 </td>
+                                 <td className="px-2 py-3">
+                                    <div className="flex justify-center">
+                                       <div className="w-4 h-4 rounded bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center">
+                                          <Check className="h-2.5 w-2.5 text-emerald-600" strokeWidth={4} />
+                                       </div>
+                                    </div>
+                                 </td>
+                                 <td className="px-2 py-3">
+                                    <div className="flex justify-center">
+                                       <div className="w-4 h-4 rounded bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center">
+                                          <Check className="h-2.5 w-2.5 text-emerald-600" strokeWidth={4} />
+                                       </div>
+                                    </div>
+                                 </td>
+                                 <td className="px-2 py-3">
+                                    <div className="flex justify-center">
+                                       <div className="w-4 h-4 rounded bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center">
+                                          <X className="h-2.5 w-2.5 text-zinc-300 dark:text-zinc-700" strokeWidth={4} />
+                                       </div>
+                                    </div>
+                                 </td>
+                              </tr>
+                            ))}
+                         </tbody>
+                      </table>
+                   </div>
+                   <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 flex items-center gap-2 text-[10px] font-bold text-zinc-400 uppercase tracking-widest border-t border-zinc-100 dark:border-zinc-800 rounded-b-[24px]">
+                      <ShieldCheck className="w-3.5 h-3.5" /> System role — permissions are read-only.
+                   </div>
+                </div>
+              )}
             </div>
-
-            <div className="overflow-x-auto">
-               <table className="w-full text-left text-sm whitespace-nowrap">
-                  <thead className="bg-white dark:bg-zinc-950 text-xs font-bold uppercase tracking-wider text-zinc-400 border-b border-zinc-100 dark:border-zinc-800">
-                    <tr>
-                      <th className="px-6 py-4 border-r border-zinc-100 dark:border-zinc-800">Module / Feature</th>
-                      <th className="px-4 py-4 text-center w-24">Create</th>
-                      <th className="px-4 py-4 text-center w-24">Read</th>
-                      <th className="px-4 py-4 text-center w-24">Update</th>
-                      <th className="px-4 py-4 text-center w-24">Delete</th>
-                      <th className="px-4 py-4 text-center w-24">Export</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 bg-white dark:bg-zinc-950">
-                    {MODULES.map((mod, i) => (
-                      <tr key={i} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors">
-                        <td className="px-6 py-3.5 font-bold text-zinc-700 dark:text-zinc-300 border-r border-zinc-100 dark:border-zinc-800">
-                           {mod}
-                        </td>
-                        
-                        {/* Simulation Logic for Manager Role View */}
-                        {[0,1,2,3,4].map((colIndex) => {
-                           let permission = true;
-                           
-                           // Simulate manager lacking delete/export on Finance & Settings
-                           if (mod.includes("Settings") || mod.includes("Finance")) {
-                              if (colIndex === 3 || colIndex === 4 || colIndex === 0) permission = false; 
-                           }
-                           
-                           // Everyone reads
-                           if (colIndex === 1) permission = true;
-
-                           return (
-                             <td key={colIndex} className="px-4 py-3.5 text-center">
-                               {permission ? (
-                                  <div className="flex justify-center"><Check className="w-4 h-4 text-emerald-500" strokeWidth={3} /></div>
-                               ) : (
-                                  <div className="flex justify-center"><X className="w-4 h-4 text-zinc-300 dark:text-zinc-700" strokeWidth={3} /></div>
-                               )}
-                             </td>
-                           )
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-               </table>
-            </div>
-
-         </div>
+          );
+        })}
       </div>
+
+      {/* ── Upgrade Modal (Reuse same logic) ── */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm" onClick={() => setShowUpgradeModal(false)} />
+          <div className="relative z-10 w-full max-w-lg bg-white dark:bg-zinc-950 rounded-[32px] border border-zinc-100 dark:border-zinc-800 shadow-2xl overflow-hidden p-1">
+             <div className="bg-brand-50 dark:bg-brand-950/30 p-8 text-center rounded-[31px]">
+                <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white dark:bg-zinc-900 shadow-lg mb-6">
+                   <ShieldAlert className="w-8 h-8 text-brand" />
+                </div>
+                <h2 className="text-2xl font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-tighter">Upgrade to Unlock</h2>
+                <p className="mt-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                  Advanced roles and custom permissions are available in our premium tiers.
+                </p>
+                
+                <div className="mt-8 flex flex-col gap-3">
+                   <Button variant="primary" size="lg" className="w-full py-6 rounded-2xl font-black shadow-lg shadow-brand-500/20 hover:scale-[1.02]">
+                      Go to Subscription Page
+                   </Button>
+                   <button 
+                     onClick={() => setShowUpgradeModal(false)}
+                     className="w-full py-4 bg-transparent text-zinc-400 hover:text-zinc-600 text-sm font-bold"
+                   >
+                      Maybe Later
+                   </button>
+                </div>
+             </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

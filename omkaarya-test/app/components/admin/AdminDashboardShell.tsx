@@ -107,7 +107,7 @@ export function AdminDashboardShell({
       <aside className={`fixed inset-y-0 left-0 z-50 flex w-[260px] shrink-0 flex-col transition-transform duration-300 bg-white dark:bg-zinc-900 border-r border-zinc-100 dark:border-zinc-800 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
         <div className="flex h-16 items-center px-8 shrink-0">
           <Link href="/super-admin" className="flex items-center gap-0.5">
-             <span className="text-xl font-black tracking-tighter text-zinc-900"><span className="text-orange-500">pepu</span>lux</span>
+             <span className="text-xl font-black tracking-tighter text-zinc-900"><span className="text-brand">pepu</span>lux</span>
           </Link>
         </div>
 
@@ -125,10 +125,10 @@ export function AdminDashboardShell({
                     href={group.href!}
                     className={`
                       flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 font-bold text-[13px]
-                      ${isActiveGroup ? 'bg-zinc-50 text-orange-500' : 'text-zinc-500 hover:bg-zinc-50/80 hover:text-zinc-900'}
+                      ${isActiveGroup ? 'bg-brand-50 text-brand' : 'text-zinc-500 hover:bg-zinc-50/80 hover:text-zinc-900'}
                     `}
                   >
-                    <GroupIcon className={`w-5 h-5 shrink-0 ${isActiveGroup ? 'text-orange-500' : 'text-zinc-400'}`} />
+                    <GroupIcon className={`w-5 h-5 shrink-0 ${isActiveGroup ? 'text-brand' : 'text-zinc-400'}`} />
                     <span className="truncate">{group.label}</span>
                   </Link>
                 ) : (
@@ -137,10 +137,10 @@ export function AdminDashboardShell({
                       onClick={() => toggleGroup(group.id)}
                       className={`
                         flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 w-full text-left font-bold text-[13px]
-                        ${isActiveGroup ? 'text-zinc-900' : 'text-zinc-500 hover:bg-zinc-50/80 hover:text-zinc-900'}
+                        ${isActiveGroup ? 'text-text-primary' : 'text-zinc-500 hover:bg-zinc-50/80 hover:text-zinc-900'}
                       `}
                     >
-                      <GroupIcon className={`w-5 h-5 shrink-0 ${isActiveGroup ? 'text-orange-500' : 'text-zinc-400'}`} />
+                      <GroupIcon className={`w-5 h-5 shrink-0 ${isActiveGroup ? 'text-brand' : 'text-zinc-400'}`} />
                       <span className="flex-1 truncate">{group.label}</span>
                       <ChevronRight className={`w-4 h-4 shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
                     </button>
@@ -154,7 +154,7 @@ export function AdminDashboardShell({
                               href={child.href} 
                               className={`
                                 flex items-center gap-3 pl-11 pr-4 py-2 rounded-lg transition-all duration-200 font-bold text-[12px]
-                                ${active ? 'text-orange-500 bg-zinc-50/50' : 'text-zinc-400 hover:text-zinc-900'}
+                                ${active ? 'text-brand bg-brand-50/50' : 'text-zinc-400 hover:text-zinc-900'}
                               `}
                             >
                                <span className="truncate">{child.label}</span>
@@ -171,9 +171,9 @@ export function AdminDashboardShell({
 
           <div className="pt-6 mt-6 border-t border-zinc-100 space-y-0.5">
              <p className="px-3 py-2 text-[10px] font-black text-zinc-400 uppercase tracking-widest">User Management</p>
-             {USER_MGMT_NAV.map((item) => (
-                <Link key={item.href} href={item.href} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-[13px] transition-all ${pathname.includes(item.href) ? 'bg-zinc-50 text-orange-500' : 'text-zinc-500 hover:bg-zinc-50/80'}`}>
-                   <item.icon className={`w-5 h-5 ${pathname.includes(item.href) ? 'text-orange-500' : 'text-zinc-400'}`} />
+              {USER_MGMT_NAV.map((item) => (
+                <Link key={item.href} href={item.href} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-[13px] transition-all ${pathname.includes(item.href) ? 'bg-brand-50 text-brand' : 'text-zinc-500 hover:bg-zinc-50/80'}`}>
+                   <item.icon className={`w-5 h-5 ${pathname.includes(item.href) ? 'text-brand' : 'text-zinc-400'}`} />
                    <span className="truncate">{item.label}</span>
                 </Link>
              ))}
@@ -181,9 +181,9 @@ export function AdminDashboardShell({
 
           <div className="pt-6 mt-6 border-t border-zinc-100 space-y-0.5">
              <p className="px-3 py-2 text-[10px] font-black text-zinc-400 uppercase tracking-widest">System</p>
-             {SYSTEM_NAV.map((item) => (
-                <Link key={item.href} href={item.href} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-[13px] transition-all ${pathname.includes(item.href) ? 'bg-zinc-50 text-orange-500' : 'text-zinc-500 hover:bg-zinc-50/80'}`}>
-                   <item.icon className={`w-5 h-5 ${pathname.includes(item.href) ? 'text-orange-500' : 'text-zinc-400'}`} />
+              {SYSTEM_NAV.map((item) => (
+                <Link key={item.href} href={item.href} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-[13px] transition-all ${pathname.includes(item.href) ? 'bg-brand-50 text-brand' : 'text-zinc-500 hover:bg-zinc-50/80'}`}>
+                   <item.icon className={`w-5 h-5 ${pathname.includes(item.href) ? 'text-brand' : 'text-zinc-400'}`} />
                    <span className="flex-1 truncate">{item.label}</span>
                    {item.hasChildren && <ChevronRight className="w-4 h-4 text-zinc-400" />}
                 </Link>
@@ -205,7 +205,7 @@ export function AdminDashboardShell({
             <div className="flex items-center gap-3">
                <Home className="w-4 h-4 text-zinc-400" />
                <ChevronRight className="w-3.5 h-3.5 text-zinc-300" />
-               <span className="text-[13px] font-bold text-orange-500">Temples</span>
+               <span className="text-[13px] font-bold text-brand">Temples</span>
             </div>
 
             {/* Search Bar Sync */}
@@ -224,13 +224,13 @@ export function AdminDashboardShell({
                <button className="p-2 text-zinc-400 hover:text-zinc-900"><Mail className="w-5 h-5" /></button>
                <button className="p-2 text-zinc-400 hover:text-zinc-900 relative">
                   <Bell className="w-5 h-5" />
-                  <span className="absolute top-2 right-2 w-2 h-2 bg-orange-500 rounded-full border-2 border-white" />
+                  <span className="absolute top-2 right-2 w-2 h-2 bg-brand rounded-full border-2 border-white" />
                </button>
                <button className="p-2 text-zinc-400 hover:text-zinc-900"><Settings className="w-5 h-5" /></button>
                <button onClick={onToggleTheme} className="p-2 text-zinc-400 hover:text-zinc-900">
                  {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
                </button>
-               <div className="w-9 h-9 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center border border-zinc-200 dark:border-zinc-700 ml-2 cursor-pointer hover:border-orange-200 transition-all overflow-hidden">
+               <div className="w-9 h-9 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center border border-zinc-200 dark:border-zinc-700 ml-2 cursor-pointer hover:border-brand-200 transition-all overflow-hidden">
                   <User className="w-5 h-5 text-zinc-400" />
                </div>
             </div>
@@ -245,9 +245,9 @@ export function AdminDashboardShell({
 
           {/* Layer 3: Footer (Branding Integration) */}
           <footer className="px-10 py-5 bg-transparent flex items-center justify-between text-[11px] font-bold text-zinc-400 tracking-tight shrink-0 border-t border-zinc-50 dark:border-zinc-800/50">
-             <p>2024 - 2026 © <span className="text-orange-500 font-black tracking-tighter">Om Kaaryaa</span> All Right Reserved</p>
+             <p>2024 - 2026 © <span className="text-brand font-black tracking-tighter">Om Kaaryaa</span> All Right Reserved</p>
              <div className="flex items-center gap-8 uppercase tracking-widest text-[10px]">
-                <div className="flex items-center gap-1.5 font-bold">Powered By <span className="text-orange-500 font-black">Pepulux</span> All Right Reserved</div>
+                <div className="flex items-center gap-1.5 font-bold">Powered By <span className="text-brand font-black">Pepulux</span> All Right Reserved</div>
                 <div className="flex gap-4 font-bold">
                    <a href="#" className="hover:text-zinc-900 transition-colors">Terms</a>
                    <a href="#" className="hover:text-zinc-900 transition-colors">Privacy</a>
