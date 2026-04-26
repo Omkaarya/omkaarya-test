@@ -1,7 +1,10 @@
 import type { TempleRecord } from "./types.js";
+import { portalLabelAndHost } from "./temples.repository.js";
 
-/** Seed data for `npm run seed` (PostgreSQL `temples` table). */
-export const SEED_TEMPLES: TempleRecord[] = [
+type SeedRow = Omit<TempleRecord, "subdomain" | "portalHost">;
+
+/** Core seed rows; `subdomain` / `portalHost` are derived from `slug` for consistency with the list API. */
+const SEED_TEMPLES_CORE: SeedRow[] = [
   {
     tenantId: "1001",
     name: "Shiva Mandffir London",
@@ -159,3 +162,9 @@ export const SEED_TEMPLES: TempleRecord[] = [
     adminEmail: "vorstand@vishnubeaiwoxdjaoidjaorlin.de",
   },
 ];
+
+/** Seed data for `npm run seed` (PostgreSQL `temples` table). */
+export const SEED_TEMPLES: TempleRecord[] = SEED_TEMPLES_CORE.map((t) => {
+  const ph = portalLabelAndHost(t.slug, null);
+  return { ...t, subdomain: ph.subdomain, portalHost: ph.portalHost };
+});

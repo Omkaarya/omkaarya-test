@@ -23,6 +23,9 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbSegment[] {
   if (pathname === "/super-admin") {
     return [{ label: "Temples", isCurrent: true }];
   }
+  if (pathname === "/super-admin/subdomains") {
+    return [{ label: "Subdomains", isCurrent: true }];
+  }
   return [{ label: "Temples", href: "/super-admin", isCurrent: false }];
 }
 

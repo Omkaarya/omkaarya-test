@@ -171,6 +171,23 @@ function subdomainFromSlugAndDomain(slug: string, domainSubdomain: string | null
   return s.replace(/\.omkaarya\.com$/i, "").replace(/^https?:\/\//i, "");
 }
 
+/**
+ * Short label and canonical `*.omkaarya.com` host (aligns with billing `portal` construction).
+ * Exported for seed data and tests.
+ */
+export function portalLabelAndHost(
+  slug: string,
+  domainSubdomain: string | null
+): { subdomain: string; portalHost: string } {
+  const raw = subdomainFromSlugAndDomain(slug, domainSubdomain);
+  const label = raw
+    .replace(/^https?:\/\//i, "")
+    .replace(/\.omkaarya\.com$/i, "")
+    .trim();
+  const portalHost = label ? `${label}.omkaarya.com` : "";
+  return { subdomain: label, portalHost };
+}
+
 export type SaveTempleProfileDetailsInput = {
   sessionEmail: string;
   websiteUrl: string;
@@ -231,6 +248,7 @@ export class PostgresTempleRepository implements TempleRepository {
       tenant_id: string;
       name: string;
       slug: string;
+      domain_subdomain: string | null;
       country_code: string;
       country_flag: string;
       city: string;
@@ -240,23 +258,28 @@ export class PostgresTempleRepository implements TempleRepository {
       compliance: string;
       admin_email: string;
     }>(
-      `SELECT tenant_id, name, slug, country_code, country_flag, city, plan, devotees, status, compliance, admin_email
+      `SELECT tenant_id, name, slug, domain_subdomain, country_code, country_flag, city, plan, devotees, status, compliance, admin_email
        FROM public.temples
        ORDER BY tenant_id::int DESC`
     );
-    return result.rows.map((r) => ({
-      tenantId: r.tenant_id,
-      name: r.name,
-      slug: r.slug,
-      countryCode: r.country_code,
-      countryFlag: r.country_flag,
-      city: r.city,
-      plan: r.plan as TemplePlan,
-      devotees: r.devotees,
-      status: r.status as TempleStatus,
-      compliance: r.compliance as TempleCompliance,
-      adminEmail: r.admin_email,
-    }));
+    return result.rows.map((r) => {
+      const ph = portalLabelAndHost(r.slug, r.domain_subdomain);
+      return {
+        tenantId: r.tenant_id,
+        name: r.name,
+        slug: r.slug,
+        subdomain: ph.subdomain,
+        portalHost: ph.portalHost,
+        countryCode: r.country_code,
+        countryFlag: r.country_flag,
+        city: r.city,
+        plan: r.plan as TemplePlan,
+        devotees: r.devotees,
+        status: r.status as TempleStatus,
+        compliance: r.compliance as TempleCompliance,
+        adminEmail: r.admin_email,
+      };
+    });
   }
 
   async listPage(query: TemplesQueryInput): Promise<{
@@ -283,7 +306,9 @@ export class PostgresTempleRepository implements TempleRepository {
     if (q) {
       params.push(`%${q}%`);
       const p = `$${params.length}`;
-      where.push(`(LOWER(t.name) LIKE ${p} OR LOWER(t.city) LIKE ${p} OR LOWER(t.admin_email) LIKE ${p})`);
+      where.push(
+        `(LOWER(t.name) LIKE ${p} OR LOWER(t.city) LIKE ${p} OR LOWER(t.admin_email) LIKE ${p} OR LOWER(t.slug) LIKE ${p} OR LOWER(COALESCE(t.domain_subdomain, '')) LIKE ${p})`
+      );
     }
     if (status !== "all") {
       params.push(status);
@@ -330,6 +355,7 @@ export class PostgresTempleRepository implements TempleRepository {
       tenant_id: string;
       name: string;
       slug: string;
+      domain_subdomain: string | null;
       country_code: string;
       country_flag: string;
       city: string;
@@ -339,7 +365,7 @@ export class PostgresTempleRepository implements TempleRepository {
       compliance: string;
       admin_email: string;
     }>(
-      `SELECT tenant_id, name, slug, country_code, country_flag, city, plan, devotees, status, compliance, admin_email
+      `SELECT tenant_id, name, slug, domain_subdomain, country_code, country_flag, city, plan, devotees, status, compliance, admin_email
        FROM public.temples t
        ${whereSql}
        ORDER BY ${orderBy}
@@ -347,19 +373,24 @@ export class PostgresTempleRepository implements TempleRepository {
       [...params, pageSize, safeOffset]
     );
 
-    const data = dataRes.rows.map((r) => ({
-      tenantId: r.tenant_id,
-      name: r.name,
-      slug: r.slug,
-      countryCode: r.country_code,
-      countryFlag: r.country_flag,
-      city: r.city,
-      plan: r.plan as TemplePlan,
-      devotees: r.devotees,
-      status: r.status as TempleStatus,
-      compliance: r.compliance as TempleCompliance,
-      adminEmail: r.admin_email,
-    }));
+    const data = dataRes.rows.map((r) => {
+      const ph = portalLabelAndHost(r.slug, r.domain_subdomain);
+      return {
+        tenantId: r.tenant_id,
+        name: r.name,
+        slug: r.slug,
+        subdomain: ph.subdomain,
+        portalHost: ph.portalHost,
+        countryCode: r.country_code,
+        countryFlag: r.country_flag,
+        city: r.city,
+        plan: r.plan as TemplePlan,
+        devotees: r.devotees,
+        status: r.status as TempleStatus,
+        compliance: r.compliance as TempleCompliance,
+        adminEmail: r.admin_email,
+      };
+    });
 
     return {
       data,
@@ -518,10 +549,15 @@ export class PostgresTempleRepository implements TempleRepository {
       const countryCode = payload.temple.country.trim() || "GB";
       const plan = normalizePlan(payload.planBilling.selectedPlan);
       const trial = payload.planBilling.trial?.enabled === true;
+      const slug = buildSlug(payload.temple.subdomain);
+      const domainSubEarly = payload.temple.subdomain.trim() || null;
+      const phEarly = portalLabelAndHost(slug, domainSubEarly);
       const row: TempleRecord = {
         tenantId,
         name: payload.temple.name.trim() || "Unnamed temple",
-        slug: buildSlug(payload.temple.subdomain),
+        slug,
+        subdomain: phEarly.subdomain,
+        portalHost: phEarly.portalHost,
         countryCode,
         countryFlag: FLAG_BY_CODE[countryCode] ?? "",
         city: payload.temple.city.trim() || "—",
@@ -539,7 +575,7 @@ export class PostgresTempleRepository implements TempleRepository {
       const fullAddr = fullAddressFromPayload(payload.temple);
       const websiteUrl = websiteUrlFromPath(payload.temple.website);
       const establishedYear = payload.temple.establishedYear.trim() || null;
-      const domainSub = payload.temple.subdomain.trim() || null;
+      const domainSub = domainSubEarly;
       const tradition = payload.temple.tradition.trim() || null;
       const primaryDeity = payload.temple.deity.trim() || null;
       const billingCycle = payload.planBilling.billingCycle.trim() || null;

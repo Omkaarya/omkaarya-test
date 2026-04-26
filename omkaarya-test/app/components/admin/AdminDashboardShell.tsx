@@ -39,7 +39,7 @@ const primaryNav = [
   { href: "#", label: "Dashboard", icon: LayoutDashboard },
   { href: "/super-admin", label: "Temples", icon: Building2 },
   { href: "/super-admin/pricing-plans", label: "Pricing Plans", icon: Tag },
-  { href: "#", label: "Domains", icon: Globe },
+  { href: "/super-admin/subdomains", label: "Subdomains", icon: Globe },
   { href: "#", label: "Panchangam", icon: Calendar },
 ] as const;
 
@@ -262,7 +262,8 @@ export function AdminDashboardShell({
           {/* Primary Nav */}
           <ul className="space-y-0.5">
             {primaryNav.map(({ href, label, icon: Icon }) => {
-              const active = href === "/super-admin" && templesActive;
+              const active =
+                (href === "/super-admin" && templesActive) || (href !== "#" && pathname === href);
               return (
                 <li key={label}>
                   <Link

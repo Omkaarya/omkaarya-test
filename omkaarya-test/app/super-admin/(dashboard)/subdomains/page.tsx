@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Eye, MoreVertical, Pencil, Plus } from "lucide-react";
-import type { MockTemple, TemplePlan } from "@/lib/mock-temples";
+import { Pencil } from "lucide-react";
+import type { MockTemple } from "@/lib/mock-temples";
 import type { TemplesListResponse, TemplesSortBy } from "@/lib/temples-query";
 import AdminDataTable from "@/app/components/admin/AdminDataTable";
 import AdminFiltersBar from "@/app/components/admin/AdminFiltersBar";
 import AdminPagination from "@/app/components/admin/AdminPagination";
-import ComplianceBadge from "@/app/components/admin/ComplianceBadge";
 import StatusBadge from "@/app/components/admin/StatusBadge";
 
 type StatusFilter = "all" | "Active" | "Trial" | "Suspended";
@@ -19,19 +18,6 @@ function initials(name: string): string {
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
   return name.slice(0, 2).toUpperCase();
-}
-
-function planPillClass(plan: TemplePlan): string {
-  switch (plan) {
-    case "Prarambha":
-      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300";
-    case "Sankalpa":
-      return "bg-pink-100 text-pink-800 dark:bg-pink-950/50 dark:text-pink-300";
-    case "Aaradhana":
-      return "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-300";
-    default:
-      return "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300";
-  }
 }
 
 function TableSkeleton() {
@@ -48,7 +34,7 @@ function TableSkeleton() {
   );
 }
 
-export default function TemplesAdminPage() {
+export default function SubdomainsPage() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -88,8 +74,6 @@ export default function TemplesAdminPage() {
       });
 
       try {
-        // Call same-origin Next.js route to avoid browser CORS.
-        // That route proxies to the backend using `NEXT_PUBLIC_API_BASE_URL`.
         const response = await fetch(`/api/temples?${params.toString()}`, {
           signal: controller.signal,
         });
@@ -110,7 +94,7 @@ export default function TemplesAdminPage() {
         }
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
-          setError("Could not fetch temples. Please try again.");
+          setError("Could not load subdomains. Please try again.");
           setRows([]);
           setTotal(0);
           setTotalPages(1);
@@ -120,12 +104,12 @@ export default function TemplesAdminPage() {
       }
     };
 
-    run();
+    void run();
     return () => controller.abort();
   }, [search, statusFilter, country, sortBy, page, pageSize]);
 
   const tableHeaders = useMemo(
-    () => ["Tenant ID", "Temples Name", "Country", "Plan", "Devotees", "Status", "Compliance", "Actions"],
+    () => ["Temple", "Subdomain", "Portal", "City", "Status", "Actions"],
     []
   );
 
@@ -136,23 +120,16 @@ export default function TemplesAdminPage() {
           <div>
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-                Temples
+                Subdomains
               </h1>
-              <span className="rounded-md bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800 dark:bg-red-950/50 dark:text-red-300">
+              <span className="rounded-md bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
                 {totalAll} temples
               </span>
             </div>
             <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-              Manage and monitor your temples here.
+              Portal host (<span className="font-medium">*.omkaarya.com</span>) for each temple, from the database.
             </p>
           </div>
-          <Link
-            href="/super-admin/create-temple"
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] focus:ring-offset-2 dark:focus:ring-offset-zinc-900"
-          >
-            <Plus className="h-4 w-4" aria-hidden />
-            Create Temple
-          </Link>
         </div>
 
         <AdminFiltersBar
@@ -192,9 +169,6 @@ export default function TemplesAdminPage() {
           >
             {rows.map((row) => (
               <tr key={row.tenantId} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30">
-                <td className="whitespace-nowrap px-4 py-3 font-medium text-zinc-600 dark:text-zinc-400">
-                  Temp ID {row.tenantId}
-                </td>
                 <td className="px-4 py-3">
                   <div className="flex items-start gap-3">
                     <span
@@ -205,20 +179,26 @@ export default function TemplesAdminPage() {
                     </span>
                     <div className="min-w-0">
                       <p className="font-semibold text-zinc-900 dark:text-zinc-100">{row.name}</p>
-                      {row.portalHost ? (
-                        <a
-                          href={`https://${row.portalHost}`}
-                          className="truncate text-xs text-zinc-500 hover:text-[var(--brand-primary)] dark:text-zinc-400"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {row.portalHost}
-                        </a>
-                      ) : (
-                        <span className="text-xs text-zinc-500 dark:text-zinc-400">—</span>
-                      )}
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">Temp ID {row.tenantId}</p>
                     </div>
                   </div>
+                </td>
+                <td className="px-4 py-3 text-sm text-zinc-800 dark:text-zinc-200">
+                  {row.subdomain || "—"}
+                </td>
+                <td className="max-w-[16rem] px-4 py-3 text-sm">
+                  {row.portalHost ? (
+                    <a
+                      href={`https://${row.portalHost}`}
+                      className="block truncate text-[var(--brand-primary)] hover:underline"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {row.portalHost}
+                    </a>
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
@@ -229,47 +209,16 @@ export default function TemplesAdminPage() {
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <span
-                    className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${planPillClass(
-                      row.plan
-                    )}`}
-                  >
-                    {row.plan}
-                  </span>
-                </td>
-                <td className="px-4 py-3 tabular-nums text-zinc-800 dark:text-zinc-200">
-                  {row.devotees.toLocaleString()}
-                </td>
-                <td className="px-4 py-3">
                   <StatusBadge status={row.status} />
                 </td>
-                <td className="px-4 py-3">
-                  <ComplianceBadge compliance={row.compliance} />
-                </td>
                 <td className="px-4 py-3 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <button
-                      type="button"
-                      aria-label={`View ${row.name}`}
-                      className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
-                    <Link
-                      href={`/super-admin/edit-temple/${encodeURIComponent(row.tenantId)}`}
-                      aria-label={`Edit ${row.name}`}
-                      className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Link>
-                    <button
-                      type="button"
-                      aria-label={`More options for ${row.name}`}
-                      className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                    >
-                      <MoreVertical className="h-4 w-4" />
-                    </button>
-                  </div>
+                  <Link
+                    href={`/super-admin/edit-temple/${encodeURIComponent(row.tenantId)}`}
+                    aria-label={`Edit ${row.name}`}
+                    className="inline-flex rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Link>
                 </td>
               </tr>
             ))}

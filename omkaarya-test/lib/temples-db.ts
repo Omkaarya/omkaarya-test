@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { Pool } from "pg";
 import type { MockTemple } from "@/lib/mock-temples";
 import { getPoolConfig } from "@/lib/pg-config";
+import { portalLabelAndHost } from "@/lib/portal-label-host";
 
 const ADMIN_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -28,6 +29,7 @@ function rowToTemple(r: {
   tenant_id: string;
   name: string;
   slug: string;
+  domain_subdomain: string | null;
   country_code: string;
   country_flag: string;
   city: string;
@@ -37,10 +39,13 @@ function rowToTemple(r: {
   compliance: string;
   admin_email: string;
 }): MockTemple {
+  const ph = portalLabelAndHost(r.slug, r.domain_subdomain);
   return {
     tenantId: r.tenant_id,
     name: r.name,
     slug: r.slug,
+    subdomain: ph.subdomain,
+    portalHost: ph.portalHost,
     countryCode: r.country_code,
     countryFlag: r.country_flag,
     city: r.city,
@@ -58,6 +63,7 @@ export async function fetchTemplesFromDb(): Promise<MockTemple[]> {
     tenant_id: string;
     name: string;
     slug: string;
+    domain_subdomain: string | null;
     country_code: string;
     country_flag: string;
     city: string;
@@ -67,7 +73,7 @@ export async function fetchTemplesFromDb(): Promise<MockTemple[]> {
     compliance: string;
     admin_email: string;
   }>(
-    `SELECT tenant_id, name, slug, country_code, country_flag, city, plan, devotees, status, compliance, admin_email
+    `SELECT tenant_id, name, slug, domain_subdomain, country_code, country_flag, city, plan, devotees, status, compliance, admin_email
      FROM public.temples
      ORDER BY tenant_id::int DESC`
   );

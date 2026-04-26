@@ -35,7 +35,10 @@ export function filterTemples(rows: TempleRecord[], query: TemplesQueryInput): T
       (row) =>
         row.name.toLowerCase().includes(term) ||
         row.city.toLowerCase().includes(term) ||
-        row.adminEmail.toLowerCase().includes(term)
+        row.adminEmail.toLowerCase().includes(term) ||
+        row.slug.toLowerCase().includes(term) ||
+        row.subdomain.toLowerCase().includes(term) ||
+        row.portalHost.toLowerCase().includes(term)
     );
   }
 

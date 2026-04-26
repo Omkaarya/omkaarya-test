@@ -7,6 +7,10 @@ export type TempleRecord = {
   tenantId: string;
   name: string;
   slug: string;
+  /** Short portal label (no protocol); from `domain_subdomain` or derived from `slug`. */
+  subdomain: string;
+  /** Canonical host for the temple microsite, e.g. `name.omkaarya.com`. */
+  portalHost: string;
   countryCode: string;
   countryFlag: string;
   city: string;
