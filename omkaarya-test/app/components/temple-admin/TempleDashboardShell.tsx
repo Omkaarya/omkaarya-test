@@ -9,7 +9,7 @@ import {
   FileText, Globe, LayoutDashboard, Mail, Maximize2,
   Menu, Receipt, Search, Settings, Shield, Sun, Moon,
   Tag, User, Users, History, Languages, Home, Wallet,
-  Lock, ShieldCheck, UserX, Settings2, Newspaper
+  Lock, ShieldCheck, UserX, Settings2, Newspaper, Grid
 } from "lucide-react";
 
 // ── Nav Config ─────────────────────────────────────────────────────
@@ -42,6 +42,18 @@ const NAV_GROUPS: L1Group[] = [
   },
   { id: "subscriptions", label: "Subscriptions", icon: CreditCard, href: "/temple-admin/subscriptions" },
   { id: "public-site", label: "Public Site", icon: Newspaper, href: "/temple-admin/public-site" },
+  {
+    id: "applications", 
+    label: "Workspace Apps", 
+    icon: Grid, 
+    moduleKey: "applications",
+    children: [
+      { href: "/temple-admin/applications/chat", label: "Chat" },
+      { href: "/temple-admin/applications/calls", label: "Calls" },
+      { href: "/temple-admin/applications/file-manager", label: "File Manager" },
+      { href: "/temple-admin/applications/email", label: "Email" },
+    ],
+  },
 ];
 
 const USER_MGMT_NAV = [
