@@ -550,6 +550,8 @@ export class PostgresBillingRepository {
     const start = pr.start;
     const endExclusive = pr.endExclusive;
     const period = pr.label;
+    const now = new Date();
+    const thisMonthStart = startOfUtcMonth(now);
 
     const paidAgg = await pool.query<{ amount_cents: number; cnt: number }>(
       `SELECT COALESCE(SUM(tx.amount_cents), 0)::int AS amount_cents,

@@ -15,6 +15,8 @@ export type SuperAdminTempleDetail = {
     website: string;
     subdomain: string;
     establishedYear: string;
+    charityRegistered: boolean;
+    charityRegistrationNumber: string;
   };
   admin: {
     fullName: string;

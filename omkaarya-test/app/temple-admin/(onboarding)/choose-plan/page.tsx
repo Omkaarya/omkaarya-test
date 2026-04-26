@@ -20,6 +20,7 @@ import {
   isPricingPlanId,
 } from "@/lib/temple-pricing-plans";
 import { submitTemplePlanSelection } from "@/lib/temple-onboarding-plan-api";
+import { getTempleSessionProfileAction } from "@/app/actions/onboarding";
 import { TEMPLE_ONBOARDING_EMAIL_KEY } from "@/lib/temple-onboarding-signin";
 import {
   isTempleOnboardingTempleCreated,
@@ -62,6 +63,8 @@ export default function TempleAdminChoosePlanPage() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
+  /** false until local plan draft (if any) is read, or server provisioning plan is fetched — avoids defaulting to “popular” before we know the temple’s plan. */
+  const [planSelectionSourceReady, setPlanSelectionSourceReady] = useState(false);
 
   const loadCatalog = useCallback(async () => {
     setLoadError(null);
@@ -103,14 +106,35 @@ export default function TempleAdminChoosePlanPage() {
     setDeityDraft(loadTempleOnboardingDeityDraft());
 
     const planDraft = loadTempleOnboardingPlanDraft();
-    if (planDraft) {
-      if (planDraft.pricingPlanId && isPricingPlanId(planDraft.pricingPlanId)) {
-        setSelectedPlanId(planDraft.pricingPlanId);
-      }
+    if (planDraft && (planDraft.billing === "monthly" || planDraft.billing === "annual")) {
       setBilling(planDraft.billing);
     }
+    if (planDraft?.pricingPlanId && isPricingPlanId(planDraft.pricingPlanId)) {
+      setSelectedPlanId(planDraft.pricingPlanId);
+      setPlanSelectionSourceReady(true);
+      setIsHydrated(true);
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const res = await getTempleSessionProfileAction(email);
+      if (cancelled) return;
+      if (
+        res.ok &&
+        res.provisioningPlan.pricingPlanId &&
+        isPricingPlanId(res.provisioningPlan.pricingPlanId)
+      ) {
+        setSelectedPlanId(res.provisioningPlan.pricingPlanId);
+        setBilling(res.provisioningPlan.billing);
+      }
+      setPlanSelectionSourceReady(true);
+    })();
 
     setIsHydrated(true);
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   useEffect(() => {
@@ -119,11 +143,12 @@ export default function TempleAdminChoosePlanPage() {
   }, [isHydrated, loadCatalog]);
 
   useEffect(() => {
+    if (!planSelectionSourceReady) return;
     if (plans.length > 0 && !selectedPlanId) {
       const def = plans.find((p) => p.popular)?.id ?? plans[0]!.id;
       setSelectedPlanId(def);
     }
-  }, [plans, selectedPlanId]);
+  }, [planSelectionSourceReady, plans, selectedPlanId]);
 
   const selectedPlan = useMemo(
     () => (selectedPlanId ? plans.find((p) => p.id === selectedPlanId) : undefined),

@@ -40,6 +40,7 @@ export default function TempleAdminTempleProfilePage() {
   const stateId = useId();
   const addressCityId = useId();
   const postalCodeId = useId();
+  const charityRegNumberId = useId();
 
   const [isHydrating, setIsHydrating] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -202,7 +203,13 @@ export default function TempleAdminTempleProfilePage() {
       setDraft((prev) => ({
         ...prev,
         templeName: res.core.templeName,
-        charity: res.core.charity,
+        charity: loadedDraft?.charity
+          ? {
+              registered: loadedDraft.charity.registered,
+              registrationNumber:
+                loadedDraft.charity.registrationNumber ?? res.core.charity.registrationNumber,
+            }
+          : res.core.charity,
         email: res.core.email,
         phone: res.core.phone,
         whatsapp: res.core.phone,
@@ -239,6 +246,7 @@ export default function TempleAdminTempleProfilePage() {
         domainSubdomain: draft.domainSubdomain,
         establishedYear: draft.establishedYear,
         fullAddress: draft.fullAddress,
+        charity: draft.charity,
       });
     }
   }, [draft, isHydrating]);
@@ -321,6 +329,10 @@ export default function TempleAdminTempleProfilePage() {
     if (!draft.fullAddress.city.trim()) errs.addressCity = "City is required.";
     if (!draft.fullAddress.postalCode.trim()) errs.addressPostalCode = "Postal code is required.";
 
+    if (draft.charity.registered && !draft.charity.registrationNumber.trim()) {
+      errs.charityRegistrationNumber = "Charity registration number is required when registered.";
+    }
+
     const ok = Object.keys(errs).length === 0;
     return { ok, errs };
   }, [draft, SUBDOMAIN_RE]);
@@ -355,6 +367,7 @@ export default function TempleAdminTempleProfilePage() {
       { key: "addressState", id: stateId },
       { key: "addressCity", id: addressCityId },
       { key: "addressPostalCode", id: postalCodeId },
+      { key: "charityRegistrationNumber", id: charityRegNumberId },
     ];
 
     for (const { key, id } of idsInOrder) {
@@ -421,6 +434,8 @@ export default function TempleAdminTempleProfilePage() {
         establishedYear: draft.establishedYear.trim(),
         fullAddress: draft.fullAddress,
         logoDataUrl: draft.logoDataUrl,
+        charityRegistered: draft.charity.registered,
+        charityRegistrationNumber: draft.charity.registrationNumber.trim(),
       });
       if (!res.ok) {
         setError(res.message || "Could not save details.");
@@ -500,22 +515,49 @@ export default function TempleAdminTempleProfilePage() {
                     />
                   </FormField>
 
-                  <FormField id="charity-display" label="Charity Registration" layout="horizontal">
-                    <div className="flex flex-col gap-2">
-                      <p className="text-sm text-[var(--text-primary)]">
-                        {core.charity.registered ? "Yes, registered" : "No, not registered"}
-                      </p>
-                      {core.charity.registered ? (
-                        <TextInput
-                          readOnly
-                          tabIndex={-1}
-                          value={core.charity.registrationNumber || "—"}
-                          className="cursor-not-allowed opacity-90"
+                  <FormField id="charity-display" label="Charity registration" layout="horizontal">
+                    <div className="flex flex-col gap-3">
+                      <label className="flex cursor-pointer items-start gap-3">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 h-4 w-4 rounded border-[var(--border-default)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)]"
+                          checked={draft.charity.registered}
+                          onChange={(e) =>
+                            setDraft((prev) => ({
+                              ...prev,
+                              charity: {
+                                registered: e.target.checked,
+                                registrationNumber: e.target.checked ? prev.charity.registrationNumber : "",
+                              },
+                            }))
+                          }
                         />
+                        <span className="text-sm text-[var(--text-primary)]">This temple is registered as a charity</span>
+                      </label>
+                      {draft.charity.registered ? (
+                        <div>
+                          <TextInput
+                            id={charityRegNumberId}
+                            value={draft.charity.registrationNumber}
+                            onChange={(e) =>
+                              setDraft((prev) => ({
+                                ...prev,
+                                charity: { ...prev.charity, registrationNumber: e.target.value },
+                              }))
+                            }
+                            placeholder="Official registration number"
+                            aria-invalid={submitAttempted && !!errors.errs.charityRegistrationNumber}
+                          />
+                          {submitAttempted && errors.errs.charityRegistrationNumber ? (
+                            <p className="mt-1 text-xs text-red-600 dark:text-red-400" role="alert">
+                              {errors.errs.charityRegistrationNumber}
+                            </p>
+                          ) : null}
+                        </div>
                       ) : null}
                       <div className="flex items-start gap-2 text-xs text-[var(--text-muted)]">
                         <HelpCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-                        <p>Shown on donation receipts when applicable.</p>
+                        <p>Shown on donation receipts when applicable. You can complete this here if it was not set during provisioning.</p>
                       </div>
                     </div>
                   </FormField>

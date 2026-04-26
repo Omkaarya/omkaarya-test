@@ -46,6 +46,7 @@ import {
   type ApiPricingPlan,
   effectiveMonthlyFromYearlyCents,
   getPlanByIdFromList,
+  isPricingPlanId,
 } from "@/lib/temple-pricing-plans";
 
 export type TempleWizardMode = "create" | "edit";
@@ -179,6 +180,7 @@ type Step1Errors = {
   whatsapp?: string;
   fax?: string;
   establishedYear?: string;
+  charityRegistrationNumber?: string;
 };
 
 type BillingCycle = "Monthly" | "Annually";
@@ -237,6 +239,8 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
   const [websitePath, setWebsitePath] = useState("");
   const [subdomain, setSubdomain] = useState("");
   const [establishedYear, setEstablishedYear] = useState("");
+  const [charityRegistered, setCharityRegistered] = useState(false);
+  const [charityRegistrationNumber, setCharityRegistrationNumber] = useState("");
   const [adminProfileFile, setAdminProfileFile] = useState<File | null>(null);
   const [adminFullName, setAdminFullName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
@@ -283,6 +287,8 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
       websitePath,
       subdomain,
       establishedYear,
+      charityRegistered,
+      charityRegistrationNumber,
       adminFullName,
       adminEmail,
       adminWhatsapp,
@@ -308,6 +314,8 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
     websitePath,
     subdomain,
     establishedYear,
+    charityRegistered,
+    charityRegistrationNumber,
     adminFullName,
     adminEmail,
     adminWhatsapp,
@@ -348,6 +356,8 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
     setWebsitePath(d.temple.website);
     setSubdomain(d.temple.subdomain);
     setEstablishedYear(d.temple.establishedYear);
+    setCharityRegistered(d.temple.charityRegistered === true);
+    setCharityRegistrationNumber((d.temple.charityRegistrationNumber ?? "").trim());
     setAdminFullName(d.admin.fullName);
     setAdminEmail(d.admin.email);
     setAdminWhatsapp(parseAdminWhatsappToRow(d.admin.whatsapp, d.temple.country));
@@ -508,6 +518,9 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
       errors.establishedYear = "Established year is required.";
     } else if (!Number.isInteger(year) || year < 1800 || year > 2100) {
       errors.establishedYear = "Established year must be between 1800 and 2100.";
+    }
+    if (charityRegistered && !charityRegistrationNumber.trim()) {
+      errors.charityRegistrationNumber = "Charity registration number is required when registered.";
     }
     return errors;
   };
@@ -672,7 +685,39 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
     setSubmitError(null);
     setSubmitSuccess(null);
 
-    const payload = {
+    const payload: {
+      temple: {
+        tradition: string;
+        name: string;
+        deity: string;
+        country: string;
+        city: string;
+        address: string;
+        email: string;
+        phone: PhoneRowValue;
+        whatsapp: PhoneRowValue;
+        fax: PhoneRowValue;
+        website: string;
+        subdomain: string;
+        establishedYear: string;
+        charityRegistered: boolean;
+        charityRegistrationNumber: string;
+      };
+      admin: {
+        fullName: string;
+        email: string;
+        whatsapp: string;
+        role: string;
+      };
+      planBilling: {
+        selectedPlan: string;
+        selectedPricingPlanId: string | null;
+        billingCycle: BillingCycle | "";
+        trial: { enabled: boolean; days: number | null };
+      };
+      logoTempleDataUrl?: string;
+      adminProfileDataUrl?: string;
+    } = {
       temple: {
         tradition,
         name: templeName.trim(),
@@ -687,6 +732,8 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
         website: websitePath.trim(),
         subdomain: slugPreview,
         establishedYear: establishedYear.trim(),
+        charityRegistered,
+        charityRegistrationNumber: charityRegistrationNumber.trim(),
       },
       admin: {
         fullName: adminFullName.trim(),
@@ -696,6 +743,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
       },
       planBilling: {
         selectedPlan: selectedPlanName,
+        selectedPricingPlanId: isPricingPlanId(selectedPlanId) ? selectedPlanId : null,
         billingCycle,
         trial: {
           enabled: trialEnabled,
@@ -703,6 +751,25 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
         },
       },
     };
+
+    if (logoFile) {
+      try {
+        payload.logoTempleDataUrl = await readFileAsDataUrl(logoFile);
+      } catch {
+        setSubmitError("Could not read the temple logo image.");
+        setIsSubmitting(false);
+        return;
+      }
+    }
+    if (adminProfileFile) {
+      try {
+        payload.adminProfileDataUrl = await readFileAsDataUrl(adminProfileFile);
+      } catch {
+        setSubmitError("Could not read the admin profile image.");
+        setIsSubmitting(false);
+        return;
+      }
+    }
 
     try {
       const response = await fetch("/api/temples/create", {
@@ -766,6 +833,8 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
         website: websitePath.trim(),
         subdomain: subdomain.trim() || "temple_name",
         establishedYear: establishedYear.trim(),
+        charityRegistered,
+        charityRegistrationNumber: charityRegistrationNumber.trim(),
       },
       admin: {
         fullName: adminFullName.trim(),
@@ -774,6 +843,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
       },
       planBilling: {
         selectedPlan: selectedPlanName,
+        selectedPricingPlanId: isPricingPlanId(selectedPlanId) ? selectedPlanId : null,
         billingCycle,
         trial: {
           enabled: trialEnabled,
@@ -1129,6 +1199,40 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                     ) : null}
                   </div>
                 </FormField>
+
+                <div className="md:col-span-2">
+                  <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-zinc-200 bg-zinc-50/50 p-3 dark:border-zinc-700 dark:bg-zinc-800/40">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-[var(--brand-primary)] focus:ring-[var(--brand-primary)]"
+                      checked={charityRegistered}
+                      onChange={(e) => {
+                        setCharityRegistered(e.target.checked);
+                        if (!e.target.checked) setCharityRegistrationNumber("");
+                      }}
+                    />
+                    <span className="text-sm text-zinc-700 dark:text-zinc-200">
+                      This temple is registered as a charity (optional; can be completed later by the temple admin).
+                    </span>
+                  </label>
+                  {charityRegistered ? (
+                    <div className="mt-3">
+                      <FormField id="charity-reg-no" label="Charity registration number" required>
+                        <div>
+                          <TextInput
+                            id="charity-reg-no"
+                            value={charityRegistrationNumber}
+                            onChange={(e) => setCharityRegistrationNumber(e.target.value)}
+                            placeholder="Official registration number"
+                          />
+                          {step1ShowErrors && step1Errors.charityRegistrationNumber ? (
+                            <p className="mt-1 text-xs text-red-500">{step1Errors.charityRegistrationNumber}</p>
+                          ) : null}
+                        </div>
+                      </FormField>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </>
           )}

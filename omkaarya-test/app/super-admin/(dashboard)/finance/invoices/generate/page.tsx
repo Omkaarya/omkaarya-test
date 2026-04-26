@@ -104,6 +104,7 @@ export default function GenerateInvoicePage() {
     let cancel = false;
     (async () => {
       setLoadErr(null);
+
       const profRes = await fetch("/api/billing/profile", { cache: "no-store" });
       const prof = (await profRes.json().catch(() => null)) as { success?: boolean; data?: BillingProfile } | null;
       if (!cancel && prof && prof.success === true && prof.data) {
@@ -119,7 +120,7 @@ export default function GenerateInvoicePage() {
       const plansBody = (await plansRes.json().catch(() => null)) as { success?: boolean; data?: PricingPlan[] } | null;
       if (!cancel && plansBody && plansBody.success === true && Array.isArray(plansBody.data)) {
         setPlans(plansBody.data);
-        if (!planName && plansBody.data[0]?.name) setPlanName(plansBody.data[0].name);
+        setPlanName((prev) => prev || plansBody.data?.[0]?.name || "");
       }
 
       const res = await fetch("/api/billing/temples/options", { cache: "no-store" });
@@ -131,8 +132,10 @@ export default function GenerateInvoicePage() {
       }
       setTemples(d.data.data ?? []);
     })();
-    return () => { cancel = true; };
-  }, [planName]);
+    return () => {
+      cancel = true;
+    };
+  }, []);
 
   useEffect(() => {
     const p = plans.find((x) => x.name === planName);

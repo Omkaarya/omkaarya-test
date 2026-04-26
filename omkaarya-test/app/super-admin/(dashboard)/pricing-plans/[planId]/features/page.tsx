@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -76,6 +76,7 @@ export default function PlanFeaturesPage() {
   const [error, setError] = useState("");
   const [dirty, setDirty] = useState(false);
   const [fetchedPlanName, setFetchedPlanName] = useState<string | null>(null);
+  const visGuardRef = useRef<number>(Date.now());
 
   const displayPlanName = legacyMeta?.label ?? fetchedPlanName ?? planId;
   const meta = legacyMeta ?? {
@@ -119,6 +120,8 @@ export default function PlanFeaturesPage() {
 
   useEffect(() => {
     const onVis = () => {
+      // Avoid an immediate duplicate refetch right after mount.
+      if (Date.now() - visGuardRef.current < 750) return;
       if (document.visibilityState === "visible" && !dirty) {
         void loadFeatures();
       }
