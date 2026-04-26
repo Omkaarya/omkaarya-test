@@ -107,7 +107,7 @@ export default function EmailGatewayPage() {
         <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
 
         {/* Test Connection */}
-        <section className="p-8 rounded-[32px] border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <section className="p-8 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30 flex flex-col md:flex-row md:items-center justify-between gap-6">
            <div className="max-w-md">
               <h4 className="text-sm font-black text-zinc-900 dark:text-white uppercase tracking-tight">Test Delivery</h4>
               <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mt-1">Send a test email to verify your configuration before saving.</p>

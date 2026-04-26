@@ -22,7 +22,7 @@ export default function PrintersSettingsPage() {
 
       <div className="space-y-12">
         {/* Network Setup */}
-        <section className="p-8 rounded-[32px] border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30 space-y-8">
+        <section className="p-8 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30 space-y-8">
           <div className="flex items-center justify-between">
              <div className="flex items-center gap-3 text-brand">
                 <Network className="w-5 h-5" />

@@ -109,7 +109,7 @@ export default function SubDomainsPage() {
       {selectedDomain && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in zoom-in duration-300">
            <div className="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm" onClick={() => setSelectedDomain(null)} />
-           <div className="relative z-10 w-full max-w-xl bg-white dark:bg-zinc-900 rounded-[32px] shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+           <div className="relative z-10 w-full max-w-xl bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
               <div className="p-8 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-start">
                  <div className="flex gap-4">
                     <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">

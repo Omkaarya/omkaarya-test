@@ -91,7 +91,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         </nav>
 
         {/* Form Content Area */}
-        <div className="flex-1 w-full bg-white dark:bg-zinc-950 rounded-[32px] border border-zinc-100 dark:border-zinc-800 shadow-sm p-6 sm:p-10 min-h-[600px] animate-in fade-in slide-in-from-right-4 duration-500">
+        <div className="flex-1 w-full bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm p-6 sm:p-10 min-h-[600px] animate-in fade-in slide-in-from-right-4 duration-500">
           {children}
         </div>
       </div>

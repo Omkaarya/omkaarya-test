@@ -85,7 +85,7 @@ export default function InvoiceSettingsPage() {
               <h3 className="text-[11px] font-black uppercase tracking-[0.2em]">Email Automation</h3>
            </div>
            
-           <div className="flex items-center justify-between p-8 rounded-[32px] border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30">
+           <div className="flex items-center justify-between p-8 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30">
               <div className="max-w-md">
                  <h4 className="text-sm font-black text-zinc-900 dark:text-white uppercase tracking-tight">Auto-send Digital Receipts</h4>
                  <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">

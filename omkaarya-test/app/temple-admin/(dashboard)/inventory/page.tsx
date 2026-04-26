@@ -1,190 +1,205 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import Link from "next/link";
 import { 
+  Package, 
   Plus, 
   Search, 
   Filter, 
-  Download, 
-  Package, 
-  AlertTriangle, 
-  CheckCircle2, 
-  ChevronRight,
-  MoreHorizontal,
-  Archive,
-  BarChart3,
-  Cookie,
-  Flower2,
-  Flame,
-  Droplets,
-  Wind,
-  ChevronLeft,
+  ChevronRight, 
+  MoreVertical,
+  ArrowRight,
+  Bell,
+  History,
+  Tag,
   Eye,
-  Pencil,
-  Trash2
+  Pencil
 } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
-import { Input } from "@/app/components/ds/atoms/Input";
-import StatusBadge from "@/app/components/admin/StatusBadge";
+import { MetricCard } from "@/app/components/ds/molecules/MetricCard";
+import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
 
-// ── Mock Data ──────────────────────────────────────────────────────
-
-const PRODUCTS = [
-  { id: "PRD-001", name: "Besan Ladoo", category: "Prasad", type: "Consumable", qty: 42, minQty: 50, price: "₹25.00", status: "Low Stock", icon: Cookie, color: "bg-amber-500" },
-  { id: "PRD-002", name: "Motichoor Ladoo", category: "Prasad", type: "Consumable", qty: 28, minQty: 30, price: "₹35.00", status: "Low Stock", icon: Cookie, color: "bg-amber-500" },
-  { id: "FLW-001", name: "Rose Garland", category: "Flowers", type: "Consumable", qty: 12, minQty: 5, price: "₹150.00", status: "Active", icon: Flower2, color: "bg-emerald-500" },
-  { id: "PJA-001", name: "Camphor Tablets", category: "Puja Supplies", type: "Consumable", qty: 0, minQty: 10, price: "₹45.00", status: "Out of Stock", icon: Flame, color: "bg-red-500" },
+const PRODUCT_TYPES = [
+  { id: "all", label: "All", icon: "🏛️", count: 243 },
+  { id: "Consumable", label: "Consumables", icon: "🔁", count: 148 },
+  { id: "Equipment", label: "Equipment", icon: "⚙️", count: 42 },
+  { id: "Sale Item", label: "POS/Sale", icon: "🛒", count: 28 },
+  { id: "Admin", label: "Office", icon: "🗃️", count: 15 },
+  { id: "Festival", label: "Festival", icon: "🎪", count: 10 },
 ];
 
-function MetricCard({ title, value, sub }: any) {
-  return (
-    <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 p-6 shadow-sm flex flex-col gap-1">
-       <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{title}</p>
-       <div className="flex items-baseline gap-2">
-          <h3 className="text-2xl font-black text-zinc-900 dark:text-white">{value}</h3>
-          <span className="text-[10px] font-bold text-zinc-400">{sub}</span>
-       </div>
-    </div>
-  );
-}
+const MOCK_PRODUCTS = [
+  { ico: '🟠', name: 'Besan Ladoo', sku: 'PRD-001', type: 'Consumable', cat: 'Prasad', unit: 'Pcs', qty: 42, reorder: 50, cost: '£0.45', freq: 'Daily', status: 'low' },
+  { ico: '🌸', name: 'Rose Garland', sku: 'FLW-001', type: 'Consumable', cat: 'Flowers', unit: 'Garlands', qty: 12, reorder: 10, cost: '£3.00', freq: 'Daily', status: 'ok' },
+  { ico: '🕯️', name: 'Camphor Tablets', sku: 'PJA-001', type: 'Consumable', cat: 'Puja Supplies', unit: 'Packets', qty: 0, reorder: 10, cost: '£1.75', freq: 'Daily', status: 'out' },
+  { ico: '🧴', name: 'Sesame Oil', sku: 'OIL-001', type: 'Consumable', cat: 'Oil & Lamps', unit: 'Litres', qty: 18, reorder: 5, cost: '£5.00', freq: 'Weekly', status: 'ok' },
+  { ico: '🪔', name: 'Brass Lamp 5-wick', sku: 'EQP-001', type: 'Equipment', cat: 'Lamps & Deepam', unit: 'Pcs', qty: 8, reorder: null, cost: '£45.00', freq: 'One-time', status: 'ok' },
+  { ico: '🎁', name: 'Prasad Packet Small', sku: 'POS-001', type: 'Sale Item', cat: 'Prasad Packets', unit: 'Packets', qty: 120, reorder: 50, cost: '£0.80', freq: 'Daily', status: 'ok' },
+];
 
 export default function InventoryPage() {
-  const [activeTab, setActiveTab] = useState("All Items");
+  const [activeType, setActiveType] = useState("all");
   const [search, setSearch] = useState("");
 
+  const filteredProducts = useMemo(() => {
+    return MOCK_PRODUCTS.filter(p => {
+      const matchesType = activeType === "all" || p.type === activeType;
+      const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase());
+      return matchesType && matchesSearch;
+    });
+  }, [activeType, search]);
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 max-w-[1600px] mx-auto pb-10">
+    <div className="space-y-6 animate-in fade-in duration-500">
       
-      {/* Block 1: Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <MetricCard title="TOTAL PRODUCTS" value="124" sub="registered" />
-        <MetricCard title="LOW STOCK" value="12" sub="reorder needed" />
-        <MetricCard title="STOCK VALUE" value="₹4.2M" sub="estimated" />
+      {/* ── Header ─────────────────────────────────────────────────── */}
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+        <div>
+           <div className="flex items-center gap-2 text-[11px] font-bold text-text-tertiary mb-1">
+              <span>Inventory</span>
+              <ChevronRight className="w-3 h-3" />
+              <span className="text-brand">All Products</span>
+           </div>
+           <h1 className="text-xl font-extrabold text-text-primary tracking-tight">Products & Inventory</h1>
+           <p className="text-[12px] text-text-tertiary mt-1">All temple items — consumables, equipment, POS items, office supplies & festival stock</p>
+        </div>
+        <div className="flex items-center gap-2">
+           <Button variant="outline" size="sm" leadingIcon={<History className="w-4 h-4" />}>Stock Log</Button>
+           <Link href="/temple-admin/inventory/create">
+             <Button size="sm" leadingIcon={<Plus className="w-4 h-4" />}>Add Product</Button>
+           </Link>
+        </div>
       </div>
 
-      {/* Block 2: Unified Card */}
-      <div className="bg-white dark:bg-zinc-900 rounded-[32px] border border-zinc-100 dark:border-zinc-800 shadow-sm overflow-hidden">
-        
-        {/* Card Header */}
-        <div className="px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-50 dark:border-zinc-800">
-           <div className="flex items-center gap-3">
-              <h2 className="text-xl font-black text-zinc-900 dark:text-white tracking-tight">Product Inventory</h2>
-              <span className="px-2 py-0.5 rounded-md bg-orange-50 dark:bg-orange-950/30 text-[10px] font-bold text-orange-600 border border-orange-100 dark:border-orange-800">124 Items</span>
-           </div>
-           <Button leadingIcon={<Plus className="w-4 h-4" />}>
-             Add Product
-           </Button>
-        </div>
+      {/* ── Module Tabs ────────────────────────────────────────────── */}
+      <div className="flex flex-wrap gap-2 overflow-x-auto pb-1 scrollbar-none">
+        {PRODUCT_TYPES.map(type => (
+          <button
+            key={type.id}
+            onClick={() => setActiveType(type.id)}
+            className={`
+              flex items-center gap-2 px-3.5 py-2 rounded-xl text-[11px] font-bold transition-all border whitespace-nowrap
+              ${activeType === type.id 
+                ? 'bg-brand-muted border-brand text-brand shadow-sm' 
+                : 'bg-surface border-border text-text-secondary hover:border-gray-400 hover:text-text-primary'
+              }
+            `}
+          >
+            <span className="text-[13px]">{type.icon}</span>
+            <span>{type.label}</span>
+            <span className={`px-1.5 py-0.5 rounded-lg text-[9px] font-black ${activeType === type.id ? 'bg-brand text-white' : 'bg-gray-100 text-text-tertiary'}`}>
+              {type.count}
+            </span>
+          </button>
+        ))}
+      </div>
 
-        {/* Integrated Filter Bar */}
-        <div className="px-8 py-4 flex flex-col lg:flex-row lg:items-center gap-4 bg-white dark:bg-zinc-900">
-           <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-              <input 
-                className="w-full h-10 pl-10 pr-4 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/10"
-                placeholder="Search products, SKUs, or categories..."
+      {/* ── Metrics Grid ───────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+         <MetricCard title="Total products" value="243" trendLabel="6 product types" chartColor="brand" />
+         <MetricCard title="In stock" value="218" trendPercentage={90} trendLabel="In stock items" chartColor="success" />
+         <MetricCard title="Low stock" value="14" trendPercentage={-5} trendLabel="Reorder soon" chartColor="warning" />
+         <MetricCard title="Out of stock" value="11" trendPercentage={-2} trendLabel="Action needed" chartColor="gray" />
+      </div>
+
+      {/* ── Toolbar & Table ────────────────────────────────────────── */}
+      <div className="bg-surface rounded-xl border border-border shadow-sm overflow-hidden">
+        
+        {/* Toolbar */}
+        <div className="px-5 py-4 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+           <div className="flex-1 max-w-md">
+              <SearchInput 
+                placeholder="Search products by name or SKU..." 
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
            </div>
-           <div className="flex items-center gap-1.5 p-1 bg-zinc-50 dark:bg-zinc-950 rounded-xl border border-zinc-100 dark:border-zinc-800 overflow-x-auto">
-              {["All Items", "Prasad", "Puja Items", "Equipment"].map(tab => (
-                 <button 
-                   key={tab}
-                   onClick={() => setActiveTab(tab)}
-                   className={`px-4 py-2 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all ${activeTab === tab ? 'bg-orange-500 text-white shadow-md' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'}`}
-                 >
-                    {tab}
-                 </button>
+           <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" leadingIcon={<Filter className="w-4 h-4" />}>Filters</Button>
+              <Button variant="outline" size="sm">Export</Button>
+           </div>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto min-h-[400px]">
+          <table className="w-full text-left">
+            <thead className="bg-gray-50/50 border-b border-border">
+              <tr>
+                <th className="px-5 py-3 text-[10px] font-black text-text-tertiary uppercase tracking-widest">Item</th>
+                <th className="px-5 py-3 text-[10px] font-black text-text-tertiary uppercase tracking-widest">Category</th>
+                <th className="px-5 py-3 text-[10px] font-black text-text-tertiary uppercase tracking-widest">Stock Qty</th>
+                <th className="px-5 py-3 text-[10px] font-black text-text-tertiary uppercase tracking-widest">Unit Cost</th>
+                <th className="px-5 py-3 text-[10px] font-black text-text-tertiary uppercase tracking-widest">Status</th>
+                <th className="px-5 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-secondary">
+              {filteredProducts.map((p, i) => (
+                <tr key={i} className="hover:bg-gray-50/50 transition-colors group cursor-pointer">
+                  <td className="px-5 py-4">
+                     <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-gray-50 border border-border flex items-center justify-center text-[18px] shrink-0">{p.ico}</div>
+                        <div className="flex flex-col min-w-0">
+                           <div className="text-[12px] font-bold text-text-primary truncate">{p.name}</div>
+                           <div className="text-[10px] font-mono text-text-placeholder">{p.sku}</div>
+                        </div>
+                     </div>
+                  </td>
+                  <td className="px-5 py-4">
+                     <div className={`inline-flex px-2 py-0.5 rounded-lg text-[10px] font-bold border
+                        ${p.cat === 'Prasad' ? 'bg-brand-muted border-brand/20 text-brand' : 
+                          p.cat === 'Flowers' ? 'bg-green-50 border-green-200 text-green-700' :
+                          'bg-blue-50 border-blue-200 text-blue-700'}
+                     `}>
+                        {p.cat}
+                     </div>
+                  </td>
+                  <td className="px-5 py-4">
+                     <div className={`text-[14px] font-extrabold tracking-tight ${p.status === 'out' ? 'text-status-danger-text' : p.status === 'low' ? 'text-status-warning-text' : 'text-text-primary'}`}>
+                        {p.qty} <span className="text-[10px] text-text-placeholder font-medium">{p.unit}</span>
+                     </div>
+                     {p.reorder && p.status !== 'ok' && (
+                        <div className="text-[9px] font-bold text-status-warning-text mt-0.5">Reorder &lt;{p.reorder}</div>
+                     )}
+                  </td>
+                  <td className="px-5 py-4 text-[12px] font-bold text-text-secondary">{p.cost}</td>
+                  <td className="px-5 py-4">
+                     <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold
+                        ${p.status === 'ok' ? 'bg-status-success-bg text-status-success-text' : 
+                          p.status === 'low' ? 'bg-status-warning-bg text-status-warning-text' : 
+                          'bg-status-danger-bg text-status-danger-text'}
+                     `}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${
+                           p.status === 'ok' ? 'bg-status-success-text' : 
+                           p.status === 'low' ? 'bg-status-warning-text' : 
+                           'bg-status-danger-text'
+                        }`} />
+                        {p.status === 'ok' ? 'In Stock' : p.status === 'low' ? 'Low Stock' : 'Out of Stock'}
+                     </div>
+                  </td>
+                  <td className="px-5 py-4 text-right">
+                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="ghost" size="sm" iconOnly><Eye className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="sm" iconOnly><Pencil className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="sm" iconOnly><MoreVertical className="w-4 h-4" /></Button>
+                     </div>
+                  </td>
+                </tr>
               ))}
-           </div>
-           <div className="flex items-center gap-2">
-              <select className="h-10 px-3 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-[11px] font-bold text-zinc-500 outline-none cursor-pointer">
-                 <option>All Stock Status</option>
-                 <option>In Stock</option>
-                 <option>Low Stock</option>
-                 <option>Out of Stock</option>
-              </select>
-           </div>
+            </tbody>
+          </table>
         </div>
 
-        {/* Table Area */}
-        <div className="overflow-x-auto">
-           <table className="w-full text-left">
-              <thead className="bg-zinc-50/50 dark:bg-zinc-950 border-y border-zinc-50 dark:border-zinc-800">
-                 <tr>
-                    <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">SKU</th>
-                    <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Product Name</th>
-                    <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Category</th>
-                    <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Stock</th>
-                    <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Price</th>
-                    <th className="px-8 py-4 text-right text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Actions</th>
-                 </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800">
-                 {PRODUCTS.map((p) => (
-                    <tr key={p.id} className="hover:bg-zinc-50/30 dark:hover:bg-zinc-800/20 transition-colors">
-                       <td className="px-8 py-5 text-[11px] font-mono font-bold text-zinc-400 uppercase tracking-tighter">
-                          {p.id}
-                       </td>
-                       <td className="px-8 py-5">
-                          <div className="flex items-center gap-3">
-                             <div className="w-9 h-9 rounded-full bg-orange-50 dark:bg-orange-950/30 flex items-center justify-center text-orange-600 border border-orange-100">
-                                <p.icon className="w-4 h-4" />
-                             </div>
-                             <div>
-                                <div className="text-xs font-black text-zinc-900 dark:text-white leading-tight">{p.name}</div>
-                                <div className="text-[10px] font-medium text-zinc-400 mt-0.5">{p.type}</div>
-                             </div>
-                          </div>
-                       </td>
-                       <td className="px-8 py-5">
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-100 dark:border-zinc-700`}>
-                             <span className={`w-1.5 h-1.5 rounded-full ${p.color}`} />
-                             {p.category}
-                          </span>
-                       </td>
-                       <td className="px-8 py-5">
-                          <div className="flex flex-col">
-                             <span className={`text-xs font-black ${p.qty <= p.minQty ? 'text-red-500' : 'text-emerald-600'}`}>
-                                {p.qty} Units
-                             </span>
-                             <span className="text-[9px] font-bold text-zinc-400 uppercase">Min: {p.minQty}</span>
-                          </div>
-                       </td>
-                       <td className="px-8 py-5 text-sm font-black text-zinc-900 dark:text-white">
-                          {p.price}
-                       </td>
-                       <td className="px-8 py-5 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                             <button className="p-2 rounded-lg text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-all"><Eye className="w-4 h-4" /></button>
-                             <button className="p-2 rounded-lg text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-all"><Pencil className="w-4 h-4" /></button>
-                             <button className="p-2 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-all"><Trash2 className="w-4 h-4" /></button>
-                          </div>
-                       </td>
-                    </tr>
-                 ))}
-              </tbody>
-           </table>
-        </div>
-
-        {/* Integrated Pagination */}
-        <div className="px-8 py-5 flex items-center justify-between bg-zinc-50/30 dark:bg-zinc-950/30 border-t border-zinc-50 dark:border-zinc-800">
-           <div className="flex items-center gap-2 text-[11px] font-bold text-zinc-400 uppercase tracking-widest">
-              Showing Results: 
-              <select className="h-8 px-2 rounded-lg border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-[10px] font-bold outline-none cursor-pointer">
-                 <option>10 per page</option>
-                 <option>20 per page</option>
-              </select>
-           </div>
-           <div className="flex items-center gap-2">
-              <button className="px-4 py-2 rounded-xl text-[11px] font-bold text-zinc-400 flex items-center gap-1.5 hover:text-zinc-900 transition-colors">
-                 <ChevronLeft className="w-4 h-4" /> Previous
-              </button>
-              <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center text-xs font-bold text-white shadow-md shadow-orange-500/20">1</div>
-              <button className="px-4 py-2 rounded-xl text-[11px] font-bold text-zinc-600 flex items-center gap-1.5 hover:text-zinc-900 transition-colors">
-                 Next <ChevronRight className="w-4 h-4" />
-              </button>
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-border flex items-center justify-between bg-gray-50/20">
+           <span className="text-[11px] text-text-tertiary font-bold tracking-tight uppercase">Showing {filteredProducts.length} of 243 items</span>
+           <div className="flex items-center gap-1">
+              <Button variant="outline" size="sm" className="h-8 min-w-[32px] px-2 font-bold bg-brand text-white border-brand">1</Button>
+              <Button variant="outline" size="sm" className="h-8 min-w-[32px] px-2 font-bold">2</Button>
+              <Button variant="outline" size="sm" className="h-8 min-w-[32px] px-2 font-bold">3</Button>
+              <span className="mx-1 text-text-placeholder">...</span>
+              <Button variant="outline" size="sm" className="h-8 min-w-[32px] px-2 font-bold">24</Button>
            </div>
         </div>
       </div>

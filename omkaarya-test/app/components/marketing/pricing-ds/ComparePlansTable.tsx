@@ -44,7 +44,7 @@ export function ComparePlansTable() {
   );
 
   return (
-    <div className="w-full max-w-6xl mt-24 mb-16 bg-white border border-gray-200 rounded-[32px] overflow-hidden shadow-sm">
+    <div className="w-full max-w-6xl mt-24 mb-16 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
       {/* Header Gradient Area */}
       <div className="relative pt-10 pb-6 px-8 text-center border-b border-gray-200">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-2xl h-full bg-gradient-to-b from-brand-50 to-transparent opacity-50 pointer-events-none" />

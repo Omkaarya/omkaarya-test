@@ -6,7 +6,7 @@ export function AppDownloadBanners() {
     <div className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-2 gap-6 mb-24">
       
       {/* Desktop Download Card */}
-      <div className="relative overflow-hidden rounded-[32px] bg-gray-900 border border-gray-800 p-8 md:p-10 flex flex-col min-h-[400px]">
+      <div className="relative overflow-hidden rounded-2xl bg-gray-900 border border-gray-800 p-8 md:p-10 flex flex-col min-h-[400px]">
         {/* Glow effect */}
         <div className="absolute -bottom-32 -left-32 w-[300px] h-[300px] bg-brand-500 rounded-full blur-[100px] opacity-20 pointer-events-none" />
         <div className="absolute -bottom-32 -right-32 w-[300px] h-[300px] bg-amber-500 rounded-full blur-[100px] opacity-20 pointer-events-none" />
@@ -46,7 +46,7 @@ export function AppDownloadBanners() {
       </div>
 
       {/* Mobile Download Card */}
-      <div className="relative overflow-hidden rounded-[32px] bg-[#423126] border border-[#523d2f] p-8 md:p-10 flex flex-col min-h-[400px]">
+      <div className="relative overflow-hidden rounded-2xl bg-[#423126] border border-[#523d2f] p-8 md:p-10 flex flex-col min-h-[400px]">
         {/* Glow effect */}
         <div className="absolute -bottom-32 -left-32 w-[300px] h-[300px] bg-brand-500 rounded-full blur-[100px] opacity-30 pointer-events-none" />
         <div className="absolute -bottom-32 right-0 w-[300px] h-[300px] bg-yellow-500 rounded-full blur-[100px] opacity-20 pointer-events-none" />

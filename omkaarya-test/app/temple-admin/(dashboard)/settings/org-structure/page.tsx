@@ -509,7 +509,7 @@ export default function OrgStructurePage() {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8 items-start">
 
         {/* Tree Container */}
-        <div className="bg-white dark:bg-zinc-950 rounded-[32px] border border-zinc-100 dark:border-zinc-800 shadow-sm overflow-hidden min-h-[600px]">
+        <div className="bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm overflow-hidden min-h-[600px]">
           <div className="px-8 py-6 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 flex items-center justify-between">
             <div>
                <h2 className="text-sm font-black text-zinc-900 dark:text-white uppercase tracking-wider">Temple Unit Tree</h2>
@@ -547,7 +547,7 @@ export default function OrgStructurePage() {
         </div>
 
         {/* Details Sidebar */}
-        <div className="lg:sticky lg:top-8 bg-white dark:bg-zinc-950 rounded-[32px] border border-zinc-100 dark:border-zinc-800 shadow-sm overflow-hidden">
+        <div className="lg:sticky lg:top-8 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm overflow-hidden">
           <div className="px-8 py-6 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40">
             <h2 className="text-sm font-black text-zinc-900 dark:text-white uppercase tracking-wider">Unit Insights</h2>
           </div>

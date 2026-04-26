@@ -259,7 +259,7 @@ export default function RolesPermissionsPage() {
       {showUpgradeModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm" onClick={() => setShowUpgradeModal(false)} />
-          <div className="relative z-10 w-full max-w-lg bg-white dark:bg-zinc-950 rounded-[32px] border border-zinc-100 dark:border-zinc-800 shadow-2xl overflow-hidden p-1">
+          <div className="relative z-10 w-full max-w-lg bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-2xl overflow-hidden p-1">
              <div className="bg-brand-50 dark:bg-brand-950/30 p-8 text-center rounded-[31px]">
                 <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white dark:bg-zinc-900 shadow-lg mb-6">
                    <ShieldAlert className="w-8 h-8 text-brand" />

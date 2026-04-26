@@ -33,7 +33,7 @@ export default function InventorySettingsPage() {
              <h3 className="text-[11px] font-black uppercase tracking-[0.2em]">Stock Baselines</h3>
           </div>
           
-          <div className="p-8 rounded-[32px] border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30">
+          <div className="p-8 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30">
             <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-8 max-w-2xl">
               Set minimum stock levels before items are flagged as 'Low Stock'. Individual item settings will override these global defaults.
             </p>

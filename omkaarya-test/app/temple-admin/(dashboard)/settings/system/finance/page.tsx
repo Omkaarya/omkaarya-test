@@ -32,7 +32,7 @@ export default function FinanceSettingsPage() {
               <h3 className="text-[11px] font-black uppercase tracking-[0.2em]">Currency Metrics</h3>
            </div>
            
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8 rounded-[32px] border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30">
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30">
               <div className="space-y-2">
                  <label className="block text-[10px] font-black uppercase tracking-wider text-zinc-400 px-1">Base Currency</label>
                  <div className="relative">

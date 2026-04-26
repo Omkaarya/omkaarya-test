@@ -270,7 +270,7 @@ function AddPrasadModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-2xl rounded-[32px] bg-white shadow-2xl dark:bg-zinc-950 overflow-hidden">
+      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl dark:bg-zinc-950 overflow-hidden">
         <div className="flex items-center justify-between border-b border-zinc-100 p-6 dark:border-zinc-800">
           <div>
             <h2 className="text-xl font-bold">Add New Prashadham</h2>

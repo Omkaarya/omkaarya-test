@@ -1,229 +1,160 @@
 "use client";
 
-import { useState } from "react";
+import React from "react";
+import Link from "next/link";
+import { Breadcrumb } from "@/app/components/ds/molecules/Breadcrumb";
+import { MetricCard } from "@/app/components/ds/molecules/MetricCard";
+import { Button } from "@/app/components/ds/atoms/Button";
+import { Select } from "@/app/components/ds/atoms/Select";
+import { Badge } from "@/app/components/ds/atoms/Badge";
 import { 
   Monitor, 
-  IndianRupee, 
-  Users2, 
-  BarChart3, 
-  ArrowRight, 
-  Settings2, 
+  Banknote, 
   Clock, 
-  Plus, 
-  TrendingUp, 
-  PieChart, 
-  Search,
-  CheckCircle2,
-  AlertTriangle,
-  History,
-  MoreVertical,
-  ChevronRight,
-  Activity
+  ShoppingCart, 
+  Settings,
+  ArrowRight,
+  MonitorCheck
 } from "lucide-react";
-import Link from "next/link";
-import { Badge } from "@/app/components/ds/atoms/Badge";
-import { Button } from "@/app/components/ds/atoms/Button";
 
-// ── Components ─────────────────────────────────────────────────────
-
-function MetricCard({ title, value, subtitle, icon: Icon, color }: any) {
+export default function PosDashboardPage() {
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-[32px] border border-zinc-200 dark:border-zinc-800 p-6 shadow-sm hover:shadow-md transition-all group">
-      <div className="flex justify-between items-start mb-4">
-        <div className={`p-3 rounded-2xl ${color}`}>
-          <Icon className="w-5 h-5" />
-        </div>
-        <div className="p-1 rounded-lg bg-zinc-50 dark:bg-zinc-800">
-           <Activity className="w-3 h-3 text-zinc-400" />
-        </div>
-      </div>
-      <div>
-        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{title}</p>
-        <h3 className="text-2xl font-black text-zinc-900 dark:text-white mt-1">{value}</h3>
-        <p className="text-[11px] mt-1 text-zinc-400 font-medium">{subtitle}</p>
-      </div>
-    </div>
-  );
-}
-
-// ── Mock Data ──────────────────────────────────────────────────────
-
-const MOCK_SESSIONS = [
-  { id: '1', register: 'REG-001', type: 'Prasadam', cashier: 'Ramesh Kumar', since: '08:30 AM', total: '₹ 12,400', status: 'Active' },
-  { id: '2', register: 'REG-002', type: 'All Categories', cashier: 'Suresh Raina', since: '09:15 AM', total: '₹ 32,150', status: 'Active' },
-];
-
-const SALES_CHANNELS = [
-  { label: 'Prasadam Counter', value: '₹ 12,400', count: 86, color: 'bg-emerald-500', width: '38%' },
-  { label: 'Pooja/Seva Tickets', value: '₹ 32,150', count: 142, color: 'bg-amber-500', width: '52%' },
-  { label: 'General Store', value: '₹ 3,700', count: 18, color: 'bg-blue-500', width: '10%' },
-];
-
-// ── Page Component ──────────────────────────────────────────────────
-
-export default function PosHqDashboard() {
-  return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-10">
+      {/* ─── Header Section ─────────────────────────────────────────── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border pb-6">
         <div>
-          <h1 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tight">POS HQ Dashboard</h1>
-          <p className="text-zinc-500 dark:text-zinc-400 font-medium mt-1">Centralized monitoring and configuration for all temple terminals.</p>
+          <Breadcrumb 
+            items={[
+              { label: "Sales", href: "/temple-admin/finance" },
+              { label: "POS" }
+            ]} 
+            className="mb-2"
+          />
+          <h1 className="text-display-xs font-bold text-text-primary tracking-tight">
+            Point of Sale
+          </h1>
         </div>
-        <Link href="/temple-admin/pos/open-session">
-          <Button size="lg" leadingIcon={<Plus className="w-4 h-4" />}>
-            Open New Terminal
-          </Button>
-        </Link>
-      </div>
+        
+        <div className="flex items-center gap-3">
+          <div className="w-[180px]">
+            <Select 
+              options={[
+                { value: "1", label: "Vertical Layout" },
+                { value: "2", label: "Horizontal Layout" }
+              ]} 
+              defaultValue="1" 
+              onChange={(e) => {
+                const val = e.target.value;
+                const url = new URL(window.location.href);
+                url.searchParams.set("layout", val);
+                window.history.pushState({}, "", url);
+              }}
+            />
+          </div>
 
-      {/* Metrics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <MetricCard
-          title="Active Registers"
-          value="2 / 3"
-          subtitle="Running right now"
-          icon={Monitor}
-          color="bg-blue-50 text-blue-600 dark:bg-blue-950/30"
-        />
-        <div className="bg-white dark:bg-zinc-900 rounded-[32px] border border-zinc-200 dark:border-zinc-800 p-6 shadow-sm relative overflow-hidden group">
-           <div className="flex justify-between items-start mb-4">
-              <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30">
-                 <TrendingUp className="w-5 h-5" />
-              </div>
-              <Badge color="success" size="sm" className="font-bold">LIVE</Badge>
-           </div>
-           <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Today's Revenue</p>
-           <h3 className="text-3xl font-black text-emerald-600 mt-1">₹ 48,250</h3>
-           <div className="mt-4 flex gap-4">
-              <div className="flex flex-col">
-                 <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-tight">Prasadam</span>
-                 <span className="text-xs font-bold text-zinc-600 dark:text-zinc-300">₹12.4k</span>
-              </div>
-              <div className="flex flex-col">
-                 <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-tight">Seva</span>
-                 <span className="text-xs font-bold text-zinc-600 dark:text-zinc-300">₹32.1k</span>
-              </div>
-           </div>
+          <Link href={`/temple-admin/pos/open-session?layout=${typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('layout') || '1' : '1'}`}>
+            <Button size="md" leadingIcon={<Monitor className="w-4 h-4" />}>
+              Open POS Terminal
+            </Button>
+          </Link>
         </div>
-        <MetricCard
-          title="Total Transactions"
-          value="246"
-          subtitle="Since 6:00 AM"
-          icon={BarChart3}
-          color="bg-purple-50 text-purple-600 dark:bg-purple-950/30"
+      </div>
+
+      {/* ─── Metrics ─────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <MetricCard 
+          title="Active Registers" 
+          value="1 / 1" 
+          chartColor="gray"
         />
-        <MetricCard
-          title="Cash in Hand"
-          value="₹ 18,400"
-          subtitle="Verified denominations"
-          icon={IndianRupee}
-          color="bg-amber-50 text-amber-600 dark:bg-amber-950/30"
+        <MetricCard 
+          title="Today's Revenue" 
+          value="LKR 0.00" 
+          chartColor="success"
+        />
+        <MetricCard 
+          title="Open Sessions" 
+          value="0" 
+          chartColor="warning"
+        />
+        <MetricCard 
+          title="Avg Transaction" 
+          value="LKR 0.00" 
+          chartColor="brand"
         />
       </div>
 
-      {/* Action Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-         <ActionCard icon={Monitor} label="Launch Terminal" description="Access the sales interface" color="text-blue-500 bg-blue-50" href="/temple-admin/pos/open-session" />
-         <ActionCard icon={Settings2} label="Register Config" description="Hardware assignments" color="text-amber-500 bg-amber-50" href="/temple-admin/pos/registers" />
-         <ActionCard icon={Clock} label="Shift History" description="Review previous closings" color="text-emerald-500 bg-emerald-50" href="/temple-admin/pos/registers" />
+      {/* ─── Primary Actions ─────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+        <ActionCard 
+          icon={Monitor} 
+          title="Terminal" 
+          description="Access the checkout interface."
+          href="/temple-admin/pos/open-session"
+        />
+        <ActionCard 
+          icon={Clock} 
+          title="Sessions" 
+          description="Manage active shifts."
+          href="/temple-admin/pos/sessions"
+        />
+        <ActionCard 
+          icon={Settings} 
+          title="Registers" 
+          description="Configure hardware settings."
+          href="/temple-admin/pos/registers"
+        />
       </div>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-         
-         <div className="lg:col-span-2 space-y-4">
-            <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Active Terminal Sessions</h3>
-            <div className="bg-white dark:bg-zinc-900 rounded-[40px] border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
-               <table className="w-full text-left">
-                  <thead>
-                     <tr className="border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/30">
-                        <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Register</th>
-                        <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Cashier</th>
-                        <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right">Sales</th>
-                        <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right">Action</th>
-                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800">
-                     {MOCK_SESSIONS.map(session => (
-                       <tr key={session.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20 transition-colors">
-                          <td className="px-8 py-5">
-                             <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
-                                   <Monitor className="w-4 h-4 text-zinc-400" />
-                                </div>
-                                <div className="flex flex-col">
-                                   <span className="text-sm font-black text-zinc-900 dark:text-white">{session.register}</span>
-                                   <span className="text-[10px] font-bold text-emerald-600 uppercase">{session.type}</span>
-                                </div>
-                             </div>
-                          </td>
-                          <td className="px-8 py-5">
-                             <div className="flex flex-col">
-                                <span className="text-sm font-bold text-zinc-800 dark:text-zinc-200">{session.cashier}</span>
-                                <span className="text-[10px] text-zinc-400">Active since {session.since}</span>
-                             </div>
-                          </td>
-                          <td className="px-8 py-5 text-right">
-                             <span className="text-sm font-black text-[var(--brand-primary)]">{session.total}</span>
-                          </td>
-                          <td className="px-8 py-5 text-right">
-                             <button className="p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400">
-                                <ChevronRight className="w-5 h-5" />
-                             </button>
-                          </td>
-                       </tr>
-                     ))}
-                  </tbody>
-               </table>
-            </div>
-         </div>
-
-         <div className="space-y-4">
-            <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Sales by Channel</h3>
-            <div className="bg-white dark:bg-zinc-900 rounded-[40px] border border-zinc-200 dark:border-zinc-800 p-8 shadow-sm space-y-8">
-               {SALES_CHANNELS.map(channel => (
-                 <div key={channel.label} className="space-y-3">
-                    <div className="flex justify-between items-end">
-                       <div>
-                          <p className="text-sm font-black text-zinc-900 dark:text-white leading-tight">{channel.label}</p>
-                          <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">{channel.count} Transactions</p>
-                       </div>
-                       <p className="text-sm font-black text-zinc-900 dark:text-white">{channel.value}</p>
-                    </div>
-                    <div className="h-2 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                       <div className={`h-full ${channel.color} rounded-full`} style={{ width: channel.width }} />
-                    </div>
-                 </div>
-               ))}
-               
-               <div className="p-5 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900">
-                  <div className="flex gap-3">
-                     <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                     <p className="text-[11px] font-bold text-amber-700 dark:text-amber-500 leading-relaxed uppercase">Next Phase: Self-Service Kiosk channels will be integrated here.</p>
+      {/* ─── Terminal Sessions Table ─────────────────────────────────── */}
+      <div className="bg-surface rounded-2xl border border-border shadow-xs overflow-hidden">
+        <div className="px-6 py-5 border-b border-border flex items-center justify-between">
+           <h3 className="text-md font-bold text-text-primary">Active Sessions</h3>
+           <Button variant="outline" size="sm" trailingIcon={<ArrowRight className="w-4 h-4" />}>
+             View All
+           </Button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-subtle">
+              <tr>
+                <th className="px-6 py-3 text-xs font-semibold text-text-tertiary uppercase tracking-wider">Register</th>
+                <th className="px-6 py-3 text-xs font-semibold text-text-tertiary uppercase tracking-wider">Staff</th>
+                <th className="px-6 py-3 text-xs font-semibold text-text-tertiary uppercase tracking-wider">Duration</th>
+                <th className="px-6 py-3 text-xs font-semibold text-text-tertiary uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-xs font-semibold text-text-tertiary uppercase tracking-wider">Total Sales</th>
+                <th className="px-6 py-3 text-xs font-semibold text-text-tertiary"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              <tr>
+                <td colSpan={6} className="px-6 py-20 text-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <MonitorCheck className="w-10 h-10 text-text-disabled" />
+                    <p className="text-sm font-medium text-text-tertiary">No sessions are currently active.</p>
                   </div>
-               </div>
-            </div>
-         </div>
-
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-
     </div>
   );
 }
 
-function ActionCard({ icon: Icon, label, description, color, href }: any) {
+function ActionCard({ icon: Icon, title, description, href }: any) {
   return (
-    <Link href={href} className="flex items-center gap-5 p-6 rounded-[32px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-[var(--brand-primary)] hover:shadow-md transition-all group">
-       <div className={`w-14 h-14 rounded-2xl ${color} flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform`}>
-          <Icon className="w-6 h-6" />
-       </div>
-       <div className="flex flex-col min-w-0">
-          <span className="text-sm font-black text-zinc-900 dark:text-white truncate">{label}</span>
-          <span className="text-[11px] text-zinc-400 font-medium leading-tight">{description}</span>
-       </div>
-       <ChevronRight className="w-4 h-4 text-zinc-300 ml-auto group-hover:text-[var(--brand-primary)]" />
+    <Link href={href}>
+      <div className="bg-surface p-8 rounded-2xl border border-border shadow-xs hover:border-brand transition-all group flex items-start gap-5">
+        <div className="w-12 h-12 rounded-xl bg-brand-50 text-brand flex items-center justify-center shrink-0">
+           <Icon className="w-6 h-6" />
+        </div>
+        <div>
+          <h3 className="text-md font-bold text-text-primary mb-1">{title}</h3>
+          <p className="text-sm font-medium text-text-tertiary leading-relaxed">{description}</p>
+        </div>
+      </div>
     </Link>
   );
 }

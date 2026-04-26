@@ -1,153 +1,73 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Monitor, ArrowLeft, KeyRound } from "lucide-react";
+import { FormField } from "@/app/components/ds/molecules/FormField";
+import { Button } from "@/app/components/ds/atoms/Button";
+import { Select } from "@/app/components/ds/atoms/Select";
+import { Label } from "@/app/components/ds/atoms/Label";
+import { 
+  Monitor, 
+  ArrowLeft
+} from "lucide-react";
 
-// ── Mock Data (would come from /api/pos/registers) ────────────────
-
-const MOCK_REGISTERS = [
-  { id: "reg-001", name: "Main Counter", code: "TMP-REG-001", counterType: "Prasadam", isActive: true },
-  { id: "reg-002", name: "Ticket Counter", code: "TMP-REG-002", counterType: "Tickets", isActive: true },
-  { id: "reg-003", name: "Backup Register", code: "TMP-REG-003", counterType: "General Store", isActive: false },
-];
-
-// ── Component ──────────────────────────────────────────────────────
-
-export default function OpenSessionPage() {
-  const router = useRouter();
-  const [selectedRegister, setSelectedRegister] = useState("");
-  const [openingBalance, setOpeningBalance] = useState("");
-  const [staffPin, setStaffPin] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const activeRegisters = MOCK_REGISTERS.filter((r) => r.isActive);
-  const selected = MOCK_REGISTERS.find((r) => r.id === selectedRegister);
-
-  const handleOpenSession = () => {
-    if (!selectedRegister || !openingBalance) return;
-    setLoading(true);
-    // Simulate API call to create session
-    setTimeout(() => {
-      router.push("/temple-admin/pos/terminal");
-    }, 800);
-  };
-
+export default function OpenPosSessionPage() {
   return (
-    <div className="-m-4 sm:-m-6 lg:-m-8 flex min-h-[calc(100vh-64px)] items-center justify-center bg-zinc-50 dark:bg-zinc-950 p-4">
-      <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-500">
-        {/* Card */}
-        <div className="rounded-2xl bg-white shadow-xl shadow-black/5 border border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800 overflow-hidden">
-          {/* Card Header */}
-          <div className="flex flex-col items-center pt-10 pb-6 px-8 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-zinc-900 dark:bg-zinc-800 flex items-center justify-center mb-5 shadow-lg">
-              <Monitor className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-xl font-bold text-[var(--foreground)] tracking-tight">
-              Open POS Session
-            </h1>
-            <p className="text-sm text-[var(--text-tertiary)] mt-1">
-              Select a register and enter the opening balance.
-            </p>
+    <div className="h-full flex items-center justify-center p-6 animate-in zoom-in-95 duration-500 bg-surface-page">
+      <div className="w-full max-w-md bg-surface rounded-2xl border border-border shadow-lg p-8">
+        
+        <div className="flex items-center gap-4 mb-8">
+          <div className="w-12 h-12 bg-brand rounded-xl flex items-center justify-center shadow-md">
+            <Monitor className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-text-primary">Open Session</h1>
+            <p className="text-sm font-medium text-text-tertiary">Configure your terminal</p>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <Label required>Select Register</Label>
+            <Select 
+              options={[
+                { value: "main", label: "Main Counter - 01" },
+                { value: "prasad", label: "Prasadam Counter - 02" }
+              ]} 
+              placeholder="Select..."
+            />
           </div>
 
-          {/* Card Body */}
-          <div className="px-8 pb-8 space-y-5">
-            {/* Register Dropdown */}
-            <div>
-              <label className="text-sm font-semibold text-[var(--foreground)] flex items-center gap-1">
-                Register <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={selectedRegister}
-                onChange={(e) => setSelectedRegister(e.target.value)}
-                className="mt-1.5 w-full h-11 px-4 rounded-xl border border-zinc-200 bg-white text-sm outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950 transition-colors appearance-none"
-              >
-                <option value="">Select register...</option>
-                {activeRegisters.map((reg) => (
-                  <option key={reg.id} value={reg.id}>
-                    {reg.name} ({reg.code})
-                  </option>
-                ))}
-              </select>
+          <FormField 
+            label="Opening Cash"
+            placeholder="0.00"
+            required
+            type="number"
+            prefixText="LKR"
+          />
+
+          <div className="space-y-2">
+            <Label optional>Security PIN</Label>
+            <div className="flex gap-2">
+               {[1,2,3,4].map(i => (
+                 <div key={i} className="flex-1 h-12 bg-subtle rounded-xl border border-border flex items-center justify-center">
+                    <div className="w-2 h-2 rounded-full bg-border" />
+                 </div>
+               ))}
             </div>
+          </div>
 
-            {/* Counter Type (auto-filled) */}
-            {selected && (
-              <div className="animate-in fade-in slide-in-from-top-1 duration-200">
-                <label className="text-sm font-semibold text-[var(--foreground)]">
-                  Counter Type
-                </label>
-                <div className="mt-1.5 w-full h-11 px-4 rounded-xl border border-zinc-200 bg-zinc-50 text-sm text-[var(--text-tertiary)] flex items-center dark:border-zinc-800 dark:bg-zinc-950">
-                  {selected.counterType}
-                </div>
-              </div>
-            )}
+          <div className="pt-4 flex flex-col gap-3">
+            <Link href="/temple-admin/pos/terminal" className="block w-full">
+              <Button size="lg" className="w-full h-12 font-bold" leadingIcon={<Monitor className="w-4 h-4" />}>
+                Launch Terminal
+              </Button>
+            </Link>
 
-            {/* Opening Cash Balance */}
-            <div>
-              <label className="text-sm font-semibold text-[var(--foreground)] flex items-center gap-1">
-                Opening Cash Balance <span className="text-red-500">*</span>
-              </label>
-              <div className="relative mt-1.5">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[var(--text-tertiary)] font-medium">
-                  ₹
-                </span>
-                <input
-                  type="number"
-                  value={openingBalance}
-                  onChange={(e) => setOpeningBalance(e.target.value)}
-                  placeholder="0.00"
-                  min="0"
-                  step="0.01"
-                  className="w-full h-11 pl-8 pr-4 rounded-xl border border-zinc-200 bg-white text-sm outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950 transition-colors"
-                />
-              </div>
-            </div>
-
-            {/* Staff PIN (Optional) */}
-            <div>
-              <label className="text-sm font-semibold text-[var(--foreground)] flex items-center gap-2">
-                <KeyRound className="w-3.5 h-3.5 text-[var(--text-tertiary)]" />
-                Staff PIN
-                <span className="text-[10px] text-[var(--text-tertiary)] font-normal ml-1">
-                  (optional)
-                </span>
-              </label>
-              <input
-                type="password"
-                value={staffPin}
-                onChange={(e) => setStaffPin(e.target.value)}
-                placeholder="••••"
-                maxLength={4}
-                className="mt-1.5 w-full h-11 px-4 rounded-xl border border-zinc-200 bg-white text-sm outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950 transition-colors tracking-[0.4em] text-center"
-              />
-            </div>
-
-            {/* Open Session Button */}
-            <button
-              onClick={handleOpenSession}
-              disabled={!selectedRegister || !openingBalance || loading}
-              className="w-full h-12 rounded-xl bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-hover)] disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold shadow-lg shadow-orange-500/20 transition-all flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <Monitor className="w-4 h-4" />
-                  Open Session
-                </>
-              )}
-            </button>
-
-            {/* Back Link */}
-            <Link
-              href="/temple-admin/pos"
-              className="flex items-center justify-center gap-2 text-sm font-medium text-[var(--text-tertiary)] hover:text-[var(--foreground)] transition-colors pt-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to Dashboard
+            <Link href="/temple-admin/pos" className="w-full">
+              <Button variant="ghost" size="md" className="w-full text-text-tertiary" leadingIcon={<ArrowLeft className="w-4 h-4" />}>
+                Back to Dashboard
+              </Button>
             </Link>
           </div>
         </div>

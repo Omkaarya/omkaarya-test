@@ -104,7 +104,7 @@ export default function TempleDashboard() {
                 View All <ChevronRight className="w-3 h-3" />
               </Link>
            </div>
-           <div className="bg-white dark:bg-zinc-900 rounded-[32px] border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-sm">
+           <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-sm">
               <table className="w-full text-left border-collapse">
                  <thead>
                     <tr className="border-b border-zinc-100 dark:border-zinc-800">

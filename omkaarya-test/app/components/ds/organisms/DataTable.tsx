@@ -28,6 +28,8 @@ export interface DataTableProps<T> {
   selectedIds?: string[];
   onSelectChange?: (ids: string[]) => void;
   className?: string;
+  isLoading?: boolean;
+  loadingRows?: number;
 }
 
 // ─── Component Main ───────────────────────────────────────────────
@@ -44,6 +46,8 @@ export function DataTable<T>({
   selectedIds = [],
   onSelectChange,
   className = "",
+  isLoading = false,
+  loadingRows = 5,
 }: DataTableProps<T>) {
 
   const handleSelectAll = (checked: boolean) => {
@@ -109,7 +113,18 @@ export function DataTable<T>({
 
         {/* Table Body */}
         <tbody className="divide-y divide-border bg-surface">
-          {data.length === 0 ? (
+          {isLoading ? (
+            Array.from({ length: loadingRows }).map((_, rIdx) => (
+              <tr key={`loading-${rIdx}`} className="animate-pulse">
+                {isSelectable && <td className="px-6 py-4"><div className="h-4 w-4 bg-border/40 rounded" /></td>}
+                {columns.map((col, cIdx) => (
+                  <td key={cIdx} className="px-6 py-4">
+                    <div className="h-4 bg-border/40 rounded w-full" />
+                  </td>
+                ))}
+              </tr>
+            ))
+          ) : data.length === 0 ? (
             <tr>
               <td colSpan={columns.length + (isSelectable ? 1 : 0)} className="px-6 py-12 text-center text-sm text-text-tertiary">
                 No results found
