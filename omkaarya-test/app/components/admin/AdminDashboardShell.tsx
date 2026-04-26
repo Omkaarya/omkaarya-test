@@ -32,6 +32,7 @@ import {
   DollarSign,
 } from "lucide-react";
 import { AdminBreadcrumbs } from "@/app/components/admin/adminBreadcrumbs";
+import { PENDING_PAYMENT_SUBMISSIONS_CHANGED_EVENT } from "@/lib/pending-payment-submissions-events";
 
 // ── Navigation Config ──────────────────────────────────────────────
 
@@ -44,16 +45,36 @@ const primaryNav = [
 ] as const;
 
 const financeNav = [
-  { href: "/super-admin/finance", label: "Revenue Dashboard", icon: DollarSign },
-  { href: "/super-admin/finance/transactions", label: "Transactions", icon: Receipt },
+  {
+    href: "/super-admin/finance",
+    label: "Revenue Dashboard",
+    icon: DollarSign,
+  },
+  {
+    href: "/super-admin/finance/transactions",
+    label: "Transactions",
+    icon: Receipt,
+  },
   { href: "/super-admin/finance/invoices", label: "Invoices", icon: FileText },
   { href: "/super-admin/finance/receipts", label: "Receipts", icon: Wallet },
-  { href: "/super-admin/finance/confirm-payments", label: "Confirm Payments", icon: CheckSquare },
+  {
+    href: "/super-admin/finance/confirm-payments",
+    label: "Confirm Payments",
+    icon: CheckSquare,
+  },
 ] as const;
 
 const subscriptionNav = [
-  { href: "/super-admin/finance/subscriptions", label: "Subscriptions", icon: CreditCard },
-  { href: "/super-admin/finance/upcoming-renewals", label: "Upcoming Renewals", icon: RefreshCw },
+  {
+    href: "/super-admin/finance/subscriptions",
+    label: "Subscriptions",
+    icon: CreditCard,
+  },
+  {
+    href: "/super-admin/finance/upcoming-renewals",
+    label: "Upcoming Renewals",
+    icon: RefreshCw,
+  },
 ] as const;
 
 const userNav = [
@@ -63,7 +84,11 @@ const userNav = [
 ] as const;
 
 const systemSettingsNav = [
-  { href: "/super-admin/system-settings/feature-registry", label: "Feature Registry", icon: Database },
+  {
+    href: "/super-admin/system-settings/feature-registry",
+    label: "Feature Registry",
+    icon: Database,
+  },
 ] as const;
 
 /**
@@ -82,9 +107,7 @@ type SidebarAccordionId = "finance" | "subscriptions" | "system";
  * Subscriptions are checked first so /super-admin/finance/subscriptions
  * does not get attributed to a broader /super-admin/finance/… child match in finance.
  */
-function sectionForPathname(
-  pathname: string
-): SidebarAccordionId | null {
+function sectionForPathname(pathname: string): SidebarAccordionId | null {
   if (subscriptionNav.some((item) => isChildNavActive(pathname, item.href))) {
     return "subscriptions";
   }
@@ -110,13 +133,19 @@ function NavSection({
 }: {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  items: ReadonlyArray<{ href: string; label: string; icon: React.ComponentType<{ className?: string }> }>;
+  items: ReadonlyArray<{
+    href: string;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }>;
   pathname: string;
   onLinkClick: () => void;
   isOpen: boolean;
   onHeaderClick: () => void;
 }) {
-  const hasActiveChild = items.some((item) => isChildNavActive(pathname, item.href));
+  const hasActiveChild = items.some((item) =>
+    isChildNavActive(pathname, item.href),
+  );
 
   return (
     <li>
@@ -155,7 +184,9 @@ function NavSection({
                       : "text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60",
                   ].join(" ")}
                 >
-                  <Icon className={`h-4 w-4 shrink-0 ${active ? "opacity-100" : "opacity-70"}`} />
+                  <Icon
+                    className={`h-4 w-4 shrink-0 ${active ? "opacity-100" : "opacity-70"}`}
+                  />
                   {itemLabel}
                 </Link>
               </li>
@@ -196,8 +227,8 @@ export function AdminDashboardShell({
 }: AdminDashboardShellProps) {
   const closeSidebar = () => onSidebarOpenChange(false);
 
-  const [openAccordion, setOpenAccordion] = useState<SidebarAccordionId | null>(() =>
-    sectionForPathname(pathname)
+  const [openAccordion, setOpenAccordion] = useState<SidebarAccordionId | null>(
+    () => sectionForPathname(pathname),
   );
 
   useEffect(() => {
@@ -208,10 +239,13 @@ export function AdminDashboardShell({
 
   const loadPendingCount = useCallback(async () => {
     try {
-      const res = await fetch("/api/billing/payment-submissions/pending", { cache: "no-store" });
-      const d = (await res.json().catch(() => null)) as
-        | { success?: boolean; data?: { data: unknown[] } }
-        | null;
+      const res = await fetch("/api/billing/payment-submissions/pending", {
+        cache: "no-store",
+      });
+      const d = (await res.json().catch(() => null)) as {
+        success?: boolean;
+        data?: { data: unknown[] };
+      } | null;
       if (!d || d.success !== true || !d.data) {
         setPendingCount(0);
         return;
@@ -224,14 +258,26 @@ export function AdminDashboardShell({
 
   useEffect(() => {
     void loadPendingCount();
+  }, [pathname, loadPendingCount]);
+
+  useEffect(() => {
     const id = window.setInterval(() => void loadPendingCount(), 60_000);
     const onVis = () => {
       if (document.visibilityState === "visible") void loadPendingCount();
     };
+    const onListChanged = () => void loadPendingCount();
     document.addEventListener("visibilitychange", onVis);
+    window.addEventListener(
+      PENDING_PAYMENT_SUBMISSIONS_CHANGED_EVENT,
+      onListChanged,
+    );
     return () => {
       window.clearInterval(id);
       document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener(
+        PENDING_PAYMENT_SUBMISSIONS_CHANGED_EVENT,
+        onListChanged,
+      );
     };
   }, [loadPendingCount]);
 
@@ -253,7 +299,10 @@ export function AdminDashboardShell({
         ].join(" ")}
       >
         <div className="flex h-16 items-center border-b border-white px-6 dark:border-zinc-950">
-          <span className="text-xl font-semibold tracking-tight" aria-label="Pepulux">
+          <span
+            className="text-xl font-semibold tracking-tight"
+            aria-label="Pepulux"
+          >
             <span className="text-[var(--text-primary)]">pep</span>
             <span className="text-[var(--brand-primary)]">ulux</span>
           </span>
@@ -263,7 +312,8 @@ export function AdminDashboardShell({
           <ul className="space-y-0.5">
             {primaryNav.map(({ href, label, icon: Icon }) => {
               const active =
-                (href === "/super-admin" && templesActive) || (href !== "#" && pathname === href);
+                (href === "/super-admin" && templesActive) ||
+                (href !== "#" && pathname === href);
               return (
                 <li key={label}>
                   <Link
@@ -294,7 +344,9 @@ export function AdminDashboardShell({
               pathname={pathname}
               onLinkClick={closeSidebar}
               isOpen={openAccordion === "finance"}
-              onHeaderClick={() => setOpenAccordion((o) => (o === "finance" ? null : "finance"))}
+              onHeaderClick={() =>
+                setOpenAccordion((o) => (o === "finance" ? null : "finance"))
+              }
             />
 
             {/* Subscriptions — collapsible */}
@@ -305,7 +357,11 @@ export function AdminDashboardShell({
               pathname={pathname}
               onLinkClick={closeSidebar}
               isOpen={openAccordion === "subscriptions"}
-              onHeaderClick={() => setOpenAccordion((o) => (o === "subscriptions" ? null : "subscriptions"))}
+              onHeaderClick={() =>
+                setOpenAccordion((o) =>
+                  o === "subscriptions" ? null : "subscriptions",
+                )
+              }
             />
           </ul>
 
@@ -340,7 +396,9 @@ export function AdminDashboardShell({
               pathname={pathname}
               onLinkClick={closeSidebar}
               isOpen={openAccordion === "system"}
-              onHeaderClick={() => setOpenAccordion((o) => (o === "system" ? null : "system"))}
+              onHeaderClick={() =>
+                setOpenAccordion((o) => (o === "system" ? null : "system"))
+              }
             />
           </ul>
         </nav>
@@ -402,8 +460,8 @@ export function AdminDashboardShell({
               className="relative inline-flex rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
               aria-label={
                 pendingCount > 0
-                  ? `Pending bank payments, ${pendingCount} to review. Open confirm payments.`
-                  : "Pending bank payments. Open confirm payments."
+                  ? `Unconfirmed bank payment submissions, ${pendingCount} to review. Open confirm payments.`
+                  : "Unconfirmed bank payment submissions. Open confirm payments."
               }
             >
               <Bell className="h-5 w-5" aria-hidden />
@@ -429,7 +487,11 @@ export function AdminDashboardShell({
               className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
               onClick={onToggleTheme}
             >
-              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              {theme === "dark" ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
             </button>
             <button
               type="button"
@@ -447,25 +509,41 @@ export function AdminDashboardShell({
           <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 sm:flex-row sm:gap-4">
             <p className="text-center text-[var(--text-muted)] sm:text-left">
               2024 - 2026 ©{" "}
-              <span className="font-medium text-[var(--brand-primary)]">Om Kaaryaa</span> All Right
-              Reserved
+              <span className="font-medium text-[var(--brand-primary)]">
+                Om Kaaryaa
+              </span>{" "}
+              All Right Reserved
             </p>
             <p className="text-center text-[var(--text-muted)]">
               Powered By{" "}
-              <span className="font-medium text-[var(--brand-primary)]">Pepulux</span> All Right
-              Reserved
+              <span className="font-medium text-[var(--brand-primary)]">
+                Pepulux
+              </span>{" "}
+              All Right Reserved
             </p>
             <div className="flex flex-wrap justify-center gap-4 sm:justify-end">
-              <a href="#" className="text-[var(--brand-primary)] hover:underline">
+              <a
+                href="#"
+                className="text-[var(--brand-primary)] hover:underline"
+              >
                 Terms
               </a>
-              <a href="#" className="text-[var(--brand-primary)] hover:underline">
+              <a
+                href="#"
+                className="text-[var(--brand-primary)] hover:underline"
+              >
                 Privacy
               </a>
-              <a href="#" className="text-[var(--brand-primary)] hover:underline">
+              <a
+                href="#"
+                className="text-[var(--brand-primary)] hover:underline"
+              >
                 Help
               </a>
-              <a href="#" className="text-[var(--brand-primary)] hover:underline">
+              <a
+                href="#"
+                className="text-[var(--brand-primary)] hover:underline"
+              >
                 Status
               </a>
             </div>
