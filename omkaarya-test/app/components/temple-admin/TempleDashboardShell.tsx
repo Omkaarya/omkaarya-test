@@ -1,70 +1,135 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
-import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
 import {
-  Bell, Building2, Calendar, ChevronRight, CreditCard,
-  FileText, Globe, LayoutDashboard, Mail, Maximize2,
-  Menu, Receipt, Search, Settings, Shield, Sun, Moon,
-  Tag, User, Users, History, Languages, Home, Wallet,
-  Lock, ShieldCheck, UserX, Settings2, Newspaper, Grid
+  Bell,
+  CalendarDays,
+  Cookie,
+  Database,
+  DollarSign,
+  LayoutDashboard,
+  Lock,
+  Menu,
+  Moon,
+  Package,
+  Settings,
+  ShoppingCart,
+  Sun,
+  User,
+  Users,
 } from "lucide-react";
+import { AdminBreadcrumbs } from "@/app/components/admin/adminBreadcrumbs";
 
-// ── Nav Config ─────────────────────────────────────────────────────
+// ── Nav Configuration ──────────────────────────────────────────────
+// Each group has an optional `moduleKey` for feature access control.
+// If moduleKey is set and the module is disabled, the nav group is hidden.
 
-type NavSub = { href: string; label: string };
-type L1Group = {
-  id: string;
+type NavSubItem = { href: string; label: string };
+type NavGroup = {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  moduleKey?: string; // links to feature-module-map
+  items: NavSubItem[];
+};
+type NavLink = {
+  href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   moduleKey?: string;
-  href?: string;
-  children?: NavSub[];
 };
+type NavItem = NavGroup | NavLink;
 
-const NAV_GROUPS: L1Group[] = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, href: "/temple-admin" },
-  { id: "temples", label: "Temples", icon: Building2, href: "/temple-admin/core/temples" },
-  { id: "pricing", label: "Pricing Plans", icon: Tag, href: "/temple-admin/pricing-plans" },
-  { id: "domains", label: "Domains", icon: Globe, href: "/temple-admin/subscriptions/domains" },
-  { id: "panchangam", label: "Panchangam", icon: Calendar, href: "/temple-admin/cms" },
+const navItems: NavItem[] = [
+  { href: "/temple-admin", label: "Dashboard", icon: LayoutDashboard },
   {
-    id: "finance", 
-    label: "Finance & Billing", 
-    icon: Wallet, 
+    label: "Finance",
+    icon: DollarSign,
     moduleKey: "finance",
-    children: [
+    items: [
+      { href: "/temple-admin/finance", label: "Dashboard" },
       { href: "/temple-admin/finance/transactions", label: "Transactions" },
-      { href: "/temple-admin/finance/invoices", label: "Invoices" },
+      { href: "/temple-admin/finance/transactions/add", label: "Add Transaction" },
+      { href: "/temple-admin/finance/donations", label: "Donations" },
+      { href: "/temple-admin/finance/receipts/generate", label: "Generate Receipt" },
+      { href: "/temple-admin/finance/reports", label: "Reports" },
+      { href: "/temple-admin/finance/purchase-orders", label: "Purchase Orders" },
+      { href: "/temple-admin/finance/assets", label: "Assets Management" },
     ],
   },
-  { id: "subscriptions", label: "Subscriptions", icon: CreditCard, href: "/temple-admin/subscriptions" },
-  { id: "public-site", label: "Public Site", icon: Newspaper, href: "/temple-admin/public-site" },
   {
-    id: "applications", 
-    label: "Workspace Apps", 
-    icon: Grid, 
-    moduleKey: "applications",
-    children: [
-      { href: "/temple-admin/applications/chat", label: "Chat" },
-      { href: "/temple-admin/applications/calls", label: "Calls" },
-      { href: "/temple-admin/applications/file-manager", label: "File Manager" },
-      { href: "/temple-admin/applications/email", label: "Email" },
+    label: "Inventory",
+    icon: Package,
+    moduleKey: "inventory",
+    items: [
+      { href: "/temple-admin/inventory", label: "Products" },
+      { href: "/temple-admin/inventory/create", label: "Add Product" },
+      { href: "/temple-admin/inventory/categories", label: "Categories" },
+      { href: "/temple-admin/inventory/stores", label: "Stores" },
+      { href: "/temple-admin/inventory/suppliers", label: "Suppliers" },
+      { href: "/temple-admin/inventory/low-stock", label: "Stock Alerts" },
+      { href: "/temple-admin/inventory/adjustments", label: "Stock Adjustments" },
+      { href: "/temple-admin/inventory/pooja-bom", label: "Pooja BOM" },
+      { href: "/temple-admin/inventory/return-from-pooja", label: "Return from Pooja" },
+      { href: "/temple-admin/inventory/print-labels", label: "Print Labels" },
     ],
   },
+  {
+    label: "Seva Bookings",
+    icon: CalendarDays,
+    moduleKey: "bookings",
+    items: [
+      { href: "/temple-admin/bookings", label: "Booking Schedules" },
+      { href: "/temple-admin/bookings/calendar", label: "Booking Calendar" },
+      { href: "/temple-admin/bookings/new", label: "New Booking" },
+    ],
+  },
+  { href: "/temple-admin/pos", label: "POS", icon: ShoppingCart, moduleKey: "pos" },
+  {
+    label: "Prashadham",
+    icon: Cookie,
+    moduleKey: "prasad",
+    items: [
+      { href: "/temple-admin/prasad", label: "Prashadham Items" },
+      { href: "/temple-admin/prasad/categories", label: "Categories" },
+    ],
+  },
+  {
+    label: "Master Data",
+    icon: Database,
+    moduleKey: "master",
+    items: [
+      { href: "/temple-admin/master", label: "All Master Data" },
+    ],
+  },
+  {
+    label: "Peoples",
+    icon: Users,
+    moduleKey: "peoples",
+    items: [
+      { href: "/temple-admin/peoples/staff", label: "Staff Management" },
+      { href: "/temple-admin/peoples/roles", label: "Role & Permissions" },
+      { href: "/temple-admin/peoples/devotees", label: "Devotee Management" },
+    ],
+  },
+  { href: "/temple-admin/settings/general", label: "Settings", icon: Settings },
 ];
 
-const USER_MGMT_NAV = [
-  { href: "/temple-admin/user-management/users", label: "Users", icon: Users },
-  { href: "/temple-admin/user-management/roles", label: "Role & Permissions", icon: Shield },
-  { href: "/temple-admin/user-management/delete-requests", label: "Delete Account Requests", icon: UserX },
-];
+// ── Shell Props ────────────────────────────────────────────────────
 
-const SYSTEM_NAV = [
-  { href: "/temple-admin/system-settings", label: "System Settings", icon: Settings2, hasChildren: true },
-];
+export type TempleDashboardShellProps = {
+  pathname: string;
+  sidebarOpen: boolean;
+  onSidebarOpenChange: (open: boolean) => void;
+  theme: string;
+  onToggleTheme: () => void;
+  children: React.ReactNode;
+  /**
+   * Set of module keys that are disabled for this tenant.
+   * Nav items with a matching moduleKey will be hidden or shown as locked.
+   * Empty set = all modules accessible (backward compatible).
+   */
+  disabledModules?: Set<string>;
+};
 
 export function TempleDashboardShell({
   pathname,
@@ -74,199 +139,178 @@ export function TempleDashboardShell({
   onToggleTheme,
   children,
   disabledModules = new Set(),
-}: any) {
-  
-  const getActiveGroup = () => {
-    for (const g of NAV_GROUPS) {
-      if (g.href && (pathname === g.href || pathname.startsWith(g.href + "/"))) return g.id;
-      if (g.children) {
-        for (const c of g.children) {
-          if (pathname === c.href || pathname.startsWith(c.href + "/")) return g.id;
-        }
-      }
-    }
-    return null;
-  };
-
-  const activeGroupId = getActiveGroup();
-  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (activeGroupId) {
-      setOpenGroups(prev => {
-        const next = new Set(prev);
-        next.add(activeGroupId);
-        return next;
-      });
-    }
-  }, [activeGroupId]);
-
-  const toggleGroup = (groupId: string) => {
-    setOpenGroups(prev => {
-      const next = new Set(prev);
-      if (next.has(groupId)) next.delete(groupId);
-      else next.add(groupId);
-      return next;
-    });
+}: TempleDashboardShellProps) {
+  /**
+   * Check if a module is disabled.
+   * Items without moduleKey are always visible (e.g. Dashboard, Settings).
+   */
+  const isModuleDisabled = (moduleKey?: string): boolean => {
+    if (!moduleKey) return false;
+    return disabledModules.has(moduleKey);
   };
 
   return (
-    <div className="flex h-screen min-h-0 overflow-hidden bg-white dark:bg-zinc-950 font-sans text-zinc-900 dark:text-zinc-100">
-      
-      {/* 1. SIDEBAR (Solid White Column) */}
-      <aside className={`fixed inset-y-0 left-0 z-50 flex w-[260px] shrink-0 flex-col transition-transform duration-300 bg-white dark:bg-zinc-900 border-r border-zinc-100 dark:border-zinc-800 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-        <div className="flex h-16 items-center px-8 shrink-0">
-          <Link href="/temple-admin" className="flex items-center gap-0.5">
-             <span className="text-xl font-black tracking-tighter text-zinc-900"><span className="text-orange-500">pepu</span>lux</span>
-          </Link>
+    <div className="flex h-screen min-h-0 overflow-hidden bg-white font-sans text-[var(--text-primary)] dark:bg-zinc-950">
+      {sidebarOpen && (
+        <button
+          type="button"
+          aria-label="Close menu"
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          onClick={() => onSidebarOpenChange(false)}
+        />
+      )}
+
+      <aside
+        className={[
+          "fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 flex-col border-r border-zinc-100 bg-white transition-transform dark:border-zinc-800 dark:bg-zinc-950",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
+        ].join(" ")}
+      >
+        <div className="flex h-16 items-center border-b border-zinc-100 px-6 dark:border-zinc-800">
+          <span className="text-xl font-bold tracking-tight text-[var(--brand-primary)]">
+            OMKAARYA
+          </span>
         </div>
+        <nav className="flex-1 overflow-y-auto px-3 py-4">
+          <ul className="space-y-0.5">
+            {navItems.map((item) => {
+              // Check if this module is disabled
+              const disabled = isModuleDisabled(item.moduleKey);
 
-        <nav className="flex-1 py-4 space-y-0.5 overflow-y-auto scrollbar-none px-4">
-          {NAV_GROUPS.map((group) => {
-            const isOpen = openGroups.has(group.id);
-            const isActiveGroup = activeGroupId === group.id;
-            const GroupIcon = group.icon;
-            const isDirect = !!group.href;
-
-            return (
-              <div key={group.id} className="flex flex-col">
-                {isDirect ? (
-                  <Link 
-                    href={group.href!}
-                    className={`
-                      flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 font-bold text-[13px]
-                      ${isActiveGroup ? 'bg-zinc-50 text-orange-500' : 'text-zinc-500 hover:bg-zinc-50/80 hover:text-zinc-900'}
-                    `}
-                  >
-                    <GroupIcon className={`w-5 h-5 shrink-0 ${isActiveGroup ? 'text-orange-500' : 'text-zinc-400'}`} />
-                    <span className="truncate">{group.label}</span>
-                  </Link>
-                ) : (
-                  <>
-                    <button 
-                      onClick={() => toggleGroup(group.id)}
-                      className={`
-                        flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 w-full text-left font-bold text-[13px]
-                        ${isActiveGroup ? 'text-zinc-900' : 'text-zinc-500 hover:bg-zinc-50/80 hover:text-zinc-900'}
-                      `}
-                    >
-                      <GroupIcon className={`w-5 h-5 shrink-0 ${isActiveGroup ? 'text-orange-500' : 'text-zinc-400'}`} />
-                      <span className="flex-1 truncate">{group.label}</span>
-                      <ChevronRight className={`w-4 h-4 shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
-                    </button>
-                    {isOpen && (
-                      <div className="flex flex-col mt-0.5 space-y-0.5">
-                        {group.children!.map(child => {
-                          const active = pathname === child.href || pathname.startsWith(child.href + "/");
-                          return (
-                            <Link 
-                              key={child.href} 
-                              href={child.href} 
-                              className={`
-                                flex items-center gap-3 pl-11 pr-4 py-2 rounded-lg transition-all duration-200 font-bold text-[12px]
-                                ${active ? 'text-orange-500 bg-zinc-50/50' : 'text-zinc-400 hover:text-zinc-900'}
-                              `}
-                            >
-                               <span className="truncate">{child.label}</span>
-                            </Link>
-                          )
-                        })}
+              if ("items" in item) {
+                // ── Group nav ──────────────────────────
+                if (disabled) {
+                  // Show locked group
+                  return (
+                    <li key={item.label} className="mt-4 first:mt-0 opacity-40">
+                      <div className="flex items-center gap-3 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                        <item.icon className="h-4 w-4" aria-hidden />
+                        {item.label}
+                        <Lock className="ml-auto h-3 w-3" />
                       </div>
-                    )}
-                  </>
-                )}
-              </div>
-            );
-          })}
+                    </li>
+                  );
+                }
 
-          <div className="pt-6 mt-6 border-t border-zinc-100 space-y-0.5">
-             <p className="px-3 py-2 text-[10px] font-black text-zinc-400 uppercase tracking-widest">User Management</p>
-             {USER_MGMT_NAV.map((item) => (
-                <Link key={item.href} href={item.href} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-[13px] transition-all ${pathname.includes(item.href) ? 'bg-zinc-50 text-orange-500' : 'text-zinc-500 hover:bg-zinc-50/80'}`}>
-                   <item.icon className={`w-5 h-5 ${pathname.includes(item.href) ? 'text-orange-500' : 'text-zinc-400'}`} />
-                   <span className="truncate">{item.label}</span>
-                </Link>
-             ))}
-          </div>
+                return (
+                  <li key={item.label} className="mt-4 first:mt-0">
+                    <div className="flex items-center gap-3 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                      <item.icon className="h-4 w-4" aria-hidden />
+                      {item.label}
+                    </div>
+                    <ul className="mt-1 space-y-0.5 pl-4">
+                      {item.items.map((sub) => {
+                        const active = pathname === sub.href;
+                        return (
+                          <li key={sub.label}>
+                            <Link
+                              href={sub.href}
+                              onClick={() => onSidebarOpenChange(false)}
+                              className={[
+                                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                                active
+                                  ? "bg-orange-50 font-semibold text-[var(--brand-primary)] dark:bg-orange-950/20"
+                                  : "text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60",
+                              ].join(" ")}
+                            >
+                              {sub.label}
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </li>
+                );
+              }
 
-          <div className="pt-6 mt-6 border-t border-zinc-100 space-y-0.5">
-             <p className="px-3 py-2 text-[10px] font-black text-zinc-400 uppercase tracking-widest">System</p>
-             {SYSTEM_NAV.map((item) => (
-                <Link key={item.href} href={item.href} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-[13px] transition-all ${pathname.includes(item.href) ? 'bg-zinc-50 text-orange-500' : 'text-zinc-500 hover:bg-zinc-50/80'}`}>
-                   <item.icon className={`w-5 h-5 ${pathname.includes(item.href) ? 'text-orange-500' : 'text-zinc-400'}`} />
-                   <span className="flex-1 truncate">{item.label}</span>
-                   {item.hasChildren && <ChevronRight className="w-4 h-4 text-zinc-400" />}
-                </Link>
-             ))}
-          </div>
+              // ── Single nav link ──────────────────────
+              if (disabled) {
+                return (
+                  <li key={item.label} className="opacity-40">
+                    <span className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-[var(--text-muted)] cursor-not-allowed">
+                      <item.icon className="h-5 w-5 shrink-0 opacity-80" aria-hidden />
+                      {item.label}
+                      <Lock className="ml-auto h-3 w-3" />
+                    </span>
+                  </li>
+                );
+              }
+
+              const active = pathname === item.href;
+              return (
+                <li key={item.label}>
+                  <Link
+                    href={item.href}
+                    onClick={() => onSidebarOpenChange(false)}
+                    className={[
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                      active
+                        ? "bg-orange-50 font-semibold text-[var(--brand-primary)] dark:bg-orange-950/20"
+                        : "text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60",
+                    ].join(" ")}
+                  >
+                    <item.icon
+                      className={`h-5 w-5 shrink-0 ${active ? "opacity-100" : "opacity-80"}`}
+                      aria-hidden
+                    />
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
         </nav>
       </aside>
 
-      {/* 2. MAIN FRAME (Differentiated Content Unit) */}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:pl-[260px] bg-white dark:bg-zinc-900">
-        
-        {/* The 3-Layer Container (Inset with Radius) */}
-        <div className="flex-1 flex flex-col mt-2.5 ml-2.5 mb-2.5 rounded-tl-[24px] rounded-bl-[24px] overflow-hidden bg-[#F8F9FB] dark:bg-zinc-950 border-l border-t border-b border-zinc-100 dark:border-zinc-800 shadow-[-8px_0_24px_rgba(0,0,0,0.015)]">
-          
-          {/* Layer 1: Nav Bar (White + Rounded Top Left) */}
-          <header className="flex h-16 shrink-0 items-center gap-4 bg-white px-8 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 rounded-tl-[24px]">
-            <button type="button" className="lg:hidden p-2 text-zinc-500" onClick={() => onSidebarOpenChange(true)}><Menu className="h-5 w-5" /></button>
-            
-            <div className="flex items-center gap-3">
-               <Home className="w-4 h-4 text-zinc-400" />
-               <ChevronRight className="w-3.5 h-3.5 text-zinc-300" />
-               <span className="text-[13px] font-bold text-orange-500">Temples</span>
-            </div>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:pl-64">
+        <header className="flex h-16 shrink-0 items-center gap-4 border-b border-zinc-100 bg-white px-4 pr-20 dark:border-zinc-800 dark:bg-zinc-950 lg:pr-24">
+          <button
+            type="button"
+            aria-label="Open menu"
+            className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60 lg:hidden"
+            onClick={() => onSidebarOpenChange(true)}
+          >
+            <Menu className="h-5 w-5" />
+          </button>
 
-            {/* Search Bar Sync */}
-            <div className="hidden md:flex flex-1 max-w-lg relative ml-8">
-               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-               <input 
-                 className="w-full h-10 pl-10 pr-10 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 text-[13px] font-medium placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-200 transition-all"
-                 placeholder="Search.."
-               />
-               <div className="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 text-[10px] font-bold text-zinc-400 tracking-tighter">⌘K</div>
-            </div>
-            
-            <div className="ml-auto flex items-center gap-1">
-               <button className="p-2 text-zinc-400 hover:text-zinc-900"><Languages className="w-5 h-5" /></button>
-               <button className="p-2 text-zinc-400 hover:text-zinc-900"><Maximize2 className="w-5 h-5" /></button>
-               <button className="p-2 text-zinc-400 hover:text-zinc-900"><Mail className="w-5 h-5" /></button>
-               <button className="p-2 text-zinc-400 hover:text-zinc-900 relative">
-                  <Bell className="w-5 h-5" />
-                  <span className="absolute top-2 right-2 w-2 h-2 bg-orange-500 rounded-full border-2 border-white" />
-               </button>
-               <button className="p-2 text-zinc-400 hover:text-zinc-900"><Settings className="w-5 h-5" /></button>
-               <button onClick={onToggleTheme} className="p-2 text-zinc-400 hover:text-zinc-900">
-                 {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-               </button>
-               <div className="w-9 h-9 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center border border-zinc-200 dark:border-zinc-700 ml-2 cursor-pointer hover:border-orange-200 transition-all overflow-hidden">
-                  <User className="w-5 h-5 text-zinc-400" />
-               </div>
-            </div>
-          </header>
+          <AdminBreadcrumbs pathname={pathname} />
 
-          {/* Layer 2: Main Content Area (Tertiary Gray) */}
-          <main className="flex-1 overflow-y-auto p-6 lg:p-10 scrollbar-none">
-             <div className="max-w-[1600px] mx-auto">
-               {children}
-             </div>
-          </main>
+          <div className="ml-auto flex items-center gap-1 sm:gap-2">
+            <button
+              type="button"
+              className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
+            >
+              <Bell className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
+              onClick={onToggleTheme}
+            >
+              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
+            <button
+              type="button"
+              className="ml-1 flex h-9 w-9 items-center justify-center rounded-full bg-zinc-200 text-[var(--text-muted)] dark:bg-zinc-700 dark:text-zinc-300"
+            >
+              <User className="h-5 w-5" />
+            </button>
+          </div>
+        </header>
 
-          {/* Layer 3: Footer (Branding Integration) */}
-          <footer className="px-10 py-5 bg-transparent flex items-center justify-between text-[11px] font-bold text-zinc-400 tracking-tight shrink-0 border-t border-zinc-50 dark:border-zinc-800/50">
-             <p>2024 - 2026 © <span className="text-orange-500 font-black tracking-tighter">Om Kaaryaa</span> All Right Reserved</p>
-             <div className="flex items-center gap-8 uppercase tracking-widest text-[10px]">
-                <div className="flex items-center gap-1.5 font-bold">Powered By <span className="text-orange-500 font-black">Pepulux</span> All Right Reserved</div>
-                <div className="flex gap-4 font-bold">
-                   <a href="#" className="hover:text-zinc-900 transition-colors">Terms</a>
-                   <a href="#" className="hover:text-zinc-900 transition-colors">Privacy</a>
-                   <a href="#" className="hover:text-zinc-900 transition-colors">Help</a>
-                   <a href="#" className="hover:text-zinc-900 transition-colors">Status</a>
-                </div>
-             </div>
-          </footer>
-        </div>
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+          {children}
+        </main>
+
+        <footer className="shrink-0 border-t border-zinc-100 bg-white px-4 py-4 text-xs text-[var(--text-muted)] dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="mx-auto flex max-w-7xl items-center justify-between">
+            <p>© 2024 - 2026 Om Kaaryaa</p>
+            <div className="flex gap-4">
+              <a href="#" className="hover:text-[var(--brand-primary)]">Terms</a>
+              <a href="#" className="hover:text-[var(--brand-primary)]">Privacy</a>
+            </div>
+          </div>
+        </footer>
       </div>
     </div>
   );

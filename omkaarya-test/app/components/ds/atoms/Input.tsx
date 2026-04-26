@@ -1,15 +1,12 @@
-"use client";
-
 import React from "react";
 
-export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> {
+export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "prefix"> {
   error?: boolean;
   leadingIcon?: React.ReactNode;
   trailingIcon?: React.ReactNode;
-  prefixText?: string;
-  suffixText?: string;
+  prefixText?: React.ReactNode;
+  suffixText?: React.ReactNode;
   containerClassName?: string;
-  inputSize?: "sm" | "md" | "lg";
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
@@ -22,76 +19,56 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     prefixText, 
     suffixText, 
     disabled, 
-    inputSize = "md",
     ...props 
   }, ref) => {
     
-    // Size Mapping for Height and Padding
-    const sizeClasses = {
-      sm: "h-9 px-3 text-xs",
-      md: "h-11 px-4 text-sm",
-      lg: "h-14 px-5 text-base"
-    };
-
-    const iconSizeClasses = {
-      sm: "w-3.5 h-3.5",
-      md: "w-4 h-4",
-      lg: "w-5 h-5"
-    };
+    const hasLeftAdornment = leadingIcon || prefixText;
+    const hasRightAdornment = trailingIcon || suffixText;
 
     return (
-      <div className={`relative flex items-center w-full rounded-2xl border bg-white dark:bg-zinc-950 transition-all duration-200 focus-within:ring-4 focus-within:ring-[var(--brand-primary)]/10 ${
-        error 
-          ? "border-red-300 dark:border-red-900 focus-within:border-red-500" 
-          : "border-zinc-200 dark:border-zinc-800 focus-within:border-[var(--brand-primary)]"
+      <div className={`relative flex items-center w-full rounded-lg border bg-surface transition-colors focus-within:ring-2 focus-within:ring-brand focus-within:border-transparent ${
+        error ? "border-border-error focus-within:ring-border-error" : "border-border"
       } ${
-        disabled ? "opacity-50 cursor-not-allowed bg-zinc-50 dark:bg-zinc-900" : ""
+        disabled ? "bg-bg-disabled cursor-not-allowed opacity-70" : ""
       } ${containerClassName}`}>
         
-        {/* Left Adornment */}
-        {leadingIcon && React.isValidElement(leadingIcon) && (
-          <div className="pl-4 flex items-center justify-center text-zinc-400 shrink-0 pointer-events-none">
-            {React.cloneElement(leadingIcon as React.ReactElement<any>, { 
-              className: `${iconSizeClasses[inputSize]} ${(leadingIcon.props as any).className || ""}` 
-            })}
-          </div>
-        )}
-        
+        {/* Left Adornments */}
         {prefixText && (
-          <span className="pl-4 pr-2 text-xs font-bold text-zinc-400 uppercase tracking-widest border-r border-zinc-100 dark:border-zinc-800 mr-2 h-full flex items-center">
+          <span className="flex items-center pl-3 pr-2 text-text-tertiary select-none border-r border-border mr-2 text-sm bg-subtle rounded-l-md h-full">
             {prefixText}
           </span>
         )}
+        {!prefixText && leadingIcon && (
+          <span className="flex items-center pl-3 pr-2 text-fg-quaternary pointer-events-none">
+            {leadingIcon}
+          </span>
+        )}
 
-        {/* Core Input Field */}
+        {/* Input Field */}
         <input
           ref={ref}
           disabled={disabled}
           className={`
-            flex-1 w-full bg-transparent font-bold 
-            text-zinc-900 dark:text-white placeholder:text-zinc-400 placeholder:font-medium
+            flex-1 h-10 w-full bg-transparent text-sm font-normal
+            text-text-primary placeholder:text-text-placeholder
             focus:outline-none disabled:cursor-not-allowed
-            ${sizeClasses[inputSize]}
-            ${leadingIcon || prefixText ? "!pl-2" : ""}
-            ${trailingIcon || suffixText ? "!pr-2" : ""}
+            ${!hasLeftAdornment ? "pl-3" : ""}
+            ${!hasRightAdornment ? "pr-3" : ""}
             ${className}
           `}
           {...props}
         />
 
-        {/* Right Adornment */}
-        {suffixText && (
-          <span className="pr-4 pl-2 text-xs font-bold text-zinc-400 uppercase tracking-widest border-l border-zinc-100 dark:border-zinc-800 ml-2 h-full flex items-center">
-            {suffixText}
+        {/* Right Adornments */}
+        {!suffixText && trailingIcon && (
+          <span className="flex items-center pr-3 pl-2 text-fg-quaternary">
+            {trailingIcon}
           </span>
         )}
-
-        {trailingIcon && React.isValidElement(trailingIcon) && (
-          <div className="pr-4 flex items-center justify-center text-zinc-400 shrink-0 pointer-events-none">
-            {React.cloneElement(trailingIcon as React.ReactElement<any>, { 
-              className: `${iconSizeClasses[inputSize]} ${(trailingIcon.props as any).className || ""}` 
-            })}
-          </div>
+        {suffixText && (
+          <span className="flex items-center pr-3 pl-2 text-text-tertiary select-none border-l border-border ml-2 text-sm bg-subtle rounded-r-md h-full">
+            {suffixText}
+          </span>
         )}
       </div>
     );
@@ -106,12 +83,12 @@ export const NumberInput = React.forwardRef<HTMLInputElement, InputProps & { onI
       ref={ref}
       type="number"
       leadingIcon={
-        <button type="button" onClick={onDecrement} className="px-1 text-zinc-400 hover:text-zinc-900 transition-colors focus:outline-none">
+        <button type="button" onClick={onDecrement} className="px-1 text-text-tertiary hover:text-text-primary transition-colors focus:outline-none">
           <span className="text-lg leading-none font-medium">-</span>
         </button>
       }
       trailingIcon={
-        <button type="button" onClick={onIncrement} className="px-1 text-zinc-400 hover:text-zinc-900 transition-colors focus:outline-none">
+        <button type="button" onClick={onIncrement} className="px-1 text-text-tertiary hover:text-text-primary transition-colors focus:outline-none">
           <span className="text-lg leading-none font-medium">+</span>
         </button>
       }
@@ -143,9 +120,10 @@ export const FileInput = React.forwardRef<HTMLInputElement, InputProps & { butto
         className="opacity-0 absolute inset-0 z-10 cursor-pointer w-full"
         {...props}
       />
-      <div className="flex items-center justify-between w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 pl-4 pr-2 py-1 h-11 focus-within:ring-4 focus-within:ring-[var(--brand-primary)]/10">
-         <span className="text-sm text-zinc-400 truncate flex-1 pointer-events-none font-medium">No file chosen</span>
-         <div className="px-5 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 text-xs font-bold text-zinc-900 dark:text-white pointer-events-none whitespace-nowrap">
+      {/* Visual Mock of the File input */}
+      <div className="flex items-center justify-between w-full rounded-lg border border-border bg-surface pl-3 pr-1 py-1 h-10 focus-within:ring-2 focus-within:ring-brand">
+         <span className="text-sm text-text-tertiary truncate flex-1 pointer-events-none">No file chosen</span>
+         <div className="px-4 py-1.5 rounded-md bg-subtle border border-border text-xs font-semibold text-text-primary pointer-events-none whitespace-nowrap">
            {buttonLabel}
          </div>
       </div>
@@ -153,4 +131,3 @@ export const FileInput = React.forwardRef<HTMLInputElement, InputProps & { butto
   )
 );
 FileInput.displayName = "FileInput";
-

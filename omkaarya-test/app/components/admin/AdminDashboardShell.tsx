@@ -2,261 +2,390 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { useState } from "react";
 import {
-  Bell, Building2, Calendar, ChevronRight, CreditCard,
-  FileText, Globe, LayoutDashboard, Mail, Maximize2,
-  Menu, Receipt, Search, Settings, Shield, Sun, Moon,
-  Tag, User, Users, History, Languages, Home, Wallet,
-  UserX, ShieldCheck, Settings2
+  Bell,
+  Building2,
+  Calendar,
+  ChevronDown,
+  Cog,
+  CreditCard,
+  Database,
+  FileText,
+  Globe,
+  LayoutDashboard,
+  Mail,
+  Maximize2,
+  Menu,
+  Receipt,
+  Search,
+  Settings,
+  Shield,
+  Sun,
+  Moon,
+  Tag,
+  User,
+  Users,
+  UserX,
+  Wallet,
+  CheckSquare,
+  RefreshCw,
+  DollarSign,
 } from "lucide-react";
+import { AdminBreadcrumbs } from "@/app/components/admin/adminBreadcrumbs";
 
 // ── Navigation Config ──────────────────────────────────────────────
 
-type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }> };
+const primaryNav = [
+  { href: "#", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/super-admin", label: "Temples", icon: Building2 },
+  { href: "/super-admin/pricing-plans", label: "Pricing Plans", icon: Tag },
+  { href: "#", label: "Domains", icon: Globe },
+  { href: "#", label: "Panchangam", icon: Calendar },
+] as const;
 
-type L1Group = {
-  id: string;
+const financeNav = [
+  { href: "/super-admin/finance", label: "Revenue Dashboard", icon: DollarSign },
+  { href: "/super-admin/finance/transactions", label: "Transactions", icon: Receipt },
+  { href: "/super-admin/finance/invoices", label: "Invoices", icon: FileText },
+  { href: "/super-admin/finance/receipts", label: "Receipts", icon: Wallet },
+  { href: "/super-admin/finance/confirm-payments", label: "Confirm Payments", icon: CheckSquare },
+] as const;
+
+const subscriptionNav = [
+  { href: "/super-admin/finance/subscriptions", label: "Subscriptions", icon: CreditCard },
+  { href: "/super-admin/finance/upcoming-renewals", label: "Upcoming Renewals", icon: RefreshCw },
+] as const;
+
+const userNav = [
+  { href: "#", label: "Users", icon: Users },
+  { href: "#", label: "Role & Permissions", icon: Shield },
+  { href: "#", label: "Delete Account Requests", icon: UserX },
+] as const;
+
+const systemSettingsNav = [
+  { href: "/super-admin/system-settings/feature-registry", label: "Feature Registry", icon: Database },
+  { href: "/super-admin/cms", label: "Website CMS", icon: Globe },
+] as const;
+
+// ── Collapsible Section ────────────────────────────────────────────
+
+function NavSection({
+  label,
+  icon: SectionIcon,
+  items,
+  pathname,
+  onLinkClick,
+  defaultOpen = false,
+}: {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  href?: string;
-  children?: NavItem[];
+  items: ReadonlyArray<{ href: string; label: string; icon: React.ComponentType<{ className?: string }> }>;
+  pathname: string;
+  onLinkClick: () => void;
+  defaultOpen?: boolean;
+}) {
+  const hasActiveChild = items.some((item) => pathname === item.href || pathname.startsWith(item.href + "/"));
+  const [open, setOpen] = useState(defaultOpen || hasActiveChild);
+
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={[
+          "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+          hasActiveChild
+            ? "bg-zinc-100 font-semibold text-[var(--brand-primary)] dark:bg-zinc-800/80"
+            : "text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60",
+        ].join(" ")}
+      >
+        <SectionIcon
+          className={`h-5 w-5 shrink-0 ${hasActiveChild ? "opacity-100" : "opacity-80"}`}
+        />
+        <span className="flex-1 text-left">{label}</span>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 transition-transform duration-200 ${open ? "rotate-0" : "-rotate-90"}`}
+        />
+      </button>
+
+      {open && (
+        <ul className="mt-0.5 ml-4 space-y-0.5 border-l border-zinc-200 pl-3 dark:border-zinc-700">
+          {items.map(({ href, label: itemLabel, icon: Icon }) => {
+            const active = pathname === href || pathname.startsWith(href + "/");
+            return (
+              <li key={itemLabel}>
+                <Link
+                  href={href}
+                  onClick={onLinkClick}
+                  className={[
+                    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
+                    active
+                      ? "font-semibold text-[var(--brand-primary)] bg-zinc-50 dark:bg-zinc-800/50"
+                      : "text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60",
+                  ].join(" ")}
+                >
+                  <Icon className={`h-4 w-4 shrink-0 ${active ? "opacity-100" : "opacity-70"}`} />
+                  {itemLabel}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+// ── Shell Props ────────────────────────────────────────────────────
+
+export type AdminDashboardShellProps = {
+  pathname: string;
+  /** Controls mobile drawer; desktop sidebar is always visible via CSS. */
+  sidebarOpen: boolean;
+  onSidebarOpenChange: (open: boolean) => void;
+  templesActive: boolean;
+  theme: string;
+  onToggleTheme: () => void;
+  /** Main content panel (below header, above footer). */
+  children: React.ReactNode;
 };
 
-const NAV_GROUPS: L1Group[] = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, href: "/super-admin" },
-  { id: "temples", label: "Temples", icon: Building2, href: "/super-admin/core/temples" },
-  { id: "pricing", label: "Pricing Plans", icon: Tag, href: "/super-admin/pricing-plans" },
-  { id: "domains", label: "Domains", icon: Globe, href: "/super-admin/subscriptions/domains" },
-  { id: "panchangam", label: "Panchangam", icon: Calendar, href: "/super-admin/cms" },
-  {
-    id: "finance",
-    label: "Finance & Billing",
-    icon: Wallet,
-    children: [
-      { href: "/super-admin/finance/transactions", label: "Transactions", icon: Receipt },
-      { href: "/super-admin/finance/invoices", label: "Invoices", icon: FileText },
-    ],
-  },
-  {
-    id: "subscriptions",
-    label: "Subscriptions",
-    icon: CreditCard,
-    href: "/super-admin/subscriptions",
-  },
-];
-
-const USER_MGMT_NAV = [
-  { href: "/super-admin/user-management/users", label: "Users", icon: Users },
-  { href: "/super-admin/user-management/roles", label: "Role & Permissions", icon: Shield },
-  { href: "/super-admin/user-management/delete-requests", label: "Delete Account Requests", icon: UserX },
-];
-
-const SYSTEM_NAV = [
-  { href: "/super-admin/system-settings", label: "System Settings", icon: Settings2, hasChildren: true },
-];
-
+/**
+ * Fixed chrome: left sidebar, top bar (search + actions), footer.
+ * Does not include the scrollable page body — pass that as `children` (typically `AdminDashboardMainPanel`).
+ */
 export function AdminDashboardShell({
   pathname,
   sidebarOpen,
   onSidebarOpenChange,
+  templesActive,
   theme,
   onToggleTheme,
   children,
-}: any) {
-  
-  const getActiveGroup = () => {
-    for (const g of NAV_GROUPS) {
-      if (g.href && (pathname === g.href || pathname.startsWith(g.href + "/"))) return g.id;
-      if (g.children) {
-        for (const c of g.children) {
-          if (pathname === c.href || pathname.startsWith(c.href + "/")) return g.id;
-        }
-      }
-    }
-    return null;
-  };
-
-  const activeGroupId = getActiveGroup();
-  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (activeGroupId) {
-      setOpenGroups(prev => {
-        const next = new Set(prev);
-        next.add(activeGroupId);
-        return next;
-      });
-    }
-  }, [activeGroupId]);
-
-  const toggleGroup = (groupId: string) => {
-    setOpenGroups(prev => {
-      const next = new Set(prev);
-      if (next.has(groupId)) next.delete(groupId);
-      else next.add(groupId);
-      return next;
-    });
-  };
+}: AdminDashboardShellProps) {
+  const closeSidebar = () => onSidebarOpenChange(false);
 
   return (
-    <div className="flex h-screen min-h-0 overflow-hidden bg-white dark:bg-zinc-950 font-sans text-zinc-900 dark:text-zinc-100">
-      
-      {/* 1. SIDEBAR (Solid White Column) */}
-      <aside className={`fixed inset-y-0 left-0 z-50 flex w-[260px] shrink-0 flex-col transition-transform duration-300 bg-white dark:bg-zinc-900 border-r border-zinc-100 dark:border-zinc-800 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-        <div className="flex h-16 items-center px-8 shrink-0">
-          <Link href="/super-admin" className="flex items-center gap-0.5">
-             <span className="text-xl font-black tracking-tighter text-zinc-900"><span className="text-brand">pepu</span>lux</span>
-          </Link>
+    <div className="flex h-screen min-h-0 overflow-hidden bg-white font-sans text-[var(--text-primary)] dark:bg-zinc-950">
+      {sidebarOpen && (
+        <button
+          type="button"
+          aria-label="Close menu"
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          onClick={closeSidebar}
+        />
+      )}
+
+      <aside
+        className={[
+          "fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 flex-col border-r border-white bg-white transition-transform dark:border-zinc-950 dark:bg-zinc-950",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
+        ].join(" ")}
+      >
+        <div className="flex h-16 items-center border-b border-white px-6 dark:border-zinc-950">
+          <Image 
+            src="/brand-logo/Omkaarya 9.svg" 
+            alt="Omkaarya" 
+            width={120} 
+            height={32} 
+            className="h-8 w-auto dark:invert" 
+          />
         </div>
-
-        <nav className="flex-1 py-4 space-y-0.5 overflow-y-auto scrollbar-none px-4">
-          {NAV_GROUPS.map((group) => {
-            const isOpen = openGroups.has(group.id);
-            const isActiveGroup = activeGroupId === group.id;
-            const GroupIcon = group.icon;
-            const isDirect = !!group.href;
-
-            return (
-              <div key={group.id} className="flex flex-col">
-                {isDirect ? (
-                  <Link 
-                    href={group.href!}
-                    className={`
-                      flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 font-bold text-[13px]
-                      ${isActiveGroup ? 'bg-brand-50 text-brand' : 'text-zinc-500 hover:bg-zinc-50/80 hover:text-zinc-900'}
-                    `}
+        <nav className="flex-1 overflow-y-auto px-3 py-4">
+          {/* Primary Nav */}
+          <ul className="space-y-0.5">
+            {primaryNav.map(({ href, label, icon: Icon }) => {
+              const active = href === "/super-admin" && templesActive;
+              return (
+                <li key={label}>
+                  <Link
+                    href={href}
+                    onClick={closeSidebar}
+                    className={[
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                      active
+                        ? "bg-zinc-100 font-semibold text-[var(--brand-primary)] dark:bg-zinc-800/80"
+                        : "text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60",
+                    ].join(" ")}
                   >
-                    <GroupIcon className={`w-5 h-5 shrink-0 ${isActiveGroup ? 'text-brand' : 'text-zinc-400'}`} />
-                    <span className="truncate">{group.label}</span>
+                    <Icon
+                      className={`h-5 w-5 shrink-0 ${active ? "opacity-100" : "opacity-80"}`}
+                      aria-hidden
+                    />
+                    {label}
                   </Link>
-                ) : (
-                  <>
-                    <button 
-                      onClick={() => toggleGroup(group.id)}
-                      className={`
-                        flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 w-full text-left font-bold text-[13px]
-                        ${isActiveGroup ? 'text-text-primary' : 'text-zinc-500 hover:bg-zinc-50/80 hover:text-zinc-900'}
-                      `}
-                    >
-                      <GroupIcon className={`w-5 h-5 shrink-0 ${isActiveGroup ? 'text-brand' : 'text-zinc-400'}`} />
-                      <span className="flex-1 truncate">{group.label}</span>
-                      <ChevronRight className={`w-4 h-4 shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
-                    </button>
-                    {isOpen && (
-                      <div className="flex flex-col mt-0.5 space-y-0.5">
-                        {group.children!.map(child => {
-                          const active = pathname === child.href || pathname.startsWith(child.href + "/");
-                          return (
-                            <Link 
-                              key={child.href} 
-                              href={child.href} 
-                              className={`
-                                flex items-center gap-3 pl-11 pr-4 py-2 rounded-lg transition-all duration-200 font-bold text-[12px]
-                                ${active ? 'text-brand bg-brand-50/50' : 'text-zinc-400 hover:text-zinc-900'}
-                              `}
-                            >
-                               <span className="truncate">{child.label}</span>
-                            </Link>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            );
-          })}
+                </li>
+              );
+            })}
 
-          <div className="pt-6 mt-6 border-t border-zinc-100 space-y-0.5">
-             <p className="px-3 py-2 text-[10px] font-black text-zinc-400 uppercase tracking-widest">User Management</p>
-              {USER_MGMT_NAV.map((item) => (
-                <Link key={item.href} href={item.href} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-[13px] transition-all ${pathname.includes(item.href) ? 'bg-brand-50 text-brand' : 'text-zinc-500 hover:bg-zinc-50/80'}`}>
-                   <item.icon className={`w-5 h-5 ${pathname.includes(item.href) ? 'text-brand' : 'text-zinc-400'}`} />
-                   <span className="truncate">{item.label}</span>
-                </Link>
-             ))}
-          </div>
+            {/* Finance & Billing — collapsible */}
+            <NavSection
+              label="Finance & Billing"
+              icon={Wallet}
+              items={financeNav}
+              pathname={pathname}
+              onLinkClick={closeSidebar}
+            />
 
-          <div className="pt-6 mt-6 border-t border-zinc-100 space-y-0.5">
-             <p className="px-3 py-2 text-[10px] font-black text-zinc-400 uppercase tracking-widest">System</p>
-              {SYSTEM_NAV.map((item) => (
-                <Link key={item.href} href={item.href} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-[13px] transition-all ${pathname.includes(item.href) ? 'bg-brand-50 text-brand' : 'text-zinc-500 hover:bg-zinc-50/80'}`}>
-                   <item.icon className={`w-5 h-5 ${pathname.includes(item.href) ? 'text-brand' : 'text-zinc-400'}`} />
-                   <span className="flex-1 truncate">{item.label}</span>
-                   {item.hasChildren && <ChevronRight className="w-4 h-4 text-zinc-400" />}
+            {/* Subscriptions — collapsible */}
+            <NavSection
+              label="Subscriptions"
+              icon={CreditCard}
+              items={subscriptionNav}
+              pathname={pathname}
+              onLinkClick={closeSidebar}
+            />
+          </ul>
+
+          {/* User Management */}
+          <p className="mb-2 mt-6 px-3 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+            User Management
+          </p>
+          <ul className="space-y-0.5">
+            {userNav.map(({ href, label, icon: Icon }) => (
+              <li key={label}>
+                <Link
+                  href={href}
+                  onClick={closeSidebar}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
+                >
+                  <Icon className="h-5 w-5 shrink-0 opacity-80" aria-hidden />
+                  {label}
                 </Link>
-             ))}
-          </div>
+              </li>
+            ))}
+          </ul>
+
+          {/* System Settings */}
+          <p className="mb-2 mt-6 px-3 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+            System
+          </p>
+          <ul className="space-y-0.5">
+            <NavSection
+              label="System Settings"
+              icon={Cog}
+              items={systemSettingsNav}
+              pathname={pathname}
+              onLinkClick={closeSidebar}
+            />
+          </ul>
         </nav>
       </aside>
 
-      {/* 2. MAIN FRAME (Differentiated Content Unit) */}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:pl-[260px] bg-white dark:bg-zinc-900">
-        
-        {/* The 3-Layer Container (Inset with Radius) */}
-        <div className="flex-1 flex flex-col mt-2.5 ml-2.5 mb-2.5 rounded-tl-[24px] rounded-bl-[24px] overflow-hidden bg-[#F8F9FB] dark:bg-zinc-950 border-l border-t border-b border-zinc-100 dark:border-zinc-800 shadow-[-8px_0_24px_rgba(0,0,0,0.015)]">
-          
-          {/* Layer 1: Nav Bar (White + Rounded Top Left) */}
-          <header className="flex h-16 shrink-0 items-center gap-4 bg-white px-8 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 rounded-tl-[24px]">
-            <button type="button" className="lg:hidden p-2 text-zinc-500" onClick={() => onSidebarOpenChange(true)}><Menu className="h-5 w-5" /></button>
-            
-            <div className="flex items-center gap-3">
-               <Home className="w-4 h-4 text-zinc-400" />
-               <ChevronRight className="w-3.5 h-3.5 text-zinc-300" />
-               <span className="text-[13px] font-bold text-brand">Temples</span>
-            </div>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:pl-64">
+        <header className="flex h-16 shrink-0 items-center gap-4 border-b border-white bg-white px-4 pr-20 dark:border-zinc-950 dark:bg-zinc-950 lg:pr-24">
+          <button
+            type="button"
+            aria-label="Open menu"
+            className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60 lg:hidden"
+            onClick={() => onSidebarOpenChange(true)}
+          >
+            <Menu className="h-5 w-5" />
+          </button>
 
-            {/* Search Bar Sync */}
-            <div className="hidden md:flex flex-1 max-w-lg relative ml-8">
-               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-               <input 
-                 className="w-full h-10 pl-10 pr-10 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 text-[13px] font-medium placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-200 transition-all"
-                 placeholder="Search.."
-               />
-               <div className="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 text-[10px] font-bold text-zinc-400 tracking-tighter">⌘K</div>
-            </div>
-            
-            <div className="ml-auto flex items-center gap-1">
-               <button className="p-2 text-zinc-400 hover:text-zinc-900"><Languages className="w-5 h-5" /></button>
-               <button className="p-2 text-zinc-400 hover:text-zinc-900"><Maximize2 className="w-5 h-5" /></button>
-               <button className="p-2 text-zinc-400 hover:text-zinc-900"><Mail className="w-5 h-5" /></button>
-               <button className="p-2 text-zinc-400 hover:text-zinc-900 relative">
-                  <Bell className="w-5 h-5" />
-                  <span className="absolute top-2 right-2 w-2 h-2 bg-brand rounded-full border-2 border-white" />
-               </button>
-               <button className="p-2 text-zinc-400 hover:text-zinc-900"><Settings className="w-5 h-5" /></button>
-               <button onClick={onToggleTheme} className="p-2 text-zinc-400 hover:text-zinc-900">
-                 {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-               </button>
-               <div className="w-9 h-9 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center border border-zinc-200 dark:border-zinc-700 ml-2 cursor-pointer hover:border-brand-200 transition-all overflow-hidden">
-                  <User className="w-5 h-5 text-zinc-400" />
-               </div>
-            </div>
-          </header>
+          <AdminBreadcrumbs pathname={pathname} />
 
-          {/* Layer 2: Main Content Area (Tertiary Gray) */}
-          <main className="flex-1 overflow-y-auto p-6 lg:p-10 scrollbar-none">
-             <div className="max-w-[1600px] mx-auto">
-               {children}
-             </div>
-          </main>
+          <div className="mx-auto hidden max-w-xl flex-1 px-4 md:block">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+              <input
+                type="search"
+                placeholder="Search…"
+                className="w-full rounded-lg border border-zinc-200 bg-zinc-50 py-2 pl-10 pr-16 text-sm text-[var(--text-primary)] outline-none ring-[var(--brand-primary)] placeholder:text-[var(--text-muted)] focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900/80"
+              />
+              <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-[var(--border-default)] bg-[var(--surface-card)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)] sm:inline-block">
+                ⌘K
+              </kbd>
+            </div>
+          </div>
 
-          {/* Layer 3: Footer (Branding Integration) */}
-          <footer className="px-10 py-5 bg-transparent flex items-center justify-between text-[11px] font-bold text-zinc-400 tracking-tight shrink-0 border-t border-zinc-50 dark:border-zinc-800/50">
-             <p>2024 - 2026 © <span className="text-brand font-black tracking-tighter">Om Kaaryaa</span> All Right Reserved</p>
-             <div className="flex items-center gap-8 uppercase tracking-widest text-[10px]">
-                <div className="flex items-center gap-1.5 font-bold">Powered By <span className="text-brand font-black">Pepulux</span> All Right Reserved</div>
-                <div className="flex gap-4 font-bold">
-                   <a href="#" className="hover:text-zinc-900 transition-colors">Terms</a>
-                   <a href="#" className="hover:text-zinc-900 transition-colors">Privacy</a>
-                   <a href="#" className="hover:text-zinc-900 transition-colors">Help</a>
-                   <a href="#" className="hover:text-zinc-900 transition-colors">Status</a>
-                </div>
-             </div>
-          </footer>
-        </div>
+          <div className="ml-auto flex items-center gap-1 sm:gap-2">
+            <button
+              type="button"
+              aria-label="Language"
+              className="hidden rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60 sm:block"
+            >
+              <span className="text-lg" title="English (US)">
+                🇺🇸
+              </span>
+            </button>
+            <button
+              type="button"
+              aria-label="Fullscreen"
+              className="hidden rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60 md:block"
+            >
+              <Maximize2 className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              aria-label="Messages"
+              className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
+            >
+              <Mail className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              aria-label="Notifications"
+              className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
+            >
+              <Bell className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              aria-label="Settings"
+              className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
+            >
+              <Settings className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              aria-label="Toggle theme"
+              className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
+              onClick={onToggleTheme}
+            >
+              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
+            <button
+              type="button"
+              aria-label="Account"
+              className="ml-1 flex h-9 w-9 items-center justify-center rounded-full bg-zinc-200 text-[var(--text-muted)] dark:bg-zinc-700 dark:text-zinc-300"
+            >
+              <User className="h-5 w-5" />
+            </button>
+          </div>
+        </header>
+
+        {children}
+
+        <footer className="shrink-0 border-t border-white bg-white px-4 py-4 text-sm dark:border-zinc-950 dark:bg-zinc-950">
+          <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 sm:flex-row sm:gap-4">
+            <p className="text-center text-[var(--text-muted)] sm:text-left">
+              2024 - 2026 ©{" "}
+              <span className="font-medium text-[var(--brand-primary)]">Om Kaaryaa</span> All Right
+              Reserved
+            </p>
+            <p className="text-center text-[var(--text-muted)]">
+              Powered By{" "}
+              <span className="font-medium text-[var(--brand-primary)]">Pepulux</span> All Right
+              Reserved
+            </p>
+            <div className="flex flex-wrap justify-center gap-4 sm:justify-end">
+              <a href="#" className="text-[var(--brand-primary)] hover:underline">
+                Terms
+              </a>
+              <a href="#" className="text-[var(--brand-primary)] hover:underline">
+                Privacy
+              </a>
+              <a href="#" className="text-[var(--brand-primary)] hover:underline">
+                Help
+              </a>
+              <a href="#" className="text-[var(--brand-primary)] hover:underline">
+                Status
+              </a>
+            </div>
+          </div>
+        </footer>
       </div>
     </div>
   );
