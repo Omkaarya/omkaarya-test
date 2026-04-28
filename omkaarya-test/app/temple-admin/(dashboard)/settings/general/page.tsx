@@ -1,5 +1,7 @@
 "use client";
 
+import { Save, UploadCloud } from "lucide-react";
+import SelectInput from "@/app/components/admin/SelectInput";
 import { Save, UploadCloud, Building2, Mail, Phone, MapPin, Globe, Languages, Clock, ChevronDown } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Input } from "@/app/components/ds/atoms/Input";
@@ -115,6 +117,23 @@ export default function GeneralSettingsPage() {
               </div>
            </div>
 
+        {/* Localization */}
+        <div className="grid grid-cols-2 gap-5">
+          <div>
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Timezone</label>
+            <SelectInput className="!rounded-xl !py-2.5 !pl-4 !text-sm !font-semibold !text-[var(--text-secondary)]">
+              <option>Asia/Colombo (IST)</option>
+              <option>Asia/Kolkata (IST)</option>
+            </SelectInput>
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">System Language</label>
+            <SelectInput className="!rounded-xl !py-2.5 !pl-4 !text-sm !font-semibold !text-[var(--text-secondary)]">
+              <option>English</option>
+              <option>Tamil</option>
+              <option>Sinhala</option>
+            </SelectInput>
+          </div>
         </div>
       </div>
 

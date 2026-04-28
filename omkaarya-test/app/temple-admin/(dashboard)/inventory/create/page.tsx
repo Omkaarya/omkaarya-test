@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Package, Wrench, ShoppingCart, FileBox, PartyPopper } from "lucide-react";
+import SelectInput from "@/app/components/admin/SelectInput";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -44,7 +45,7 @@ export default function CreateProductPage() {
   };
 
   const inputCls = "border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 outline-none font-[inherit] w-full transition-colors focus:border-[var(--brand-primary)]";
-  const selectCls = inputCls + " cursor-pointer";
+  const formSelectClass = "!text-xs !py-2 !rounded-lg !font-[inherit]";
   const labelCls = "text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide";
   const readonlyCls = inputCls + " bg-zinc-50 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed";
 
@@ -99,20 +100,20 @@ export default function CreateProductPage() {
           <div className="flex flex-col gap-1"><label className={labelCls}>Product name *</label><input className={inputCls} placeholder="e.g. Besan Ladoo, Brass Lamp 5-wick" /></div>
           <div className="flex flex-col gap-1"><label className={labelCls}>Also known as</label><input className={inputCls} placeholder="Alternate or regional names" /></div>
           <div className="flex flex-col gap-1"><label className={labelCls}>Category *</label>
-            <select className={selectCls}>
+            <SelectInput className={formSelectClass}>
               <option value="">Select category</option>
               <optgroup label="Consumables"><option>Prasad</option><option>Flowers</option><option>Puja Supplies</option><option>Incense</option><option>Oil &amp; Lamps</option></optgroup>
               <optgroup label="Equipment"><option>Lamps &amp; Deepam</option><option>Vessels &amp; Utensils</option><option>Garments &amp; Vastram</option><option>Sound &amp; AV</option></optgroup>
               <optgroup label="POS / Sale"><option>Prasad Packets</option><option>Pooja Kits</option><option>Books &amp; Calendars</option><option>Souvenirs</option></optgroup>
               <optgroup label="Office"><option>Stationery</option><option>Cleaning Supplies</option></optgroup>
               <optgroup label="Festival"><option>Festival Decorations</option><option>Festival Prasad</option></optgroup>
-            </select>
+            </SelectInput>
           </div>
-          <div className="flex flex-col gap-1"><label className={labelCls}>Sub-category</label><select className={selectCls}><option>Select after category</option><option>Sweet &amp; cooked</option><option>Dry prasad</option><option>Fruit &amp; nut</option><option>Fire &amp; light</option><option>Sacred powders</option></select></div>
+          <div className="flex flex-col gap-1"><label className={labelCls}>Sub-category</label><SelectInput className={formSelectClass}><option>Select after category</option><option>Sweet &amp; cooked</option><option>Dry prasad</option><option>Fruit &amp; nut</option><option>Fire &amp; light</option><option>Sacred powders</option></SelectInput></div>
           <div className="flex flex-col gap-1"><label className={labelCls}>SKU (auto-generated)</label><input className={readonlyCls} value="PRD-244" readOnly /></div>
-          <div className="flex flex-col gap-1"><label className={labelCls}>Unit of measure *</label><select className={selectCls}><option>Pieces</option><option>Kg</option><option>Grams</option><option>Litres</option><option>Ml</option><option>Packets</option><option>Garlands</option><option>Sticks</option><option>Bunches</option><option>Sets</option></select></div>
+          <div className="flex flex-col gap-1"><label className={labelCls}>Unit of measure *</label><SelectInput className={formSelectClass}><option>Pieces</option><option>Kg</option><option>Grams</option><option>Litres</option><option>Ml</option><option>Packets</option><option>Garlands</option><option>Sticks</option><option>Bunches</option><option>Sets</option></SelectInput></div>
           <div className="flex flex-col gap-1"><label className={labelCls}>Used in / for</label><input className={inputCls} placeholder="e.g. Abhishekam, Archana, Deepam" /></div>
-          <div className="flex flex-col gap-1"><label className={labelCls}>Frequency</label><select className={selectCls}><option>Daily</option><option>Weekly</option><option>Monthly</option><option>Festival only</option><option>One-time</option></select></div>
+          <div className="flex flex-col gap-1"><label className={labelCls}>Frequency</label><SelectInput className={formSelectClass}><option>Daily</option><option>Weekly</option><option>Monthly</option><option>Festival only</option><option>One-time</option></SelectInput></div>
           <div className="flex flex-col gap-1 col-span-2"><label className={labelCls}>Description / notes</label><textarea className={inputCls + " resize-none"} rows={2} placeholder="Storage notes, special handling etc." /></div>
         </div>
       </div>
@@ -126,9 +127,9 @@ export default function CreateProductPage() {
           <div className="flex flex-col gap-1"><label className={labelCls}>Unit cost (£)</label><input className={inputCls} placeholder="e.g. 0.45" /></div>
           <div className="flex flex-col gap-1"><label className={labelCls}>Sale price (£)</label><input className={inputCls} placeholder="For POS items" /></div>
           <div className="flex flex-col gap-1"><label className={labelCls}>Storage location</label><input className={inputCls} placeholder="e.g. Shelf 2A, Storeroom" /></div>
-          <div className="flex flex-col gap-1"><label className={labelCls}>Pooja BOM linked?</label><select className={selectCls}><option>No — general stock</option><option>Yes — link to pooja type</option></select></div>
-          <div className="flex flex-col gap-1"><label className={labelCls}>Label type</label><select className={selectCls}><option>Auto barcode</option><option>Auto QR code</option><option>None</option></select></div>
-          <div className="flex flex-col gap-1"><label className={labelCls}>Status</label><select className={selectCls}><option>Active</option><option>Inactive</option><option>Seasonal</option></select></div>
+          <div className="flex flex-col gap-1"><label className={labelCls}>Pooja BOM linked?</label><SelectInput className={formSelectClass}><option>No — general stock</option><option>Yes — link to pooja type</option></SelectInput></div>
+          <div className="flex flex-col gap-1"><label className={labelCls}>Label type</label><SelectInput className={formSelectClass}><option>Auto barcode</option><option>Auto QR code</option><option>None</option></SelectInput></div>
+          <div className="flex flex-col gap-1"><label className={labelCls}>Status</label><SelectInput className={formSelectClass}><option>Active</option><option>Inactive</option><option>Seasonal</option></SelectInput></div>
         </div>
         <div className="flex gap-2 justify-end pt-4 mt-4 border-t border-zinc-100 dark:border-zinc-800">
           <button onClick={() => router.push("/temple-admin/inventory")} className="px-4 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)] transition-colors">Cancel</button>

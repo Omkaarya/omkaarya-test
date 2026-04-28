@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { ArrowRight, Building2, Calendar, Copy, UploadCloud, X } from "lucide-react";
+import SelectInput from "@/app/components/admin/SelectInput";
 import TempleOnboardingStepActions from "@/app/components/temple-admin/TempleOnboardingStepActions";
 import { submitTempleBankTransferNotification } from "@/lib/templePaymentSubmissionApi";
 import { clearTempleOnboardingDeityDraft, isDeitySelectionComplete } from "@/lib/temple-onboarding-deity";
@@ -661,13 +662,14 @@ export default function TempleAdminPaymentPage() {
                         className="min-w-0 flex-1 border-0 bg-transparent text-sm text-zinc-900 outline-none dark:text-zinc-50"
                         placeholder={(amountDueCents / 100).toFixed(2)}
                       />
-                      <select
+                      <SelectInput
                         value={currency}
                         onChange={(e) => setCurrency(e.target.value)}
-                        className="rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs font-semibold text-zinc-700 outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+                        wrapperClassName="!w-auto shrink-0"
+                        className="!h-8 !min-w-[3.5rem] !rounded-lg !border-zinc-200 !bg-zinc-50 !py-0 !pl-2 !pr-10 !text-xs !font-semibold !text-zinc-700 dark:!border-zinc-700 dark:!bg-zinc-800 dark:!text-zinc-200"
                       >
                         <option value="USD">USD</option>
-                      </select>
+                      </SelectInput>
                     </div>
                   </div>
                   <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">Auto-filled from invoices.</p>

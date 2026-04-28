@@ -241,17 +241,14 @@ function FeatureModal({
               <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                 Limit Type
               </label>
-              <div className="relative">
-                <select
-                  value={form.limitType}
-                  onChange={(e) => setForm({ ...form, limitType: e.target.value })}
-                  className="w-full appearance-none rounded-lg border border-zinc-200 bg-white px-3 py-2.5 pr-8 text-sm outline-none ring-[var(--brand-primary)] focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                >
-                  <option value="number">Number</option>
-                  <option value="boolean">Boolean</option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-              </div>
+              <SelectInput
+                value={form.limitType}
+                onChange={(e) => setForm({ ...form, limitType: e.target.value })}
+                className="!py-2.5"
+              >
+                <option value="number">Number</option>
+                <option value="boolean">Boolean</option>
+              </SelectInput>
             </div>
           )}
 

@@ -6,6 +6,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/app/components/ds/atoms/Button";
+import SelectInput from "@/app/components/admin/SelectInput";
+
+const templeFormSelect =
+  "!h-11 !min-h-0 !rounded-xl !py-0 !pl-4 !text-sm !text-[var(--text-primary)] !border-zinc-100 !bg-white focus:!ring-2 focus:!ring-[var(--brand-primary)] dark:!border-zinc-800 dark:!bg-zinc-950";
 
 // ── Toast ─────────────────────────────────────────────────────────
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
@@ -87,12 +91,12 @@ export default function AddTransactionPage() {
         <div className="grid grid-cols-2 gap-3.5">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Category *</label>
-            <select className="h-11 border border-zinc-100 rounded-xl px-4 text-sm text-[var(--text-primary)] bg-white outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950">
+            <SelectInput className={templeFormSelect}>
               <option value="">Select category</option>
               <optgroup label="Income"><option>Pooja income</option><option>Counter sales</option><option>Hall rental</option><option>Other income</option></optgroup>
               <optgroup label="Expense"><option>Inventory purchase</option><option>Staff / priest salary</option><option>Maintenance & repair</option><option>Utilities</option><option>Events & festivals</option></optgroup>
               <optgroup label="Donation"><option>Cash donation</option><option>Cheque donation</option><option>Online donation</option><option>In-kind donation</option></optgroup>
-            </select>
+            </SelectInput>
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Amount (LKR) *</label>
@@ -104,21 +108,21 @@ export default function AddTransactionPage() {
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Payment method</label>
-            <select className="h-11 border border-zinc-100 rounded-xl px-4 text-sm text-[var(--text-primary)] bg-white outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950">
+            <SelectInput className={templeFormSelect}>
               <option>Cash</option><option>Bank transfer</option><option>Card</option><option>Cheque</option><option>Online</option>
-            </select>
+            </SelectInput>
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Reference / link to</label>
-            <select className="h-11 border border-zinc-100 rounded-xl px-4 text-sm text-[var(--text-primary)] bg-white outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950">
+            <SelectInput className={templeFormSelect}>
               <option value="">None</option><option>Pooja booking</option><option>Purchase order</option><option>POS transaction</option><option>Devotee record</option>
-            </select>
+            </SelectInput>
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Recorded by</label>
-            <select className="h-11 border border-zinc-100 rounded-xl px-4 text-sm text-[var(--text-primary)] bg-white outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950">
+            <SelectInput className={templeFormSelect}>
               <option>Temple Admin</option><option>Head Priest</option><option>Trustee</option>
-            </select>
+            </SelectInput>
           </div>
           <div className="col-span-2 flex flex-col gap-1.5">
             <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Description / notes *</label>
@@ -135,9 +139,9 @@ export default function AddTransactionPage() {
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Receipt required?</label>
-            <select className="h-11 border border-zinc-100 rounded-xl px-4 text-sm text-[var(--text-primary)] bg-white outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950">
+            <SelectInput className={templeFormSelect}>
               <option>No receipt needed</option><option>Generate donation receipt</option><option>Generate Gift Aid receipt</option><option>Generate pooja receipt</option>
-            </select>
+            </SelectInput>
           </div>
         </div>
 

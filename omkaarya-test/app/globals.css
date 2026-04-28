@@ -156,6 +156,45 @@
   --brand-primary: var(--color-brand-400);
   --brand-primary-hover: var(--color-brand-300);
   --border-default: var(--color-gray-700);
+
+  /*
+   * Design system: @theme defines static light-only semantic colors (surface, text-*, border, …).
+   * Tailwind utilities (bg-surface, text-text-primary, etc.) use these — override them here so
+   * finance and other ds pages stay on dark surfaces when data-theme is dark.
+   */
+  --color-surface: var(--color-gray-950);
+  --color-subtle: var(--color-gray-900);
+  --color-bg-disabled: var(--color-gray-800);
+  --color-text-primary: var(--color-gray-25);
+  --color-text-secondary: var(--color-gray-200);
+  --color-text-tertiary: var(--color-gray-400);
+  --color-text-placeholder: var(--color-gray-500);
+  --color-text-disabled: var(--color-gray-500);
+  --color-text-brand: var(--color-brand-400);
+  --color-fg-primary: var(--color-gray-25);
+  --color-fg-secondary: var(--color-gray-200);
+  --color-fg-tertiary: var(--color-gray-400);
+  --color-fg-quaternary: var(--color-gray-500);
+  --color-fg-disabled: var(--color-gray-500);
+  --color-fg-error: #fd9890;
+  --color-fg-warning: #fac26c;
+  --color-fg-success: #5fe9a0;
+  --color-fg-brand: var(--color-brand-400);
+  --color-border: #373a41;
+  --color-border-secondary: var(--color-gray-800);
+  --color-border-brand: var(--color-brand-400);
+  --color-border-error: var(--color-error-500);
+  --color-bg-brand-secondary: color-mix(in srgb, var(--color-brand-400) 20%, var(--color-gray-900));
+  --color-bg-brand-solid: var(--color-brand-500);
+  --color-focus-ring: var(--color-brand-400);
+  --color-status-danger-bg: color-mix(in srgb, var(--color-error-500) 18%, var(--color-gray-900));
+  --color-status-danger-text: #fd9890;
+  --color-status-warning-bg: color-mix(in srgb, var(--color-warning-500) 18%, var(--color-gray-900));
+  --color-status-warning-text: #fac26c;
+  --color-status-success-bg: color-mix(in srgb, var(--color-success-500) 18%, var(--color-gray-900));
+  --color-status-success-text: #5fe9a0;
+  --color-brand-50: color-mix(in srgb, var(--color-brand-400) 18%, var(--color-gray-900));
+  --color-brand-100: color-mix(in srgb, var(--color-brand-400) 28%, var(--color-gray-900));
 }
 
 @theme inline {

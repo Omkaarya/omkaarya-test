@@ -26,11 +26,11 @@ const colorStyles: Record<BadgeColor, { bg: string; text: string; dot: string; b
   error:   { bg: "bg-status-danger-bg",    text: "text-status-danger-text",dot: "bg-fg-error",         border: "border-border-error" },
   warning: { bg: "bg-status-warning-bg",   text: "text-status-warning-text",dot: "bg-fg-warning",      border: "" },
   success: { bg: "bg-status-success-bg",   text: "text-status-success-text",dot: "bg-fg-success",      border: "" },
-  blue:    { bg: "bg-blue-50",             text: "text-blue-700",          dot: "bg-brand-primary",         border: "" },
-  indigo:  { bg: "bg-indigo-50",           text: "text-indigo-700",        dot: "bg-indigo-500",       border: "" },
-  purple:  { bg: "bg-purple-50",           text: "text-purple-700",        dot: "bg-purple-500",       border: "" },
-  pink:    { bg: "bg-pink-50",             text: "text-pink-700",          dot: "bg-pink-500",         border: "" },
-  orange:  { bg: "bg-orange-50",           text: "text-orange-700",        dot: "bg-orange-500",       border: "" },
+  blue:    { bg: "bg-blue-50 dark:bg-blue-950/40",       text: "text-blue-700 dark:text-blue-300",       dot: "bg-brand-primary",  border: "" },
+  indigo:  { bg: "bg-indigo-50 dark:bg-indigo-950/40",  text: "text-indigo-700 dark:text-indigo-300",     dot: "bg-indigo-500",     border: "" },
+  purple:  { bg: "bg-purple-50 dark:bg-purple-950/40",  text: "text-purple-700 dark:text-purple-300",   dot: "bg-purple-500",     border: "" },
+  pink:    { bg: "bg-pink-50 dark:bg-pink-950/40",     text: "text-pink-700 dark:text-pink-300",         dot: "bg-pink-500",     border: "" },
+  orange:  { bg: "bg-orange-50 dark:bg-orange-950/40", text: "text-orange-700 dark:text-orange-300",   dot: "bg-orange-500",     border: "" },
 };
 
 const sizeStyles: Record<BadgeSize, { badge: string; text: string; dot: string }> = {

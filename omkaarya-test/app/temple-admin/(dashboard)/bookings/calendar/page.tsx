@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   ChevronLeft, ChevronRight, Plus, Calendar, LayoutList, LayoutGrid,
 } from "lucide-react";
+import SelectInput from "@/app/components/admin/SelectInput";
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -190,7 +191,15 @@ export default function BookingCalendarPage() {
               <button onClick={prevMonth} className="w-[26px] h-[26px] rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 flex items-center justify-center text-zinc-400 hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)] transition-colors"><ChevronLeft className="w-3 h-3" /></button>
               <button onClick={goToday} className="px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-600 dark:text-zinc-300 hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)] transition-colors">Today</button>
               <button onClick={nextMonth} className="w-[26px] h-[26px] rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 flex items-center justify-center text-zinc-400 hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)] transition-colors"><ChevronRight className="w-3 h-3" /></button>
-              <select className="border border-zinc-200 dark:border-zinc-700 rounded-lg px-2.5 py-1.5 text-xs text-zinc-600 dark:text-zinc-300 bg-white dark:bg-zinc-900 outline-none cursor-pointer font-[inherit]"><option>Month view</option><option>Week view</option><option>Day view</option></select>
+              <SelectInput
+                defaultValue="Month view"
+                wrapperClassName="w-auto min-w-0"
+                className="!rounded-lg !px-2.5 !py-1.5 !text-xs !text-zinc-600 dark:!text-zinc-300 !font-[inherit]"
+              >
+                <option>Month view</option>
+                <option>Week view</option>
+                <option>Day view</option>
+              </SelectInput>
             </div>
           </div>
 

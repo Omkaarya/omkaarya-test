@@ -5,6 +5,10 @@ import { CheckCircle2, X, Search, Info, Download, Plus, MoreHorizontal } from "l
 import Link from "next/link";
 
 import { Button } from "@/app/components/ds/atoms/Button";
+import SelectInput from "@/app/components/admin/SelectInput";
+
+const templeToolbarSelect =
+  "!h-10 !min-h-0 !rounded-xl !py-0 !pl-3 !text-sm !border-zinc-100 !bg-white focus:!ring-2 focus:!ring-[var(--brand-primary)] dark:!border-zinc-800 dark:!bg-zinc-950";
 
 // ── Toast ─────────────────────────────────────────────────────────
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
@@ -127,20 +131,20 @@ export default function TempleTransactionsPage() {
             className="h-10 w-full rounded-xl border border-zinc-100 bg-zinc-50 pl-10 pr-4 text-sm outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-900"
           />
         </div>
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="h-10 rounded-xl border border-zinc-100 bg-white px-3 text-sm outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950">
+        <SelectInput value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className={templeToolbarSelect} wrapperClassName="w-auto min-w-[8.5rem]">
           <option value="">All types</option>
           <option value="Pooja">Pooja</option>
           <option value="Donation">Donation</option>
           <option value="Sale">Counter Sale</option>
           <option value="Ritual">Ritual Return</option>
           <option value="Expense">Expense</option>
-        </select>
-        <select className="h-10 rounded-xl border border-zinc-100 bg-white px-3 text-sm outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950">
+        </SelectInput>
+        <SelectInput className={templeToolbarSelect} wrapperClassName="w-auto min-w-[7.5rem]">
           <option>This month</option><option>Today</option><option>This week</option><option>Custom range</option>
-        </select>
-        <select className="h-10 rounded-xl border border-zinc-100 bg-white px-3 text-sm outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950">
+        </SelectInput>
+        <SelectInput className={templeToolbarSelect} wrapperClassName="w-auto min-w-[10rem] max-w-[14rem]">
           <option value="">All categories</option><option>Pooja income</option><option>Donations — cash</option><option>Donations — in-kind</option><option>Counter sales</option><option>Inventory purchase</option><option>Staff/priest</option><option>Maintenance</option>
-        </select>
+        </SelectInput>
         <Segment items={["All", "Income", "Expense"]} active={segment} onChange={setSegment} />
       </div>
 

@@ -1,4 +1,8 @@
+"use client";
+
 import { ChevronLeft, ChevronRight } from "lucide-react";
+
+import SelectInput from "@/app/components/admin/SelectInput";
 
 function buildPageList(current: number, total: number): (number | "ellipsis")[] {
   if (total <= 7) {
@@ -56,18 +60,19 @@ export default function AdminPagination({
         <label htmlFor="page-size" className="sr-only">
           Rows per page
         </label>
-        <select
+        <SelectInput
           id="page-size"
-          value={pageSize}
+          value={String(pageSize)}
           onChange={(e) => onPageSizeChange(Number(e.target.value))}
-          className="rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+          className="!w-auto !min-w-0 !px-2 !py-1.5 !text-sm"
+          wrapperClassName="w-auto inline-block min-w-0"
         >
           {[10, 25, 50].map((n) => (
             <option key={n} value={n}>
               {n} per page
             </option>
           ))}
-        </select>
+        </SelectInput>
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-1">

@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { ArrowLeft, CheckCircle2, Eye, Send, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Send, X } from "lucide-react";
 import Link from "next/link";
 
+import SelectInput from "@/app/components/admin/SelectInput";
 import { Button } from "@/app/components/ds/atoms/Button";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
 
@@ -185,10 +186,14 @@ export default function GenerateInvoicePage() {
             <h3 className="text-sm font-bold text-text-primary mb-4 pb-3 border-b border-border">Invoice details</h3>
             <div className="grid grid-cols-2 gap-4">
               <Field label="Temple *">
-                <select value={templeId} onChange={e => setTempleId(e.target.value)} className={inputClass + " cursor-pointer"}>
+                <SelectInput
+                  value={templeId}
+                  onChange={e => setTempleId(e.target.value)}
+                  className="!text-xs"
+                >
                   <option value="">Select temple...</option>
                   {temples.map(t => <option key={t.tenantId} value={t.tenantId}>{t.name}</option>)}
-                </select>
+                </SelectInput>
               </Field>
               <Field label="Invoice number (auto)">
                 <input className={readonlyClass} value={invoiceNum} readOnly />
@@ -200,18 +205,26 @@ export default function GenerateInvoicePage() {
                 <input type="date" className={inputClass} value={dueDate} onChange={e => setDueDate(e.target.value)} />
               </Field>
               <Field label="Plan *">
-                <select value={planName} onChange={(e) => setPlanName(e.target.value)} className={inputClass + " cursor-pointer"}>
+                <SelectInput
+                  value={planName}
+                  onChange={(e) => setPlanName(e.target.value)}
+                  className="!text-xs"
+                >
                   <option value="">Select plan...</option>
                   {plans.map((p) => (
                     <option key={p.id} value={p.name}>{p.name}</option>
                   ))}
-                </select>
+                </SelectInput>
               </Field>
               <Field label="Billing cycle">
-                <select value={billingCycleRaw} onChange={(e) => setBillingCycleRaw(e.target.value as "Monthly" | "Annually")} className={inputClass + " cursor-pointer"}>
+                <SelectInput
+                  value={billingCycleRaw}
+                  onChange={(e) => setBillingCycleRaw(e.target.value as "Monthly" | "Annually")}
+                  className="!text-xs"
+                >
                   <option value="Monthly">Monthly</option>
                   <option value="Annually">Annually</option>
-                </select>
+                </SelectInput>
               </Field>
               <Field label="Billing period from">
                 <input type="date" className={inputClass} value={periodFrom} readOnly />

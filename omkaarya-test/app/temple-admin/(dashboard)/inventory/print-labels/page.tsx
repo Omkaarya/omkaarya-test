@@ -5,6 +5,7 @@ import {
   Download, Printer, Search, Cookie, Flower2, Flame, Droplets, Wind,
   Minus, Plus, Barcode, QrCode,
 } from "lucide-react";
+import SelectInput from "@/app/components/admin/SelectInput";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -74,7 +75,7 @@ export default function PrintLabelsPage() {
   }, [items, search]);
 
   const selectedItems = items.filter(i => i.selected);
-  const selectCls = "border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 outline-none font-[inherit] w-full transition-colors focus:border-[var(--brand-primary)] cursor-pointer";
+  const formSelectClass = "!text-xs !py-2 !rounded-lg !font-[inherit]";
   const labelCls = "text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide";
 
   return (
@@ -146,10 +147,10 @@ export default function PrintLabelsPage() {
           <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
             <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mb-3">Print settings</div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1"><label className={labelCls}>Label size</label><select className={selectCls}><option>Small — 50×25mm</option><option>Medium — 75×37mm</option><option>Large — 100×50mm</option></select></div>
+              <div className="flex flex-col gap-1"><label className={labelCls}>Label size</label><SelectInput className={formSelectClass}><option>Small — 50×25mm</option><option>Medium — 75×37mm</option><option>Large — 100×50mm</option></SelectInput></div>
               <div className="flex flex-col gap-1"><label className={labelCls}>Copies per item</label><input type="number" defaultValue={1} min={1} className="border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 outline-none font-[inherit] w-full transition-colors focus:border-[var(--brand-primary)]" /></div>
-              <div className="flex flex-col gap-1"><label className={labelCls}>Show on label</label><select className={selectCls}><option>Name + SKU code</option><option>Name + Code + Price</option><option>Code only</option></select></div>
-              <div className="flex flex-col gap-1"><label className={labelCls}>Printer</label><select className={selectCls}><option>Default printer</option><option>Label printer (USB)</option><option>Save as PDF</option></select></div>
+              <div className="flex flex-col gap-1"><label className={labelCls}>Show on label</label><SelectInput className={formSelectClass}><option>Name + SKU code</option><option>Name + Code + Price</option><option>Code only</option></SelectInput></div>
+              <div className="flex flex-col gap-1"><label className={labelCls}>Printer</label><SelectInput className={formSelectClass}><option>Default printer</option><option>Label printer (USB)</option><option>Save as PDF</option></SelectInput></div>
             </div>
             <button onClick={() => showToast("Printing labels...")} className="w-full mt-4 px-4 py-2.5 rounded-lg bg-[var(--brand-primary)] text-xs font-semibold text-white hover:bg-[var(--brand-primary-hover)] transition-colors inline-flex items-center justify-center gap-1.5"><Printer className="w-3.5 h-3.5" />Print labels</button>
           </div>

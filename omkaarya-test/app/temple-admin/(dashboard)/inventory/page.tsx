@@ -16,6 +16,52 @@ import {
   Eye,
   Pencil
 } from "lucide-react";
+import SelectInput from "@/app/components/admin/SelectInput";
+
+// ── Types ──────────────────────────────────────────────────────────
+
+type ProductType = "Consumable" | "Equipment" | "Sale Item" | "Admin" | "Festival";
+type StockStatus = "ok" | "low" | "out";
+
+type Product = {
+  icon: React.ReactNode;
+  name: string;
+  sku: string;
+  type: ProductType;
+  cat: string;
+  unit: string;
+  qty: number;
+  reorder: number | null;
+  cost: string;
+  freq: string;
+  status: StockStatus;
+};
+
+// ── Icon helpers ──────────────────────────────────────────────────
+
+const ic = "w-4 h-4";
+
+const PRODUCTS: Product[] = [
+  { icon: <Cookie className={ic} />, name: "Besan Ladoo", sku: "PRD-001", type: "Consumable", cat: "Prasad", unit: "Pcs", qty: 42, reorder: 50, cost: "£0.45", freq: "Daily", status: "low" },
+  { icon: <Cookie className={ic} />, name: "Motichoor Ladoo", sku: "PRD-002", type: "Consumable", cat: "Prasad", unit: "Pcs", qty: 28, reorder: 30, cost: "£0.60", freq: "Weekly", status: "low" },
+  { icon: <Cookie className={ic} />, name: "Coconut Ladoo", sku: "PRD-003", type: "Consumable", cat: "Prasad", unit: "Pcs", qty: 65, reorder: 20, cost: "£0.35", freq: "Weekly", status: "ok" },
+  { icon: <Flower2 className={ic} />, name: "Rose Garland", sku: "FLW-001", type: "Consumable", cat: "Flowers", unit: "Garlands", qty: 12, reorder: 10, cost: "£3.00", freq: "Daily", status: "ok" },
+  { icon: <Flower2 className={ic} />, name: "Marigold Loose", sku: "FLW-002", type: "Consumable", cat: "Flowers", unit: "Kg", qty: 3, reorder: 5, cost: "£3/kg", freq: "Daily", status: "low" },
+  { icon: <Flame className={ic} />, name: "Camphor Tablets", sku: "PJA-001", type: "Consumable", cat: "Puja Supplies", unit: "Packets", qty: 0, reorder: 10, cost: "£1.75", freq: "Daily", status: "out" },
+  { icon: <Droplets className={ic} />, name: "Sesame Oil", sku: "OIL-001", type: "Consumable", cat: "Oil & Lamps", unit: "Litres", qty: 18, reorder: 5, cost: "£5.00", freq: "Weekly", status: "ok" },
+  { icon: <Wind className={ic} />, name: "Sandalwood Incense", sku: "INC-001", type: "Consumable", cat: "Incense", unit: "Sticks", qty: 0, reorder: 100, cost: "£0.05", freq: "Daily", status: "out" },
+  { icon: <Flower2 className={ic} />, name: "Tulsi Leaves", sku: "FLW-003", type: "Consumable", cat: "Flowers", unit: "Bunches", qty: 8, reorder: 5, cost: "£1.50", freq: "Daily", status: "ok" },
+  { icon: <Circle className={ic} />, name: "Kumkum Powder", sku: "PJA-002", type: "Consumable", cat: "Puja Supplies", unit: "Packets", qty: 25, reorder: 15, cost: "£1.25", freq: "Daily", status: "ok" },
+  { icon: <Circle className={ic} />, name: "Whole Coconut", sku: "PRD-004", type: "Consumable", cat: "Prasad", unit: "Pcs", qty: 34, reorder: 20, cost: "£1.00", freq: "Daily", status: "ok" },
+  { icon: <Flame className={ic} />, name: "Ghee (cow)", sku: "OIL-002", type: "Consumable", cat: "Oil & Lamps", unit: "Litres", qty: 4, reorder: 5, cost: "£8.00", freq: "Daily", status: "low" },
+  { icon: <Flame className={ic} />, name: "Cotton Wicks", sku: "OIL-003", type: "Consumable", cat: "Oil & Lamps", unit: "Packets", qty: 0, reorder: 10, cost: "£0.80", freq: "Daily", status: "out" },
+  { icon: <Flower2 className={ic} />, name: "Jasmine Loose", sku: "FLW-004", type: "Consumable", cat: "Flowers", unit: "Kg", qty: 2, reorder: 3, cost: "£6/kg", freq: "Daily", status: "low" },
+  { icon: <Circle className={ic} />, name: "Vibhuti Packets", sku: "PJA-003", type: "Consumable", cat: "Puja Supplies", unit: "Packets", qty: 60, reorder: 20, cost: "£0.50", freq: "Daily", status: "ok" },
+  { icon: <Flame className={ic} />, name: "Brass Lamp 5-wick", sku: "EQP-001", type: "Equipment", cat: "Lamps & Deepam", unit: "Pcs", qty: 8, reorder: null, cost: "£45.00", freq: "One-time", status: "ok" },
+  { icon: <Star className={ic} />, name: "Temple Bell", sku: "EQP-002", type: "Equipment", cat: "Vessels & Utensils", unit: "Pcs", qty: 3, reorder: null, cost: "£120.00", freq: "One-time", status: "ok" },
+  { icon: <Package className={ic} />, name: "Prasad Packet Small", sku: "POS-001", type: "Sale Item", cat: "Prasad Packets", unit: "Packets", qty: 120, reorder: 50, cost: "£0.80", freq: "Daily", status: "ok" },
+  { icon: <FileBox className={ic} />, name: "Temple Calendar 2026", sku: "POS-002", type: "Sale Item", cat: "Books & Calendars", unit: "Pcs", qty: 5, reorder: 20, cost: "£3.00", freq: "Monthly", status: "low" },
+  { icon: <FileBox className={ic} />, name: "A4 Paper (500 sheets)", sku: "ADM-001", type: "Admin", cat: "Stationery", unit: "Reams", qty: 8, reorder: 3, cost: "£5.00", freq: "Monthly", status: "ok" },
 import { Button } from "@/app/components/ds/atoms/Button";
 import { MetricCard } from "@/app/components/ds/molecules/MetricCard";
 import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
@@ -49,6 +95,9 @@ export default function InventoryPage() {
       return matchesType && matchesSearch;
     });
   }, [activeType, search]);
+
+  const invToolbarSelect =
+    "!text-[11px] !py-[7px] !pl-2 !rounded-lg !font-[inherit] !text-zinc-600 dark:!text-zinc-300";
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -120,6 +169,27 @@ export default function InventoryPage() {
               <Button variant="outline" size="sm">Export</Button>
            </div>
         </div>
+        <SelectInput
+          value={catFilter}
+          onChange={e => setCatFilter(e.target.value)}
+          wrapperClassName="w-auto min-w-0"
+          className={invToolbarSelect}
+        >
+          <option value="">All categories</option>
+          {categories.map(c => <option key={c} value={c}>{c}</option>)}
+        </SelectInput>
+        <SelectInput
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+          wrapperClassName="w-auto min-w-0"
+          className={invToolbarSelect}
+        >
+          <option value="">All status</option>
+          <option>In stock</option>
+          <option>Low stock</option>
+          <option>Out of stock</option>
+        </SelectInput>
+      </div>
 
         {/* Table */}
         <div className="overflow-x-auto min-h-[400px]">

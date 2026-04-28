@@ -1,5 +1,7 @@
 "use client";
 
+import { Save, Wallet, Percent } from "lucide-react";
+import SelectInput from "@/app/components/admin/SelectInput";
 import { useState } from "react";
 import { Save, Wallet, Percent, ChevronDown } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
@@ -26,6 +28,26 @@ export default function FinanceSettingsPage() {
 
       <div className="space-y-12">
         {/* Currency & Base Metrics */}
+        <div>
+          <h4 className="text-sm font-bold text-[var(--text-primary)] mb-3 flex items-center gap-1.5"><Wallet className="w-4 h-4 text-zinc-400" /> Base Metrics</h4>
+          <div className="grid grid-cols-2 gap-4 p-5 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30">
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Primary Currency</label>
+              <SelectInput className="!rounded-xl !py-2.5 !pl-4 !text-sm !font-semibold !text-[var(--text-primary)]">
+                <option value="LKR">LKR (Sri Lankan Rupee)</option>
+                <option value="INR">INR (Indian Rupee)</option>
+                <option value="USD">USD (US Dollar)</option>
+              </SelectInput>
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Currency Separator</label>
+              <SelectInput className="!rounded-xl !py-2.5 !pl-4 !text-sm !font-semibold !text-[var(--text-primary)]">
+                <option value="comma">Comma (1,000,000)</option>
+                <option value="dot">Dot (1.000.000)</option>
+              </SelectInput>
+            </div>
+          </div>
+        </div>
         <section className="space-y-6">
            <div className="flex items-center gap-3 text-brand">
               <Wallet className="w-5 h-5" />

@@ -5,6 +5,7 @@ import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import { CheckCircle2, Download, X } from "lucide-react";
 
+import SelectInput from "@/app/components/admin/SelectInput";
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Badge } from "@/app/components/ds/atoms/Badge";
 import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
@@ -263,24 +264,39 @@ export default function TransactionsPage() {
         <div className="w-full max-w-[260px]">
           <SearchInput value={search} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setPage(1); }} onClear={search ? () => { setSearch(""); setPage(1); } : undefined} placeholder="Search temple or transaction…" />
         </div>
-        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text-secondary outline-none focus:border-brand transition-colors cursor-pointer">
+        <SelectInput
+          value={statusFilter}
+          onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
+          className="text-xs text-zinc-700 dark:text-zinc-200"
+          wrapperClassName="w-auto min-w-[140px]"
+        >
           <option value="all">All status</option>
           <option value="paid">Confirmed</option>
           <option value="pending">Pending confirmation</option>
           <option value="overdue">Overdue</option>
-        </select>
-        <select value={planFilter} onChange={e => { setPlanFilter(e.target.value); setPage(1); }} className="rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text-secondary outline-none focus:border-brand transition-colors cursor-pointer">
+        </SelectInput>
+        <SelectInput
+          value={planFilter}
+          onChange={e => { setPlanFilter(e.target.value); setPage(1); }}
+          className="text-xs text-zinc-700 dark:text-zinc-200"
+          wrapperClassName="w-auto min-w-[120px]"
+        >
           <option value="all">All plans</option>
           <option value="Aaradhana">Aaradhana</option>
           <option value="Sankalpa">Sankalpa</option>
           <option value="Prarambha">Prarambha</option>
-        </select>
-        <select value={periodFilter} onChange={e => setPeriodFilter(e.target.value)} className="rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text-secondary outline-none focus:border-brand transition-colors cursor-pointer">
+        </SelectInput>
+        <SelectInput
+          value={periodFilter}
+          onChange={e => setPeriodFilter(e.target.value)}
+          className="text-xs text-zinc-700 dark:text-zinc-200"
+          wrapperClassName="w-auto min-w-[120px]"
+        >
           <option value="this-month">This month</option>
           <option value="last-month">Last month</option>
           <option value="this-year">This year</option>
           <option value="custom">Custom range</option>
-        </select>
+        </SelectInput>
       </div>
 
       {/* Table */}

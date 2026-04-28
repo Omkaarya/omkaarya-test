@@ -5,6 +5,10 @@ import { CheckCircle2, X, Plus, FileText, Search, CircleUser, Gift, Check, MoreH
 import Link from "next/link";
 
 import { Button } from "@/app/components/ds/atoms/Button";
+import SelectInput from "@/app/components/admin/SelectInput";
+
+const templeToolbarSelect =
+  "!h-10 !min-h-0 !rounded-xl !py-0 !pl-3 !text-sm !border-zinc-100 !bg-white focus:!ring-2 focus:!ring-[var(--brand-primary)] dark:!border-zinc-800 dark:!bg-zinc-950";
 
 // ── Toast ─────────────────────────────────────────────────────────
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
@@ -81,12 +85,12 @@ export default function TempleDonationsPage() {
             className="h-10 w-full rounded-xl border border-zinc-100 bg-zinc-50 pl-10 pr-4 text-sm outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-900"
           />
         </div>
-        <select className="h-10 rounded-xl border border-zinc-100 bg-white px-3 text-sm outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950">
+        <SelectInput className={templeToolbarSelect} wrapperClassName="w-auto min-w-[8rem]">
           <option>All types</option><option>Cash</option><option>Cheque</option><option>Online</option><option>In-kind</option>
-        </select>
-        <select className="h-10 rounded-xl border border-zinc-100 bg-white px-3 text-sm outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950">
+        </SelectInput>
+        <SelectInput className={templeToolbarSelect} wrapperClassName="w-auto min-w-[8rem]">
           <option>This month</option><option>This year</option><option>Custom range</option>
-        </select>
+        </SelectInput>
       </div>
 
       {/* Table */}

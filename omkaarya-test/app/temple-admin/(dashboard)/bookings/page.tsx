@@ -21,6 +21,44 @@ import {
   Pencil,
   Trash2
 } from "lucide-react";
+
+import SelectInput from "@/app/components/admin/SelectInput";
+
+const bookingToolbarSelect =
+  "!min-h-0 !rounded-xl !border !border-zinc-100 !px-3.5 !py-2 !text-xs !font-bold !text-[var(--text-secondary)] !bg-white !shadow-sm focus:!ring-2 focus:!ring-[var(--brand-primary)] dark:!border-zinc-800 dark:!bg-zinc-950 !outline-none !cursor-pointer !font-[inherit]";
+
+// ── Types ──────────────────────────────────────────────────────────
+
+type BookingStatus = "Confirmed" | "Pending" | "Cancelled";
+type PaymentStatus = "Paid" | "Not Paid" | "Refunded";
+type SourceType = "Walk-in" | "Online";
+
+type Booking = {
+  id: string;
+  poojaName: string;
+  priestName: string;
+  devoteeName: string;
+  devoteePhone: string;
+  date: string;
+  time: string;
+  amount: string;
+  paymentStatus: PaymentStatus;
+  bookingStatus: BookingStatus;
+  sourceType: SourceType;
+};
+
+// ── Data ───────────────────────────────────────────────────────────
+
+const BOOKINGS: Booking[] = [
+  { id: "BK001", poojaName: "108 Sangabhishekam", priestName: "Kamal Sharma", devoteeName: "Lakshmi Devi", devoteePhone: "+91 98765 43210", date: "2026-12-05", time: "06:00 AM", amount: "LKR 1,000.00", paymentStatus: "Paid", bookingStatus: "Confirmed", sourceType: "Walk-in" },
+  { id: "BK002", poojaName: "Sathyanarayana Pooja", priestName: "Ramesh Kumar", devoteeName: "Anjali Sharma", devoteePhone: "+91 98076 54321", date: "2026-12-06", time: "07:30 AM", amount: "LKR 1,200.00", paymentStatus: "Not Paid", bookingStatus: "Pending", sourceType: "Online" },
+  { id: "BK003", poojaName: "Navagraha Shanti Homam", priestName: "Vijay Singh", devoteeName: "Ravi Prakash", devoteePhone: "+91 81234 55769", date: "2026-12-07", time: "09:00 AM", amount: "LKR 1,500.00", paymentStatus: "Paid", bookingStatus: "Confirmed", sourceType: "Walk-in" },
+  { id: "BK004", poojaName: "Ganapathi Homam", priestName: "Meera Joshi", devoteeName: "Vikram Singh", devoteePhone: "+91 97654 32100", date: "2026-12-08", time: "09:00 AM", amount: "LKR 800.00", paymentStatus: "Refunded", bookingStatus: "Cancelled", sourceType: "Online" },
+  { id: "BK005", poojaName: "Annual Shraddha Tithi", priestName: "Arun Verma", devoteeName: "Sunita Iyer", devoteePhone: "+91 92345 67890", date: "2026-12-09", time: "10:30 AM", amount: "LKR 2,000.00", paymentStatus: "Paid", bookingStatus: "Confirmed", sourceType: "Walk-in" },
+  { id: "BK006", poojaName: "Navagraha Shanti Homam", priestName: "Nitin Mehta", devoteeName: "Kiran Rao", devoteePhone: "+91 93456 79901", date: "2026-12-10", time: "11:00 AM", amount: "LKR 1,100.00", paymentStatus: "Not Paid", bookingStatus: "Pending", sourceType: "Online" },
+  { id: "BK007", poojaName: "Veetuk Krithyam", priestName: "Anil Gupta", devoteeName: "Pooja Agarwal", devoteePhone: "+91 94567 89012", date: "2026-12-11", time: "05:00 PM", amount: "LKR 1,300.00", paymentStatus: "Paid", bookingStatus: "Confirmed", sourceType: "Walk-in" },
+  { id: "BK008", poojaName: "Kiraga Pravesam", priestName: "Raghav Sharma", devoteeName: "Rita Joshi", devoteePhone: "+91 95678 90123", date: "2026-12-12", time: "12:00 PM", amount: "LKR 1,800.00", paymentStatus: "Paid", bookingStatus: "Confirmed", sourceType: "Online" },
+  { id: "BK009", poojaName: "Puberty Ceremony Poojas", priestName: "Sanjay Kumar", devoteeName: "Rohan Nayak", devoteePhone: "+91 96789 01234", date: "2026-12-13", time: "01:30 PM", amount: "LKR 900.00", paymentStatus: "Refunded", bookingStatus: "Cancelled", sourceType: "Walk-in" },
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Input } from "@/app/components/ds/atoms/Input";
 import StatusBadge from "@/app/components/admin/StatusBadge";

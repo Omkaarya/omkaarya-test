@@ -16,6 +16,14 @@ import {
 
 // ─── Omkaarya Design System ───────────────────────────────────────
 import { Button } from "@/app/components/ds/atoms/Button";
+import SelectInput from "@/app/components/admin/SelectInput";
+
+const prasadBarSelect =
+  "!h-10 !min-h-0 !rounded-xl !py-0 !pl-3 !text-sm !border-zinc-100 !bg-white dark:!border-zinc-800 dark:!bg-zinc-950";
+const prasadModalSelect =
+  "!h-11 !min-h-0 !w-full !rounded-xl !py-0 !pl-3 !text-sm !border-zinc-100 dark:!border-zinc-800 dark:!bg-zinc-900";
+const prasadModalSelectInv =
+  "!h-11 !min-h-0 !w-full !rounded-xl !py-0 !pl-4 !text-sm !border-zinc-100 !bg-white dark:!border-zinc-800 dark:!bg-zinc-950";
 import { Badge } from "@/app/components/ds/atoms/Badge";
 import { Input } from "@/app/components/ds/atoms/Input";
 import { Select } from "@/app/components/ds/atoms/Select";
@@ -211,6 +219,29 @@ export default function PrasadItemsPage() {
         </div>
       </div>
 
+      {/* Filters Area */}
+      <div className="flex flex-col gap-4 rounded-2xl border border-zinc-100 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-1 items-center gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+            <input
+              type="text"
+              placeholder="Search prashadham..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-10 w-full rounded-xl border border-zinc-100 bg-zinc-50 pl-10 pr-4 text-sm outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-900"
+            />
+          </div>
+          <SelectInput className={prasadBarSelect} wrapperClassName="w-auto min-w-[8rem]">
+            {CATEGORIES.map((cat) => (
+              <option key={cat}>{cat}</option>
+            ))}
+          </SelectInput>
+          <SelectInput className={prasadBarSelect} wrapperClassName="w-auto min-w-[8rem]">
+            <option>All Status</option>
+            <option>Available</option>
+            <option>Unavailable</option>
+          </SelectInput>
       {/* ─── Filters & Table ────────────────────────────────────────── */}
       <div className="bg-surface rounded-2xl border border-border shadow-xs overflow-hidden">
         <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-4 items-center justify-between">
@@ -284,6 +315,79 @@ function AddPrasadModal({ onClose }: { onClose: () => void }) {
               <ImageIcon className="h-6 w-6" />
               <span className="text-[9px] font-bold uppercase tracking-wider">Upload image</span>
             </div>
+            <div className="flex-1 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Prashadham Name *</label>
+                  <input type="text" placeholder="e.g. Sakkarai Pongal" className="h-11 w-full rounded-xl border border-zinc-100 px-4 text-sm outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-900" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Category *</label>
+                  <SelectInput className={prasadModalSelect}>
+                    <option>Select category</option>
+                    <option>Sweet Prashadham</option>
+                    <option>Savoury</option>
+                  </SelectInput>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Price *</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-zinc-400">$</span>
+                    <input type="number" placeholder="0.00" className="h-11 w-full rounded-xl border border-zinc-100 pl-8 pr-4 text-sm outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-900" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Currency</label>
+                  <SelectInput className={prasadModalSelect}>
+                    <option>CHF</option>
+                    <option>USD</option>
+                    <option>LKR</option>
+                  </SelectInput>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Unit</label>
+                  <SelectInput className={prasadModalSelect}>
+                    <option>Per kg</option>
+                    <option>Per piece</option>
+                  </SelectInput>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-1.5 mb-8">
+            <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Description</label>
+            <textarea rows={3} placeholder="Short description of this prashadham..." className="w-full rounded-xl border border-zinc-100 p-4 text-sm outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-900" />
+          </div>
+
+          <div className="space-y-4 rounded-3xl bg-zinc-50 p-6 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-bold">Included Items / Ingredients</h3>
+                <p className="text-[10px] text-[var(--text-muted)] max-w-sm">
+                  Map inventory items that go into this prashadham (e.g. Rice 1kg + Ghee 200ml)
+                </p>
+              </div>
+              <Button size="sm" variant="outline" className="gap-2 rounded-xl" onClick={addIngredient}>
+                <Plus className="h-4 w-4" /> Add ingredient
+              </Button>
+            </div>
+
+            <div className="space-y-3">
+              {ingredients.map((ing) => (
+                <div key={ing.id} className="flex gap-3">
+                  <div className="flex-1">
+                    <SelectInput className={prasadModalSelectInv}>
+                      <option>Select item from inventory...</option>
+                      <option>Rice (PRD-004)</option>
+                      <option>Jaggery (PRD-008)</option>
+                      <option>Ghee (OIL-002)</option>
+                    </SelectInput>
+                  </div>
+                  <div className="w-32">
+                    <input type="text" placeholder="Qty" className="h-11 w-full rounded-xl border border-zinc-100 bg-white px-4 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-950" />
             <div className="flex-1 grid grid-cols-2 gap-4">
                <div className="col-span-2 space-y-1.5">
                  <Label>Prashadham Name</Label>

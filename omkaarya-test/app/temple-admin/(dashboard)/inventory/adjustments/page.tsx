@@ -6,6 +6,8 @@ import {
   Undo2, SearchCheck, Info, CheckCircle2, XCircle,
 } from "lucide-react";
 
+import SelectInput from "@/app/components/admin/SelectInput";
+
 // ── Types ──────────────────────────────────────────────────────────
 
 type AdjType = "received" | "pooja-use" | "ritual-return" | "counter-sale" | "donation-in" | "damaged" | "refund-stock" | "correction";
@@ -38,8 +40,8 @@ export default function StockAdjustmentsPage() {
   const showToast = (msg: string) => { setToast({ msg, show: true }); setTimeout(() => setToast(prev => ({ ...prev, show: false })), 2500); };
 
   const inputCls = "border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 outline-none font-[inherit] w-full transition-colors focus:border-[var(--brand-primary)]";
-  const selectCls = inputCls + " cursor-pointer";
   const labelCls = "text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide";
+  const formSelectClass = "!text-xs !py-2 !rounded-lg !font-[inherit]";
 
   return (
     <div className="space-y-5">
@@ -71,12 +73,12 @@ export default function StockAdjustmentsPage() {
         )}
 
         <div className="grid grid-cols-2 gap-3.5">
-          <div className="flex flex-col gap-1"><label className={labelCls}>Product *</label><select className={selectCls}><option value="">Select product...</option><option>Besan Ladoo (PRD-001)</option><option>Camphor Tablets (PJA-001)</option><option>Rose Garland (FLW-001)</option><option>Marigold Loose (FLW-002)</option><option>Sesame Oil (OIL-001)</option><option>Kumkum Powder (PJA-002)</option><option>Ghee (OIL-002)</option><option>Cotton Wicks (OIL-003)</option></select></div>
+          <div className="flex flex-col gap-1"><label className={labelCls}>Product *</label><SelectInput className={formSelectClass}><option value="">Select product...</option><option>Besan Ladoo (PRD-001)</option><option>Camphor Tablets (PJA-001)</option><option>Rose Garland (FLW-001)</option><option>Marigold Loose (FLW-002)</option><option>Sesame Oil (OIL-001)</option><option>Kumkum Powder (PJA-002)</option><option>Ghee (OIL-002)</option><option>Cotton Wicks (OIL-003)</option></SelectInput></div>
           <div className="flex flex-col gap-1"><label className={labelCls}>Quantity *</label><input className={inputCls} type="number" placeholder="Enter quantity" min={1} /></div>
           <div className="flex flex-col gap-1"><label className={labelCls}>Date *</label><input className={inputCls} type="date" defaultValue="2026-04-20" /></div>
-          <div className="flex flex-col gap-1"><label className={labelCls}>Adjusted by</label><select className={selectCls}><option>Temple Admin</option><option>Head Priest</option><option>Assistant Priest</option><option>Trustee</option></select></div>
-          <div className="flex flex-col gap-1"><label className={labelCls}>Linked pooja (if used in pooja)</label><select className={selectCls}><option value="">Not linked to a pooja</option><option>POOJA-0142 — Rudrabhishekam, 20 Apr</option><option>POOJA-0141 — Archana, 20 Apr</option><option>POOJA-0138 — Homam, 18 Apr</option></select></div>
-          <div className="flex flex-col gap-1"><label className={labelCls}>Supplier (if received)</label><select className={selectCls}><option value="">N/A</option><option>Sri Lakshmi Traders</option><option>Om Flowers London</option><option>Vedic Supplies UK</option></select></div>
+          <div className="flex flex-col gap-1"><label className={labelCls}>Adjusted by</label><SelectInput className={formSelectClass}><option>Temple Admin</option><option>Head Priest</option><option>Assistant Priest</option><option>Trustee</option></SelectInput></div>
+          <div className="flex flex-col gap-1"><label className={labelCls}>Linked pooja (if used in pooja)</label><SelectInput className={formSelectClass}><option value="">Not linked to a pooja</option><option>POOJA-0142 — Rudrabhishekam, 20 Apr</option><option>POOJA-0141 — Archana, 20 Apr</option><option>POOJA-0138 — Homam, 18 Apr</option></SelectInput></div>
+          <div className="flex flex-col gap-1"><label className={labelCls}>Supplier (if received)</label><SelectInput className={formSelectClass}><option value="">N/A</option><option>Sri Lakshmi Traders</option><option>Om Flowers London</option><option>Vedic Supplies UK</option></SelectInput></div>
           <div className="flex flex-col gap-1 col-span-2"><label className={labelCls}>Notes / reason</label><input className={inputCls} placeholder="e.g. Weekly delivery from supplier, used for morning Rudrabhishekam..." /></div>
         </div>
         <div className="flex gap-2 justify-end pt-4 mt-4 border-t border-zinc-100 dark:border-zinc-800">
