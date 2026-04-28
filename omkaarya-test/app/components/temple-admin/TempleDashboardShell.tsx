@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   Lock,
   Menu,
+  Monitor,
   Moon,
   Package,
   Settings,
@@ -84,6 +85,7 @@ const navItems: NavItem[] = [
     ],
   },
   { href: "/temple-admin/pos", label: "POS", icon: ShoppingCart, moduleKey: "pos" },
+  { href: "/temple-admin/kiosk", label: "Kiosk Center", icon: Monitor, moduleKey: "kiosk" },
   {
     label: "Prashadham",
     icon: Cookie,

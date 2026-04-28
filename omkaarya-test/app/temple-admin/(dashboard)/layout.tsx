@@ -23,7 +23,9 @@ export default function TempleDashboardLayout({
       theme={theme}
       onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
     >
-      <AdminDashboardMainPanel>{children}</AdminDashboardMainPanel>
+      <main className="flex-1 flex flex-col min-h-0 min-w-0">
+        {children}
+      </main>
     </TempleDashboardShell>
   );
 }

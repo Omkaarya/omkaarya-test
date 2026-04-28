@@ -283,7 +283,7 @@ function PanchTable({ data }: { data: any[] }) {
 function AddSevaModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-[32px] bg-white shadow-2xl dark:bg-zinc-950 overflow-hidden">
+      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl dark:bg-zinc-950 overflow-hidden">
         <div className="flex items-center justify-between border-b border-zinc-100 p-6 dark:border-zinc-800">
           <div>
             <h2 className="text-xl font-bold">Add New Pooja Seva</h2>
@@ -317,7 +317,7 @@ function AddSevaModal({ onClose }: { onClose: () => void }) {
 function AddScheduleModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-[32px] bg-white shadow-2xl dark:bg-zinc-950 overflow-hidden">
+      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl dark:bg-zinc-950 overflow-hidden">
         <div className="flex items-center justify-between border-b border-zinc-100 p-6 dark:border-zinc-800">
           <div>
             <h2 className="text-xl font-bold">Add Pooja Schedule</h2>

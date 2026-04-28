@@ -1,11 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import {
-  Search, Download, Plus, Package, Wrench, ShoppingCart, FileBox, PartyPopper,
-  Flower2, Droplets, Flame, Wind, Circle, Cookie, Star, Landmark,
-  AlertTriangle, CheckCircle2, XCircle,
+import { useState, useMemo } from "react";
+import Link from "next/link";
+import { 
+  Package, 
+  Plus, 
+  Search, 
+  Filter, 
+  ChevronRight, 
+  MoreVertical,
+  ArrowRight,
+  Bell,
+  History,
+  Tag,
+  Eye,
+  Pencil
 } from "lucide-react";
 import SelectInput from "@/app/components/admin/SelectInput";
 
@@ -53,154 +62,112 @@ const PRODUCTS: Product[] = [
   { icon: <Package className={ic} />, name: "Prasad Packet Small", sku: "POS-001", type: "Sale Item", cat: "Prasad Packets", unit: "Packets", qty: 120, reorder: 50, cost: "£0.80", freq: "Daily", status: "ok" },
   { icon: <FileBox className={ic} />, name: "Temple Calendar 2026", sku: "POS-002", type: "Sale Item", cat: "Books & Calendars", unit: "Pcs", qty: 5, reorder: 20, cost: "£3.00", freq: "Monthly", status: "low" },
   { icon: <FileBox className={ic} />, name: "A4 Paper (500 sheets)", sku: "ADM-001", type: "Admin", cat: "Stationery", unit: "Reams", qty: 8, reorder: 3, cost: "£5.00", freq: "Monthly", status: "ok" },
+import { Button } from "@/app/components/ds/atoms/Button";
+import { MetricCard } from "@/app/components/ds/molecules/MetricCard";
+import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
+
+const PRODUCT_TYPES = [
+  { id: "all", label: "All", icon: "🏛️", count: 243 },
+  { id: "Consumable", label: "Consumables", icon: "🔁", count: 148 },
+  { id: "Equipment", label: "Equipment", icon: "⚙️", count: 42 },
+  { id: "Sale Item", label: "POS/Sale", icon: "🛒", count: 28 },
+  { id: "Admin", label: "Office", icon: "🗃️", count: 15 },
+  { id: "Festival", label: "Festival", icon: "🎪", count: 10 },
 ];
 
-const TYPE_TABS: { id: string; label: string; Icon: React.ComponentType<{ className?: string }>; type: ProductType | "all" }[] = [
-  { id: "all", label: "All", Icon: Landmark, type: "all" },
-  { id: "con", label: "Consumables", Icon: Package, type: "Consumable" },
-  { id: "eqp", label: "Equipment", Icon: Wrench, type: "Equipment" },
-  { id: "pos", label: "POS/Sale", Icon: ShoppingCart, type: "Sale Item" },
-  { id: "adm", label: "Office", Icon: FileBox, type: "Admin" },
-  { id: "fes", label: "Festival", Icon: PartyPopper, type: "Festival" },
+const MOCK_PRODUCTS = [
+  { ico: '🟠', name: 'Besan Ladoo', sku: 'PRD-001', type: 'Consumable', cat: 'Prasad', unit: 'Pcs', qty: 42, reorder: 50, cost: '£0.45', freq: 'Daily', status: 'low' },
+  { ico: '🌸', name: 'Rose Garland', sku: 'FLW-001', type: 'Consumable', cat: 'Flowers', unit: 'Garlands', qty: 12, reorder: 10, cost: '£3.00', freq: 'Daily', status: 'ok' },
+  { ico: '🕯️', name: 'Camphor Tablets', sku: 'PJA-001', type: 'Consumable', cat: 'Puja Supplies', unit: 'Packets', qty: 0, reorder: 10, cost: '£1.75', freq: 'Daily', status: 'out' },
+  { ico: '🧴', name: 'Sesame Oil', sku: 'OIL-001', type: 'Consumable', cat: 'Oil & Lamps', unit: 'Litres', qty: 18, reorder: 5, cost: '£5.00', freq: 'Weekly', status: 'ok' },
+  { ico: '🪔', name: 'Brass Lamp 5-wick', sku: 'EQP-001', type: 'Equipment', cat: 'Lamps & Deepam', unit: 'Pcs', qty: 8, reorder: null, cost: '£45.00', freq: 'One-time', status: 'ok' },
+  { ico: '🎁', name: 'Prasad Packet Small', sku: 'POS-001', type: 'Sale Item', cat: 'Prasad Packets', unit: 'Packets', qty: 120, reorder: 50, cost: '£0.80', freq: 'Daily', status: 'ok' },
 ];
 
-const CAT_COLORS: Record<string, string> = {
-  Prasad: "bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300",
-  Flowers: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
-  "Puja Supplies": "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300",
-  Incense: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
-  "Oil & Lamps": "bg-pink-50 text-pink-700 dark:bg-pink-950/40 dark:text-pink-300",
-  "Lamps & Deepam": "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300",
-  "Vessels & Utensils": "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300",
-  "Prasad Packets": "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300",
-  "Books & Calendars": "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300",
-  Stationery: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
-};
-
-const TYPE_BADGE: Record<ProductType, { cls: string; label: string }> = {
-  Consumable: { cls: "bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300", label: "Consume" },
-  Equipment: { cls: "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300", label: "Equip" },
-  "Sale Item": { cls: "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300", label: "POS/Sale" },
-  Admin: { cls: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300", label: "Office" },
-  Festival: { cls: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300", label: "Festival" },
-};
-
-// ── Helpers ────────────────────────────────────────────────────────
-
-function statusPill(s: StockStatus) {
-  if (s === "ok") return <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"><CheckCircle2 className="w-3 h-3" />In stock</span>;
-  if (s === "low") return <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"><AlertTriangle className="w-3 h-3" />Low stock</span>;
-  return <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300"><XCircle className="w-3 h-3" />Out of stock</span>;
-}
-
-function qtyColor(s: StockStatus) {
-  if (s === "ok") return "text-zinc-900 dark:text-zinc-100 font-bold";
-  if (s === "low") return "text-amber-600 dark:text-amber-400 font-bold";
-  return "text-red-600 dark:text-red-400 font-bold";
-}
-
-// ── Page ───────────────────────────────────────────────────────────
-
-export default function InventoryProductsListPage() {
-  const router = useRouter();
+export default function InventoryPage() {
+  const [activeType, setActiveType] = useState("all");
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<ProductType | "all">("all");
-  const [catFilter, setCatFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
 
-  const typeCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: PRODUCTS.length };
-    PRODUCTS.forEach(p => { counts[p.type] = (counts[p.type] || 0) + 1; });
-    return counts;
-  }, []);
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return PRODUCTS.filter(p => {
-      if (typeFilter !== "all" && p.type !== typeFilter) return false;
-      if (catFilter && p.cat !== catFilter) return false;
-      if (statusFilter === "In stock" && p.status !== "ok") return false;
-      if (statusFilter === "Low stock" && p.status !== "low") return false;
-      if (statusFilter === "Out of stock" && p.status !== "out") return false;
-      if (q && !p.name.toLowerCase().includes(q) && !p.sku.toLowerCase().includes(q)) return false;
-      return true;
+  const filteredProducts = useMemo(() => {
+    return MOCK_PRODUCTS.filter(p => {
+      const matchesType = activeType === "all" || p.type === activeType;
+      const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase());
+      return matchesType && matchesSearch;
     });
-  }, [search, typeFilter, catFilter, statusFilter]);
-
-  const metrics = useMemo(() => ({
-    total: PRODUCTS.length,
-    inStock: PRODUCTS.filter(p => p.status === "ok").length,
-    low: PRODUCTS.filter(p => p.status === "low").length,
-    out: PRODUCTS.filter(p => p.status === "out").length,
-  }), []);
-
-  const categories = useMemo(() => [...new Set(PRODUCTS.map(p => p.cat))].sort(), []);
+  }, [activeType, search]);
 
   const invToolbarSelect =
     "!text-[11px] !py-[7px] !pl-2 !rounded-lg !font-[inherit] !text-zinc-600 dark:!text-zinc-300";
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3">
+    <div className="space-y-6 animate-in fade-in duration-500">
+      
+      {/* ── Header ─────────────────────────────────────────────────── */}
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <h1 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Products & Inventory</h1>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">All temple items — consumables, equipment, POS items, office supplies & festival stock</p>
+           <div className="flex items-center gap-2 text-[11px] font-bold text-text-tertiary mb-1">
+              <span>Inventory</span>
+              <ChevronRight className="w-3 h-3" />
+              <span className="text-brand">All Products</span>
+           </div>
+           <h1 className="text-xl font-extrabold text-text-primary tracking-tight">Products & Inventory</h1>
+           <p className="text-[12px] text-text-tertiary mt-1">All temple items — consumables, equipment, POS items, office supplies & festival stock</p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)] transition-colors">
-            <Download className="w-3.5 h-3.5" />Export
-          </button>
-          <button onClick={() => router.push("/temple-admin/inventory/create")} className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--brand-primary)] px-3 py-2 text-[11px] font-semibold text-white hover:bg-[var(--brand-primary-hover)] transition-colors">
-            <Plus className="w-3.5 h-3.5" />Add product
-          </button>
+        <div className="flex items-center gap-2">
+           <Button variant="outline" size="sm" leadingIcon={<History className="w-4 h-4" />}>Stock Log</Button>
+           <Link href="/temple-admin/inventory/create">
+             <Button size="sm" leadingIcon={<Plus className="w-4 h-4" />}>Add Product</Button>
+           </Link>
         </div>
       </div>
 
-      {/* Type Tabs */}
-      <div className="flex gap-2 flex-wrap">
-        {TYPE_TABS.map(tab => {
-          const active = typeFilter === tab.type;
-          const count = tab.type === "all" ? typeCounts.all : (typeCounts[tab.type] || 0);
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setTypeFilter(tab.type)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-[1.5px] text-[11px] font-medium transition-all ${
-                active
-                  ? "border-[var(--brand-primary)] bg-orange-50 dark:bg-orange-950/30 text-[var(--brand-primary)] font-bold"
-                  : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 hover:border-zinc-300"
-              }`}
-            >
-              <tab.Icon className="w-3.5 h-3.5" /> {tab.label} ({count})
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Metric Cards */}
-      <div className="grid grid-cols-4 gap-2.5">
-        {[
-          { label: "Total products", value: metrics.total, sub: "6 product types", color: "", Icon: Package },
-          { label: "In stock", value: metrics.inStock, sub: `${((metrics.inStock / metrics.total) * 100).toFixed(1)}% of items`, color: "text-emerald-600 dark:text-emerald-400", Icon: CheckCircle2 },
-          { label: "Low stock", value: metrics.low, sub: "reorder soon", color: "text-amber-600 dark:text-amber-400", Icon: AlertTriangle },
-          { label: "Out of stock", value: metrics.out, sub: "action needed", color: "text-red-600 dark:text-red-400", Icon: XCircle },
-        ].map((m, i) => (
-          <div key={i} className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
-            <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400 font-medium mb-1.5">
-              <m.Icon className="w-3.5 h-3.5" />{m.label}
-            </div>
-            <div className={`text-2xl font-bold leading-none ${m.color || "text-zinc-900 dark:text-zinc-50"}`}>{m.value}</div>
-            <div className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1">{m.sub}</div>
-          </div>
+      {/* ── Module Tabs ────────────────────────────────────────────── */}
+      <div className="flex flex-wrap gap-2 overflow-x-auto pb-1 scrollbar-none">
+        {PRODUCT_TYPES.map(type => (
+          <button
+            key={type.id}
+            onClick={() => setActiveType(type.id)}
+            className={`
+              flex items-center gap-2 px-3.5 py-2 rounded-xl text-[11px] font-bold transition-all border whitespace-nowrap
+              ${activeType === type.id 
+                ? 'bg-brand-muted border-brand text-brand shadow-sm' 
+                : 'bg-surface border-border text-text-secondary hover:border-gray-400 hover:text-text-primary'
+              }
+            `}
+          >
+            <span className="text-[13px]">{type.icon}</span>
+            <span>{type.label}</span>
+            <span className={`px-1.5 py-0.5 rounded-lg text-[9px] font-black ${activeType === type.id ? 'bg-brand text-white' : 'bg-gray-100 text-text-tertiary'}`}>
+              {type.count}
+            </span>
+          </button>
         ))}
       </div>
 
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-[7px] min-w-[220px]">
-          <Search className="w-[13px] h-[13px] text-zinc-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or SKU..." className="border-none outline-none text-xs text-zinc-900 dark:text-zinc-100 bg-transparent w-full font-[inherit] placeholder:text-zinc-400" />
+      {/* ── Metrics Grid ───────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+         <MetricCard title="Total products" value="243" trendLabel="6 product types" chartColor="brand" />
+         <MetricCard title="In stock" value="218" trendPercentage={90} trendLabel="In stock items" chartColor="success" />
+         <MetricCard title="Low stock" value="14" trendPercentage={-5} trendLabel="Reorder soon" chartColor="warning" />
+         <MetricCard title="Out of stock" value="11" trendPercentage={-2} trendLabel="Action needed" chartColor="gray" />
+      </div>
+
+      {/* ── Toolbar & Table ────────────────────────────────────────── */}
+      <div className="bg-surface rounded-xl border border-border shadow-sm overflow-hidden">
+        
+        {/* Toolbar */}
+        <div className="px-5 py-4 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+           <div className="flex-1 max-w-md">
+              <SearchInput 
+                placeholder="Search products by name or SKU..." 
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+           </div>
+           <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" leadingIcon={<Filter className="w-4 h-4" />}>Filters</Button>
+              <Button variant="outline" size="sm">Export</Button>
+           </div>
         </div>
         <SelectInput
           value={catFilter}
@@ -224,64 +191,89 @@ export default function InventoryProductsListPage() {
         </SelectInput>
       </div>
 
-      {/* Table */}
-      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-        <table className="w-full border-collapse">
-          <thead className="bg-zinc-50 dark:bg-zinc-800/50">
-            <tr>
-              {["Item", "Type", "Category", "Unit", "In stock", "Reorder at", "Unit cost", "Frequency", "Status", "Actions"].map(h => (
-                <th key={h} className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide px-3.5 py-2.5 text-left border-b border-zinc-200 dark:border-zinc-700 whitespace-nowrap first:pl-4">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr><td colSpan={10} className="text-center py-10 text-zinc-400 text-sm">No items match your filters</td></tr>
-            ) : (
-              filtered.map((p, i) => (
-                <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors cursor-pointer" onClick={() => router.push("/temple-admin/inventory/create")}>
-                  <td className="px-3.5 py-2.5 first:pl-4">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-[34px] h-[34px] rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-500 dark:text-zinc-400 shrink-0">{p.icon}</div>
-                      <div>
-                        <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{p.name}</div>
-                        <div className="text-[10px] text-zinc-400 font-mono mt-0.5">{p.sku}</div>
-                      </div>
-                    </div>
+        {/* Table */}
+        <div className="overflow-x-auto min-h-[400px]">
+          <table className="w-full text-left">
+            <thead className="bg-gray-50/50 border-b border-border">
+              <tr>
+                <th className="px-5 py-3 text-[10px] font-black text-text-tertiary uppercase tracking-widest">Item</th>
+                <th className="px-5 py-3 text-[10px] font-black text-text-tertiary uppercase tracking-widest">Category</th>
+                <th className="px-5 py-3 text-[10px] font-black text-text-tertiary uppercase tracking-widest">Stock Qty</th>
+                <th className="px-5 py-3 text-[10px] font-black text-text-tertiary uppercase tracking-widest">Unit Cost</th>
+                <th className="px-5 py-3 text-[10px] font-black text-text-tertiary uppercase tracking-widest">Status</th>
+                <th className="px-5 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-secondary">
+              {filteredProducts.map((p, i) => (
+                <tr key={i} className="hover:bg-gray-50/50 transition-colors group cursor-pointer">
+                  <td className="px-5 py-4">
+                     <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-gray-50 border border-border flex items-center justify-center text-[18px] shrink-0">{p.ico}</div>
+                        <div className="flex flex-col min-w-0">
+                           <div className="text-[12px] font-bold text-text-primary truncate">{p.name}</div>
+                           <div className="text-[10px] font-mono text-text-placeholder">{p.sku}</div>
+                        </div>
+                     </div>
                   </td>
-                  <td className="px-3.5 py-2.5"><span className={`inline-block text-[9px] font-bold px-1.5 py-px rounded uppercase tracking-wide ${TYPE_BADGE[p.type].cls}`}>{TYPE_BADGE[p.type].label}</span></td>
-                  <td className="px-3.5 py-2.5"><span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-lg ${CAT_COLORS[p.cat] || "bg-zinc-100 text-zinc-600"}`}>{p.cat}</span></td>
-                  <td className="px-3.5 py-2.5 text-[11px] text-zinc-500 dark:text-zinc-400">{p.unit}</td>
-                  <td className="px-3.5 py-2.5">
-                    <div className={qtyColor(p.status)}>{p.qty}</div>
-                    {p.status !== "ok" && p.reorder && (
-                      <div className="text-[9px] text-amber-600 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-400 px-1.5 py-px rounded mt-0.5 inline-block">Reorder &lt;{p.reorder}</div>
-                    )}
+                  <td className="px-5 py-4">
+                     <div className={`inline-flex px-2 py-0.5 rounded-lg text-[10px] font-bold border
+                        ${p.cat === 'Prasad' ? 'bg-brand-muted border-brand/20 text-brand' : 
+                          p.cat === 'Flowers' ? 'bg-green-50 border-green-200 text-green-700' :
+                          'bg-blue-50 border-blue-200 text-blue-700'}
+                     `}>
+                        {p.cat}
+                     </div>
                   </td>
-                  <td className="px-3.5 py-2.5 text-[11px] text-zinc-400">{p.reorder ?? "—"}</td>
-                  <td className="px-3.5 py-2.5 text-[11px] text-zinc-600 dark:text-zinc-300 font-medium">{p.cost}</td>
-                  <td className="px-3.5 py-2.5 text-[11px] text-zinc-500 dark:text-zinc-400">{p.freq}</td>
-                  <td className="px-3.5 py-2.5">{statusPill(p.status)}</td>
-                  <td className="px-3.5 py-2.5">
-                    <div className="flex gap-1" onClick={e => e.stopPropagation()}>
-                      <button onClick={() => router.push("/temple-admin/inventory/create")} className="px-2 py-1 text-[11px] border border-zinc-200 dark:border-zinc-700 rounded-md text-zinc-500 dark:text-zinc-400 hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)] transition-colors">Edit</button>
-                      <button onClick={() => router.push("/temple-admin/inventory/adjustments")} className="px-2 py-1 text-[11px] border border-zinc-200 dark:border-zinc-700 rounded-md text-zinc-500 dark:text-zinc-400 hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)] transition-colors">Adjust</button>
-                    </div>
+                  <td className="px-5 py-4">
+                     <div className={`text-[14px] font-extrabold tracking-tight ${p.status === 'out' ? 'text-status-danger-text' : p.status === 'low' ? 'text-status-warning-text' : 'text-text-primary'}`}>
+                        {p.qty} <span className="text-[10px] text-text-placeholder font-medium">{p.unit}</span>
+                     </div>
+                     {p.reorder && p.status !== 'ok' && (
+                        <div className="text-[9px] font-bold text-status-warning-text mt-0.5">Reorder &lt;{p.reorder}</div>
+                     )}
+                  </td>
+                  <td className="px-5 py-4 text-[12px] font-bold text-text-secondary">{p.cost}</td>
+                  <td className="px-5 py-4">
+                     <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold
+                        ${p.status === 'ok' ? 'bg-status-success-bg text-status-success-text' : 
+                          p.status === 'low' ? 'bg-status-warning-bg text-status-warning-text' : 
+                          'bg-status-danger-bg text-status-danger-text'}
+                     `}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${
+                           p.status === 'ok' ? 'bg-status-success-text' : 
+                           p.status === 'low' ? 'bg-status-warning-text' : 
+                           'bg-status-danger-text'
+                        }`} />
+                        {p.status === 'ok' ? 'In Stock' : p.status === 'low' ? 'Low Stock' : 'Out of Stock'}
+                     </div>
+                  </td>
+                  <td className="px-5 py-4 text-right">
+                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="ghost" size="sm" iconOnly><Eye className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="sm" iconOnly><Pencil className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="sm" iconOnly><MoreVertical className="w-4 h-4" /></Button>
+                     </div>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-        <div className="flex items-center justify-between px-4 py-2.5 border-t border-zinc-100 dark:border-zinc-800">
-          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Showing {filtered.length} of {PRODUCTS.length} products</span>
-          <div className="flex gap-1">
-            {["‹", "1", "2", "3", "›"].map((pg, i) => (
-              <button key={i} className={`w-7 h-7 rounded-md border text-[11px] flex items-center justify-center font-[inherit] transition-colors ${pg === "1" ? "bg-[var(--brand-primary)] text-white border-[var(--brand-primary)]" : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]"}`}>{pg}</button>
-            ))}
-          </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-border flex items-center justify-between bg-gray-50/20">
+           <span className="text-[11px] text-text-tertiary font-bold tracking-tight uppercase">Showing {filteredProducts.length} of 243 items</span>
+           <div className="flex items-center gap-1">
+              <Button variant="outline" size="sm" className="h-8 min-w-[32px] px-2 font-bold bg-brand text-white border-brand">1</Button>
+              <Button variant="outline" size="sm" className="h-8 min-w-[32px] px-2 font-bold">2</Button>
+              <Button variant="outline" size="sm" className="h-8 min-w-[32px] px-2 font-bold">3</Button>
+              <span className="mx-1 text-text-placeholder">...</span>
+              <Button variant="outline" size="sm" className="h-8 min-w-[32px] px-2 font-bold">24</Button>
+           </div>
         </div>
       </div>
+
     </div>
   );
 }

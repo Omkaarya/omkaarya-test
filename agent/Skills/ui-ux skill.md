@@ -108,6 +108,7 @@ It defines:
 - All tables use the `<EmptyState />` component when zero records are returned — never build ad-hoc "no records" text
 - Table columns: fixed, predictable widths — no janky layout shifts on data load
 - Sortable columns are clearly indicated — sort direction is visible
+- **Corner Radius & Clip Content:** If a table or card container has a border radius, it must also implement `overflow: hidden` (mapping to Figma's "Clip Content" behavior) to ensure header backgrounds and row hover states do not bleed over the rounded corners.
 
 ### 4.5 Empty States
 - Every list, table, or data view must have a designed empty state
