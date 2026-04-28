@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
+import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import {
   Bell,
   Calendar,
@@ -33,13 +35,14 @@ type Invoice = {
   templeLocation: string;
   templeAddress: string;
   adminEmail: string;
-  plan: "Aaradhana" | "Sankalpa" | "Praramba";
+  plan: string;
   period: string;
   amount: string;
   issuedDate: string;
   dueDate: string;
   status: InvoiceStatus;
-  cardLast4: string;
+  amountCents: number;
+  currency: string;
 };
 
 function statusColor(s: InvoiceStatus) {
@@ -67,7 +70,9 @@ function planBadgeColor(p: string) {
 }
 
 function formatDate(d: string) {
+  if (!d || d === "—") return "—";
   const dt = new Date(d);
+  if (Number.isNaN(dt.getTime())) return d;
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   return `${dt.getDate()} ${months[dt.getMonth()]} ${dt.getFullYear()}`;
 }
@@ -110,7 +115,35 @@ function DropdownItem({ icon, label, onClick }: { icon: React.ReactNode; label: 
 
 // ── Invoice Detail Modal ────────────────────────────────────────────
 
-function InvoiceModal({ invoice, onClose }: { invoice: Invoice; onClose: () => void }) {
+type BillingProfile = {
+  issuer: { name: string; address: string; email: string; website: string; brandLine: string };
+  paymentMethodLabel: string;
+  bank: { bankName: string; accountName: string; accountNumber: string; swift: string; notes: string };
+  tax: { rateBps: number; label: string };
+  money: { currency: string };
+};
+
+function formatMoney(currency: string, amountCents: number): string {
+  const c = (currency || "USD").toUpperCase();
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: c }).format((amountCents ?? 0) / 100);
+}
+
+function InvoiceModal({
+  invoice,
+  profile,
+  onClose,
+}: {
+  invoice: Invoice;
+  profile: BillingProfile | null;
+  onClose: () => void;
+}) {
+  const currency = invoice.currency || profile?.money?.currency || "USD";
+  const taxRateBps = profile?.tax?.rateBps ?? 0;
+  const taxCents = Math.max(0, Math.round(((invoice.amountCents ?? 0) * taxRateBps) / 10_000));
+  const subtotal = formatMoney(currency, invoice.amountCents ?? 0);
+  const tax = formatMoney(currency, taxCents);
+  const total = formatMoney(currency, (invoice.amountCents ?? 0) + taxCents);
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
       <div className="absolute inset-0 bg-gray-950/60 backdrop-blur-sm" onClick={onClose} />
@@ -141,9 +174,9 @@ function InvoiceModal({ invoice, onClose }: { invoice: Invoice; onClose: () => v
           <div className="grid grid-cols-2 gap-8">
             <div>
               <p className="text-sm font-bold text-text-primary mb-2">Invoice From:</p>
-              <p className="text-sm font-medium text-text-primary">Pepulux Pvt Ltd</p>
-              <p className="text-sm text-text-secondary">Colombo 03, Sri Lanka</p>
-              <p className="text-sm text-text-tertiary">billing@omkaarya.com</p>
+              <p className="text-sm font-medium text-text-primary">{profile?.issuer?.name ?? "—"}</p>
+              <p className="text-sm text-text-secondary">{profile?.issuer?.address ?? "—"}</p>
+              <p className="text-sm text-text-tertiary">{profile?.issuer?.email ?? "—"}</p>
             </div>
             <div>
               <p className="text-sm font-bold text-text-primary mb-2">Invoice To:</p>
@@ -175,13 +208,15 @@ function InvoiceModal({ invoice, onClose }: { invoice: Invoice; onClose: () => v
           <div className="flex items-start justify-between gap-8">
             <div>
               <p className="text-sm font-bold text-text-primary mb-2">Payment Info</p>
-              <p className="text-sm text-text-secondary">Bank transfer — Pepulux Pvt Ltd</p>
-              <p className="text-sm text-text-secondary">Amount: {invoice.amount}</p>
+              <p className="text-sm text-text-secondary">
+                {(profile?.paymentMethodLabel ?? "—")}{profile?.bank?.accountName ? ` — ${profile.bank.accountName}` : ""}
+              </p>
+              <p className="text-sm text-text-secondary">Amount: {subtotal}</p>
             </div>
             <div className="text-right space-y-1 min-w-[200px]">
-              <div className="flex justify-between text-sm"><span className="text-text-secondary">Sub Total</span><span className="text-text-primary tabular-nums">{invoice.amount}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-text-secondary">Tax</span><span className="text-text-primary tabular-nums">$0.00</span></div>
-              <div className="flex justify-between text-sm font-bold pt-1 border-t border-border"><span className="text-text-primary">Total</span><span className="text-text-primary tabular-nums">{invoice.amount}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-text-secondary">Sub Total</span><span className="text-text-primary tabular-nums">{subtotal}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-text-secondary">{profile?.tax?.label ?? "Tax"}</span><span className="text-text-primary tabular-nums">{tax}</span></div>
+              <div className="flex justify-between text-sm font-bold pt-1 border-t border-border"><span className="text-text-primary">Total</span><span className="text-text-primary tabular-nums">{total}</span></div>
             </div>
           </div>
           <div className="rounded-xl bg-rose-50 dark:bg-rose-950/20 p-5">
@@ -212,18 +247,41 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   );
 }
 
-// ── Mock Data ──────────────────────────────────────────────────────
+type ApiRow = {
+  id: string;
+  num: string;
+  temple: string;
+  templeLocation: string;
+  templeAddress: string;
+  adminEmail: string;
+  plan: string;
+  period: string;
+  amountCents: number;
+  issuedDate: string;
+  dueDate: string | null;
+  status: InvoiceStatus;
+  currency: string;
+  isTrialProforma: boolean;
+};
 
-const mockInvoices: Invoice[] = [
-  { id: "1", num: "INV-2026-0025", temple: "Lakshmi Mandir", templeLocation: "Toronto", templeAddress: "Toronto, CA", adminEmail: "admin@lakshmitoronto.ca", plan: "Aaradhana", period: "Yearly", amount: "$1,099.00", issuedDate: "2026-04-21", dueDate: "2026-05-05", status: "pending", cardLast4: "—" },
-  { id: "2", num: "INV-2026-0024", temple: "Sri Murugan Kovil", templeLocation: "Zurich", templeAddress: "Zurich, CH", adminEmail: "admin@murugan.ch", plan: "Sankalpa", period: "Yearly", amount: "$699.00", issuedDate: "2026-04-18", dueDate: "2026-05-02", status: "pending", cardLast4: "—" },
-  { id: "3", num: "INV-2026-0023", temple: "Venkateswara Temple", templeLocation: "Oslo", templeAddress: "Oslo, NO", adminEmail: "info@venkatno.org", plan: "Praramba", period: "Yearly", amount: "$299.00", issuedDate: "2026-04-10", dueDate: "2026-04-24", status: "overdue", cardLast4: "—" },
-  { id: "4", num: "INV-2026-0022", temple: "Shiva Temple", templeLocation: "London", templeAddress: "London, UK", adminEmail: "admin@shivatemple.com", plan: "Aaradhana", period: "Yearly", amount: "$1,099.00", issuedDate: "2026-04-01", dueDate: "2026-04-15", status: "paid", cardLast4: "5765" },
-  { id: "5", num: "INV-2026-0021", temple: "Ganesh Temple", templeLocation: "Singapore", templeAddress: "Singapore", adminEmail: "info@ganeshsg.com", plan: "Praramba", period: "Yearly", amount: "$299.00", issuedDate: "2026-03-15", dueDate: "2026-03-29", status: "paid", cardLast4: "—" },
-  { id: "6", num: "INV-2026-0020", temple: "Sri Mariamman", templeLocation: "Copenhagen", templeAddress: "Copenhagen, DK", adminEmail: "admin@mariammandk.org", plan: "Sankalpa", period: "Yearly", amount: "$699.00", issuedDate: "2026-03-10", dueDate: "2026-03-24", status: "paid", cardLast4: "—" },
-  { id: "7", num: "INV-2026-0019", temple: "Balaji Tirupati Mandir", templeLocation: "Mississauga", templeAddress: "Mississauga, CA", adminEmail: "info@balajimississauga.ca", plan: "Praramba", period: "Yearly", amount: "$299.00", issuedDate: "2026-03-01", dueDate: "2026-03-15", status: "paid", cardLast4: "—" },
-  { id: "8", num: "INV-2026-0018", temple: "Durga Devi Temple", templeLocation: "Amsterdam", templeAddress: "Amsterdam, NL", adminEmail: "info@durgaamsterdam.nl", plan: "Sankalpa", period: "Yearly", amount: "$699.00", issuedDate: "2026-02-20", dueDate: "2026-03-06", status: "draft", cardLast4: "—" },
-];
+function mapApiRow(r: ApiRow): Invoice {
+  return {
+    id: r.id,
+    num: r.num,
+    temple: r.temple,
+    templeLocation: r.templeLocation,
+    templeAddress: r.templeAddress,
+    adminEmail: r.adminEmail,
+    plan: r.plan,
+    period: r.period,
+    amount: formatUsdFromCents(r.amountCents),
+    issuedDate: r.issuedDate,
+    dueDate: r.dueDate ?? "—",
+    status: r.status,
+    amountCents: r.amountCents,
+    currency: r.currency,
+  };
+}
 
 // ── Page ────────────────────────────────────────────────────────────
 
@@ -233,28 +291,116 @@ export default function InvoicesPage() {
   const [page, setPage] = useState(1);
   const [viewInvoice, setViewInvoice] = useState<Invoice | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [rows, setRows] = useState<Invoice[]>([]);
+  const [profile, setProfile] = useState<BillingProfile | null>(null);
+  const [listTotal, setListTotal] = useState(0);
+  const [listTotalPages, setListTotalPages] = useState(1);
+  const [kpi, setKpi] = useState({ all: 0, paid: 0, pending: 0, overdue: 0, draft: 0, loading: true, error: "" });
+  const [searchDebounced, setSearchDebounced] = useState("");
   const pageSize = 10;
+
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounced(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 4000); }, []);
 
-  const counts = useMemo(() => ({
-    all: mockInvoices.length,
-    paid: mockInvoices.filter(i => i.status === "paid").length,
-    pending: mockInvoices.filter(i => i.status === "pending").length,
-    overdue: mockInvoices.filter(i => i.status === "overdue").length,
-    draft: mockInvoices.filter(i => i.status === "draft").length,
-  }), []);
+  const statusForApi = (tab: string) => {
+    if (tab === "all") return "all";
+    if (tab === "pending") return "awaiting";
+    return tab;
+  };
 
-  const filtered = useMemo(() => {
-    let list = mockInvoices;
-    const q = search.trim().toLowerCase();
-    if (q) list = list.filter(i => i.temple.toLowerCase().includes(q) || i.num.toLowerCase().includes(q));
-    if (filter !== "all") list = list.filter(i => i.status === filter);
-    return list;
-  }, [search, filter]);
+  const loadKpi = useCallback(async () => {
+    setKpi((k) => ({ ...k, loading: true, error: "" }));
+    const paths = [
+      { key: "all" as const, s: "all" },
+      { key: "paid" as const, s: "paid" },
+      { key: "pending" as const, s: "awaiting" },
+      { key: "overdue" as const, s: "overdue" },
+      { key: "draft" as const, s: "draft" },
+    ];
+    try {
+      const out: Record<string, number> = { all: 0, paid: 0, pending: 0, overdue: 0, draft: 0 };
+      for (const { key, s } of paths) {
+        const p = new URLSearchParams();
+        p.set("status", s);
+        p.set("page", "1");
+        p.set("pageSize", "1");
+        const res = await fetch(`/api/billing/invoices?${p.toString()}`, { cache: "no-store" });
+        const d = (await res.json().catch(() => null)) as
+          | { success?: boolean; data?: { total?: number } }
+          | null;
+        if (d && typeof d === "object" && "success" in d && d.success && d.data && typeof d.data.total === "number") {
+          out[key] = d.data.total;
+        }
+      }
+      setKpi({
+        all: out.all ?? 0,
+        paid: out.paid ?? 0,
+        pending: out.pending ?? 0,
+        overdue: out.overdue ?? 0,
+        draft: out.draft ?? 0,
+        loading: false,
+        error: "",
+      });
+    } catch (e) {
+      const err = e instanceof Error ? e.message : "Load failed";
+      setKpi((k) => ({ ...k, loading: false, error: err }));
+    }
+  }, []);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      const profRes = await fetch("/api/billing/profile", { cache: "no-store" });
+      const prof = (await profRes.json().catch(() => null)) as { success?: boolean; data?: BillingProfile } | null;
+      if (!cancel && prof && prof.success === true && prof.data) setProfile(prof.data);
+    })();
+    return () => { cancel = true; };
+  }, []);
+
+  const loadList = useCallback(async () => {
+    const p = new URLSearchParams();
+    p.set("status", statusForApi(filter));
+    p.set("page", String(page));
+    p.set("pageSize", String(pageSize));
+    if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
+    const res = await fetch(`/api/billing/invoices?${p.toString()}`, { cache: "no-store" });
+    const d = (await res.json().catch(() => null)) as
+      | { success?: boolean; data?: { data: ApiRow[]; total: number; totalPages: number } }
+      | null;
+    if (!d || d.success !== true || !d.data) {
+      setRows([]);
+      setListTotal(0);
+      setListTotalPages(1);
+      showToast(jsonApiErrorMessage(d) || "Failed to load invoices");
+      return;
+    }
+    setRows((d.data.data ?? []).map(mapApiRow));
+    setListTotal(d.data.total);
+    setListTotalPages(Math.max(1, d.data.totalPages));
+  }, [filter, page, pageSize, searchDebounced, showToast]);
+
+  useEffect(() => {
+    void loadKpi();
+  }, [loadKpi]);
+
+  useEffect(() => {
+    void loadList();
+  }, [loadList]);
+
+  const counts = {
+    all: kpi.all,
+    paid: kpi.paid,
+    pending: kpi.pending,
+    overdue: kpi.overdue,
+    draft: kpi.draft,
+  };
+
+  const pageRows = rows;
+  const totalPages = listTotalPages;
 
   const columns = useMemo<ColumnDef<Invoice>[]>(() => [
     { key: "num", header: "Invoice no.", cell: (r) => <span className="text-xs font-mono text-text-tertiary">{r.num}</span> },
@@ -280,17 +426,68 @@ export default function InvoicesPage() {
       key: "actions", header: "", align: "right",
       cell: (r) => {
         const items: React.ReactNode[] = [];
-        if (r.status === "paid") items.push(<DropdownItem key="receipt" icon={<Eye className="h-4 w-4" />} label="Receipt" onClick={() => showToast("Opening receipt…")} />);
-        if (r.status === "pending" || r.status === "overdue") {
-          items.push(<DropdownItem key="confirm" icon={<CheckCircle2 className="h-4 w-4" />} label="Confirm" onClick={() => showToast("Navigating to confirm…")} />);
-          items.push(<DropdownItem key="remind" icon={<Bell className="h-4 w-4" />} label="Remind" onClick={() => showToast("Reminder sent!")} />);
+        if (r.status === "paid") {
+          items.push(
+            <DropdownItem
+              key="receipt"
+              icon={<Eye className="h-4 w-4" />}
+              label="Receipt"
+              onClick={async () => {
+                const res = await fetch(`/api/billing/invoices/${encodeURIComponent(r.id)}/receipt`, { cache: "no-store" });
+                const d = (await res.json().catch(() => null)) as { success?: boolean; data?: { receiptId?: string } } | null;
+                const rid = d && d.success === true && d.data && typeof d.data.receiptId === "string" ? d.data.receiptId : "";
+                if (!rid) {
+                  showToast(jsonApiErrorMessage(d) || "Receipt not found for this invoice");
+                  return;
+                }
+                window.open(`/super-admin/finance/receipts/view?id=${encodeURIComponent(rid)}`, "_blank", "noopener,noreferrer");
+              }}
+            />
+          );
         }
-        if (r.status === "draft") {
-          items.push(<DropdownItem key="edit" icon={<FileText className="h-4 w-4" />} label="Edit" onClick={() => showToast("Opening editor…")} />);
-          items.push(<DropdownItem key="send" icon={<Send className="h-4 w-4" />} label="Send" onClick={() => showToast("Invoice sent!")} />);
+        if (r.status === "pending" || r.status === "overdue") {
+          items.push(
+            <DropdownItem
+              key="confirm"
+              icon={<CheckCircle2 className="h-4 w-4" />}
+              label="Confirm payments"
+              onClick={() => window.open("/super-admin/finance/confirm-payments", "_self")}
+            />
+          );
         }
         items.push(<DropdownItem key="view" icon={<Eye className="h-4 w-4" />} label="View" onClick={() => setViewInvoice(r)} />);
-        items.push(<DropdownItem key="pdf" icon={<Download className="h-4 w-4" />} label="PDF" onClick={() => showToast(`Downloading ${r.num}…`)} />);
+        items.push(
+          <DropdownItem
+            key="email"
+            icon={<Send className="h-4 w-4" />}
+            label="Email to temple"
+            onClick={async () => {
+              const res = await fetch(`/api/billing/invoices/${encodeURIComponent(r.id)}/email`, {
+                method: "POST",
+                headers: { Accept: "application/json" },
+              });
+              const d = await res.json().catch(() => null);
+              if (!res.ok || (d && typeof d === "object" && "success" in d && (d as { success?: boolean }).success === false)) {
+                showToast(jsonApiErrorMessage(d) || "Failed to email invoice");
+                return;
+              }
+              showToast(`Invoice emailed to ${r.temple}`);
+            }}
+          />
+        );
+        items.push(
+          <DropdownItem
+            key="export"
+            icon={<Download className="h-4 w-4" />}
+            label="Export CSV"
+            onClick={() => {
+              const p = new URLSearchParams();
+              if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
+              p.set("status", statusForApi(filter));
+              window.open(`/api/billing/invoices/export?${p.toString()}`, "_blank", "noopener,noreferrer");
+            }}
+          />
+        );
         return <ActionsDropdown>{items}</ActionsDropdown>;
       },
     },
@@ -304,7 +501,6 @@ export default function InvoicesPage() {
           <p className="mt-1 text-sm text-text-tertiary">Subscription invoices sent to temples — track payment status and generate receipts</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" leadingIcon={<Send className="h-4 w-4" />} onClick={() => showToast("Sending reminders…")}>Send reminders</Button>
           <Link href="/super-admin/finance/invoices/generate">
             <Button variant="primary" size="sm" leadingIcon={<Plus className="h-4 w-4" />}>Generate invoice</Button>
           </Link>
@@ -315,23 +511,23 @@ export default function InvoicesPage() {
       <div className="grid grid-cols-4 gap-3">
         <div className="bg-surface rounded-xl border border-border p-4">
           <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Paid invoices</p>
-          <p className="text-2xl font-bold text-green-600">{counts.paid}</p>
-          <p className="text-[10px] text-text-tertiary mt-1">$15,840 collected</p>
+          <p className="text-2xl font-bold text-green-600">{kpi.loading ? "…" : counts.paid}</p>
+          <p className="text-[10px] text-text-tertiary mt-1">all time (total count)</p>
         </div>
         <div className="bg-surface rounded-xl border border-border p-4">
           <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Awaiting payment</p>
-          <p className="text-2xl font-bold text-amber-600">{counts.pending}</p>
-          <p className="text-[10px] text-text-tertiary mt-1">$3,297 outstanding</p>
+          <p className="text-2xl font-bold text-amber-600">{kpi.loading ? "…" : counts.pending}</p>
+          <p className="text-[10px] text-text-tertiary mt-1">pending in system</p>
         </div>
         <div className="bg-surface rounded-xl border border-border p-4">
           <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Overdue (&gt;14 days)</p>
-          <p className="text-2xl font-bold text-red-600">{counts.overdue}</p>
-          <p className="text-[10px] text-text-tertiary mt-1">$1,099 — 18 days late</p>
+          <p className="text-2xl font-bold text-red-600">{kpi.loading ? "…" : counts.overdue}</p>
+          <p className="text-[10px] text-text-tertiary mt-1">past due date</p>
         </div>
         <div className="bg-surface rounded-xl border border-border p-4">
           <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Draft invoices</p>
-          <p className="text-xl font-bold text-text-primary">{counts.draft}</p>
-          <p className="text-[10px] text-text-tertiary mt-1">not yet sent</p>
+          <p className="text-xl font-bold text-text-primary">{kpi.loading ? "…" : counts.draft}</p>
+          <p className="text-[10px] text-text-tertiary mt-1">pro-forma or draft</p>
         </div>
       </div>
 
@@ -356,7 +552,7 @@ export default function InvoicesPage() {
         <div className="px-6"><Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} showResultsCount /></div>
       </div>
 
-      {viewInvoice && <InvoiceModal invoice={viewInvoice} onClose={() => setViewInvoice(null)} />}
+      {viewInvoice && <InvoiceModal invoice={viewInvoice} profile={profile} onClose={() => setViewInvoice(null)} />}
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
     </div>
   );

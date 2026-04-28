@@ -49,6 +49,37 @@ export function createSubscriptionsRouter(repo: PostgresSubscriptionsRepository)
     })
   );
 
+  r.get(
+    "/subscriptions/upcoming-renewals",
+    asyncHandler(async (req, res) => {
+      try {
+        const q = asString(req.query.q);
+        const days = Number.parseInt(asString(req.query.days) || "30", 10);
+        const page = Number.parseInt(asString(req.query.page) || "1", 10);
+        const pageSize = Number.parseInt(asString(req.query.pageSize) || "10", 10);
+        const payload = await repo.listUpcomingRenewals({
+          q,
+          days: Number.isFinite(days) ? days : 60,
+          page: Number.isFinite(page) ? page : 1,
+          pageSize: Number.isFinite(pageSize) ? pageSize : 10,
+        });
+        sendSuccess(
+          res,
+          200,
+          payload,
+          "Upcoming renewals loaded",
+          "Active subscriptions expiring in the selected window."
+        );
+      } catch (e) {
+        throw new HttpError(500, "Failed to load upcoming renewals", {
+          cause: e,
+          code: "UPCOMING_RENEWALS_FAILED",
+          reason: "The database query for upcoming renewals failed; check server logs.",
+        });
+      }
+    })
+  );
+
   r.post(
     "/subscriptions/:id/verify",
     asyncHandler(async (req, res) => {

@@ -4,6 +4,7 @@ import { asyncHandler } from "../middleware/async-handler.js";
 import { HttpError } from "../middleware/http-error.js";
 import { validateBody } from "../middleware/validate.js";
 import type { PostgresTempleRepository } from "./temples.repository.js";
+import { storeBrandingImageIfNeeded } from "../storage/cloudinary.js";
 import { templeProfileDetailsPatchBodySchema } from "./validation.js";
 
 export function createTempleSessionProfileRouter(repo: PostgresTempleRepository): Router {
@@ -54,7 +55,24 @@ export function createTempleSessionProfileRouter(repo: PostgresTempleRepository)
           street: string;
         };
         logoDataUrl: string | null;
+        charityRegistered: boolean;
+        charityRegistrationNumber: string;
       };
+      const logoStored = await storeBrandingImageIfNeeded(
+        body.logoDataUrl,
+        "temple-logo",
+        "temple-logo"
+      );
+      if (
+        process.env.NODE_ENV !== "production" &&
+        logoStored != null &&
+        !/^https:\/\//i.test(logoStored)
+      ) {
+        console.warn(
+          "[temple-profile/details] Expected HTTPS logo URL after upload (Cloudinary secure_url), got:",
+          logoStored.slice(0, 80)
+        );
+      }
       const result = await repo.saveTempleProfileDetails({
         sessionEmail: body.sessionEmail,
         websiteUrl: body.websiteUrl,
@@ -62,7 +80,9 @@ export function createTempleSessionProfileRouter(repo: PostgresTempleRepository)
         domainSubdomain: body.domainSubdomain,
         establishedYear: body.establishedYear,
         fullAddress: body.fullAddress,
-        logoDataUrl: body.logoDataUrl,
+        logoDataUrl: logoStored,
+        charityRegistered: body.charityRegistered,
+        charityRegistrationNumber: body.charityRegistrationNumber,
       });
       if (!result.ok) {
         throw new HttpError(404, "Temple not found for this session email.", {

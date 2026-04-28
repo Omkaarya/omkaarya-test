@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { Check, Plus, X, Loader2, Users2, Shield, Info, Box } from "lucide-react";
 import { PricingPlanCard, PricingFeature } from "../../../components/ds/molecules/PricingPlanCard";
@@ -32,6 +32,7 @@ export default function PricingPlansPage() {
   const [registryFeatures, setRegistryFeatures] = useState<RegistryFeatureRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [featuresLoading, setFeaturesLoading] = useState(true);
+  const visGuardRef = useRef<number>(Date.now());
 
   const [billing, setBilling] = useState<"monthly" | "yearly">("yearly");
   const [cardBilling, setCardBilling] = useState<Record<string, "monthly" | "yearly">>({});
@@ -83,6 +84,21 @@ export default function PricingPlansPage() {
     void loadRegistryFeatures();
   }, [fetchPlans, loadRegistryFeatures]);
 
+  useEffect(() => {
+    const onVis = () => {
+      // Some browsers/environments may fire a visibility event shortly after mount.
+      // Avoid an immediate duplicate fetch on initial page load.
+      if (Date.now() - visGuardRef.current < 750) return;
+      if (document.visibilityState === "visible") {
+        void fetchPlans();
+        void loadRegistryFeatures();
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [fetchPlans, loadRegistryFeatures]);
+
+  const getCardBilling = (planId: string) => cardBilling[planId] || billing;
   const toggleCardBilling = (planId: string) => {
     setCardBilling((prev) => ({
       ...prev,

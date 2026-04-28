@@ -20,7 +20,8 @@ import { Badge } from "@/app/components/ds/atoms/Badge";
 import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
 import { Pagination } from "@/app/components/ds/molecules/Pagination";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
-
+import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
+import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import { SubscriptionRow, SubscriptionStatus, PlanName } from "./_components/types";
 import { statusBadgeColor, planBadgeColor } from "./_components/utils";
 import { InvoiceModal } from "./_components/InvoiceModal";
@@ -28,6 +29,63 @@ import { VerifyModal } from "./_components/VerifyModal";
 import { ChangePlanModal } from "./_components/ChangePlanModal";
 import { ExtendModal } from "./_components/ExtendModal";
 import { ConvertToPaidModal } from "./_components/ConvertToPaidModal";
+// ── Types ──────────────────────────────────────────────────────────
+
+type SubscriptionStatus = "Pending" | "Active" | "Expired" | "Rejected";
+
+type SubscriptionRow = {
+  id: string;
+  invoiceId: string | null;
+  templeName: string;
+  templeInitials: string;
+  plan: string;
+  billingCycle: string;
+  amountCents: number;
+  paymentDate: string;
+  receiptId: string | null;
+  status: SubscriptionStatus;
+  verifiedBy: string | null;
+  activatedOn: string | null;
+  expiresOn: string;
+  adminEmail: string;
+};
+
+type BillingProfile = {
+  issuer: { name: string; address: string; email: string; website: string; brandLine: string };
+  paymentMethodLabel: string;
+  bank: { bankName: string; accountName: string; accountNumber: string; swift: string; notes: string };
+  tax: { rateBps: number; label: string };
+  money: { currency: string };
+};
+
+function formatMoney(currency: string, amountCents: number): string {
+  const c = (currency || "USD").toUpperCase();
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: c }).format((amountCents ?? 0) / 100);
+}
+
+// ── Helpers ────────────────────────────────────────────────────────
+
+function statusBadgeColor(status: SubscriptionStatus) {
+  switch (status) {
+    case "Active": return "success" as const;
+    case "Pending": return "warning" as const;
+    case "Expired": return "gray" as const;
+    case "Rejected": return "error" as const;
+  }
+}
+
+function planBadgeColor(plan: string) {
+  if (plan === "Prarambha") return "success" as const;
+  if (plan === "Sankalpa") return "pink" as const;
+  if (plan === "Aaradhana") return "indigo" as const;
+  return "gray" as const;
+}
+
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${d.getFullYear()} ${months[d.getMonth()]} ${d.getDate()}`;
+}
 
 // ── Filter Tabs ────────────────────────────────────────────────────
 
@@ -99,6 +157,304 @@ function ActionsDropdown({ actions }: { actions: ActionItem[] }) {
   );
 }
 
+// ── Invoice Detail Modal (Figma-exact) ──────────────────────────────
+
+function InvoiceModal({
+  subscription,
+  profile,
+  onClose,
+}: {
+  subscription: SubscriptionRow;
+  profile: BillingProfile | null;
+  onClose: () => void;
+}) {
+  const invoiceStatus = subscription.status === "Active" || subscription.verifiedBy ? "Paid" : "Unpaid";
+  const currency = profile?.money?.currency || "USD";
+  const taxRateBps = profile?.tax?.rateBps ?? 0;
+  const taxCents = Math.max(0, Math.round(((subscription.amountCents ?? 0) * taxRateBps) / 10_000));
+  const subtotal = formatMoney(currency, subscription.amountCents ?? 0);
+  const tax = formatMoney(currency, taxCents);
+  const total = formatMoney(currency, (subscription.amountCents ?? 0) + taxCents);
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+      <div
+        className="absolute inset-0 bg-gray-950/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-surface shadow-2xl">
+        {/* Header — icon top-left, expand + close top-right */}
+        <div className="px-6 pt-6 pb-0">
+          <div className="flex items-start justify-between">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-surface shadow-xs">
+              <FileText className="h-5 w-5 text-text-tertiary" />
+            </div>
+            <div className="flex items-center gap-2">
+              <button className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors">
+                <Expand className="h-4 w-4" />
+              </button>
+              <button
+                onClick={onClose}
+                className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Title */}
+          <h3 className="mt-4 text-lg font-bold text-text-primary">
+            Invoice #{subscription.invoiceId} Details
+          </h3>
+          <p className="text-sm text-text-tertiary">
+            Manage your invoice details here.
+          </p>
+        </div>
+
+        {/* Body */}
+        <div className="space-y-6 p-6">
+          {/* Temple Avatar */}
+          <div>
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-600 text-white font-bold text-xl shadow-lg">
+              {subscription.templeInitials}
+            </div>
+          </div>
+
+          {/* Invoice Meta */}
+          <div>
+            <p className="text-sm font-semibold text-text-primary mb-2">Invoice</p>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-sm text-text-secondary">
+                <FileText className="h-4 w-4 text-text-tertiary" />
+                <span>{subscription.invoiceId}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-text-secondary">
+                <Calendar className="h-4 w-4 text-text-tertiary" />
+                <span>Issued On: {formatDate(subscription.paymentDate)}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-text-secondary">
+                <Calendar className="h-4 w-4 text-text-tertiary" />
+                <span>Due On: {formatDate(subscription.expiresOn)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Invoice From / To */}
+          <div className="grid grid-cols-2 gap-8">
+            <div>
+              <p className="text-sm font-bold text-text-primary mb-2">Invoice From:</p>
+              <p className="text-sm font-medium text-text-primary">{profile?.issuer?.name ?? "—"}</p>
+              <p className="text-sm text-text-secondary">{profile?.issuer?.address ?? "—"}</p>
+              <p className="text-sm text-text-tertiary">{profile?.issuer?.email ?? "—"}</p>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-text-primary mb-2">Invoice To:</p>
+              <p className="text-sm font-medium text-text-primary">{subscription.templeName}</p>
+              <p className="text-sm text-text-tertiary">{subscription.adminEmail}</p>
+            </div>
+          </div>
+
+          {/* Line Items Table */}
+          <div className="overflow-hidden rounded-lg border border-border">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-border bg-subtle">
+                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Plan</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Billing Cycle</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Created On</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Expiring On</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Amount(USD)</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Invoice Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="px-4 py-3 text-sm text-text-primary">
+                    {subscription.plan}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">
+                    {subscription.billingCycle}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">
+                    {formatDate(subscription.activatedOn ?? subscription.paymentDate)}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">
+                    {formatDate(subscription.expiresOn)}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-primary tabular-nums">
+                    {subtotal}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge color={invoiceStatus === "Paid" ? "success" : "warning"} size="sm" dot>
+                      {invoiceStatus}
+                    </Badge>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Payment Info + Totals — side by side */}
+          <div className="flex items-start justify-between gap-8">
+            <div>
+              <p className="text-sm font-bold text-text-primary mb-2">Payment Info</p>
+              <p className="text-sm text-text-secondary">
+                Method: {profile?.paymentMethodLabel ?? "—"}
+              </p>
+              <p className="text-sm text-text-secondary">
+                Amount: {subtotal}
+              </p>
+            </div>
+            <div className="text-right space-y-1 min-w-[200px]">
+              <div className="flex justify-between text-sm">
+                <span className="text-text-secondary">Sub Total</span>
+                <span className="text-text-primary tabular-nums">{subtotal}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-text-secondary">{profile?.tax?.label ?? "Tax"}</span>
+                <span className="text-text-primary tabular-nums">{tax}</span>
+              </div>
+              <div className="flex justify-between text-sm font-bold pt-1 border-t border-border">
+                <span className="text-text-primary">Total</span>
+                <span className="text-text-primary tabular-nums">{total}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Terms and Conditions — light pink/rose bg like Figma */}
+          <div className="rounded-xl bg-rose-50 dark:bg-rose-950/20 p-5">
+            <p className="text-sm font-bold text-text-primary mb-2">
+              Terms and Conditions
+            </p>
+            <ul className="text-sm text-text-secondary space-y-1.5 list-disc pl-4">
+              <li>All payments must be made according to the agreed schedule. Late payments may incur additional fees.</li>
+              <li>We are not liable for any indirect, incidental, or consequential damages, including loss of profits, revenue, or data.</li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Bottom Action Buttons */}
+        <div className="flex justify-end gap-3 border-t border-border px-6 py-4">
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
+          <Button variant="primary" leadingIcon={<Download className="h-4 w-4" />}>
+            Download Invoice
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Verification Modal ─────────────────────────────────────────────
+
+function VerifyModal({
+  subscription,
+  onClose,
+  onVerify,
+  onReject,
+}: {
+  subscription: SubscriptionRow;
+  onClose: () => void;
+  onVerify: () => void;
+  onReject: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+      <div
+        className="absolute inset-0 bg-gray-950/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      <div className="relative z-10 w-full max-w-lg rounded-2xl border border-border bg-surface p-0 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-status-warning-bg text-status-warning-text">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-text-primary">
+                Verify Subscription
+              </h3>
+              <p className="text-sm text-text-tertiary">
+                Review payment and activate subscription
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors">
+              <Expand className="h-4 w-4" />
+            </button>
+            <button
+              onClick={onClose}
+              className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-4 p-6">
+          <div className="flex items-center gap-4 rounded-xl bg-subtle p-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-100 text-brand font-bold text-sm">
+              {subscription.templeInitials}
+            </div>
+            <div>
+              <p className="font-semibold text-text-primary">{subscription.templeName}</p>
+              <p className="text-sm text-text-tertiary">{subscription.adminEmail}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-lg border border-border p-3">
+              <p className="text-xs font-medium text-text-tertiary">Plan</p>
+              <p className="mt-1 font-semibold text-text-primary">{subscription.plan}</p>
+            </div>
+            <div className="rounded-lg border border-border p-3">
+              <p className="text-xs font-medium text-text-tertiary">Billing Cycle</p>
+              <p className="mt-1 font-semibold text-text-primary">{subscription.billingCycle}</p>
+            </div>
+            <div className="rounded-lg border border-border p-3">
+              <p className="text-xs font-medium text-text-tertiary">Amount</p>
+              <p className="mt-1 font-semibold text-text-primary">{formatUsdFromCents(subscription.amountCents)}</p>
+            </div>
+            <div className="rounded-lg border border-border p-3">
+              <p className="text-xs font-medium text-text-tertiary">Payment Date</p>
+              <p className="mt-1 font-semibold text-text-primary">{subscription.paymentDate}</p>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border-secondary bg-subtle p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <FileText className="h-5 w-5 text-fg-tertiary" />
+                <div>
+                  <p className="text-sm font-medium text-text-primary">Payment Receipt</p>
+                  <p className="text-xs text-text-tertiary">{subscription.receiptId ? `${subscription.receiptId}.pdf` : "—"}</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm">
+                <Eye className="h-4 w-4 mr-1" /> View Receipt
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 border-t border-border px-6 py-4">
+          <Button variant="destructive-outline" onClick={onReject}>
+            <XCircle className="h-4 w-4 mr-1.5" /> Reject
+          </Button>
+          <Button variant="primary" onClick={onVerify}>
+            <ShieldCheck className="h-4 w-4 mr-1.5" /> Verify & Activate
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Toast Notification ──────────────────────────────────────────────
 
 function Toast({
@@ -135,6 +491,7 @@ function Toast({
 
 export default function SubscriptionsPage() {
   const [searchInput, setSearchInput] = useState("");
+  const [searchDebounced, setSearchDebounced] = useState("");
   const [filter, setFilter] = useState<FilterId>("All");
   const [page, setPage] = useState(1);
   const pageSize = 10;
@@ -144,6 +501,11 @@ export default function SubscriptionsPage() {
   const [changePlanRow, setChangePlanRow] = useState<SubscriptionRow | null>(null);
   const [extendRow, setExtendRow] = useState<SubscriptionRow | null>(null);
   const [convertToPaidRow, setConvertToPaidRow] = useState<SubscriptionRow | null>(null);
+  const [rows, setRows] = useState<SubscriptionRow[]>([]);
+  const [profile, setProfile] = useState<BillingProfile | null>(null);
+  const [totalPages, setTotalPages] = useState(1);
+  const [counts, setCounts] = useState<Record<FilterId, number>>({ All: 0, Pending: 0, Active: 0, Expired: 0, Rejected: 0 });
+  const [loadErr, setLoadErr] = useState<string | null>(null);
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
@@ -354,31 +716,112 @@ export default function SubscriptionsPage() {
           r.id.toLowerCase().includes(q) ||
           r.adminEmail.toLowerCase().includes(q)
       );
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounced(searchInput), 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      const profRes = await fetch("/api/billing/profile", { cache: "no-store" });
+      const prof = (await profRes.json().catch(() => null)) as { success?: boolean; data?: BillingProfile } | null;
+      if (!cancel && prof && prof.success === true && prof.data) setProfile(prof.data);
+    })();
+    return () => { cancel = true; };
+  }, []);
+
+  type ApiRow = {
+    id: string;
+    invoiceId: string | null;
+    tenantId: string;
+    templeName: string;
+    plan: string;
+    billingCycle: string;
+    amount: number;
+    paymentDate: string;
+    receiptId: string | null;
+    status: SubscriptionStatus;
+    verifiedBy: string | null;
+    activatedOn: string | null;
+    expiresOn: string;
+    adminEmail: string;
+  };
+
+  function initials(name: string): string {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    const a = parts[0]?.[0] ?? "T";
+    const b = parts.length > 1 ? parts[1]?.[0] ?? "" : parts[0]?.[1] ?? "";
+    return (a + b).toUpperCase();
+  }
+
+  const loadList = useCallback(async () => {
+    setLoadErr(null);
+    const p = new URLSearchParams();
+    p.set("page", String(page));
+    p.set("pageSize", String(pageSize));
+    p.set("status", filter);
+    if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
+    const res = await fetch(`/api/subscriptions?${p.toString()}`, { cache: "no-store" });
+    const d = (await res.json().catch(() => null)) as
+      | { success?: boolean; data?: { data: ApiRow[]; totalPages: number } }
+      | null;
+    if (!d || d.success !== true || !d.data) {
+      setRows([]);
+      setTotalPages(1);
+      setLoadErr(jsonApiErrorMessage(d) || "Failed to load subscriptions");
+      return;
     }
-    if (filter !== "All") {
-      list = list.filter((r) => r.status === filter);
+    setRows(
+      (d.data.data ?? []).map((r) => ({
+        id: r.id,
+        invoiceId: r.invoiceId,
+        templeName: r.templeName,
+        templeInitials: initials(r.templeName),
+        plan: r.plan,
+        billingCycle: r.billingCycle,
+        amountCents: Math.max(0, Math.trunc((r.amount ?? 0) * 100)),
+        paymentDate: r.paymentDate,
+        receiptId: r.receiptId,
+        status: r.status,
+        verifiedBy: r.verifiedBy,
+        activatedOn: r.activatedOn,
+        expiresOn: r.expiresOn,
+        adminEmail: r.adminEmail,
+      }))
+    );
+    setTotalPages(Math.max(1, d.data.totalPages ?? 1));
+  }, [filter, page, pageSize, searchDebounced]);
+
+  const loadCounts = useCallback(async () => {
+    const tabs: FilterId[] = ["All", "Pending", "Active", "Expired", "Rejected"];
+    const out: Record<FilterId, number> = { All: 0, Pending: 0, Active: 0, Expired: 0, Rejected: 0 };
+    for (const t of tabs) {
+      const p = new URLSearchParams();
+      p.set("page", "1");
+      p.set("pageSize", "1");
+      p.set("status", t);
+      if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
+      const res = await fetch(`/api/subscriptions?${p.toString()}`, { cache: "no-store" });
+      const d = (await res.json().catch(() => null)) as
+        | { success?: boolean; data?: { total?: number } }
+        | null;
+      if (d && d.success === true && d.data && typeof d.data.total === "number") {
+        out[t] = d.data.total;
+      }
     }
-    return list;
-  }, [rows, searchInput, filter]);
+    setCounts(out);
+  }, [searchDebounced]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const pageSafe = Math.min(page, totalPages);
-  const pageRows = filtered.slice(
-    (pageSafe - 1) * pageSize,
-    pageSafe * pageSize
-  );
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => {
+    void loadList();
+  }, [loadList]);
 
-  // ── Metrics (for tab badges) ─────────────────────────────────────
-
-  const counts = useMemo(() => {
-    return {
-      All: rows.length,
-      Pending: rows.filter((r) => r.status === "Pending").length,
-      Active: rows.filter((r) => r.status === "Active").length,
-      Expired: rows.filter((r) => r.status === "Expired").length,
-      Rejected: rows.filter((r) => r.status === "Rejected").length,
-    };
-  }, [rows]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => {
+    void loadCounts();
+  }, [loadCounts]);
 
   // ── Actions ──────────────────────────────────────────────────────
 
@@ -392,37 +835,41 @@ export default function SubscriptionsPage() {
 
   const handleVerify = useCallback(() => {
     if (!verifyingRow) return;
-    setRows((prev) =>
-      prev.map((r) =>
-        r.id === verifyingRow.id
-          ? {
-              ...r,
-              status: "Active" as SubscriptionStatus,
-              verifiedBy: "Super Admin",
-              activatedOn: new Date().toISOString().split("T")[0],
-            }
-          : r
-      )
-    );
-    setVerifyingRow(null);
-    showToast(
-      `Subscription activated for ${verifyingRow.templeName}. Confirmation email sent to ${verifyingRow.adminEmail}.`,
-      "success"
-    );
-  }, [verifyingRow, showToast]);
+    (async () => {
+      const res = await fetch(`/api/subscriptions/${encodeURIComponent(verifyingRow.id)}/verify`, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok || (d && typeof d === "object" && "success" in d && (d as { success?: boolean }).success === false)) {
+        showToast(jsonApiErrorMessage(d) || "Verify failed", "error");
+        return;
+      }
+      setVerifyingRow(null);
+      showToast(`Subscription verified for ${verifyingRow.templeName}`, "success");
+      await loadList();
+      await loadCounts();
+    })();
+  }, [verifyingRow, showToast, loadList, loadCounts]);
 
   const handleReject = useCallback(() => {
     if (!verifyingRow) return;
-    setRows((prev) =>
-      prev.map((r) =>
-        r.id === verifyingRow.id
-          ? { ...r, status: "Rejected" as SubscriptionStatus, verifiedBy: "Super Admin" }
-          : r
-      )
-    );
-    setVerifyingRow(null);
-    showToast(`Subscription rejected for ${verifyingRow.templeName}.`, "error");
-  }, [verifyingRow, showToast]);
+    (async () => {
+      const res = await fetch(`/api/subscriptions/${encodeURIComponent(verifyingRow.id)}/reject`, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok || (d && typeof d === "object" && "success" in d && (d as { success?: boolean }).success === false)) {
+        showToast(jsonApiErrorMessage(d) || "Reject failed", "error");
+        return;
+      }
+      setVerifyingRow(null);
+      showToast(`Subscription rejected for ${verifyingRow.templeName}`, "error");
+      await loadList();
+      await loadCounts();
+    })();
+  }, [verifyingRow, showToast, loadList, loadCounts]);
 
   const handleChangePlan = useCallback((newPlan: PlanName) => {
     if (!changePlanRow) return;
@@ -507,6 +954,8 @@ export default function SubscriptionsPage() {
       });
     }
 
+    ];
+
     return base;
   }
 
@@ -565,7 +1014,7 @@ export default function SubscriptionsPage() {
         align: "right",
         cell: (row) => (
           <span className="font-semibold tabular-nums text-text-primary text-sm">
-            ₹{row.amount.toLocaleString()}
+            {formatUsdFromCents(row.amountCents)}
           </span>
         ),
       },
@@ -613,6 +1062,11 @@ export default function SubscriptionsPage() {
 
   return (
     <div className="space-y-6">
+      {loadErr && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+          {loadErr}
+        </div>
+      )}
       {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -695,7 +1149,7 @@ export default function SubscriptionsPage() {
         {/* Data Table */}
         <DataTable<SubscriptionRow>
           columns={columns}
-          data={pageRows}
+          data={rows}
           keyExtractor={(row) => row.id}
           isLoading={isLoading}
           loadingRows={pageSize}
@@ -704,7 +1158,7 @@ export default function SubscriptionsPage() {
         {/* Pagination */}
         <div className="px-6">
           <Pagination
-            currentPage={pageSafe}
+            currentPage={page}
             totalPages={totalPages}
             onPageChange={setPage}
             showResultsCount
@@ -726,6 +1180,7 @@ export default function SubscriptionsPage() {
       {invoiceRow && (
         <InvoiceModal
           subscription={invoiceRow}
+          profile={profile}
           onClose={() => setInvoiceRow(null)}
         />
       )}

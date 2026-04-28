@@ -3,6 +3,7 @@ import { sendError, sendSuccess } from "../middleware/api-envelope.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { HttpError } from "../middleware/http-error.js";
 import { validateBody } from "../middleware/validate.js";
+import { sendInvoiceOnlyEmail, sendTempleInviteAndInvoiceCombined } from "../email/send-temple-billing.js";
 import { sendTempleAdminInviteEmail } from "../email/send-temple-invite.js";
 import type { TemplesService } from "./temples.service.js";
 import type { CreateTemplePayload, UpdateTemplePayload } from "./types.js";
@@ -102,34 +103,69 @@ export function createTemplesRouter(temples: TemplesService): Router {
     asyncHandler(async (req, res) => {
       const body = req.body as CreateTemplePayload;
       try {
-        const { templeId, temporaryPassword } = await temples.createTemple(body);
+        const { templeId, temporaryPassword, invoice } = await temples.createTemple(body);
+        const to = body.admin.email.trim();
         let inviteEmailSent: boolean | undefined = undefined;
-        if (typeof temporaryPassword === "string" && temporaryPassword.trim()) {
+        if (to && invoice) {
+          try {
+            const out =
+              typeof temporaryPassword === "string" && temporaryPassword.trim()
+                ? await sendTempleInviteAndInvoiceCombined({
+                    to,
+                    templeName: body.temple.name ?? "",
+                    temporaryPassword,
+                    invoiceNumber: invoice.invoiceNumber,
+                    amountCents: invoice.amountCents,
+                    isTrialProforma: invoice.isTrialProforma,
+                    planName: invoice.planName,
+                    dueDate: invoice.dueDate,
+                  })
+                : await sendInvoiceOnlyEmail({
+                    to,
+                    templeName: body.temple.name ?? "",
+                    invoiceNumber: invoice.invoiceNumber,
+                    amountCents: invoice.amountCents,
+                    isTrialProforma: invoice.isTrialProforma,
+                    planName: invoice.planName,
+                    dueDate: invoice.dueDate,
+                  });
+            inviteEmailSent = out.sent;
+          } catch (e) {
+            inviteEmailSent = false;
+            console.error(`[temple-billing] Failed to email admin at ${to}`, e);
+          }
+        } else if (typeof temporaryPassword === "string" && temporaryPassword.trim() && to) {
           try {
             const out = await sendTempleAdminInviteEmail({
-              to: body.admin.email.trim(),
+              to,
               templeName: body.temple.name ?? "",
               temporaryPassword,
             });
             inviteEmailSent = out.sent;
           } catch (e) {
             inviteEmailSent = false;
-            console.error(`[temple-invite] Failed to send invite email to ${body.admin.email.trim()}`, e);
+            console.error(`[temple-invite] Failed to send invite email to ${to}`, e);
           }
         }
         const msg =
           inviteEmailSent === true
-            ? "Temple created. Invite email was sent to the admin."
+            ? "Temple created. An email with login and invoice details was sent to the admin."
             : "Temple created successfully.";
         const reason =
           inviteEmailSent === true
-            ? "A new tenant row and admin user (if new) were created, and a temporary-password invite was emailed."
-            : "A new tenant (and user when applicable) was created. Email may be skipped if not configured or no temp password was issued.";
+            ? "A new tenant, billing invoice, and admin user (if new) were created; the invite and invoice were emailed when SMTP is configured."
+            : "A new tenant (and user when applicable) was created. Email may be skipped if not configured.";
         sendSuccess(
           res,
           201,
           {
             templeId,
+            ...(invoice
+              ? {
+                  invoiceId: invoice.invoiceId,
+                  invoiceNumber: invoice.invoiceNumber,
+                }
+              : {}),
             ...(inviteEmailSent !== undefined ? { inviteEmailSent } : {}),
             ...(temporaryPassword !== undefined ? { temporaryPassword } : {}),
           },

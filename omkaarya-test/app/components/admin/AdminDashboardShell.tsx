@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Bell,
   Building2,
@@ -40,7 +40,7 @@ const primaryNav = [
   { href: "#", label: "Dashboard", icon: LayoutDashboard },
   { href: "/super-admin", label: "Temples", icon: Building2 },
   { href: "/super-admin/pricing-plans", label: "Pricing Plans", icon: Tag },
-  { href: "#", label: "Domains", icon: Globe },
+  { href: "/super-admin/subdomains", label: "Subdomains", icon: Globe },
   { href: "#", label: "Panchangam", icon: Calendar },
 ] as const;
 
@@ -68,6 +68,37 @@ const systemSettingsNav = [
   { href: "/super-admin/cms", label: "Website CMS", icon: Globe },
 ] as const;
 
+/**
+ * A nav href that is a prefix of sibling routes (e.g. /super-admin/finance vs …/transactions)
+ * must be active on exact path only; otherwise "Revenue Dashboard" stays highlighted for all finance pages.
+ */
+function isChildNavActive(pathname: string, href: string): boolean {
+  if (pathname === href) return true;
+  if (href === "/super-admin/finance") return false;
+  return pathname.startsWith(`${href}/`);
+}
+
+type SidebarAccordionId = "finance" | "subscriptions" | "system";
+
+/**
+ * Subscriptions are checked first so /super-admin/finance/subscriptions
+ * does not get attributed to a broader /super-admin/finance/… child match in finance.
+ */
+function sectionForPathname(
+  pathname: string
+): SidebarAccordionId | null {
+  if (subscriptionNav.some((item) => isChildNavActive(pathname, item.href))) {
+    return "subscriptions";
+  }
+  if (financeNav.some((item) => isChildNavActive(pathname, item.href))) {
+    return "finance";
+  }
+  if (systemSettingsNav.some((item) => isChildNavActive(pathname, item.href))) {
+    return "system";
+  }
+  return null;
+}
+
 // ── Collapsible Section ────────────────────────────────────────────
 
 function NavSection({
@@ -76,23 +107,24 @@ function NavSection({
   items,
   pathname,
   onLinkClick,
-  defaultOpen = false,
+  isOpen,
+  onHeaderClick,
 }: {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   items: ReadonlyArray<{ href: string; label: string; icon: React.ComponentType<{ className?: string }> }>;
   pathname: string;
   onLinkClick: () => void;
-  defaultOpen?: boolean;
+  isOpen: boolean;
+  onHeaderClick: () => void;
 }) {
-  const hasActiveChild = items.some((item) => pathname === item.href || pathname.startsWith(item.href + "/"));
-  const [open, setOpen] = useState(defaultOpen || hasActiveChild);
+  const hasActiveChild = items.some((item) => isChildNavActive(pathname, item.href));
 
   return (
     <li>
       <button
         type="button"
-        onClick={() => setOpen(!open)}
+        onClick={onHeaderClick}
         className={[
           "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
           hasActiveChild
@@ -105,14 +137,14 @@ function NavSection({
         />
         <span className="flex-1 text-left">{label}</span>
         <ChevronDown
-          className={`h-4 w-4 shrink-0 transition-transform duration-200 ${open ? "rotate-0" : "-rotate-90"}`}
+          className={`h-4 w-4 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-0" : "-rotate-90"}`}
         />
       </button>
 
-      {open && (
+      {isOpen && (
         <ul className="mt-0.5 ml-4 space-y-0.5 border-l border-zinc-200 pl-3 dark:border-zinc-700">
           {items.map(({ href, label: itemLabel, icon: Icon }) => {
-            const active = pathname === href || pathname.startsWith(href + "/");
+            const active = isChildNavActive(pathname, href);
             return (
               <li key={itemLabel}>
                 <Link
@@ -166,6 +198,45 @@ export function AdminDashboardShell({
 }: AdminDashboardShellProps) {
   const closeSidebar = () => onSidebarOpenChange(false);
 
+  const [openAccordion, setOpenAccordion] = useState<SidebarAccordionId | null>(() =>
+    sectionForPathname(pathname)
+  );
+
+  useEffect(() => {
+    setOpenAccordion(sectionForPathname(pathname));
+  }, [pathname]);
+
+  const [pendingCount, setPendingCount] = useState(0);
+
+  const loadPendingCount = useCallback(async () => {
+    try {
+      const res = await fetch("/api/billing/payment-submissions/pending", { cache: "no-store" });
+      const d = (await res.json().catch(() => null)) as
+        | { success?: boolean; data?: { data: unknown[] } }
+        | null;
+      if (!d || d.success !== true || !d.data) {
+        setPendingCount(0);
+        return;
+      }
+      setPendingCount((d.data.data ?? []).length);
+    } catch {
+      setPendingCount(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadPendingCount();
+    const id = window.setInterval(() => void loadPendingCount(), 60_000);
+    const onVis = () => {
+      if (document.visibilityState === "visible") void loadPendingCount();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [loadPendingCount]);
+
   return (
     <div className="flex h-screen min-h-0 overflow-hidden bg-white font-sans text-[var(--text-primary)] dark:bg-zinc-950">
       {sidebarOpen && (
@@ -196,7 +267,8 @@ export function AdminDashboardShell({
           {/* Primary Nav */}
           <ul className="space-y-0.5">
             {primaryNav.map(({ href, label, icon: Icon }) => {
-              const active = href === "/super-admin" && templesActive;
+              const active =
+                (href === "/super-admin" && templesActive) || (href !== "#" && pathname === href);
               return (
                 <li key={label}>
                   <Link
@@ -219,13 +291,15 @@ export function AdminDashboardShell({
               );
             })}
 
-            {/* Finance & Billing — collapsible */}
+            {/* Finance & Billing — collapsible (accordion with Subscriptions + System) */}
             <NavSection
               label="Finance & Billing"
               icon={Wallet}
               items={financeNav}
               pathname={pathname}
               onLinkClick={closeSidebar}
+              isOpen={openAccordion === "finance"}
+              onHeaderClick={() => setOpenAccordion((o) => (o === "finance" ? null : "finance"))}
             />
 
             {/* Subscriptions — collapsible */}
@@ -235,6 +309,8 @@ export function AdminDashboardShell({
               items={subscriptionNav}
               pathname={pathname}
               onLinkClick={closeSidebar}
+              isOpen={openAccordion === "subscriptions"}
+              onHeaderClick={() => setOpenAccordion((o) => (o === "subscriptions" ? null : "subscriptions"))}
             />
           </ul>
 
@@ -268,6 +344,8 @@ export function AdminDashboardShell({
               items={systemSettingsNav}
               pathname={pathname}
               onLinkClick={closeSidebar}
+              isOpen={openAccordion === "system"}
+              onHeaderClick={() => setOpenAccordion((o) => (o === "system" ? null : "system"))}
             />
           </ul>
         </nav>
@@ -324,13 +402,25 @@ export function AdminDashboardShell({
             >
               <Mail className="h-5 w-5" />
             </button>
-            <button
-              type="button"
-              aria-label="Notifications"
-              className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
+            <Link
+              href="/super-admin/finance/confirm-payments"
+              className="relative inline-flex rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
+              aria-label={
+                pendingCount > 0
+                  ? `Pending bank payments, ${pendingCount} to review. Open confirm payments.`
+                  : "Pending bank payments. Open confirm payments."
+              }
             >
-              <Bell className="h-5 w-5" />
-            </button>
+              <Bell className="h-5 w-5" aria-hidden />
+              {pendingCount > 0 && (
+                <span
+                  className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[var(--brand-primary)] px-1 text-[10px] font-bold leading-none text-white"
+                  aria-hidden
+                >
+                  {pendingCount > 99 ? "99+" : pendingCount}
+                </span>
+              )}
+            </Link>
             <button
               type="button"
               aria-label="Settings"

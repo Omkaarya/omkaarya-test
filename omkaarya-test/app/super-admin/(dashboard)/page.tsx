@@ -139,6 +139,69 @@ export default function SuperAdminDashboard() {
                   <div className="flex-1">
                     <p className="text-xs font-bold text-text-primary">{alert.title}</p>
                     <p className="text-[10px] text-text-tertiary">{alert.time}</p>
+        <AdminFiltersBar
+          search={searchInput}
+          onSearchChange={setSearchInput}
+          status={statusFilter}
+          onStatusChange={(status) => {
+            setStatusFilter(status);
+            setPage(1);
+          }}
+          country={country}
+          onCountryChange={(nextCountry) => {
+            setCountry(nextCountry);
+            setPage(1);
+          }}
+          countries={countries}
+          sortBy={sortBy}
+          onSortByChange={(nextSortBy) => {
+            setSortBy(nextSortBy as TemplesSortBy);
+            setPage(1);
+          }}
+        />
+
+        {loading ? (
+          <TableSkeleton />
+        ) : error ? (
+          <p className="px-4 py-10 text-center text-sm text-red-600 dark:text-red-400">{error}</p>
+        ) : (
+          <AdminDataTable
+            headers={tableHeaders}
+            isEmpty={rows.length === 0}
+            empty={
+              <p className="px-4 py-12 text-center text-sm text-zinc-500">
+                No temples match your filters.
+              </p>
+            }
+          >
+            {rows.map((row) => (
+              <tr key={row.tenantId} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30">
+                <td className="whitespace-nowrap px-4 py-3 font-medium text-zinc-600 dark:text-zinc-400">
+                  Temp ID {row.tenantId}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-start gap-3">
+                    <span
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-xs font-semibold text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200"
+                      aria-hidden
+                    >
+                      {initials(row.name)}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-zinc-900 dark:text-zinc-100">{row.name}</p>
+                      {row.portalHost ? (
+                        <a
+                          href={`https://${row.portalHost}`}
+                          className="truncate text-xs text-zinc-500 hover:text-[var(--brand-primary)] dark:text-zinc-400"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {row.portalHost}
+                        </a>
+                      ) : (
+                        <span className="text-xs text-zinc-500 dark:text-zinc-400">—</span>
+                      )}
+                    </div>
                   </div>
                   <ArrowRight className="w-3 h-3 text-text-disabled" />
                 </div>

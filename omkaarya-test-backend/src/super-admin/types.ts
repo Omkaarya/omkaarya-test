@@ -7,6 +7,10 @@ export type TempleRecord = {
   tenantId: string;
   name: string;
   slug: string;
+  /** Short portal label (no protocol); from `domain_subdomain` or derived from `slug`. */
+  subdomain: string;
+  /** Canonical host for the temple microsite, e.g. `name.omkaarya.com`. */
+  portalHost: string;
   countryCode: string;
   countryFlag: string;
   city: string;
@@ -72,6 +76,12 @@ export type TempleSessionProfileResponse = {
     establishedYear: string;
     fullAddress: TempleFullAddressJson;
   };
+  /** Plan from super-admin create (or DB); used to preselect on temple onboarding “Confirm your plan”. */
+  provisioningPlan: {
+    pricingPlanId: string | null;
+    planName: string | null;
+    billing: "monthly" | "annual";
+  };
 };
 
 export type CreateTemplePayload = {
@@ -89,6 +99,9 @@ export type CreateTemplePayload = {
     website: string;
     subdomain: string;
     establishedYear: string;
+    /** When true, `charityRegistrationNumber` should be set (enforced in validation). */
+    charityRegistered: boolean;
+    charityRegistrationNumber: string;
   };
   admin: {
     fullName: string;
@@ -98,12 +111,23 @@ export type CreateTemplePayload = {
   };
   planBilling: {
     selectedPlan: string;
+    /** `pricing_plans.id` (UUID) from the super-admin catalog — preferred for persisting `temples.pricing_plan_id`. */
+    selectedPricingPlanId?: string | null;
     billingCycle: string;
     trial: {
       enabled: boolean;
       days: number | null;
     };
   };
+  /**
+   * Base64 `data:` is uploaded to Cloudinary; an existing `https` URL is stored as-is.
+   * DB holds a Cloudinary `secure_url` (same pattern as payment slip uploads), not a raw `data:` string.
+   */
+  logoTempleDataUrl?: string | null;
+  /**
+   * Base64 `data:` is uploaded to Cloudinary; DB holds `https` on `users.profile_image_url`.
+   */
+  adminProfileDataUrl?: string | null;
 };
 
 /** PATCH /api/temples/:tenantId — admin email is not modified server-side. */

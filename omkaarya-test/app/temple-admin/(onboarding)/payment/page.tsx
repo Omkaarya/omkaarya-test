@@ -6,23 +6,32 @@ import Image from "next/image";
 import { ArrowRight, Building2, Calendar, Copy, UploadCloud, X } from "lucide-react";
 import TempleOnboardingStepActions from "@/app/components/temple-admin/TempleOnboardingStepActions";
 import { submitTempleBankTransferNotification } from "@/lib/templePaymentSubmissionApi";
+import { clearTempleOnboardingDeityDraft, isDeitySelectionComplete } from "@/lib/temple-onboarding-deity";
 import {
+  clearTempleOnboardingPlanDraft,
   loadTempleOnboardingPlanDraft,
   TEMPLE_ONBOARDING_TRIAL_DAYS,
 } from "@/lib/temple-onboarding-plan";
+import { clearTempleOnboardingPaymentStatus } from "@/lib/temple-onboarding-payment";
 import {
   getPlanByIdFromList,
   type ApiPricingPlan,
   formatUsdFromCents,
   effectiveMonthlyFromYearlyCents,
 } from "@/lib/temple-pricing-plans";
-import { TEMPLE_ONBOARDING_EMAIL_KEY } from "@/lib/temple-onboarding-signin";
-import { isDeitySelectionComplete } from "@/lib/temple-onboarding-deity";
+import {
+  TEMPLE_ONBOARDING_EMAIL_KEY,
+  TEMPLE_ONBOARDING_RETURNING_LOGIN_KEY,
+  TEMPLE_ONBOARDING_TEMP_PASSWORD_KEY,
+} from "@/lib/temple-onboarding-signin";
 import {
   isTempleOnboardingTempleCreated,
   loadTempleOnboardingTempleCreatedResponse,
+  loadTempleOnboardingTempleProfileDraft,
+  TEMPLE_ONBOARDING_TEMPLE_CREATED_KEY,
+  TEMPLE_ONBOARDING_TEMPLE_CREATED_RESPONSE_KEY,
+  clearTempleOnboardingTempleProfileDraft,
 } from "@/lib/temple-onboarding-temple-profile";
-import { loadTempleOnboardingTempleProfileDraft } from "@/lib/temple-onboarding-temple-profile";
 
 const BANK_DETAILS = {
   header: "Peopleux Pvt Ltd — Receiving Account",
@@ -347,7 +356,20 @@ export default function TempleAdminPaymentPage() {
         return;
       }
       setModalOpen(false);
-      router.push("/temple-admin/onboarding-complete");
+      clearTempleOnboardingPlanDraft();
+      clearTempleOnboardingDeityDraft();
+      clearTempleOnboardingTempleProfileDraft();
+      clearTempleOnboardingPaymentStatus();
+      try {
+        sessionStorage.removeItem(TEMPLE_ONBOARDING_EMAIL_KEY);
+        sessionStorage.removeItem(TEMPLE_ONBOARDING_TEMPLE_CREATED_KEY);
+        sessionStorage.removeItem(TEMPLE_ONBOARDING_TEMPLE_CREATED_RESPONSE_KEY);
+        sessionStorage.removeItem(TEMPLE_ONBOARDING_RETURNING_LOGIN_KEY);
+        sessionStorage.removeItem(TEMPLE_ONBOARDING_TEMP_PASSWORD_KEY);
+      } catch {
+        // sessionStorage can throw in some browsers; navigation still runs
+      }
+      router.replace("/temple-admin/signin");
     } catch {
       setModalError("Network error. Please try again.");
     } finally {

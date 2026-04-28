@@ -24,7 +24,6 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbSegment[] {
   if (pathname === "/super-admin") {
     return [{ label: "Temples", isCurrent: true }];
   }
-
   // ── User Management ────────────────────────────────────────────────
   if (pathname === "/super-admin/user-management/users") {
     return [

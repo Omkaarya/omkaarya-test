@@ -7,6 +7,8 @@ export type MockTemple = {
   tenantId: string;
   name: string;
   slug: string;
+  subdomain: string;
+  portalHost: string;
   countryCode: string;
   countryFlag: string;
   city: string;

@@ -40,21 +40,28 @@ export const templeAdminProfileBodySchema = z.object({
     .pipe(z.string().min(8).max(24)),
 });
 
-const templeNested = z.object({
-  tradition: z.string(),
-  name: z.string(),
-  deity: z.string(),
-  country: z.string(),
-  city: z.string(),
-  address: z.string(),
-  email: z.string(),
-  phone: z.unknown(),
-  whatsapp: z.unknown(),
-  fax: z.unknown(),
-  website: z.string(),
-  subdomain: z.string(),
-  establishedYear: z.string(),
-});
+const templeNested = z
+  .object({
+    tradition: z.string(),
+    name: z.string(),
+    deity: z.string(),
+    country: z.string(),
+    city: z.string(),
+    address: z.string(),
+    email: z.string(),
+    phone: z.unknown(),
+    whatsapp: z.unknown(),
+    fax: z.unknown(),
+    website: z.string(),
+    subdomain: z.string(),
+    establishedYear: z.string(),
+    charityRegistered: z.boolean(),
+    charityRegistrationNumber: z.string(),
+  })
+  .refine(
+    (d) => !d.charityRegistered || d.charityRegistrationNumber.trim().length > 0,
+    { message: "Charity registration number is required when registered.", path: ["charityRegistrationNumber"] }
+  );
 
 const adminNested = z.object({
   fullName: z.string(),
@@ -65,6 +72,7 @@ const adminNested = z.object({
 
 const planBillingNested = z.object({
   selectedPlan: z.string(),
+  selectedPricingPlanId: z.string().uuid().optional().nullable(),
   billingCycle: z.string(),
   trial: z.object({
     enabled: z.boolean(),
@@ -76,6 +84,8 @@ export const createTempleBodySchema = z.object({
   temple: templeNested,
   admin: adminNested,
   planBilling: planBillingNested,
+  logoTempleDataUrl: z.string().nullable().optional(),
+  adminProfileDataUrl: z.string().nullable().optional(),
 });
 
 const adminNestedUpdate = z.object({
@@ -144,6 +154,10 @@ export const templePaymentSubmissionFieldsSchema = z.object({
   currency: z.string().trim().pipe(z.string().min(3).max(8)),
   transferredDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date (expected YYYY-MM-DD)"),
   notes: z.string().optional(),
+  invoiceId: z
+    .union([z.string().uuid(), z.literal("")])
+    .optional()
+    .transform((s) => (s === "" || s === undefined ? undefined : s)),
 });
 
 export const templeOnboardingCompleteBodySchema = z
@@ -166,16 +180,23 @@ const templeFullAddressJsonSchema = z.object({
   street: z.string(),
 });
 
-/** PATCH /api/temple-admin/temple-profile/details — foldable section only. */
-export const templeProfileDetailsPatchBodySchema = z.object({
-  sessionEmail: z.string().email(),
-  websiteUrl: z.string(),
-  fax: phoneRowJsonSchema,
-  domainSubdomain: z.string(),
-  establishedYear: z.string(),
-  fullAddress: templeFullAddressJsonSchema,
-  logoDataUrl: z.string().nullable(),
-});
+/** PATCH /api/temple-admin/temple-profile/details — foldable section + charity. */
+export const templeProfileDetailsPatchBodySchema = z
+  .object({
+    sessionEmail: z.string().email(),
+    websiteUrl: z.string(),
+    fax: phoneRowJsonSchema,
+    domainSubdomain: z.string(),
+    establishedYear: z.string(),
+    fullAddress: templeFullAddressJsonSchema,
+    logoDataUrl: z.string().nullable(),
+    charityRegistered: z.boolean(),
+    charityRegistrationNumber: z.string(),
+  })
+  .refine(
+    (d) => !d.charityRegistered || d.charityRegistrationNumber.trim().length > 0,
+    { message: "Charity registration number is required when registered.", path: ["charityRegistrationNumber"] }
+  );
 
 export const passwordResetRequestBodySchema = z.object({
   email: z.string().email(),

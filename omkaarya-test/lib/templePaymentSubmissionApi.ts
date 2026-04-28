@@ -8,6 +8,8 @@ export type SubmitTempleBankTransferNotificationPayload = {
   currency: string;
   transferredDate: string; // YYYY-MM-DD
   notes?: string;
+  /** Optional: UUID of a pending payable invoice for this temple */
+  invoiceId?: string;
   slipFile: File;
 };
 
@@ -29,6 +31,7 @@ export async function submitTempleBankTransferNotification(
   form.set("currency", payload.currency);
   form.set("transferredDate", payload.transferredDate);
   if (payload.notes) form.set("notes", payload.notes);
+  if (payload.invoiceId) form.set("invoiceId", payload.invoiceId);
   form.set("slip", payload.slipFile, payload.slipFile.name);
 
   const response = await fetch("/api/temple-admin/payment-submissions", {

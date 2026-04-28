@@ -30,24 +30,97 @@ function sanitizePublicIdBase(raw: string): string {
     .slice(0, 80);
 }
 
-export async function uploadPaymentSlipToCloudinary(input: {
+/** Browser FileReader `readAsDataURL` output: `data:<mime>;base64,<data>` */
+export function parseBase64ImageDataUrl(dataUrl: string): { mimeType: string; bytes: Uint8Array } {
+  const trimmed = dataUrl.trim();
+  const match = /^data:([^;,]+);base64,(.+)$/i.exec(trimmed);
+  if (!match) {
+    throw new Error("Expected a base64 data URL (data:*/*;base64,...).");
+  }
+  const mimeType = match[1]!.split(";")[0]!.trim();
+  const b64 = match[2]!;
+  const buf = Buffer.from(b64, "base64");
+  return { mimeType, bytes: new Uint8Array(buf) };
+}
+
+const BRANDING_IMAGE_MIMES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/svg+xml",
+]);
+
+export type BrandingImageKind = "temple-logo" | "admin-profile";
+
+/**
+ * If `data:` base64, uploads to Cloudinary and returns `secureUrl`.
+ * If `http(s)`, returns the string unchanged.
+ * Empty/null → null.
+ */
+export async function storeBrandingImageIfNeeded(
+  raw: string | null | undefined,
+  kind: BrandingImageKind,
+  fileNameHint: string
+): Promise<string | null> {
+  if (raw == null) return null;
+  const t = String(raw).trim();
+  if (!t) return null;
+  if (t.startsWith("data:")) {
+    return (await uploadBrandingImageDataUrlToCloudinary({ dataUrl: t, fileNameHint, kind })).secureUrl;
+  }
+  if (/^https?:\/\//i.test(t)) return t;
+  // Legacy or unexpected: keep as-is (e.g. old data URLs in DB if mis-detected)
+  return t;
+}
+
+function brandingFolderForKind(kind: BrandingImageKind): string {
+  if (kind === "temple-logo") {
+    return env("CLOUDINARY_BRANDING_TEMPLE_LOGO_FOLDER") || "omkaarya/branding/temple-logo";
+  }
+  return env("CLOUDINARY_BRANDING_ADMIN_PROFILE_FOLDER") || "omkaarya/branding/admin-profile";
+}
+
+/**
+ * Upload a logo / profile image provided as a base64 data URL (from JSON bodies).
+ * Validates image MIME type before upload.
+ */
+export async function uploadBrandingImageDataUrlToCloudinary(input: {
+  dataUrl: string;
+  fileNameHint: string;
+  kind: BrandingImageKind;
+}): Promise<{ publicId: string; secureUrl: string }> {
+  const { mimeType, bytes } = parseBase64ImageDataUrl(input.dataUrl);
+  const baseMime = mimeType.toLowerCase();
+  if (!BRANDING_IMAGE_MIMES.has(baseMime)) {
+    throw new Error(`Unsupported branding image type: ${baseMime || "unknown"}`);
+  }
+  return uploadBytesToCloudinaryFolder({
+    fileName: input.fileNameHint,
+    mimeType: baseMime,
+    bytes,
+    folder: brandingFolderForKind(input.kind),
+    resourceType: "image",
+  });
+}
+
+async function uploadBytesToCloudinaryFolder(input: {
   fileName: string;
   mimeType: string;
   bytes: Uint8Array;
+  folder: string;
+  resourceType: "image" | "auto";
 }): Promise<{ publicId: string; secureUrl: string }> {
   configureCloudinaryOnce();
-
-  const folder = env("CLOUDINARY_FOLDER") || "omkaarya/payments/temple-onboarding";
   const publicIdBase = sanitizePublicIdBase(input.fileName);
-
-  // Cloudinary upload API wants a data URI or remote URL; easiest is data URI for in-memory bytes.
   const b64 = Buffer.from(input.bytes).toString("base64");
   const dataUri = `data:${input.mimeType || "application/octet-stream"};base64,${b64}`;
 
   const result = await cloudinary.uploader.upload(dataUri, {
-    folder,
+    folder: input.folder,
     public_id: publicIdBase,
-    resource_type: "auto",
+    resource_type: input.resourceType,
     overwrite: false,
     unique_filename: true,
   });
@@ -58,5 +131,20 @@ export async function uploadPaymentSlipToCloudinary(input: {
     throw new Error("Cloudinary upload succeeded but response was missing public_id/secure_url.");
   }
   return { publicId, secureUrl };
+}
+
+export async function uploadPaymentSlipToCloudinary(input: {
+  fileName: string;
+  mimeType: string;
+  bytes: Uint8Array;
+}): Promise<{ publicId: string; secureUrl: string }> {
+  const folder = env("CLOUDINARY_FOLDER") || "omkaarya/payments/temple-onboarding";
+  return uploadBytesToCloudinaryFolder({
+    fileName: input.fileName,
+    mimeType: input.mimeType,
+    bytes: input.bytes,
+    folder,
+    resourceType: "auto",
+  });
 }
 
