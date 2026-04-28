@@ -28,6 +28,7 @@ import {
   Settings,
   Zap,
 } from "lucide-react";
+import SelectInput from "@/app/components/admin/SelectInput";
 
 // ── Types ──────────────────────────────────────────────────────────
 

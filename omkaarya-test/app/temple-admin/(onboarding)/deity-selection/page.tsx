@@ -153,7 +153,7 @@ export default function TempleAdminDeitySelectionPage() {
         preferCustomLater: showCustomNote,
       });
       if (!res.ok) {
-        setSubmitError(res.message);
+        setSubmitError(("message" in res ? res.message : undefined) ?? "Failed to save deity selection.");
         return;
       }
       saveTempleOnboardingDeityDraft({

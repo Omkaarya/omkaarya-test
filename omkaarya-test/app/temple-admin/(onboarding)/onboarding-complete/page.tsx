@@ -135,7 +135,7 @@ export default function TempleAdminOnboardingCompletePage() {
         templeId: created.templeId,
       });
       if (!cancelled && !res.ok) {
-        console.warn("Onboarding completion API:", res.message);
+        console.warn("Onboarding completion API:", "message" in res ? res.message : "Unknown error");
       }
     })();
 

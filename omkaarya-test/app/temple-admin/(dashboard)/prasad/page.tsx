@@ -220,28 +220,6 @@ export default function PrasadItemsPage() {
       </div>
 
       {/* Filters Area */}
-      <div className="flex flex-col gap-4 rounded-2xl border border-zinc-100 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 items-center gap-3">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-            <input
-              type="text"
-              placeholder="Search prashadham..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-10 w-full rounded-xl border border-zinc-100 bg-zinc-50 pl-10 pr-4 text-sm outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-900"
-            />
-          </div>
-          <SelectInput className={prasadBarSelect} wrapperClassName="w-auto min-w-[8rem]">
-            {CATEGORIES.map((cat) => (
-              <option key={cat}>{cat}</option>
-            ))}
-          </SelectInput>
-          <SelectInput className={prasadBarSelect} wrapperClassName="w-auto min-w-[8rem]">
-            <option>All Status</option>
-            <option>Available</option>
-            <option>Unavailable</option>
-          </SelectInput>
       {/* ─── Filters & Table ────────────────────────────────────────── */}
       <div className="bg-surface rounded-2xl border border-border shadow-xs overflow-hidden">
         <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-4 items-center justify-between">
@@ -295,6 +273,14 @@ export default function PrasadItemsPage() {
 
 function AddPrasadModal({ onClose }: { onClose: () => void }) {
   const [ingredients, setIngredients] = useState([{ id: 1, itemId: "", qty: "" }]);
+
+  const addIngredient = () => {
+    setIngredients((prev) => [...prev, { id: Date.now(), itemId: "", qty: "" }]);
+  };
+
+  const removeIngredient = (id: number) => {
+    setIngredients((prev) => prev.filter((x) => x.id !== id));
+  };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
@@ -387,46 +373,26 @@ function AddPrasadModal({ onClose }: { onClose: () => void }) {
                     </SelectInput>
                   </div>
                   <div className="w-32">
-                    <input type="text" placeholder="Qty" className="h-11 w-full rounded-xl border border-zinc-100 bg-white px-4 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-950" />
-            <div className="flex-1 grid grid-cols-2 gap-4">
-               <div className="col-span-2 space-y-1.5">
-                 <Label>Prashadham Name</Label>
-                 <Input placeholder="e.g. Sakkarai Pongal" />
-               </div>
-               <div className="space-y-1.5">
-                 <Label>Category</Label>
-                 <Select options={CATEGORIES} />
-               </div>
-               <div className="space-y-1.5">
-                 <Label>Price (LKR)</Label>
-                 <Input type="number" placeholder="0.00" />
-               </div>
+                    <input
+                      type="text"
+                      placeholder="Qty"
+                      className="h-11 w-full rounded-xl border border-zinc-100 bg-white px-4 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-950"
+                    />
+                  </div>
+                  <Button
+                    variant="ghost"
+                    iconOnly
+                    className="text-error"
+                    onClick={() => removeIngredient(ing.id)}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
             </div>
           </div>
 
-          <div className="space-y-4 p-5 rounded-2xl bg-subtle border border-border">
-             <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-text-tertiary">Ingredients / Items</h4>
-                <Button size="sm" variant="outline" leadingIcon={<Plus className="w-3 h-3" />} onClick={() => setIngredients([...ingredients, { id: Date.now(), itemId: "", qty: "" }])}>
-                  Add Item
-                </Button>
-             </div>
-             <div className="space-y-3">
-                {ingredients.map((ing) => (
-                  <div key={ing.id} className="flex gap-3">
-                    <div className="flex-1">
-                      <Select options={[{ label: "Rice (PRD-004)", value: "1" }]} placeholder="Select inventory item..." />
-                    </div>
-                    <div className="w-24">
-                      <Input placeholder="Qty" />
-                    </div>
-                    <Button variant="ghost" iconOnly className="text-error"><X className="w-4 h-4" /></Button>
-                  </div>
-                ))}
-             </div>
-          </div>
         </div>
-
         <div className="p-6 border-t border-border bg-subtle/50 flex justify-end gap-3">
            <Button variant="outline" size="md" className="px-6" onClick={onClose}>Cancel</Button>
            <Button size="md" className="px-8" onClick={onClose}>Save Product</Button>

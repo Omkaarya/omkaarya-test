@@ -353,7 +353,7 @@ export default function TempleAdminPaymentPage() {
         slipFile,
       });
       if (!out.ok) {
-        setModalError(out.message);
+        setModalError("Failed to submit payment. Please try again.");
         return;
       }
       setModalOpen(false);

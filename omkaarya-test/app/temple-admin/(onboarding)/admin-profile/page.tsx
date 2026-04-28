@@ -40,7 +40,7 @@ export default function TempleAdminAdminProfilePage() {
         setLoading(true);
         const res = await getTempleAdminProfileAction(sessionEmail);
         if (!res.ok) {
-          setError(res.message || "Could not load profile.");
+          setError(("message" in res ? res.message : undefined) ?? "Could not load profile.");
           return;
         }
         setEmail(res.profile.email);
