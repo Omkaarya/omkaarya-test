@@ -14,6 +14,9 @@ export interface BadgeProps {
   dot?: boolean;
   leadingIcon?: React.ReactNode;
   onDismiss?: () => void;
+  className?: string;
+  variant?: BadgeColor | "outline" | "subtle"; // Alias for color or specific outline/subtle style
+  onClick?: () => void;
 }
 
 // ─── Color map (Figma-matched) ─────────────────────────────────────
@@ -44,17 +47,26 @@ export const Badge: React.FC<BadgeProps> = ({
   dot = false,
   leadingIcon,
   onDismiss,
+  className = "",
+  variant,
+  onClick,
 }) => {
-  const c = colorStyles[color];
+  const badgeColor = (variant && variant !== "outline" && variant !== "subtle" ? variant : color) as BadgeColor;
+  const c = colorStyles[badgeColor];
   const s = sizeStyles[size];
+  const isOutline = variant === "outline";
+  const isSubtle = variant === "subtle";
 
   return (
     <span
+      onClick={onClick}
       className={`
         inline-flex items-center rounded-full font-medium
-        ${c.bg} ${c.text}
+        ${onClick ? "cursor-pointer select-none active:opacity-70 transition-opacity" : ""}
+        ${isOutline ? "bg-white border border-border text-text-secondary" : isSubtle ? `${c.bg} ${c.text}` : `${c.bg} ${c.text}`}
         ${s.badge} ${s.text}
-        ${c.border ? `border ${c.border}` : ""}
+        ${!isOutline && c.border ? `border ${c.border}` : ""}
+        ${className}
       `}
     >
       {dot && !leadingIcon && (

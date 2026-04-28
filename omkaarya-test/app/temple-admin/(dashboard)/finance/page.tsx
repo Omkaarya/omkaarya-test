@@ -1,200 +1,190 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { CheckCircle2, X, BarChart3, Plus, Wallet, CreditCard, TrendingUp, HeartHandshake } from "lucide-react";
 import Link from "next/link";
-
+import { 
+  IndianRupee, 
+  TrendingUp, 
+  TrendingDown, 
+  ArrowUpRight, 
+  ArrowDownRight,
+  Plus,
+  BarChart3,
+  Search,
+  ChevronRight,
+  MoreVertical,
+  Eye,
+  FileText
+} from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
+import { MetricCard } from "@/app/components/ds/molecules/MetricCard";
+import { Badge } from "@/app/components/ds/atoms/Badge";
 
-// ── Toast ─────────────────────────────────────────────────────────
-function Toast({ message, onClose }: { message: string; onClose: () => void }) {
-  return (
-    <div className="fixed bottom-6 right-6 z-[200] flex items-center gap-3 rounded-xl border border-success-500/20 bg-status-success-bg text-status-success-text px-5 py-4 shadow-xl">
-      <CheckCircle2 className="h-5 w-5 shrink-0" /><p className="text-sm font-semibold">{message}</p>
-      <button onClick={onClose} className="ml-2 opacity-60 hover:opacity-100"><X className="h-4 w-4" /></button>
-    </div>
-  );
-}
+// ── Stat Bar Component ───────────────────────────────────────────
 
-// ── Bar Chart ─────────────────────────────────────────────────────
-function BarChart({ title, bars }: { title: string; bars: { label: string; value: string; pct: number; color: string }[] }) {
+function StatBar({ label, value, percentage, colorClass }: { label: string, value: string, percentage: number, colorClass: string }) {
   return (
-    <div className="bg-surface border border-border rounded-2xl p-6 shadow-sm">
-      <h3 className="text-sm font-bold uppercase tracking-wider text-text-tertiary mb-5">{title}</h3>
-      <div className="space-y-2.5">
-        {bars.map((b) => (
-          <div key={b.label} className="flex items-center gap-2.5">
-            <span className="text-[11px] text-text-tertiary w-[120px] text-right shrink-0">{b.label}</span>
-            <div className="flex-1 bg-subtle rounded h-[22px] overflow-hidden">
-              <div className={`h-full rounded flex items-center px-2 ${b.color}`} style={{ width: `${b.pct}%` }}>
-                <span className="text-[10px] font-bold text-white">{b.value}</span>
-              </div>
-            </div>
-          </div>
-        ))}
+    <div className="flex items-center gap-3 mb-3">
+      <div className="text-[11px] font-bold text-text-secondary w-28 text-right shrink-0">{label}</div>
+      <div className="flex-1 h-[22px] bg-gray-100 rounded-lg overflow-hidden border border-border/50 relative">
+        <div 
+          className={`h-full rounded-lg flex items-center px-2 transition-all duration-500 ${colorClass}`}
+          style={{ width: `${percentage}%` }}
+        >
+           <span className="text-[10px] font-black text-white">{value}</span>
+        </div>
       </div>
     </div>
   );
 }
 
-// ── Type Pill ─────────────────────────────────────────────────────
-function TypePill({ type }: { type: string }) {
-  const styles: Record<string, string> = {
-    Pooja: "bg-orange-50 text-[var(--brand-primary)] border border-orange-100",
-    Donation: "bg-blue-50 text-blue-700 border border-blue-100",
-    "Counter sale": "bg-green-50 text-green-700 border border-green-100",
-    Expense: "bg-red-50 text-red-700 border border-red-100",
-    "Ritual Return": "bg-purple-50 text-purple-700 border border-purple-100",
-  };
+export default function FinanceDashboard() {
   return (
-    <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-full ${styles[type] || "bg-zinc-50 text-zinc-600 border border-zinc-200"}`}>
-      {type}
-    </span>
-  );
-}
-
-// ── Transaction Data ──────────────────────────────────────────────
-const RECENT_TXNS = [
-  { date: "Today 09:14", desc: "Rudrabhishekam — Rajan Kumar", type: "Pooja", cat: "Pooja income", ref: "POOJA-0142", amt: "+LKR 7500.00", pos: true, by: "Admin" },
-  { date: "Today 08:30", desc: "Cash donation — anonymous", type: "Donation", cat: "Cash donation", ref: "DON-0087", amt: "+LKR 2000.00", pos: true, by: "Priest" },
-  { date: "Yesterday", desc: "Rose garland × 12 — supplier", type: "Expense", cat: "Inventory purchase", ref: "PO-0034", amt: "−LKR 3600.00", pos: false, by: "Admin" },
-  { date: "Yesterday", desc: "Prasad packet × 5 — counter sale", type: "Counter sale", cat: "POS sales", ref: "POS-0221", amt: "+LKR 750.00", pos: true, by: "Admin" },
-  { date: "2 days ago", desc: "Camphor returned from Abhishekam", type: "Ritual Return", cat: "Inventory only", ref: "POOJA-0138", amt: "— (no entry)", pos: false, by: "Priest" },
-];
-
-export default function TempleFinanceDashboardPage() {
-  const [toast, setToast] = useState<string | null>(null);
-  const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 4000); }, []);
-
-  return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      
+      {/* ── Header ─────────────────────────────────────────────────── */}
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <h1 className="text-display-xs font-bold tracking-tight text-text-primary">Finance Dashboard</h1>
-          <p className="mt-1 text-sm text-text-tertiary">Financial overview for Omkaarya Temple · April 2026</p>
+           <div className="flex items-center gap-2 text-[11px] font-bold text-text-tertiary mb-1">
+              <span>Finance</span>
+              <ChevronRight className="w-3 h-3" />
+              <span className="text-brand">Dashboard</span>
+           </div>
+           <h1 className="text-xl font-extrabold text-text-primary tracking-tight">Finance Dashboard</h1>
+           <p className="text-[12px] text-text-tertiary mt-1">Financial overview for Shiva Temple — London · April 2026</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Link href="/temple-admin/finance/reports">
-            <Button variant="outline" size="sm" className="gap-2">
-              <BarChart3 className="h-4 w-4" /> View reports
-            </Button>
-          </Link>
-          <Link href="/temple-admin/finance/transactions/add">
-            <Button variant="primary" size="sm" className="gap-2">
-              <Plus className="h-4 w-4" /> Add transaction
-            </Button>
-          </Link>
-        </div>
-      </div>
-
-      {/* Metrics */}
-      <div className="grid grid-cols-4 gap-4">
-        <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm transition-all hover:border-[var(--brand-primary)] hover:shadow-md">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-600 dark:bg-green-900/20">
-            <Wallet className="h-5 w-5" />
-          </div>
-          <p className="text-[11px] font-bold uppercase tracking-wider text-text-tertiary mb-1">Total income (This Month)</p>
-          <p className="text-2xl font-bold text-green-600">LKR 482,000</p>
-          <p className="text-[10px] text-text-quaternary mt-1">Pooja + Donations + Counter sales</p>
-          <p className="text-[10px] font-semibold text-green-600 mt-2">↑ 12% vs last month</p>
-        </div>
-        <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm transition-all hover:border-[var(--brand-primary)] hover:shadow-md">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-900/20">
-            <CreditCard className="h-5 w-5" />
-          </div>
-          <p className="text-[11px] font-bold uppercase tracking-wider text-text-tertiary mb-1">Total expenses (This Month)</p>
-          <p className="text-2xl font-bold text-red-600">LKR 214,000</p>
-          <p className="text-[10px] text-text-quaternary mt-1">Purchases + maintenance + salaries</p>
-          <p className="text-[10px] font-semibold text-red-600 mt-2">↑ 8% vs last month</p>
-        </div>
-        <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm transition-all hover:border-[var(--brand-primary)] hover:shadow-md">
-           <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-[var(--brand-primary)] dark:bg-orange-950/20">
-            <TrendingUp className="h-5 w-5" />
-          </div>
-          <p className="text-[11px] font-bold uppercase tracking-wider text-text-tertiary mb-1">Net surplus (This Month)</p>
-          <p className="text-2xl font-bold text-brand">LKR 268,000</p>
-          <p className="text-[10px] text-text-quaternary mt-1">Income minus expenses</p>
-          <p className="text-[10px] font-semibold text-brand mt-2">Healthy surplus</p>
-        </div>
-        <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm transition-all hover:border-[var(--brand-primary)] hover:shadow-md">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/20">
-            <HeartHandshake className="h-5 w-5" />
-          </div>
-          <p className="text-[11px] font-bold uppercase tracking-wider text-text-tertiary mb-1">Total donations (This Month)</p>
-          <p className="text-2xl font-bold text-blue-600">LKR 234,000</p>
-          <p className="text-[10px] text-text-quaternary mt-1">Cash + in-kind donations</p>
-          <p className="text-[10px] font-semibold text-blue-600 mt-2">34 donors this month</p>
+        <div className="flex items-center gap-2">
+           <Button variant="outline" size="sm" leadingIcon={<BarChart3 className="w-4 h-4" />}>View Reports</Button>
+           <Link href="/temple-admin/finance/transactions?action=add">
+             <Button size="sm" leadingIcon={<Plus className="w-4 h-4" />}>Add Transaction</Button>
+           </Link>
         </div>
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-2 gap-3.5">
-        <BarChart
-          title="Income breakdown — April 2026"
-          bars={[
-    { label: "Donations", value: "LKR 234,000", pct: 48, color: "bg-blue-600" },
-            { label: "Pooja bookings", value: "LKR 156,000", pct: 32, color: "bg-orange-500" },
-            { label: "Counter sales", value: "LKR 92,000", pct: 19, color: "bg-green-600" },
-          ]}
-        />
-        <BarChart
-          title="Expense breakdown — April 2026"
-          bars={[
-            { label: "Inventory purchases", value: "LKR 112,000", pct: 52, color: "bg-amber-500" },
-            { label: "Staff / priest", value: "LKR 75,000", pct: 35, color: "bg-purple-600" },
-            { label: "Maintenance", value: "LKR 27,000", pct: 13, color: "bg-teal-500" },
-          ]}
-        />
+      {/* ── Metrics Grid ───────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+         <MetricCard 
+            title="Total income (this month)" 
+            value="£4,820" 
+            trendPercentage={12}
+            trendLabel="vs last month"
+            chartColor="success"
+         />
+         <MetricCard 
+            title="Total expenses (this month)" 
+            value="£2,140" 
+            trendPercentage={8}
+            trendLabel="vs last month"
+            chartColor="warning"
+         />
+         <MetricCard 
+            title="Net surplus (this month)" 
+            value="£2,680" 
+            trendPercentage={4}
+            trendLabel="Healthy surplus"
+            chartColor="brand"
+         />
+         <MetricCard 
+            title="Total donations (this month)" 
+            value="£2,340" 
+            trendPercentage={15}
+            trendLabel="34 donors"
+            chartColor="brand"
+         />
       </div>
 
-      {/* Recent Transactions */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-bold text-text-primary">Recent transactions</h2>
-        <Link href="/temple-admin/finance/transactions">
-          <Button variant="outline" size="sm">View all →</Button>
-        </Link>
+      {/* ── Breakdown Charts ───────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+         <div className="bg-surface rounded-xl border border-border p-5 shadow-sm">
+            <div className="text-[12px] font-bold text-text-primary mb-4">Income breakdown — April 2026</div>
+            <div className="space-y-1">
+               <StatBar label="Donations" value="£2,340" percentage={48} colorClass="bg-blue-500" />
+               <StatBar label="Pooja bookings" value="£1,560" percentage={32} colorClass="bg-brand" />
+               <StatBar label="Counter sales" value="£920" percentage={19} colorClass="bg-status-success-text" />
+            </div>
+         </div>
+         <div className="bg-surface rounded-xl border border-border p-5 shadow-sm">
+            <div className="text-[12px] font-bold text-text-primary mb-4">Expense breakdown — April 2026</div>
+            <div className="space-y-1">
+               <StatBar label="Inventory purchases" value="£1,120" percentage={52} colorClass="bg-amber-500" />
+               <StatBar label="Staff / priest" value="£750" percentage={35} colorClass="bg-purple-500" />
+               <StatBar label="Maintenance" value="£270" percentage={13} colorClass="bg-brand" />
+            </div>
+         </div>
       </div>
 
-      <div className="bg-surface border border-border rounded-xl overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-subtle">
-              <th className="text-left text-[10px] font-bold text-text-tertiary uppercase tracking-wider px-4 py-2.5 border-b border-border" style={{ width: "18%" }}>Date</th>
-              <th className="text-left text-[10px] font-bold text-text-tertiary uppercase tracking-wider px-4 py-2.5 border-b border-border" style={{ width: "22%" }}>Description</th>
-              <th className="text-left text-[10px] font-bold text-text-tertiary uppercase tracking-wider px-4 py-2.5 border-b border-border" style={{ width: "14%" }}>Type</th>
-              <th className="text-left text-[10px] font-bold text-text-tertiary uppercase tracking-wider px-4 py-2.5 border-b border-border" style={{ width: "14%" }}>Category</th>
-              <th className="text-left text-[10px] font-bold text-text-tertiary uppercase tracking-wider px-4 py-2.5 border-b border-border" style={{ width: "12%" }}>Reference</th>
-              <th className="text-left text-[10px] font-bold text-text-tertiary uppercase tracking-wider px-4 py-2.5 border-b border-border" style={{ width: "10%" }}>Amount</th>
-              <th className="text-left text-[10px] font-bold text-text-tertiary uppercase tracking-wider px-4 py-2.5 border-b border-border" style={{ width: "10%" }}>By</th>
-            </tr>
-          </thead>
-          <tbody>
-            {RECENT_TXNS.map((t, i) => (
-              <tr key={i} className="border-b border-border-secondary last:border-b-0 hover:bg-subtle transition-colors cursor-pointer" onClick={() => showToast(`Viewing ${t.ref}`)}>
-                <td className="px-4 py-3 text-[11px] text-text-tertiary">{t.date}</td>
-                <td className="px-4 py-3"><span className="text-xs font-semibold text-text-primary">{t.desc}</span></td>
-                <td className="px-4 py-3"><TypePill type={t.type} /></td>
-                <td className="px-4 py-3 text-[11px] text-text-secondary">{t.cat}</td>
-                <td className="px-4 py-3 text-[10px] text-text-tertiary font-mono">{t.ref}</td>
-                <td className={`px-4 py-3 text-[13px] font-bold ${t.pos ? "text-green-600" : t.amt.startsWith("—") ? "text-text-tertiary text-xs font-normal" : "text-red-600"}`}>{t.amt}</td>
-                <td className="px-4 py-3 text-[11px] text-text-tertiary">{t.by}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="flex items-center justify-between px-4 py-2.5 border-t border-border-secondary">
-          <span className="text-[11px] text-text-tertiary">Showing 5 of 248 transactions this month</span>
-          <div className="flex gap-1">
-            <button className="w-7 h-7 rounded-md border border-border bg-surface text-[11px] text-text-secondary flex items-center justify-center">‹</button>
-            <button className="w-7 h-7 rounded-md bg-brand text-white text-[11px] flex items-center justify-center">1</button>
-            <button className="w-7 h-7 rounded-md border border-border bg-surface text-[11px] text-text-secondary flex items-center justify-center">2</button>
-            <button className="w-7 h-7 rounded-md border border-border bg-surface text-[11px] text-text-secondary flex items-center justify-center">›</button>
-          </div>
-        </div>
+      {/* ── Recent Transactions ────────────────────────────────────── */}
+      <div className="space-y-4">
+         <div className="flex items-center justify-between">
+            <h2 className="text-[14px] font-bold text-text-primary">Recent transactions</h2>
+            <Link href="/temple-admin/finance/transactions">
+               <Button variant="outline" size="sm" trailingIcon={<ChevronRight className="w-4 h-4" />}>View All</Button>
+            </Link>
+         </div>
+
+         <div className="bg-surface rounded-xl border border-border shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+               <table className="w-full text-left">
+                  <thead className="bg-gray-50/50 border-b border-border">
+                     <tr>
+                        <th className="px-5 py-3 text-[10px] font-black text-text-tertiary uppercase tracking-widest">Date</th>
+                        <th className="px-5 py-3 text-[10px] font-black text-text-tertiary uppercase tracking-widest">Description</th>
+                        <th className="px-5 py-3 text-[10px] font-black text-text-tertiary uppercase tracking-widest">Type</th>
+                        <th className="px-5 py-3 text-[10px] font-black text-text-tertiary uppercase tracking-widest">Category</th>
+                        <th className="px-5 py-3 text-[10px] font-black text-text-tertiary uppercase tracking-widest text-right">Amount</th>
+                        <th className="px-5 py-3"></th>
+                     </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border-secondary">
+                     {[
+                        { date: "Today 09:14", desc: "Rudrabhishekam — Rajan Kumar", type: "Pooja", cat: "Pooja income", amt: "+£75.00", pos: true, color: "brand" },
+                        { date: "Today 08:30", desc: "Cash donation — Priya Sharma", type: "Donation", cat: "Cash donation", amt: "+£120.00", pos: true, color: "info" },
+                        { date: "Yesterday", desc: "Rose garland × 12 — supplier", type: "Expense", cat: "Inventory purchase", amt: "-£36.00", pos: false, color: "danger" },
+                        { date: "Yesterday", desc: "Prasad packet × 5 — counter sale", type: "Sale", cat: "POS sales", amt: "+£7.50", pos: true, color: "ok" },
+                     ].map((txn, i) => (
+                        <tr key={i} className="hover:bg-gray-50/50 transition-colors group">
+                           <td className="px-5 py-4 text-[11px] text-text-tertiary font-medium">{txn.date}</td>
+                           <td className="px-5 py-4">
+                              <div className="text-[12px] font-bold text-text-primary">{txn.desc}</div>
+                           </td>
+                           <td className="px-5 py-4">
+                              <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold
+                                 ${txn.color === 'brand' ? 'bg-brand-muted text-brand' : 
+                                   txn.color === 'info' ? 'bg-blue-50 text-blue-600' : 
+                                   txn.color === 'danger' ? 'bg-status-danger-bg text-status-danger-text' : 
+                                   'bg-status-success-bg text-status-success-text'}
+                              `}>
+                                 <div className={`w-1.5 h-1.5 rounded-full ${
+                                    txn.color === 'brand' ? 'bg-brand' : 
+                                    txn.color === 'info' ? 'bg-blue-600' : 
+                                    txn.color === 'danger' ? 'bg-status-danger-text' : 
+                                    'bg-status-success-text'
+                                 }`} />
+                                 {txn.type}
+                              </div>
+                           </td>
+                           <td className="px-5 py-4 text-[11px] text-text-secondary font-medium">{txn.cat}</td>
+                           <td className={`px-5 py-4 text-right text-[13px] font-black tracking-tight ${txn.pos ? 'text-status-success-text' : 'text-status-danger-text'}`}>
+                              {txn.amt}
+                           </td>
+                           <td className="px-5 py-4 text-right">
+                              <Button variant="ghost" size="sm" iconOnly><Eye className="w-4 h-4" /></Button>
+                           </td>
+                        </tr>
+                     ))}
+                  </tbody>
+               </table>
+            </div>
+            <div className="px-5 py-3 border-t border-border flex items-center justify-between bg-gray-50/20">
+               <span className="text-[11px] text-text-tertiary font-bold">Showing 4 of 248 transactions</span>
+               <div className="flex items-center gap-1">
+                  <Button variant="outline" size="sm" className="h-7 w-7 p-0 justify-center">1</Button>
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 justify-center">2</Button>
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 justify-center">3</Button>
+               </div>
+            </div>
+         </div>
       </div>
 
-      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
     </div>
   );
 }

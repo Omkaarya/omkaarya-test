@@ -3,13 +3,10 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import {
   Bell,
-  Calendar,
   CheckCircle2,
   CreditCard,
   Download,
-  Expand,
   Eye,
-  FileText,
   MoreVertical,
   RefreshCw,
   Repeat,
@@ -25,7 +22,13 @@ import { Pagination } from "@/app/components/ds/molecules/Pagination";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
 import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
-
+import { SubscriptionRow, SubscriptionStatus, PlanName } from "./_components/types";
+import { statusBadgeColor, planBadgeColor } from "./_components/utils";
+import { InvoiceModal } from "./_components/InvoiceModal";
+import { VerifyModal } from "./_components/VerifyModal";
+import { ChangePlanModal } from "./_components/ChangePlanModal";
+import { ExtendModal } from "./_components/ExtendModal";
+import { ConvertToPaidModal } from "./_components/ConvertToPaidModal";
 // ── Types ──────────────────────────────────────────────────────────
 
 type SubscriptionStatus = "Pending" | "Active" | "Expired" | "Rejected";
@@ -492,8 +495,12 @@ export default function SubscriptionsPage() {
   const [filter, setFilter] = useState<FilterId>("All");
   const [page, setPage] = useState(1);
   const pageSize = 10;
+  const [isLoading, setIsLoading] = useState(true);
   const [verifyingRow, setVerifyingRow] = useState<SubscriptionRow | null>(null);
   const [invoiceRow, setInvoiceRow] = useState<SubscriptionRow | null>(null);
+  const [changePlanRow, setChangePlanRow] = useState<SubscriptionRow | null>(null);
+  const [extendRow, setExtendRow] = useState<SubscriptionRow | null>(null);
+  const [convertToPaidRow, setConvertToPaidRow] = useState<SubscriptionRow | null>(null);
   const [rows, setRows] = useState<SubscriptionRow[]>([]);
   const [profile, setProfile] = useState<BillingProfile | null>(null);
   const [totalPages, setTotalPages] = useState(1);
@@ -504,6 +511,211 @@ export default function SubscriptionsPage() {
     type: "success" | "error";
   } | null>(null);
 
+  // ── Simulate Loading ─────────────────────────────────────────────
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 800);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // ── Mock Data ────────────────────────────────────────────────────
+
+  const [rows, setRows] = useState<SubscriptionRow[]>([
+    {
+      id: "Sub ID 001",
+      invoiceId: "INV251001",
+      templeName: "Sri Jagannath Temple",
+      templeInitials: "SJ",
+      templeAddress: "Grand Road, Puri, Odisha 752001",
+      plan: "Prarambha",
+      billingCycle: "Annual",
+      amount: 24999,
+      paymentDate: "2026-04-15",
+      receiptId: "RCP-20260415-001",
+      status: "Pending",
+      verifiedBy: null,
+      activatedOn: null,
+      expiresOn: "2027-04-15",
+      adminEmail: "admin@jagannath.org",
+      cardLast4: "5765",
+    },
+    {
+      id: "Sub ID 002",
+      invoiceId: "INV251002",
+      templeName: "Swaminarayan Mandir",
+      templeInitials: "SM",
+      templeAddress: "Kalupur, Ahmedabad, Gujarat 380001",
+      plan: "Aaradhana",
+      billingCycle: "Monthly",
+      amount: 1999,
+      paymentDate: "2026-04-12",
+      receiptId: "RCP-20260412-002",
+      status: "Pending",
+      verifiedBy: null,
+      activatedOn: null,
+      expiresOn: "2026-05-12",
+      adminEmail: "info@swaminarayan.in",
+      cardLast4: "8842",
+    },
+    {
+      id: "Sub ID 003",
+      invoiceId: "INV251003",
+      templeName: "Meenakshi Amman Temple",
+      templeInitials: "MA",
+      templeAddress: "Madurai, Tamil Nadu 625001",
+      plan: "Sankalpa",
+      billingCycle: "Annual",
+      amount: 14999,
+      paymentDate: "2026-03-20",
+      receiptId: "RCP-20260320-003",
+      status: "Active",
+      verifiedBy: "Super Admin",
+      activatedOn: "2026-03-21",
+      expiresOn: "2027-03-20",
+      adminEmail: "temple@meenakshi.org",
+      cardLast4: "3321",
+    },
+    {
+      id: "Sub ID 004",
+      invoiceId: "INV251004",
+      templeName: "Kashi Vishwanath Temple",
+      templeInitials: "KV",
+      templeAddress: "Lahori Tola, Varanasi, UP 221001",
+      plan: "Prarambha",
+      billingCycle: "Annual",
+      amount: 24999,
+      paymentDate: "2026-02-10",
+      receiptId: "RCP-20260210-004",
+      status: "Active",
+      verifiedBy: "Super Admin",
+      activatedOn: "2026-02-11",
+      expiresOn: "2027-02-10",
+      adminEmail: "admin@kashivishwanath.org",
+      cardLast4: "7209",
+    },
+    {
+      id: "Sub ID 005",
+      invoiceId: "INV251005",
+      templeName: "Tirupati Balaji Temple",
+      templeInitials: "TB",
+      templeAddress: "Tirumala, Tirupati, AP 517504",
+      plan: "Prarambha",
+      billingCycle: "Annual",
+      amount: 24999,
+      paymentDate: "2025-04-01",
+      receiptId: "RCP-20250401-005",
+      status: "Expired",
+      verifiedBy: "Super Admin",
+      activatedOn: "2025-04-02",
+      expiresOn: "2026-04-01",
+      adminEmail: "tirupati@balaji.org",
+      cardLast4: "4410",
+    },
+    {
+      id: "Sub ID 006",
+      invoiceId: "INV251006",
+      templeName: "Somnath Temple",
+      templeInitials: "ST",
+      templeAddress: "Somnath, Prabhas Patan, Gujarat 362268",
+      plan: "Aaradhana",
+      billingCycle: "Monthly",
+      amount: 1999,
+      paymentDate: "2026-04-18",
+      receiptId: "RCP-20260418-006",
+      status: "Pending",
+      verifiedBy: null,
+      activatedOn: null,
+      expiresOn: "2026-05-18",
+      adminEmail: "admin@somnath.temple",
+      cardLast4: "1150",
+    },
+    {
+      id: "Sub ID 007",
+      invoiceId: "INV251007",
+      templeName: "Siddhivinayak Temple",
+      templeInitials: "SV",
+      templeAddress: "Prabhadevi, Mumbai, MH 400028",
+      plan: "Sankalpa",
+      billingCycle: "Monthly",
+      amount: 3999,
+      paymentDate: "2026-04-05",
+      receiptId: "RCP-20260405-007",
+      status: "Rejected",
+      verifiedBy: "Super Admin",
+      activatedOn: null,
+      expiresOn: "2026-05-05",
+      adminEmail: "ops@siddhivinayak.com",
+      cardLast4: "2277",
+    },
+    {
+      id: "Sub ID 008",
+      invoiceId: "INV251008",
+      templeName: "Golden Temple",
+      templeInitials: "GT",
+      templeAddress: "Golden Temple Rd, Amritsar, Punjab 143006",
+      plan: "Prarambha",
+      billingCycle: "Annual",
+      amount: 24999,
+      paymentDate: "2026-01-15",
+      receiptId: "RCP-20260115-008",
+      status: "Active",
+      verifiedBy: "Super Admin",
+      activatedOn: "2026-01-16",
+      expiresOn: "2027-01-15",
+      adminEmail: "admin@goldentemple.org",
+      cardLast4: "6693",
+    },
+    {
+      id: "Sub ID 009",
+      invoiceId: "INV251009",
+      templeName: "Rameshwaram Temple",
+      templeInitials: "RT",
+      templeAddress: "Rameswaram, Tamil Nadu 623526",
+      plan: "Aaradhana",
+      billingCycle: "Annual",
+      amount: 9999,
+      paymentDate: "2026-04-19",
+      receiptId: "RCP-20260419-009",
+      status: "Pending",
+      verifiedBy: null,
+      activatedOn: null,
+      expiresOn: "2027-04-19",
+      adminEmail: "info@rameshwaram.in",
+      cardLast4: "9981",
+    },
+    {
+      id: "Sub ID 010",
+      invoiceId: "INV251010",
+      templeName: "Badrinath Temple",
+      templeInitials: "BT",
+      templeAddress: "Badrinath, Chamoli, Uttarakhand 246422",
+      plan: "Sankalpa",
+      billingCycle: "Annual",
+      amount: 14999,
+      paymentDate: "2025-10-10",
+      receiptId: "RCP-20251010-010",
+      status: "Expired",
+      verifiedBy: "Super Admin",
+      activatedOn: "2025-10-11",
+      expiresOn: "2026-04-10",
+      adminEmail: "admin@badrinath.org",
+      cardLast4: "3587",
+    },
+  ]);
+
+  // ── Filtering ────────────────────────────────────────────────────
+
+  const filtered = useMemo(() => {
+    const q = searchInput.trim().toLowerCase();
+    let list = rows;
+    if (q) {
+      list = list.filter(
+        (r) =>
+          r.templeName.toLowerCase().includes(q) ||
+          r.plan.toLowerCase().includes(q) ||
+          r.receiptId.toLowerCase().includes(q) ||
+          r.id.toLowerCase().includes(q) ||
+          r.adminEmail.toLowerCase().includes(q)
+      );
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(searchInput), 400);
     return () => clearTimeout(t);
@@ -659,6 +871,44 @@ export default function SubscriptionsPage() {
     })();
   }, [verifyingRow, showToast, loadList, loadCounts]);
 
+  const handleChangePlan = useCallback((newPlan: PlanName) => {
+    if (!changePlanRow) return;
+    setRows((prev) =>
+      prev.map((r) =>
+        r.id === changePlanRow.id ? { ...r, plan: newPlan } : r
+      )
+    );
+    setChangePlanRow(null);
+    showToast(`Plan updated to ${newPlan} for ${changePlanRow.templeName}.`, "success");
+  }, [changePlanRow, showToast]);
+
+  const handleExtend = useCallback((months: number) => {
+    if (!extendRow) return;
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.id === extendRow.id) {
+          const d = new Date(r.expiresOn);
+          d.setMonth(d.getMonth() + months);
+          return { ...r, expiresOn: d.toISOString().split("T")[0], status: "Active" as SubscriptionStatus };
+        }
+        return r;
+      })
+    );
+    setExtendRow(null);
+    showToast(`Subscription extended by ${months} months for ${extendRow.templeName}.`, "success");
+  }, [extendRow, showToast]);
+
+  const handleConvertToPaid = useCallback(() => {
+    if (!convertToPaidRow) return;
+    setRows((prev) =>
+      prev.map((r) =>
+        r.id === convertToPaidRow.id ? { ...r, status: "Active" as SubscriptionStatus, verifiedBy: "Super Admin" } : r
+      )
+    );
+    setConvertToPaidRow(null);
+    showToast(`${convertToPaidRow.templeName} converted to paid subscription successfully.`, "success");
+  }, [convertToPaidRow, showToast]);
+
   // ── Row Actions Builder ──────────────────────────────────────────
 
   function getRowActions(row: SubscriptionRow): ActionItem[] {
@@ -668,6 +918,42 @@ export default function SubscriptionsPage() {
         icon: <Eye className="h-4 w-4" />,
         onClick: () => setInvoiceRow(row),
       },
+      {
+        label: "Download Invoice",
+        icon: <Download className="h-4 w-4" />,
+        onClick: () =>
+          showToast(`Downloading invoice ${row.invoiceId}…`, "success"),
+      },
+      {
+        label: "Change Plan",
+        icon: <Repeat className="h-4 w-4" />,
+        onClick: () => setChangePlanRow(row),
+      },
+      {
+        label: "Reminder",
+        icon: <Bell className="h-4 w-4" />,
+        onClick: () =>
+          showToast(`Payment reminder sent to ${row.adminEmail}.`, "success"),
+      },
+    ];
+
+    if (row.status === "Expired") {
+      base.push({
+        label: "Extend",
+        icon: <RefreshCw className="h-4 w-4" />,
+        onClick: () => setExtendRow(row),
+      });
+    }
+
+    if (row.status === "Pending" || row.status === "Expired") {
+      base.push({
+        label: "Convert to Paid",
+        icon: <CreditCard className="h-4 w-4" />,
+        onClick: () =>
+          showToast(`Convert to Paid for ${row.templeName} — coming soon.`, "success"),
+      });
+    }
+
     ];
 
     return base;
@@ -734,7 +1020,7 @@ export default function SubscriptionsPage() {
       },
       {
         key: "expiresOn",
-        header: "Expander",
+        header: "Expires On",
         cell: (row) => (
           <span className="text-sm text-text-secondary">{row.expiresOn}</span>
         ),
@@ -865,6 +1151,8 @@ export default function SubscriptionsPage() {
           columns={columns}
           data={rows}
           keyExtractor={(row) => row.id}
+          isLoading={isLoading}
+          loadingRows={pageSize}
         />
 
         {/* Pagination */}
@@ -894,6 +1182,15 @@ export default function SubscriptionsPage() {
           subscription={invoiceRow}
           profile={profile}
           onClose={() => setInvoiceRow(null)}
+        />
+      )}
+
+      {/* Change Plan Modal */}
+      {changePlanRow && (
+        <ChangePlanModal
+          subscription={changePlanRow}
+          onClose={() => setChangePlanRow(null)}
+          onSave={handleChangePlan}
         />
       )}
 

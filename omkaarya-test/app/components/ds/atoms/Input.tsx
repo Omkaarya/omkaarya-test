@@ -7,6 +7,7 @@ export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElem
   prefixText?: React.ReactNode;
   suffixText?: React.ReactNode;
   containerClassName?: string;
+  inputSize?: "sm" | "md" | "lg" | "xl";
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Suspense, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import ForgotPasswordShellStepper from "@/app/components/temple-admin/ForgotPasswordShellStepper";
@@ -94,8 +95,13 @@ export default function TempleOnboardingShell({ children }: { children: React.Re
               isCompletePage ? "" : "self-start lg:self-center",
             ].join(" ")}
           >
-            <OmkaaryaMark />
-            <span className="text-lg font-bold tracking-wide text-[var(--text-primary)]">OMKAARYA</span>
+            <Image 
+              src="/brand-logo/Omkaarya 9.svg" 
+              alt="Omkaarya" 
+              width={140} 
+              height={32} 
+              className="h-8 w-auto dark:invert" 
+            />
           </Link>
 
           {!isCompletePage ? (
@@ -150,7 +156,7 @@ export default function TempleOnboardingShell({ children }: { children: React.Re
       <footer className="relative mt-auto border-t border-orange-100/60 bg-white/60 px-4 py-5 text-[11px] text-[var(--text-muted)] backdrop-blur-sm dark:border-[var(--border-default)] dark:bg-[var(--surface-card)]/70 sm:px-6 sm:text-xs lg:px-10">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 sm:flex-row sm:flex-wrap sm:justify-between sm:gap-4">
           <p className="text-center sm:text-left">2024 - 2026 © Om Kaaryaa All Right Reserved</p>
-          <p className="text-center">Powered By Pepulux All Right Reserved</p>
+          <p className="text-center">Powered By Omkaarya All Right Reserved</p>
           <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1" aria-label="Footer">
             <a href="#" className="text-[var(--brand-primary)] hover:underline">
               Terms
