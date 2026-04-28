@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowLeft, Save, UserPlus } from "lucide-react";
 import { useState } from "react";
+import SelectInput from "@/app/components/admin/SelectInput";
 
 export default function NewStaffPage() {
   const [isActive, setIsActive] = useState(true);
@@ -66,8 +67,8 @@ export default function NewStaffPage() {
                
                <div className="col-span-2 mt-4 pt-5 border-t border-zinc-100 dark:border-zinc-800">
                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Assign Role Base *</label>
-                 <select className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-bold text-[var(--text-primary)] outline-none focus:border-[var(--brand-primary)] transition-colors cursor-pointer">
-                    <option value="" disabled selected>Select from Pre-Defined Roles</option>
+                 <SelectInput defaultValue="" className="!rounded-xl !py-3 !pl-4 !text-sm !font-bold !text-[var(--text-primary)]">
+                    <option value="" disabled>Select from Pre-Defined Roles</option>
                     <option value="admin">Temple Admin (Full Access)</option>
                     <option value="priest_head">Head Priest (Archagar)</option>
                     <option value="priest_assist">Assistant Priest</option>
@@ -76,7 +77,7 @@ export default function NewStaffPage() {
                     <option value="trustee">Trustee Member (Read-only Finance)</option>
                     <option value="counter">Counter Staff / Receptionist (POS Only)</option>
                     <option value="inventory">Inventory Manager</option>
-                 </select>
+                 </SelectInput>
                </div>
             </div>
 

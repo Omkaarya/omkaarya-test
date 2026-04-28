@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { RotateCcw, CheckCircle2, ArrowLeft, Flame, Droplets, Flower2, Circle } from "lucide-react";
+import SelectInput from "@/app/components/admin/SelectInput";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -65,8 +66,8 @@ export default function ReturnFromPoojaPage() {
   const handleSubmit = () => { setShowItems(false); setShowSuccess(true); showToast("Items returned to stock. No financial entry created."); };
 
   const inputCls = "border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 outline-none font-[inherit] w-full transition-colors focus:border-[var(--brand-primary)]";
-  const selectCls = inputCls + " cursor-pointer";
   const labelCls = "text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide";
+  const formSelectClass = "!text-xs !py-2 !rounded-lg !font-[inherit]";
 
   return (
     <div className="space-y-5">
@@ -83,8 +84,8 @@ export default function ReturnFromPoojaPage() {
       <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-5">
         <div className="text-[13px] font-bold text-zinc-900 dark:text-zinc-50 mb-4 pb-2.5 border-b border-zinc-100 dark:border-zinc-800">Select completed pooja</div>
         <div className="grid grid-cols-2 gap-3.5">
-          <div className="flex flex-col gap-1"><label className={labelCls}>Pooja booking *</label><select className={selectCls} value={selectedBooking} onChange={e => handleSelectBooking(e.target.value)}><option value="">Select a completed pooja...</option>{BOOKINGS.map(b => <option key={b.id} value={b.id}>{b.label}</option>)}</select></div>
-          <div className="flex flex-col gap-1"><label className={labelCls}>Returned by *</label><select className={selectCls}><option>Head Priest — Pandit Sharma</option><option>Assistant Priest — Ravi</option><option>Temple Admin</option></select></div>
+          <div className="flex flex-col gap-1"><label className={labelCls}>Pooja booking *</label><SelectInput className={formSelectClass} value={selectedBooking} onChange={e => handleSelectBooking(e.target.value)}><option value="">Select a completed pooja...</option>{BOOKINGS.map(b => <option key={b.id} value={b.id}>{b.label}</option>)}</SelectInput></div>
+          <div className="flex flex-col gap-1"><label className={labelCls}>Returned by *</label><SelectInput className={formSelectClass}><option>Head Priest — Pandit Sharma</option><option>Assistant Priest — Ravi</option><option>Temple Admin</option></SelectInput></div>
           <div className="flex flex-col gap-1 col-span-2"><label className={labelCls}>Notes (optional)</label><input className={inputCls} placeholder="e.g. Camphor fully used, flowers partially used, oil mostly unused..." /></div>
         </div>
       </div>

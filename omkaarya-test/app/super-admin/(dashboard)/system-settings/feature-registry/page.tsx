@@ -9,9 +9,9 @@ import {
   ToggleRight,
   AlertTriangle,
   X,
-  ChevronDown,
   Search,
 } from "lucide-react";
+import SelectInput from "@/app/components/admin/SelectInput";
 // ── Types ──────────────────────────────────────────────────────────
 
 type Feature = {
@@ -163,18 +163,15 @@ function FeatureModal({
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
               Module Key *
             </label>
-            <div className="relative">
-              <select
-                value={form.moduleKey}
-                onChange={(e) => setForm({ ...form, moduleKey: e.target.value })}
-                className="w-full appearance-none rounded-lg border border-zinc-200 bg-white px-3 py-2.5 pr-8 text-sm outline-none ring-[var(--brand-primary)] focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-              >
-                {MODULE_OPTIONS.map((mod) => (
-                  <option key={mod} value={mod}>{mod}</option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-            </div>
+            <SelectInput
+              value={form.moduleKey}
+              onChange={(e) => setForm({ ...form, moduleKey: e.target.value })}
+              className="!py-2.5"
+            >
+              {MODULE_OPTIONS.map((mod) => (
+                <option key={mod} value={mod}>{mod}</option>
+              ))}
+            </SelectInput>
           </div>
 
           {/* Description */}
@@ -222,17 +219,14 @@ function FeatureModal({
               <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                 Limit Type
               </label>
-              <div className="relative">
-                <select
-                  value={form.limitType}
-                  onChange={(e) => setForm({ ...form, limitType: e.target.value })}
-                  className="w-full appearance-none rounded-lg border border-zinc-200 bg-white px-3 py-2.5 pr-8 text-sm outline-none ring-[var(--brand-primary)] focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                >
-                  <option value="number">Number</option>
-                  <option value="boolean">Boolean</option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-              </div>
+              <SelectInput
+                value={form.limitType}
+                onChange={(e) => setForm({ ...form, limitType: e.target.value })}
+                className="!py-2.5"
+              >
+                <option value="number">Number</option>
+                <option value="boolean">Boolean</option>
+              </SelectInput>
             </div>
           )}
 
@@ -415,19 +409,17 @@ export default function FeatureRegistryPage() {
               className="w-full rounded-lg border border-zinc-200 bg-zinc-50 py-2.5 pl-10 pr-4 text-sm outline-none ring-[var(--brand-primary)] focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
             />
           </div>
-          <div className="relative">
-            <select
-              value={moduleFilter}
-              onChange={(e) => setModuleFilter(e.target.value)}
-              className="appearance-none rounded-lg border border-zinc-200 bg-white px-3 py-2.5 pr-8 text-sm outline-none ring-[var(--brand-primary)] focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-            >
-              <option value="all">All modules</option>
-              {modules.map((m) => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-          </div>
+          <SelectInput
+            value={moduleFilter}
+            onChange={(e) => setModuleFilter(e.target.value)}
+            className="!py-2.5"
+            wrapperClassName="w-full min-w-[12rem] sm:w-[13rem]"
+          >
+            <option value="all">All modules</option>
+            {modules.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </SelectInput>
         </div>
 
         {/* Table */}

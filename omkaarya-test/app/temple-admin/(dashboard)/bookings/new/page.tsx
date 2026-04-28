@@ -9,6 +9,8 @@ import {
   X, Phone, Calendar as CalIcon, User,
 } from "lucide-react";
 
+import SelectInput from "@/app/components/admin/SelectInput";
+
 // ── Prasadham items ────────────────────────────────────────────────
 
 const PRASAD = [
@@ -55,7 +57,7 @@ export default function NewBookingPage() {
   const handleSave = () => { showToast("Booking saved successfully!"); setTimeout(() => router.push("/temple-admin/bookings"), 700); };
 
   const inputCls = "border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 outline-none font-[inherit] w-full transition-colors focus:border-[var(--brand-primary)]";
-  const selectCls = inputCls + " cursor-pointer";
+  const formSelectClass = "!text-xs !py-2 !rounded-lg !font-[inherit]";
   const labelCls = "text-[11px] font-semibold text-zinc-600 dark:text-zinc-400";
 
   return (
@@ -84,12 +86,12 @@ export default function NewBookingPage() {
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className={labelCls}>Category <span className="text-[var(--brand-primary)]">*</span></label>
-                <select className={selectCls}>
+                <SelectInput className={formSelectClass}>
                   <option value="">Select one</option>
                   <option>Nithya Seva Pooja</option><option>Monthly Pooja</option><option>Special Pooja</option>
                   <option>Annual Festival</option><option>Nerthi Parihara Pooja</option><option>Utchavam</option>
                   <option>Mahotchavam</option><option>Viradham</option>
-                </select>
+                </SelectInput>
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className={labelCls}>Date <span className="text-[var(--brand-primary)]">*</span></label>
@@ -189,9 +191,9 @@ export default function NewBookingPage() {
               {/* Gothram */}
               <div className="flex flex-col gap-1.5 mb-3">
                 <label className={labelCls}>Gothram</label>
-                <select className={selectCls}>
+                <SelectInput className={formSelectClass}>
                   <option value="">Select one</option><option>Bharadwaja</option><option>Kashyapa</option><option>Vatsa</option><option>Atreya</option>
-                </select>
+                </SelectInput>
               </div>
 
               {/* Family members */}
@@ -204,12 +206,12 @@ export default function NewBookingPage() {
                     </div>
                     <div className="flex flex-col gap-1">
                       {i === 0 && <label className={labelCls}>Nakshatra & Rasi</label>}
-                      <select className={selectCls}>
+                      <SelectInput className={formSelectClass}>
                         <option value="">Select one</option>
                         <option>Ashwini — Mesha</option><option>Bharani — Mesha</option>
                         <option>Krittika — Mesha/Vrishabha</option><option>Rohini — Vrishabha</option>
                         <option>Mrigashira — Vrishabha/Mithuna</option><option>Ardra — Mithuna</option>
-                      </select>
+                      </SelectInput>
                     </div>
                     <button onClick={() => delMember(i)} className="w-[26px] h-9 rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 text-red-600 flex items-center justify-center hover:bg-red-600 hover:text-white transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>

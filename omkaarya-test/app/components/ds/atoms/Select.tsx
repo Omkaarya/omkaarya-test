@@ -13,7 +13,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
       <select
         ref={ref}
         className={`
-          appearance-none flex h-10 w-full rounded-lg border px-3 pr-9 py-2
+          appearance-none flex h-10 w-full rounded-lg border px-3 pr-12 py-2
           text-sm font-normal cursor-pointer
           bg-surface text-text-primary
           border-border
@@ -36,7 +36,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
         ))}
       </select>
       {/* Chevron */}
-      <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-fg-quaternary">
+      <span className="pointer-events-none absolute inset-y-0 right-6 flex items-center text-fg-quaternary">
         <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>

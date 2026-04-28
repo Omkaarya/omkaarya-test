@@ -18,6 +18,14 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
+import SelectInput from "@/app/components/admin/SelectInput";
+
+const prasadBarSelect =
+  "!h-10 !min-h-0 !rounded-xl !py-0 !pl-3 !text-sm !border-zinc-100 !bg-white dark:!border-zinc-800 dark:!bg-zinc-950";
+const prasadModalSelect =
+  "!h-11 !min-h-0 !w-full !rounded-xl !py-0 !pl-3 !text-sm !border-zinc-100 dark:!border-zinc-800 dark:!bg-zinc-900";
+const prasadModalSelectInv =
+  "!h-11 !min-h-0 !w-full !rounded-xl !py-0 !pl-4 !text-sm !border-zinc-100 !bg-white dark:!border-zinc-800 dark:!bg-zinc-950";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -146,16 +154,16 @@ export default function PrasadItemsPage() {
               className="h-10 w-full rounded-xl border border-zinc-100 bg-zinc-50 pl-10 pr-4 text-sm outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-900"
             />
           </div>
-          <select className="h-10 rounded-xl border border-zinc-100 bg-white px-3 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-950">
+          <SelectInput className={prasadBarSelect} wrapperClassName="w-auto min-w-[8rem]">
             {CATEGORIES.map((cat) => (
               <option key={cat}>{cat}</option>
             ))}
-          </select>
-          <select className="h-10 rounded-xl border border-zinc-100 bg-white px-3 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-950">
+          </SelectInput>
+          <SelectInput className={prasadBarSelect} wrapperClassName="w-auto min-w-[8rem]">
             <option>All Status</option>
             <option>Available</option>
             <option>Unavailable</option>
-          </select>
+          </SelectInput>
         </div>
       </div>
 
@@ -295,11 +303,11 @@ function AddPrasadModal({ onClose }: { onClose: () => void }) {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Category *</label>
-                  <select className="h-11 w-full rounded-xl border border-zinc-100 px-3 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900">
+                  <SelectInput className={prasadModalSelect}>
                     <option>Select category</option>
                     <option>Sweet Prashadham</option>
                     <option>Savoury</option>
-                  </select>
+                  </SelectInput>
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-4">
@@ -312,18 +320,18 @@ function AddPrasadModal({ onClose }: { onClose: () => void }) {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Currency</label>
-                  <select className="h-11 w-full rounded-xl border border-zinc-100 px-3 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900">
+                  <SelectInput className={prasadModalSelect}>
                     <option>CHF</option>
                     <option>USD</option>
                     <option>LKR</option>
-                  </select>
+                  </SelectInput>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Unit</label>
-                  <select className="h-11 w-full rounded-xl border border-zinc-100 px-3 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900">
+                  <SelectInput className={prasadModalSelect}>
                     <option>Per kg</option>
                     <option>Per piece</option>
-                  </select>
+                  </SelectInput>
                 </div>
               </div>
             </div>
@@ -351,12 +359,12 @@ function AddPrasadModal({ onClose }: { onClose: () => void }) {
               {ingredients.map((ing) => (
                 <div key={ing.id} className="flex gap-3">
                   <div className="flex-1">
-                    <select className="h-11 w-full rounded-xl border border-zinc-100 bg-white px-4 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-950">
+                    <SelectInput className={prasadModalSelectInv}>
                       <option>Select item from inventory...</option>
                       <option>Rice (PRD-004)</option>
                       <option>Jaggery (PRD-008)</option>
                       <option>Ghee (OIL-002)</option>
-                    </select>
+                    </SelectInput>
                   </div>
                   <div className="w-32">
                     <input type="text" placeholder="Qty" className="h-11 w-full rounded-xl border border-zinc-100 bg-white px-4 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-950" />

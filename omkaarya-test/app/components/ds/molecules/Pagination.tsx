@@ -3,6 +3,7 @@ import React from "react";
 import { Icon } from "@/app/components/ds/atoms/Icon";
 import { ArrowLeftIcon, ArrowRightIcon } from "@/app/icons";
 import { Button } from "@/app/components/ds/atoms/Button";
+import SelectInput from "@/app/components/admin/SelectInput";
 
 export interface PaginationProps {
   currentPage: number;
@@ -39,11 +40,14 @@ export const Pagination: React.FC<PaginationProps> = ({
       {showResultsCount && (
         <div className="flex items-center gap-2 text-sm text-text-secondary w-full sm:w-auto justify-center sm:justify-start">
           <span>Showing results:</span>
-          <select className="border border-border rounded-md px-2 py-1 bg-surface outline-none text-text-primary text-sm font-medium">
+          <SelectInput
+            className="!w-auto !min-w-0 !border-border !bg-surface !px-2 !py-1 !text-sm !font-medium !text-text-primary"
+            wrapperClassName="w-auto min-w-0"
+          >
             <option>10</option>
             <option>20</option>
             <option>50</option>
-          </select>
+          </SelectInput>
           <span>per page</span>
         </div>
       )}

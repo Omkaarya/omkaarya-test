@@ -1,6 +1,7 @@
 "use client";
 
 import { Save, UploadCloud } from "lucide-react";
+import SelectInput from "@/app/components/admin/SelectInput";
 
 export default function GeneralSettingsPage() {
   return (
@@ -50,18 +51,18 @@ export default function GeneralSettingsPage() {
         <div className="grid grid-cols-2 gap-5">
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Timezone</label>
-            <select className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-semibold text-[var(--text-secondary)] outline-none focus:border-[var(--brand-primary)] transition-colors cursor-pointer">
+            <SelectInput className="!rounded-xl !py-2.5 !pl-4 !text-sm !font-semibold !text-[var(--text-secondary)]">
               <option>Asia/Colombo (IST)</option>
               <option>Asia/Kolkata (IST)</option>
-            </select>
+            </SelectInput>
           </div>
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">System Language</label>
-            <select className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-semibold text-[var(--text-secondary)] outline-none focus:border-[var(--brand-primary)] transition-colors cursor-pointer">
+            <SelectInput className="!rounded-xl !py-2.5 !pl-4 !text-sm !font-semibold !text-[var(--text-secondary)]">
               <option>English</option>
               <option>Tamil</option>
               <option>Sinhala</option>
-            </select>
+            </SelectInput>
           </div>
         </div>
       </div>

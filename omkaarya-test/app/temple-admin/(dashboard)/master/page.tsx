@@ -19,6 +19,7 @@ import {
   Info,
 } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
+import SelectInput from "@/app/components/admin/SelectInput";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -295,12 +296,12 @@ function AddSevaModal({ onClose }: { onClose: () => void }) {
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Pooja Name *</label><input type="text" className="h-11 w-full rounded-xl border border-zinc-100 px-4 text-sm outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-900" /></div>
-            <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Category</label><select className="h-11 w-full rounded-xl border border-zinc-100 px-3 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900"><option>Select one</option></select></div>
+            <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Category</label><SelectInput className="!h-11 !rounded-xl !py-0 !pl-3 !text-sm !border-zinc-100 dark:!border-zinc-800 dark:!bg-zinc-900"><option>Select one</option></SelectInput></div>
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Duration (min)</label><input type="number" className="h-11 w-full rounded-xl border border-zinc-100 px-4 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900" /></div>
             <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Price *</label><input type="number" className="h-11 w-full rounded-xl border border-zinc-100 px-4 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900" /></div>
-            <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Currency</label><select className="h-11 w-full rounded-xl border border-zinc-100 px-3 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900"><option>CHF</option></select></div>
+            <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Currency</label><SelectInput className="!h-11 !rounded-xl !py-0 !pl-3 !text-sm !border-zinc-100 dark:!border-zinc-800 dark:!bg-zinc-900"><option>CHF</option></SelectInput></div>
           </div>
           <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Description</label><textarea rows={3} className="w-full rounded-xl border border-zinc-100 p-4 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900" /></div>
         </div>
@@ -327,10 +328,10 @@ function AddScheduleModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <div className="p-6 space-y-4">
-          <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Pooja Seva *</label><select className="h-11 w-full rounded-xl border border-zinc-100 px-3 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900"><option>Select pooja...</option></select></div>
+          <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Pooja Seva *</label><SelectInput className="!h-11 !rounded-xl !py-0 !pl-3 !text-sm !border-zinc-100 dark:!border-zinc-800 dark:!bg-zinc-900"><option>Select pooja...</option></SelectInput></div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Time *</label><input type="time" className="h-11 w-full rounded-xl border border-zinc-100 px-4 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900" /></div>
-            <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Priest</label><select className="h-11 w-full rounded-xl border border-zinc-100 px-3 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900"><option>Select priest...</option></select></div>
+            <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Priest</label><SelectInput className="!h-11 !rounded-xl !py-0 !pl-3 !text-sm !border-zinc-100 dark:!border-zinc-800 dark:!bg-zinc-900"><option>Select priest...</option></SelectInput></div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5"><label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Max Slots</label><input type="number" className="h-11 w-full rounded-xl border border-zinc-100 px-4 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-900" /></div>

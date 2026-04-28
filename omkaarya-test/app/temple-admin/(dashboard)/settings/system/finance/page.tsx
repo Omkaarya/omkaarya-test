@@ -1,6 +1,7 @@
 "use client";
 
 import { Save, Wallet, Percent } from "lucide-react";
+import SelectInput from "@/app/components/admin/SelectInput";
 
 export default function FinanceSettingsPage() {
   return (
@@ -18,18 +19,18 @@ export default function FinanceSettingsPage() {
           <div className="grid grid-cols-2 gap-4 p-5 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30">
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Primary Currency</label>
-              <select className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-semibold text-[var(--text-primary)] outline-none focus:border-[var(--brand-primary)] transition-colors">
+              <SelectInput className="!rounded-xl !py-2.5 !pl-4 !text-sm !font-semibold !text-[var(--text-primary)]">
                 <option value="LKR">LKR (Sri Lankan Rupee)</option>
                 <option value="INR">INR (Indian Rupee)</option>
                 <option value="USD">USD (US Dollar)</option>
-              </select>
+              </SelectInput>
             </div>
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Currency Separator</label>
-              <select className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-semibold text-[var(--text-primary)] outline-none focus:border-[var(--brand-primary)] transition-colors">
+              <SelectInput className="!rounded-xl !py-2.5 !pl-4 !text-sm !font-semibold !text-[var(--text-primary)]">
                 <option value="comma">Comma (1,000,000)</option>
                 <option value="dot">Dot (1.000.000)</option>
-              </select>
+              </SelectInput>
             </div>
           </div>
         </div>

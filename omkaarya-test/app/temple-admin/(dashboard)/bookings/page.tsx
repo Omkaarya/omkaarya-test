@@ -7,6 +7,11 @@ import {
   ChevronRight, ChevronLeft, ChevronDown, Filter, Eye, Pencil, MoreVertical,
 } from "lucide-react";
 
+import SelectInput from "@/app/components/admin/SelectInput";
+
+const bookingToolbarSelect =
+  "!min-h-0 !rounded-xl !border !border-zinc-100 !px-3.5 !py-2 !text-xs !font-bold !text-[var(--text-secondary)] !bg-white !shadow-sm focus:!ring-2 focus:!ring-[var(--brand-primary)] dark:!border-zinc-800 dark:!bg-zinc-950 !outline-none !cursor-pointer !font-[inherit]";
+
 // ── Types ──────────────────────────────────────────────────────────
 
 type BookingStatus = "Confirmed" | "Pending" | "Cancelled";
@@ -115,15 +120,15 @@ export default function BookingSchedulesPage() {
         <span className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider flex items-center gap-1.5 ml-2"><Filter className="w-3.5 h-3.5" />Filter By:</span>
         <button className="inline-flex items-center gap-2 border border-zinc-100 dark:border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-bold text-[var(--text-secondary)] bg-white dark:bg-zinc-950 hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)] transition-colors shadow-sm" onClick={() => setSourceFilter(prev => prev ? "" : "Walk-in")}>Source Type <ChevronDown className="w-3.5 h-3.5 opacity-50" /></button>
         <button className="inline-flex items-center gap-2 border border-zinc-100 dark:border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-bold text-[var(--text-secondary)] bg-white dark:bg-zinc-950 hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)] transition-colors shadow-sm">Priest <ChevronDown className="w-3.5 h-3.5 opacity-50" /></button>
-        <select value={payFilter} onChange={e => { setPayFilter(e.target.value); setPage(1); }} className="border border-zinc-100 dark:border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-bold text-[var(--text-secondary)] bg-white dark:bg-zinc-950 outline-none cursor-pointer font-[inherit] shadow-sm">
+        <SelectInput value={payFilter} onChange={e => { setPayFilter(e.target.value); setPage(1); }} className={bookingToolbarSelect} wrapperClassName="w-auto min-w-0 sm:min-w-[9.5rem]">
           <option value="">Payment Status</option><option>Paid</option><option>Not Paid</option><option>Refunded</option>
-        </select>
-        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="border border-zinc-100 dark:border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-bold text-[var(--text-secondary)] bg-white dark:bg-zinc-950 outline-none cursor-pointer font-[inherit] shadow-sm">
+        </SelectInput>
+        <SelectInput value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className={bookingToolbarSelect} wrapperClassName="w-auto min-w-0 sm:min-w-[9.5rem]">
           <option value="">Booking Status</option><option>Confirmed</option><option>Pending</option><option>Cancelled</option>
-        </select>
-        <select className="ml-auto border border-zinc-100 dark:border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-bold text-[var(--text-secondary)] bg-zinc-50 dark:bg-zinc-900 outline-none cursor-pointer font-[inherit] shadow-sm border-dashed">
+        </SelectInput>
+        <SelectInput className={`${bookingToolbarSelect} !ml-0 !border-dashed !bg-zinc-50 dark:!bg-zinc-900`} wrapperClassName="ml-auto w-auto min-w-0 min-w-[11rem]">
           <option>Sort By: Last 7 Days</option><option>Sort By: Last 30 Days</option><option>Sort By: Date Asc</option>
-        </select>
+        </SelectInput>
       </div>
 
       {/* ─── CARD VIEW ─────────────────────────────────────────────── */}
@@ -225,7 +230,7 @@ export default function BookingSchedulesPage() {
       {/* Pagination */}
       <div className="flex items-center justify-between bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-800 px-5 py-4 shadow-sm">
         <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
-          Showing Results: <select className="border border-zinc-100 dark:border-zinc-800 rounded-lg px-2 py-1 text-xs bg-zinc-50 dark:bg-zinc-900 outline-none cursor-pointer font-[inherit]"><option>10</option><option>20</option><option>50</option></select> per page
+          Showing Results: <SelectInput className="!inline-flex !w-auto !min-w-0 !rounded-lg !border-zinc-100 !px-2 !py-1 !text-xs !bg-zinc-50 !font-[inherit] dark:!border-zinc-800 dark:!bg-zinc-900" wrapperClassName="inline-block w-auto min-w-0 align-middle"><option>10</option><option>20</option><option>50</option></SelectInput> per page
         </div>
         <div className="flex items-center gap-1.5">
           <button className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-xs font-bold text-[var(--text-secondary)] hover:border-[var(--brand-primary)] transition-colors"><ChevronLeft className="w-3.5 h-3.5" />Previous</button>

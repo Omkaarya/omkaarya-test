@@ -95,7 +95,7 @@ export default function AdminFiltersBar({
           id="sort-filter"
           value={sortBy}
           onChange={(e) => onSortByChange(e.target.value)}
-          className="min-w-[13rem] w-full sm:w-[15rem]"
+          className="min-w-[12rem] w-full sm:w-[13rem]"
         >
           <option value="last7">Sort By: Last 7 Days</option>
           <option value="name">Sort By: Name</option>

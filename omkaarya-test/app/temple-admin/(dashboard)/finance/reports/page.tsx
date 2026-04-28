@@ -4,6 +4,10 @@ import { useState, useCallback } from "react";
 import { CheckCircle2, X, FileDown, Sheet, PieChart, Package, Sparkles } from "lucide-react";
 
 import { Button } from "@/app/components/ds/atoms/Button";
+import SelectInput from "@/app/components/admin/SelectInput";
+
+const templeToolbarSelect =
+  "!h-10 !min-h-0 !rounded-xl !py-0 !pl-3 !text-sm !border-zinc-100 !bg-white focus:!ring-2 focus:!ring-[var(--brand-primary)] dark:!border-zinc-800 dark:!bg-zinc-950";
 
 // ── Toast ─────────────────────────────────────────────────────────
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
@@ -68,9 +72,9 @@ export default function TempleReportsPage() {
       {/* Filter Bar */}
       <div className="bg-white dark:bg-zinc-950 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800 flex items-center gap-3 flex-wrap shadow-sm">
         <Segment items={["Today", "This week", "This month", "This year", "Custom"]} active={period} onChange={setPeriod} />
-        <select className="h-10 rounded-xl border border-zinc-100 bg-white px-3 text-sm outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950">
+        <SelectInput className={templeToolbarSelect} wrapperClassName="w-auto min-w-[10rem] max-w-sm">
           <option>All categories</option><option>Donations</option><option>Pooja</option><option>Counter Sales</option><option>Expenses</option>
-        </select>
+        </SelectInput>
         <Button variant="primary" size="sm">Apply filters</Button>
       </div>
 

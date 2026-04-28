@@ -7,6 +7,7 @@ import {
   Flower2, Droplets, Flame, Wind, Circle, Cookie, Star, Landmark,
   AlertTriangle, CheckCircle2, XCircle,
 } from "lucide-react";
+import SelectInput from "@/app/components/admin/SelectInput";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -135,6 +136,9 @@ export default function InventoryProductsListPage() {
 
   const categories = useMemo(() => [...new Set(PRODUCTS.map(p => p.cat))].sort(), []);
 
+  const invToolbarSelect =
+    "!text-[11px] !py-[7px] !pl-2 !rounded-lg !font-[inherit] !text-zinc-600 dark:!text-zinc-300";
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -198,16 +202,26 @@ export default function InventoryProductsListPage() {
           <Search className="w-[13px] h-[13px] text-zinc-400" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or SKU..." className="border-none outline-none text-xs text-zinc-900 dark:text-zinc-100 bg-transparent w-full font-[inherit] placeholder:text-zinc-400" />
         </div>
-        <select value={catFilter} onChange={e => setCatFilter(e.target.value)} className="border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-[7px] text-[11px] text-zinc-600 dark:text-zinc-300 bg-white dark:bg-zinc-900 outline-none cursor-pointer font-[inherit]">
+        <SelectInput
+          value={catFilter}
+          onChange={e => setCatFilter(e.target.value)}
+          wrapperClassName="w-auto min-w-0"
+          className={invToolbarSelect}
+        >
           <option value="">All categories</option>
           {categories.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-[7px] text-[11px] text-zinc-600 dark:text-zinc-300 bg-white dark:bg-zinc-900 outline-none cursor-pointer font-[inherit]">
+        </SelectInput>
+        <SelectInput
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+          wrapperClassName="w-auto min-w-0"
+          className={invToolbarSelect}
+        >
           <option value="">All status</option>
           <option>In stock</option>
           <option>Low stock</option>
           <option>Out of stock</option>
-        </select>
+        </SelectInput>
       </div>
 
       {/* Table */}

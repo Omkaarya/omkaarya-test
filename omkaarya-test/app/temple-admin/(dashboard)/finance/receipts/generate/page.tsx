@@ -5,6 +5,10 @@ import { ArrowLeft, CheckCircle2, X, FileText, HeartHandshake, Flag, Sparkles, E
 import Link from "next/link";
 
 import { Button } from "@/app/components/ds/atoms/Button";
+import SelectInput from "@/app/components/admin/SelectInput";
+
+const templeFormSelect =
+  "!h-11 !min-h-0 !rounded-xl !py-0 !pl-4 !text-sm !text-[var(--text-primary)] !border-zinc-100 !bg-white focus:!ring-2 focus:!ring-[var(--brand-primary)] dark:!border-zinc-800 dark:!bg-zinc-950";
 
 // ── Toast ─────────────────────────────────────────────────────────
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
@@ -119,9 +123,9 @@ export default function GenerateReceiptPage() {
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Currency</label>
-            <select className="h-11 border border-zinc-100 rounded-xl px-4 text-sm text-[var(--text-primary)] bg-white outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950">
+            <SelectInput className={templeFormSelect}>
               <option>LKR — LKR</option><option>GBP — £</option><option>USD — $</option><option>EUR — €</option><option>CAD — $</option><option>SGD — $</option>
-            </select>
+            </SelectInput>
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Date *</label>
@@ -129,9 +133,9 @@ export default function GenerateReceiptPage() {
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Payment method</label>
-            <select className="h-11 border border-zinc-100 rounded-xl px-4 text-sm text-[var(--text-primary)] bg-white outline-none focus:border-[var(--brand-primary)] dark:border-zinc-800 dark:bg-zinc-950">
+            <SelectInput className={templeFormSelect}>
               <option>Cash</option><option>Bank transfer</option><option>Card</option><option>Cheque</option><option>Online</option>
-            </select>
+            </SelectInput>
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Receipt number (auto)</label>

@@ -1,6 +1,7 @@
 "use client";
 
 import { Save, Printer, Network } from "lucide-react";
+import SelectInput from "@/app/components/admin/SelectInput";
 
 export default function PrintersSettingsPage() {
   return (
@@ -51,10 +52,13 @@ export default function PrintersSettingsPage() {
                   <p className="text-[10px] text-[var(--text-muted)] font-mono mt-1 mb-3">USB: EPSON_TM_T20II</p>
                </div>
                <div className="flex items-center gap-2">
-                  <select className="flex-1 text-[11px] px-2 py-1.5 rounded bg-zinc-100 dark:bg-zinc-800 outline-none text-[var(--text-secondary)] font-bold">
+                  <SelectInput
+                    wrapperClassName="flex-1 min-w-0"
+                    className="!text-[11px] !px-2 !py-1.5 !rounded !font-bold !text-[var(--text-secondary)] !border-zinc-200/80 !bg-zinc-100 dark:!border-zinc-600 dark:!bg-zinc-800"
+                  >
                      <option>Role: Archana Tickets</option>
                      <option>Role: Kitchen</option>
-                  </select>
+                  </SelectInput>
                   <button className="px-3 py-1.5 rounded bg-zinc-100 dark:bg-zinc-800 text-[10px] font-bold text-[var(--text-secondary)] hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">Test</button>
                </div>
             </div>
@@ -66,10 +70,13 @@ export default function PrintersSettingsPage() {
                   <p className="text-[10px] text-[var(--text-muted)] font-mono mt-1 mb-3">IP: 192.168.1.150</p>
                </div>
                <div className="flex items-center gap-2">
-                  <select className="flex-1 text-[11px] px-2 py-1.5 rounded bg-zinc-100 dark:bg-zinc-800 outline-none text-[var(--text-secondary)] font-bold">
+                  <SelectInput
+                    wrapperClassName="flex-1 min-w-0"
+                    className="!text-[11px] !px-2 !py-1.5 !rounded !font-bold !text-[var(--text-secondary)] !border-zinc-200/80 !bg-zinc-100 dark:!border-zinc-600 dark:!bg-zinc-800"
+                  >
                      <option>Role: Kitchen</option>
                      <option>Role: Archana Tickets</option>
-                  </select>
+                  </SelectInput>
                   <button className="px-3 py-1.5 rounded bg-zinc-100 dark:bg-zinc-800 text-[10px] font-bold text-[var(--text-secondary)] hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">Test</button>
                </div>
             </div>
