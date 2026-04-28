@@ -1,150 +1,187 @@
 "use client";
 
-import Link from "next/link";
-import { Plus, Search, Filter, MoreHorizontal, ShieldCheck, Mail, Phone } from "lucide-react";
+import { useState } from "react";
+import { 
+  Plus, 
+  Search, 
+  Filter, 
+  Download, 
+  MoreHorizontal, 
+  Users2, 
+  ShieldCheck, 
+  ShieldAlert, 
+  CheckCircle2, 
+  ChevronRight,
+  UserPlus,
+  Eye,
+  Pencil,
+  Trash2,
+  ChevronLeft
+} from "lucide-react";
+import { Button } from "@/app/components/ds/atoms/Button";
+import { Input } from "@/app/components/ds/atoms/Input";
+import StatusBadge from "@/app/components/admin/StatusBadge";
+
+// ── Mock Data ──────────────────────────────────────────────────────
 
 const STAFF_DATA = [
-  { id: "EMP-01", name: "Siva Thirumaran", role: "Temple Admin", email: "admin@omkaarya.lk", phone: "+94 77 111 2222", status: "Active" },
-  { id: "EMP-02", name: "Gurukkal Sharma", role: "Head Priest", email: "headpriest@omkaarya.lk", phone: "+94 71 222 3333", status: "Active" },
-  { id: "EMP-03", name: "Arun Prasad", role: "Manager", email: "arun@omkaarya.lk", phone: "+94 76 333 4444", status: "Active" },
-  { id: "EMP-04", name: "Meena Lakshmi", role: "Accountant", email: "finance@omkaarya.lk", phone: "+94 77 444 5555", status: "Active" },
-  { id: "EMP-05", name: "Raja Kumar", role: "Counter Staff", email: "pos1@omkaarya.lk", phone: "+94 71 555 6666", status: "Active" },
+  { id: "STF-101", name: "Siva Thirumaran", role: "Temple Admin", joined: "12 Mar 2024", access: "Full Access", status: "Active", email: "siva@omkaarya.com" },
+  { id: "STF-102", name: "Ramesh Kumar", role: "Chief Priest", joined: "15 Mar 2024", access: "Restricted", status: "Active", email: "ramesh@omkaarya.com" },
+  { id: "STF-103", name: "Meena Lakshmi", role: "Accountant", joined: "20 Mar 2024", access: "Restricted", status: "Active", email: "meena@omkaarya.com" },
+  { id: "STF-104", name: "Arun Prasad", role: "Store Manager", joined: "22 Mar 2024", access: "Restricted", status: "Inactive", email: "arun@omkaarya.com" },
 ];
 
-export default function StaffListPage() {
+// ── Components ─────────────────────────────────────────────────────
+
+function MetricCard({ title, value, sub }: any) {
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-500 max-w-7xl mx-auto">
+    <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 p-6 shadow-sm flex flex-col gap-1">
+       <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{title}</p>
+       <div className="flex items-baseline gap-2">
+          <h3 className="text-2xl font-black text-zinc-900 dark:text-white">{value}</h3>
+          <span className="text-[10px] font-bold text-zinc-400">{sub}</span>
+       </div>
+    </div>
+  );
+}
+
+// ── Page Component ──────────────────────────────────────────────────
+
+export default function StaffManagementPage() {
+  const [activeTab, setActiveTab] = useState("All Staff");
+  const [search, setSearch] = useState("");
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500 max-w-[1600px] mx-auto pb-10">
       
-      {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">
-            Temple Staffs
-          </h1>
-          <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mt-1">
-            Manage your internal team members, priests, and portal access.
-          </p>
-        </div>
-        <Link
-          href="/temple-admin/peoples/staff/new"
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--brand-primary)] px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-orange-500/20 hover:bg-[var(--brand-primary-hover)] hover:-translate-y-0.5 transition-all w-full sm:w-auto"
-        >
-          <Plus className="h-4 w-4" /> Add User
-        </Link>
+      {/* Block 1: Metrics (Separated at top) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <MetricCard title="STAFF SEATS" value="18" sub="all time" />
+        <MetricCard title="ACTIVE NOW" value="12" sub="on duty" />
+        <MetricCard title="PENDING" value="2" sub="awaiting activation" />
       </div>
 
-      {/* ── Pricing Ticker / Stats  ── */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
-           <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">Seats Used</div>
-           <div className="flex items-baseline gap-2">
-             <div className="text-3xl font-black text-zinc-900 dark:text-zinc-50">5</div>
-             <div className="text-sm font-bold text-zinc-500">of 10</div>
+      {/* Block 2: Unified Table Card (Integrated Component) */}
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm overflow-hidden">
+        
+        {/* Card Header */}
+        <div className="px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-50 dark:border-zinc-800">
+           <div className="flex items-center gap-3">
+              <h2 className="text-xl font-black text-zinc-900 dark:text-white tracking-tight">Staff Directory</h2>
+              <span className="px-2 py-0.5 rounded-md bg-orange-50 dark:bg-orange-950/30 text-[10px] font-bold text-orange-600 border border-orange-100 dark:border-orange-800">08 Staff</span>
+           </div>
+           <Button leadingIcon={<UserPlus className="w-4 h-4" />}>
+             Create Staff
+           </Button>
+        </div>
+
+        {/* Integrated Filter Bar */}
+        <div className="px-8 py-4 flex flex-col lg:flex-row lg:items-center gap-4 bg-white dark:bg-zinc-900">
+           <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <input 
+                className="w-full h-10 pl-10 pr-4 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/10 transition-all"
+                placeholder="Search by name, city, or admin email..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+           </div>
+           <div className="flex items-center gap-1.5 p-1 bg-zinc-50 dark:bg-zinc-950 rounded-xl border border-zinc-100 dark:border-zinc-800 overflow-x-auto">
+              {["All Staff", "Active", "Priests", "Management"].map(tab => (
+                 <button 
+                   key={tab}
+                   onClick={() => setActiveTab(tab)}
+                   className={`px-4 py-2 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all ${activeTab === tab ? 'bg-orange-500 text-white shadow-md' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'}`}
+                 >
+                    {tab}
+                 </button>
+              ))}
+           </div>
+           <div className="flex items-center gap-2">
+              <select className="h-10 px-3 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-[11px] font-bold text-zinc-500 outline-none cursor-pointer">
+                 <option>All Countries</option>
+              </select>
+              <select className="h-10 px-3 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-[11px] font-bold text-zinc-500 outline-none cursor-pointer">
+                 <option>Sort By: Last 7 Days</option>
+              </select>
            </div>
         </div>
-        <div className="bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
-           <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">Active Accounts</div>
-           <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400">05</div>
+
+        {/* Table Area */}
+        <div className="overflow-x-auto">
+           <table className="w-full text-left">
+              <thead className="bg-zinc-50/50 dark:bg-zinc-950 border-y border-zinc-50 dark:border-zinc-800">
+                 <tr>
+                    <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Tenant ID</th>
+                    <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Staff Name</th>
+                    <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Plan / Role</th>
+                    <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Joined</th>
+                    <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-wider text-center">Status</th>
+                    <th className="px-8 py-4 text-right text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Actions</th>
+                 </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800">
+                 {STAFF_DATA.map((staff) => (
+                    <tr key={staff.id} className="hover:bg-zinc-50/30 dark:hover:bg-zinc-800/20 transition-colors group">
+                       <td className="px-8 py-5 text-[11px] font-mono font-bold text-zinc-400 uppercase tracking-tighter">
+                          {staff.id}
+                       </td>
+                       <td className="px-8 py-5">
+                          <div className="flex items-center gap-3">
+                             <div className="w-9 h-9 rounded-full bg-orange-50 dark:bg-orange-950/30 flex items-center justify-center text-[10px] font-black text-orange-600 border border-orange-100">
+                                {staff.name.charAt(0)}
+                             </div>
+                             <div>
+                                <div className="text-xs font-black text-zinc-900 dark:text-white leading-tight">{staff.name}</div>
+                                <div className="text-[10px] font-medium text-zinc-400 mt-0.5">{staff.email}</div>
+                             </div>
+                          </div>
+                       </td>
+                       <td className="px-8 py-5">
+                          <span className="px-2.5 py-1 rounded-md bg-purple-50 dark:bg-purple-950/30 text-[10px] font-bold text-purple-600 border border-purple-100 dark:border-purple-900">
+                             {staff.role}
+                          </span>
+                       </td>
+                       <td className="px-8 py-5 text-xs font-bold text-zinc-500 dark:text-zinc-400">
+                          {staff.joined}
+                       </td>
+                       <td className="px-8 py-5 text-center">
+                          <StatusBadge status={staff.status} />
+                       </td>
+                       <td className="px-8 py-5 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                             <button className="p-2 rounded-lg text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-all"><Eye className="w-4 h-4" /></button>
+                             <button className="p-2 rounded-lg text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-all"><Pencil className="w-4 h-4" /></button>
+                             <button className="p-2 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-all"><Trash2 className="w-4 h-4" /></button>
+                          </div>
+                       </td>
+                    </tr>
+                 ))}
+              </tbody>
+           </table>
         </div>
-        <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-100 dark:border-orange-900/30 rounded-2xl p-5 shadow-sm">
-           <div className="text-xs font-bold uppercase tracking-wider text-[var(--brand-primary)] mb-1">Pricing Plan</div>
-           <div className="text-lg font-black text-zinc-900 dark:text-zinc-50 mb-0.5">Aaradhana (Enterprise)</div>
-           <div className="text-[11px] font-bold text-zinc-500">Custom RBAC Enabled</div>
+
+        {/* Card Footer (Integrated Pagination) */}
+        <div className="px-8 py-5 flex items-center justify-between bg-zinc-50/30 dark:bg-zinc-950/30 border-t border-zinc-50 dark:border-zinc-800">
+           <div className="flex items-center gap-2 text-[11px] font-bold text-zinc-400 uppercase tracking-widest">
+              Showing Results: 
+              <select className="h-8 px-2 rounded-lg border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-[10px] font-bold outline-none cursor-pointer">
+                 <option>10 per page</option>
+                 <option>20 per page</option>
+              </select>
+           </div>
+           <div className="flex items-center gap-2">
+              <button className="px-4 py-2 rounded-xl text-[11px] font-bold text-zinc-400 flex items-center gap-1.5 hover:text-zinc-900 transition-colors">
+                 <ChevronLeft className="w-4 h-4" /> Previous
+              </button>
+              <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center text-xs font-bold text-white shadow-md shadow-orange-500/20">1</div>
+              <button className="px-4 py-2 rounded-xl text-[11px] font-bold text-zinc-600 flex items-center gap-1.5 hover:text-zinc-900 transition-colors">
+                 Next <ChevronRight className="w-4 h-4" />
+              </button>
+           </div>
         </div>
       </div>
 
-      {/* ── Data Box ── */}
-      <div className="rounded-[24px] border border-zinc-100 bg-white p-2 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row items-center gap-3 p-3">
-          <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-            <input
-              type="text"
-              placeholder="Search staff members..."
-              className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 pl-10 pr-4 text-sm font-medium text-zinc-900 placeholder:text-zinc-400 focus:border-[var(--brand-primary)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-orange-500/10 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:bg-zinc-950 transition-all"
-            />
-          </div>
-          <button className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900 transition-colors">
-            <Filter className="h-4 w-4" /> Role
-          </button>
-        </div>
-
-        {/* Table */}
-        <div className="overflow-x-auto rounded-xl border border-zinc-100 dark:border-zinc-800">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-zinc-50/80 text-xs font-bold uppercase tracking-wider text-zinc-500 dark:bg-zinc-900/50 dark:text-zinc-400 border-b border-zinc-100 dark:border-zinc-800">
-              <tr>
-                <th className="px-6 py-4">Employee</th>
-                <th className="px-6 py-4">Assigned Role</th>
-                <th className="px-6 py-4">Contact Logic</th>
-                <th className="px-6 py-4 text-center">Status</th>
-                <th className="px-6 py-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 bg-white dark:bg-zinc-950">
-              {STAFF_DATA.map((row, i) => (
-                <tr key={i} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors group">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                       <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-[var(--brand-primary)] font-black">
-                         {row.name.charAt(0)}
-                       </div>
-                       <div>
-                         <div className="font-bold text-zinc-900 dark:text-zinc-100">{row.name}</div>
-                         <div className="text-[11px] font-mono text-zinc-400">{row.id}</div>
-                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col gap-1">
-                       <div className="font-bold text-zinc-900 dark:text-zinc-100">
-                         {row.role}
-                       </div>
-                       <div className="flex items-center gap-1 text-[11px] font-semibold text-[var(--brand-primary)]">
-                         {row.role === "Temple Admin" && <ShieldCheck className="w-3.5 h-3.5" />} {row.role === "Temple Admin" ? "Full Access" : "Restricted"}
-                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col gap-1">
-                       <div className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-300">
-                         <Mail className="w-3.5 h-3.5" /> {row.email}
-                       </div>
-                       <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-                         <Phone className="w-3.5 h-3.5" /> {row.phone}
-                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${row.status === "Active" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400" : "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400"}`}>
-                      <span className={`h-1.5 w-1.5 rounded-full ${row.status === "Active" ? "bg-emerald-500" : "bg-red-500"}`}></span>
-                      {row.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button className="p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 transition-colors">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-3">
-          <span className="text-xs font-semibold text-zinc-500">Showing 1 to 5 of 5 staff</span>
-          <div className="flex gap-1">
-            <button disabled className="px-3 py-1.5 rounded-lg border border-zinc-200 text-xs font-bold text-zinc-300 dark:border-zinc-800 dark:text-zinc-700">Prev</button>
-            <button className="px-3 py-1.5 rounded-lg bg-[var(--brand-primary)] text-white text-xs font-bold">1</button>
-            <button disabled className="px-3 py-1.5 rounded-lg border border-zinc-200 text-xs font-bold text-zinc-300 dark:border-zinc-800 dark:text-zinc-700">Next</button>
-          </div>
-        </div>
-
-      </div>
     </div>
   );
 }

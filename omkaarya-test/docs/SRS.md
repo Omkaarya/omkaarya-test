@@ -83,11 +83,17 @@ The system comprises two web portals:
 - **Enable All / Save Configuration** actions
 
 #### FR-SA-07: User Management
-- User list with role assignments
-- Role & Permissions configuration (RBAC)
-- Delete Account Requests workflow
+- **User List**: Table of Super Admin users with search, status filtering, and role indicators.
+- **Manage User**: Add/Edit Super Admin users with specific role assignments.
+- **Account Actions**: Password reset, deactivation, and activation of admin accounts.
 
-#### FR-SA-08: Domain Management
+#### FR-SA-08: Role & Permissions (RBAC)
+- **Hierarchical Roles**: Define system roles (Super Admin, Editor, Viewer).
+- **Permission Matrix**: Granular control over platform modules (e.g., View only, Full access).
+- **Feature Binding**: Map roles to specific Feature Registry keys.
+- **Delete Account Requests**: Workflow for reviewing and processing account deletion requests.
+
+#### FR-SA-09: Domain Management
 - Custom domain configuration per temple
 - DNS verification status
 

@@ -115,22 +115,34 @@
 ### SA-08: User Management
 | Field | Detail |
 |-------|--------|
-| **Route** | `/super-admin/users` |
-| **File** | `app/super-admin/(dashboard)/users/page.tsx` |
-| **Purpose** | Manage platform users and assignments |
+| **Route** | `/super-admin/user-management/users` |
+| **File** | `app/super-admin/(dashboard)/user-management/users/page.tsx` |
+| **Purpose** | Manage platform operators and administrators |
+| **Key elements** | User list table, search, role filters, status badges, Add User modal |
 
 ---
 
 ### SA-09: Role & Permissions
 | Field | Detail |
 |-------|--------|
-| **Route** | `/super-admin/role-permissions` |
-| **File** | `app/super-admin/(dashboard)/role-permissions/page.tsx` |
-| **Purpose** | RBAC role configuration |
+| **Route** | `/super-admin/user-management/roles` |
+| **File** | `app/super-admin/(dashboard)/user-management/roles/page.tsx` |
+| **Purpose** | Configure system-level RBAC roles |
+| **Key elements** | Hierarchical role list, Expandable rows for permissions summary |
 
 ---
 
-### SA-10: Delete Account Requests
+### SA-10: Permission Configuration
+| Field | Detail |
+|-------|--------|
+| **Route** | `/super-admin/user-management/roles/configure` |
+| **File** | `app/super-admin/(dashboard)/user-management/roles/configure/page.tsx` |
+| **Purpose** | Detailed mapping of features to roles |
+| **Key elements** | Permission matrix (Module → Feature → Level), Save/Cancel actions |
+
+---
+
+### SA-11: Delete Account Requests
 | Field | Detail |
 |-------|--------|
 | **Route** | `/super-admin/delete-account-requests` |

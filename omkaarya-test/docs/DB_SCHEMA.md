@@ -464,3 +464,85 @@ const result = await pool.query(`
 | Point-in-time recovery | 7-day retention window |
 | Data export | CSV export via Reports module |
 | Audit trail | `created_at`, `updated_at` on all tables |
+
+---
+
+## 9. Super Admin RBAC Tables (Migration 019)
+
+### 9.1 `sa_roles` — Platform-Level Roles
+
+```sql
+CREATE TABLE IF NOT EXISTS sa_roles (
+  id          SERIAL PRIMARY KEY,
+  name        VARCHAR(100) NOT NULL UNIQUE,
+  description TEXT,
+  is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+**Seed data:** Super Admin, Support Agent, Finance Reviewer
+
+---
+
+### 9.2 `sa_role_permissions` — Feature Access per Role
+
+```sql
+CREATE TABLE IF NOT EXISTS sa_role_permissions (
+  id           SERIAL PRIMARY KEY,
+  role_id      INTEGER NOT NULL REFERENCES sa_roles(id) ON DELETE CASCADE,
+  feature_key  VARCHAR(255) NOT NULL,     -- references features.key
+  access_level VARCHAR(20) NOT NULL DEFAULT 'none'
+               CHECK (access_level IN ('none', 'view', 'full')),
+  UNIQUE (role_id, feature_key)
+);
+```
+
+**Access Levels:**
+| Level | Meaning |
+|-------|---------|
+| `none` | Feature hidden from this role |
+| `view` | Read-only access |
+| `full` | Full create/edit/delete access |
+
+---
+
+### 9.3 `sa_users` — Platform Administrator Accounts
+
+```sql
+CREATE TABLE IF NOT EXISTS sa_users (
+  id         SERIAL PRIMARY KEY,
+  name       VARCHAR(255) NOT NULL,
+  email      VARCHAR(255) NOT NULL UNIQUE,
+  role_id    INTEGER REFERENCES sa_roles(id) ON DELETE SET NULL,
+  is_active  BOOLEAN NOT NULL DEFAULT TRUE,
+  last_login TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+---
+
+### 9.4 Corresponding API Endpoints
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/api/admin-users` | List all Super Admin users |
+| POST | `/api/admin-users` | Create a new Super Admin user |
+| GET | `/api/admin-users/[id]` | Get a single user |
+| PATCH | `/api/admin-users/[id]` | Update or toggle active state |
+| DELETE | `/api/admin-users/[id]` | Remove a user |
+| GET | `/api/admin-roles` | List all roles with user counts |
+| POST | `/api/admin-roles` | Create a new role |
+| GET | `/api/admin-roles/[id]/permissions` | Get permissions for a role |
+| PUT | `/api/admin-roles/[id]/permissions` | Replace all permissions for a role |
+
+---
+
+### 9.5 DB Library
+
+`lib/sa-users-db.ts` — provides typed functions:
+- `fetchAllSaUsers()`, `fetchSaUserById(id)`, `insertSaUser(input)`, `updateSaUser(id, input)`, `toggleSaUserActive(id)`, `deleteSaUser(id)`
+- `fetchAllSaRoles()`, `insertSaRole(input)`, `fetchRolePermissions(roleId)`, `saveRolePermissions(roleId, permissions)`

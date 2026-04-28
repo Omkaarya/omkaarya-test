@@ -59,7 +59,7 @@ export default function AssetsPage() {
         </div>
         <div className="bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5 shadow-sm relative overflow-hidden">
            <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2 flex items-center gap-2">
-             <div className="w-2 h-2 rounded-full bg-[#FF6B35]"></div> Total Count
+             <div className="w-2 h-2 rounded-full bg-brand"></div> Total Count
            </div>
            <div className="text-3xl font-black text-zinc-900 dark:text-zinc-50 relative z-10">482</div>
            <div className="text-[11px] font-bold text-zinc-500 mt-2">Across 4 categories</div>
