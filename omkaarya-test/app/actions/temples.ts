@@ -31,7 +31,11 @@ export async function listTemplesAction(params: {
   });
 
   if (res.ok) return { ok: true, data: res.data };
-  return { ok: false, status: res.status, message: res.message };
+  return {
+    ok: false,
+    status: "status" in res ? res.status : 500,
+    message: res.message ?? "Failed to load temples",
+  };
 }
 
 export type CreateTempleActionResult =
@@ -61,6 +65,10 @@ export async function createTempleAction(payload: unknown): Promise<CreateTemple
     };
   }
 
-  return { ok: false, status: res.status, message: res.message };
+  return {
+    ok: false,
+    status: "status" in res ? res.status : 500,
+    message: res.message ?? "Failed to create temple",
+  };
 }
 

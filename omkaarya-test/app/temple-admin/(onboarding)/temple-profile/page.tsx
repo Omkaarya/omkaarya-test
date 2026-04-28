@@ -187,7 +187,7 @@ export default function TempleAdminTempleProfilePage() {
       const res = await getTempleSessionProfileAction(email);
       if (cancelled) return;
       if (!res.ok) {
-        setLoadError(res.message || "Could not load profile.");
+        setLoadError(("message" in res ? res.message : undefined) ?? "Could not load profile.");
         setIsHydrating(false);
         return;
       }
@@ -438,7 +438,7 @@ export default function TempleAdminTempleProfilePage() {
         charityRegistrationNumber: draft.charity.registrationNumber.trim(),
       });
       if (!res.ok) {
-        setError(res.message || "Could not save details.");
+        setError(("message" in res ? res.message : undefined) ?? "Could not save details.");
         return;
       }
 

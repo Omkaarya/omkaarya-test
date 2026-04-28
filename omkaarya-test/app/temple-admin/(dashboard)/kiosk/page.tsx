@@ -69,24 +69,20 @@ export default function TempleAdminKioskDashboard() {
          <MetricCard 
            title="Today's Collection" 
            value="LKR 4,920" 
-           icon={TrendingUp} 
-           trend={{ value: 12, isPositive: true }}
+           trendPercentage={12}
          />
          <MetricCard 
            title="Devotee Footfall" 
            value="184" 
-           icon={Users} 
-           trend={{ value: 5, isPositive: true }}
+           trendPercentage={5}
          />
          <MetricCard 
            title="Tickets Printed" 
            value="92" 
-           icon={Printer} 
          />
          <MetricCard 
            title="Uptime (24h)" 
            value="99.8%" 
-           icon={Activity} 
          />
       </div>
 

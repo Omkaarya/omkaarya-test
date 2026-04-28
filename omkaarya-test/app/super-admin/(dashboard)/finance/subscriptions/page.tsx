@@ -3,10 +3,13 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import {
   Bell,
+  Calendar,
   CheckCircle2,
   CreditCard,
   Download,
+  Expand,
   Eye,
+  FileText,
   MoreVertical,
   RefreshCw,
   Repeat,
@@ -14,7 +17,6 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Badge } from "@/app/components/ds/atoms/Badge";
 import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
@@ -22,13 +24,7 @@ import { Pagination } from "@/app/components/ds/molecules/Pagination";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
 import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
-import { SubscriptionRow, SubscriptionStatus, PlanName } from "./_components/types";
-import { statusBadgeColor, planBadgeColor } from "./_components/utils";
-import { InvoiceModal } from "./_components/InvoiceModal";
-import { VerifyModal } from "./_components/VerifyModal";
-import { ChangePlanModal } from "./_components/ChangePlanModal";
-import { ExtendModal } from "./_components/ExtendModal";
-import { ConvertToPaidModal } from "./_components/ConvertToPaidModal";
+import { PlanName } from "./_components/types";
 // ── Types ──────────────────────────────────────────────────────────
 
 type SubscriptionStatus = "Pending" | "Active" | "Expired" | "Rejected";
@@ -516,206 +512,6 @@ export default function SubscriptionsPage() {
     const timer = setTimeout(() => setIsLoading(false), 800);
     return () => clearTimeout(timer);
   }, []);
-
-  // ── Mock Data ────────────────────────────────────────────────────
-
-  const [rows, setRows] = useState<SubscriptionRow[]>([
-    {
-      id: "Sub ID 001",
-      invoiceId: "INV251001",
-      templeName: "Sri Jagannath Temple",
-      templeInitials: "SJ",
-      templeAddress: "Grand Road, Puri, Odisha 752001",
-      plan: "Prarambha",
-      billingCycle: "Annual",
-      amount: 24999,
-      paymentDate: "2026-04-15",
-      receiptId: "RCP-20260415-001",
-      status: "Pending",
-      verifiedBy: null,
-      activatedOn: null,
-      expiresOn: "2027-04-15",
-      adminEmail: "admin@jagannath.org",
-      cardLast4: "5765",
-    },
-    {
-      id: "Sub ID 002",
-      invoiceId: "INV251002",
-      templeName: "Swaminarayan Mandir",
-      templeInitials: "SM",
-      templeAddress: "Kalupur, Ahmedabad, Gujarat 380001",
-      plan: "Aaradhana",
-      billingCycle: "Monthly",
-      amount: 1999,
-      paymentDate: "2026-04-12",
-      receiptId: "RCP-20260412-002",
-      status: "Pending",
-      verifiedBy: null,
-      activatedOn: null,
-      expiresOn: "2026-05-12",
-      adminEmail: "info@swaminarayan.in",
-      cardLast4: "8842",
-    },
-    {
-      id: "Sub ID 003",
-      invoiceId: "INV251003",
-      templeName: "Meenakshi Amman Temple",
-      templeInitials: "MA",
-      templeAddress: "Madurai, Tamil Nadu 625001",
-      plan: "Sankalpa",
-      billingCycle: "Annual",
-      amount: 14999,
-      paymentDate: "2026-03-20",
-      receiptId: "RCP-20260320-003",
-      status: "Active",
-      verifiedBy: "Super Admin",
-      activatedOn: "2026-03-21",
-      expiresOn: "2027-03-20",
-      adminEmail: "temple@meenakshi.org",
-      cardLast4: "3321",
-    },
-    {
-      id: "Sub ID 004",
-      invoiceId: "INV251004",
-      templeName: "Kashi Vishwanath Temple",
-      templeInitials: "KV",
-      templeAddress: "Lahori Tola, Varanasi, UP 221001",
-      plan: "Prarambha",
-      billingCycle: "Annual",
-      amount: 24999,
-      paymentDate: "2026-02-10",
-      receiptId: "RCP-20260210-004",
-      status: "Active",
-      verifiedBy: "Super Admin",
-      activatedOn: "2026-02-11",
-      expiresOn: "2027-02-10",
-      adminEmail: "admin@kashivishwanath.org",
-      cardLast4: "7209",
-    },
-    {
-      id: "Sub ID 005",
-      invoiceId: "INV251005",
-      templeName: "Tirupati Balaji Temple",
-      templeInitials: "TB",
-      templeAddress: "Tirumala, Tirupati, AP 517504",
-      plan: "Prarambha",
-      billingCycle: "Annual",
-      amount: 24999,
-      paymentDate: "2025-04-01",
-      receiptId: "RCP-20250401-005",
-      status: "Expired",
-      verifiedBy: "Super Admin",
-      activatedOn: "2025-04-02",
-      expiresOn: "2026-04-01",
-      adminEmail: "tirupati@balaji.org",
-      cardLast4: "4410",
-    },
-    {
-      id: "Sub ID 006",
-      invoiceId: "INV251006",
-      templeName: "Somnath Temple",
-      templeInitials: "ST",
-      templeAddress: "Somnath, Prabhas Patan, Gujarat 362268",
-      plan: "Aaradhana",
-      billingCycle: "Monthly",
-      amount: 1999,
-      paymentDate: "2026-04-18",
-      receiptId: "RCP-20260418-006",
-      status: "Pending",
-      verifiedBy: null,
-      activatedOn: null,
-      expiresOn: "2026-05-18",
-      adminEmail: "admin@somnath.temple",
-      cardLast4: "1150",
-    },
-    {
-      id: "Sub ID 007",
-      invoiceId: "INV251007",
-      templeName: "Siddhivinayak Temple",
-      templeInitials: "SV",
-      templeAddress: "Prabhadevi, Mumbai, MH 400028",
-      plan: "Sankalpa",
-      billingCycle: "Monthly",
-      amount: 3999,
-      paymentDate: "2026-04-05",
-      receiptId: "RCP-20260405-007",
-      status: "Rejected",
-      verifiedBy: "Super Admin",
-      activatedOn: null,
-      expiresOn: "2026-05-05",
-      adminEmail: "ops@siddhivinayak.com",
-      cardLast4: "2277",
-    },
-    {
-      id: "Sub ID 008",
-      invoiceId: "INV251008",
-      templeName: "Golden Temple",
-      templeInitials: "GT",
-      templeAddress: "Golden Temple Rd, Amritsar, Punjab 143006",
-      plan: "Prarambha",
-      billingCycle: "Annual",
-      amount: 24999,
-      paymentDate: "2026-01-15",
-      receiptId: "RCP-20260115-008",
-      status: "Active",
-      verifiedBy: "Super Admin",
-      activatedOn: "2026-01-16",
-      expiresOn: "2027-01-15",
-      adminEmail: "admin@goldentemple.org",
-      cardLast4: "6693",
-    },
-    {
-      id: "Sub ID 009",
-      invoiceId: "INV251009",
-      templeName: "Rameshwaram Temple",
-      templeInitials: "RT",
-      templeAddress: "Rameswaram, Tamil Nadu 623526",
-      plan: "Aaradhana",
-      billingCycle: "Annual",
-      amount: 9999,
-      paymentDate: "2026-04-19",
-      receiptId: "RCP-20260419-009",
-      status: "Pending",
-      verifiedBy: null,
-      activatedOn: null,
-      expiresOn: "2027-04-19",
-      adminEmail: "info@rameshwaram.in",
-      cardLast4: "9981",
-    },
-    {
-      id: "Sub ID 010",
-      invoiceId: "INV251010",
-      templeName: "Badrinath Temple",
-      templeInitials: "BT",
-      templeAddress: "Badrinath, Chamoli, Uttarakhand 246422",
-      plan: "Sankalpa",
-      billingCycle: "Annual",
-      amount: 14999,
-      paymentDate: "2025-10-10",
-      receiptId: "RCP-20251010-010",
-      status: "Expired",
-      verifiedBy: "Super Admin",
-      activatedOn: "2025-10-11",
-      expiresOn: "2026-04-10",
-      adminEmail: "admin@badrinath.org",
-      cardLast4: "3587",
-    },
-  ]);
-
-  // ── Filtering ────────────────────────────────────────────────────
-
-  const filtered = useMemo(() => {
-    const q = searchInput.trim().toLowerCase();
-    let list = rows;
-    if (q) {
-      list = list.filter(
-        (r) =>
-          r.templeName.toLowerCase().includes(q) ||
-          r.plan.toLowerCase().includes(q) ||
-          r.receiptId.toLowerCase().includes(q) ||
-          r.id.toLowerCase().includes(q) ||
-          r.adminEmail.toLowerCase().includes(q)
-      );
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(searchInput), 400);
     return () => clearTimeout(t);
@@ -954,8 +750,6 @@ export default function SubscriptionsPage() {
       });
     }
 
-    ];
-
     return base;
   }
 
@@ -1182,15 +976,6 @@ export default function SubscriptionsPage() {
           subscription={invoiceRow}
           profile={profile}
           onClose={() => setInvoiceRow(null)}
-        />
-      )}
-
-      {/* Change Plan Modal */}
-      {changePlanRow && (
-        <ChangePlanModal
-          subscription={changePlanRow}
-          onClose={() => setChangePlanRow(null)}
-          onSave={handleChangePlan}
         />
       )}
 

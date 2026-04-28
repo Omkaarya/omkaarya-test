@@ -28,7 +28,13 @@ export async function getTempleAdminProfileAction(sessionEmail: string): Promise
     cache: "no-store",
   });
 
-  if (!res.ok) return { ok: false, status: res.status, message: res.message };
+  if (!res.ok) {
+    return {
+      ok: false,
+      status: "status" in res ? res.status : 500,
+      message: res.message ?? "Failed to load profile",
+    };
+  }
 
   const profile = res.data.profile;
   if (!profile) {
@@ -57,7 +63,11 @@ export async function submitTempleAdminProfileAction(
     },
   );
   if (res.ok) return { ok: true };
-  return { ok: false, status: res.status, message: res.message };
+  return {
+    ok: false,
+    status: "status" in res ? res.status : 500,
+    message: res.message ?? "Failed to submit profile",
+  };
 }
 
 export type SubmitTempleDeitySelectionPayload = {
@@ -81,7 +91,11 @@ export async function submitTempleDeitySelectionAction(
     },
   );
   if (res.ok) return { ok: true };
-  return { ok: false, status: res.status, message: res.message };
+  return {
+    ok: false,
+    status: "status" in res ? res.status : 500,
+    message: res.message ?? "Failed to submit deity selection",
+  };
 }
 
 export type SubmitTemplePlanSelectionPayload = {
@@ -104,7 +118,11 @@ export async function submitTemplePlanSelectionAction(
     },
   );
   if (res.ok) return { ok: true };
-  return { ok: false, status: res.status, message: res.message };
+  return {
+    ok: false,
+    status: "status" in res ? res.status : 500,
+    message: res.message ?? "Failed to submit plan selection",
+  };
 }
 
 export type SubmitTemplePaymentOnboardingPayload = {
@@ -136,7 +154,11 @@ export async function submitTemplePaymentOnboardingAction(
     },
   );
   if (res.ok) return { ok: true };
-  return { ok: false, status: res.status, message: res.message };
+  return {
+    ok: false,
+    status: "status" in res ? res.status : 500,
+    message: res.message ?? "Failed to submit payment onboarding",
+  };
 }
 
 export type SubmitTempleOnboardingCompletePayload = {
@@ -157,7 +179,11 @@ export async function submitTempleOnboardingCompleteAction(
     },
   );
   if (res.ok) return { ok: true };
-  return { ok: false, status: res.status, message: res.message };
+  return {
+    ok: false,
+    status: "status" in res ? res.status : 500,
+    message: res.message ?? "Failed to complete onboarding",
+  };
 }
 
 export type TempleSessionProfileCore = {
@@ -213,7 +239,13 @@ export async function getTempleSessionProfileAction(sessionEmail: string): Promi
     cache: "no-store",
   });
 
-  if (!res.ok) return { ok: false, status: res.status, message: res.message };
+  if (!res.ok) {
+    return {
+      ok: false,
+      status: "status" in res ? res.status : 500,
+      message: res.message ?? "Failed to load temple profile",
+    };
+  }
   if (!res.data.templeId || !res.data.core || !res.data.details) {
     return { ok: false, status: 502, message: "Invalid temple profile response." };
   }
@@ -255,6 +287,10 @@ export async function saveTempleProfileDetailsAction(
     },
   );
   if (res.ok) return { ok: true };
-  return { ok: false, status: res.status, message: res.message };
+  return {
+    ok: false,
+    status: "status" in res ? res.status : 500,
+    message: res.message ?? "Failed to save temple profile details",
+  };
 }
 

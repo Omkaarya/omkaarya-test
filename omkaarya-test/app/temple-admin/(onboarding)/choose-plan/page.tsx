@@ -209,7 +209,7 @@ export default function TempleAdminChoosePlanPage() {
         confirmedAt,
       });
       if (!res.ok) {
-        setConfirmError(res.message);
+        setConfirmError(("message" in res ? res.message : undefined) ?? "Failed to confirm plan selection.");
         return;
       }
       saveTempleOnboardingPlanDraft({

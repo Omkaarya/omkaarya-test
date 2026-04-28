@@ -25,7 +25,12 @@ export async function loginAction(input: {
     };
   }
 
-  return { ok: false, status: res.status, message: res.message };
+  // TS sometimes fails to narrow on `res.ok` across server/action boundaries.
+  return {
+    ok: false,
+    status: "status" in res ? res.status : 500,
+    message: res.message ?? "Login failed",
+  };
 }
 
 export type SetPasswordActionResult =
@@ -47,6 +52,10 @@ export async function setPasswordAction(input: {
     return { ok: true, message: res.message ?? "Password updated" };
   }
 
-  return { ok: false, status: res.status, message: res.message };
+  return {
+    ok: false,
+    status: "status" in res ? res.status : 500,
+    message: res.message ?? "Failed to update password",
+  };
 }
 

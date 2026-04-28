@@ -1,6 +1,5 @@
 "use client";
 
-import { Save, Printer, Network } from "lucide-react";
 import SelectInput from "@/app/components/admin/SelectInput";
 import { Save, Printer, Network, Plus, Play, ChevronDown } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
@@ -90,6 +89,11 @@ export default function PrintersSettingsPage() {
                   <button className="px-3 py-1.5 rounded bg-zinc-100 dark:bg-zinc-800 text-[10px] font-bold text-[var(--text-secondary)] hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">Test</button>
                </div>
             </div>
+          </div>
+        </div>
+
+        <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
+
         <section className="space-y-6">
            <div className="flex items-center gap-3 text-brand">
               <Printer className="w-5 h-5" />
