@@ -139,7 +139,7 @@ function TempleAdminSignInForm() {
         } else {
           sessionStorage.setItem(TEMPLE_ONBOARDING_RETURNING_LOGIN_KEY, "1");
           sessionStorage.removeItem(TEMPLE_ONBOARDING_TEMP_PASSWORD_KEY);
-          router.push("/temple-admin/onboarding-complete");
+          router.push("/temple-admin");
         }
         return;
       }

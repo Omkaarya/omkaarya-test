@@ -38,8 +38,8 @@ import { PENDING_PAYMENT_SUBMISSIONS_CHANGED_EVENT } from "@/lib/pending-payment
 // ── Navigation Config ──────────────────────────────────────────────
 
 const primaryNav = [
-  { href: "#", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/super-admin", label: "Temples", icon: Building2 },
+  { href: "/super-admin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/super-admin/core/temples", label: "Temples", icon: Building2 },
   { href: "/super-admin/pricing-plans", label: "Pricing Plans", icon: Tag },
   { href: "/super-admin/subdomains", label: "Subdomains", icon: Globe },
   { href: "#", label: "Panchangam", icon: Calendar },
@@ -315,7 +315,7 @@ export function AdminDashboardShell({
           <ul className="space-y-0.5">
             {primaryNav.map(({ href, label, icon: Icon }) => {
               const active =
-                (href === "/super-admin" && templesActive) ||
+                (href === "/super-admin/core/temples" && templesActive) ||
                 (href !== "#" && pathname === href);
               return (
                 <li key={label}>

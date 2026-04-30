@@ -1364,6 +1364,7 @@ export type PendingPaymentRow = {
   invoiceId: string | null;
   invoiceRef: string | null;
   paymentRef: string;
+  createdAt: string;
   submitted: string;
   note: string;
   slipUrl: string;
@@ -1416,6 +1417,7 @@ export async function listPendingPaymentSubmissionsForConfirm(): Promise<Pending
     invoiceId: r.invoice_id,
     invoiceRef: r.invoice_number,
     paymentRef: r.payment_ref,
+    createdAt: r.created_at,
     submitted: new Date(r.created_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }),
     note: (r.notes ?? "").trim() || "—",
     slipUrl: r.storage_public_url,

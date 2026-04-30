@@ -28,6 +28,7 @@ import { createPricingPlansRouter } from "./pricing-plans.routes.js";
 import { createBillingRouter } from "./billing.routes.js";
 import { PostgresBillingRepository } from "./billing.repository.js";
 import { createTempleBillingRouter } from "./temple-billing.routes.js";
+import { createDashboardRouter } from "./dashboard.routes.js";
 
 /**
  * Super-admin HTTP API mounted at `/api`:
@@ -75,6 +76,7 @@ export function createSuperAdminApiRouter(): Router {
   const api = Router();
   api.use(createTemplesRouter(templesService));
   api.use(createBillingRouter(billing));
+  api.use(createDashboardRouter(billing));
   api.use(createTempleBillingRouter());
   api.use(createTempleSessionProfileRouter(templeRepo));
   api.use(createAuthRouter(authService));

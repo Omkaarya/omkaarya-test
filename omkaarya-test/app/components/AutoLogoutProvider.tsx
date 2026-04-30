@@ -13,7 +13,11 @@ export default function AutoLogoutProvider({ children }: { children: React.React
   const logout = async () => {
     try {
       await fetch("/api/logout", { method: "POST" });
-      router.push("/super-admin/invite");
+      if (pathname.startsWith("/temple-admin")) {
+        router.push("/temple-admin/signin");
+      } else {
+        router.push("/super-admin/invite");
+      }
     } catch (error) {
       console.error("Auto logout failed", error);
     }
@@ -27,8 +31,8 @@ export default function AutoLogoutProvider({ children }: { children: React.React
   };
 
   useEffect(() => {
-    // Only track inactivity if the user is not on the login page
-    if (pathname === "/super-admin/invite") {
+    // Only track inactivity if the user is not on a login page
+    if (pathname === "/super-admin/invite" || pathname === "/temple-admin/signin") {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       return;
     }

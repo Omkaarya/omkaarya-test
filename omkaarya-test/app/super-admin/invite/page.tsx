@@ -40,7 +40,7 @@ export default function InvitationLogin() {
       const data = await response.json();
 
       if (response.ok) {
-        router.push("/dashboard");
+        router.push("/super-admin/dashboard");
       } else {
         setError(jsonApiErrorMessage(data) || "Login failed");
       }
