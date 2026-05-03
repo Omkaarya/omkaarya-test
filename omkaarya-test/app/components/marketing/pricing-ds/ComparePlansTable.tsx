@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
-import { Badge } from "../../ds/atoms/Badge";
+import React from "react";
 import { Button } from "../../ds/atoms/Button";
 
 const CheckCircle = () => (
@@ -15,33 +14,37 @@ const MinusIcon = () => (
   <span className="text-gray-300 font-bold">—</span>
 );
 
-export function ComparePlansTable() {
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    'smart-inbox': true,
-    'collaboration': false,
-    'analytics': false,
-    'integrations': false,
-    'security': false,
-  });
+export type PricingPlanComparisonCell = {
+  enabled: boolean;
+  limit: number | null;
+};
 
-  const toggleSection = (section: string) => {
-    setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
-  };
+export type PricingPlanComparisonRow = {
+  featureId: number;
+  name: string;
+  key: string;
+  moduleKey: string;
+  hasLimit: boolean;
+  values: Record<string, PricingPlanComparisonCell>;
+};
 
-  const SectionHeader = ({ id, title }: { id: string, title: string }) => (
-    <div 
-      className="flex justify-between items-center py-4 px-6 bg-gray-50 border-y border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors"
-      onClick={() => toggleSection(id)}
-    >
-      <div className="flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full bg-brand-500" />
-        <span className="font-semibold text-gray-900">{title}</span>
-      </div>
-      <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
-        {openSections[id] ? '-' : '+'}
-      </div>
-    </div>
-  );
+export type PricingPlanComparisonResponse = {
+  plans: { id: string; name: string }[];
+  features: PricingPlanComparisonRow[];
+};
+
+export function ComparePlansTable({
+  comparison,
+  priceByPlanId,
+}: {
+  comparison: PricingPlanComparisonResponse;
+  priceByPlanId?: Record<string, { monthlyCents: number; yearlyCents: number }>;
+}) {
+  const plans = comparison.plans.slice(0, 3);
+
+  function dollarsFromCents(cents: number): string {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format((cents ?? 0) / 100);
+  }
 
   return (
     <div className="w-full max-w-6xl mt-24 mb-16 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
@@ -59,103 +62,59 @@ export function ComparePlansTable() {
           </div>
           <span className="font-bold text-gray-900 text-lg">Features</span>
         </div>
-        
-        {/* Prarambha */}
-        <div className="col-span-1 flex flex-col items-center text-center px-4">
-          <span className="text-sm font-semibold text-gray-900 mb-1">Prarambha</span>
-          <div className="mb-4">
-            <span className="text-2xl font-bold text-gray-900">$20</span>
-            <span className="text-xs text-gray-500">/month</span>
-          </div>
-          <Button variant="outline" className="w-full rounded-full text-xs h-9 font-semibold text-gray-700 bg-white hover:bg-gray-50 border-gray-300">
-            Start free
-          </Button>
-        </div>
 
-        {/* Sankalpa */}
-        <div className="col-span-1 flex flex-col items-center text-center px-4 border-l border-gray-100">
-          <span className="text-sm font-semibold text-gray-900 mb-1">Sankalpa</span>
-          <div className="mb-4">
-            <span className="text-2xl font-bold text-gray-900">$49</span>
-            <span className="text-xs text-gray-500">/month</span>
-          </div>
-          <Button variant="outline" className="w-full rounded-full text-xs h-9 font-semibold text-gray-700 bg-white hover:bg-gray-50 border-gray-300">
-            Start free
-          </Button>
-        </div>
-
-        {/* Aaradhana */}
-        <div className="col-span-1 flex flex-col items-center text-center px-4 border-l border-gray-100">
-          <span className="text-sm font-semibold text-gray-900 mb-1">Aaradhana</span>
-          <div className="mb-4">
-            <span className="text-2xl font-bold text-gray-900">$99</span>
-            <span className="text-xs text-gray-500">/month</span>
-          </div>
-          <Button variant="outline" className="w-full rounded-full text-xs h-9 font-semibold text-gray-700 bg-white hover:bg-gray-50 border-gray-300">
-            Start free
-          </Button>
-        </div>
+        {plans.map((p, idx) => {
+          const monthlyCents = priceByPlanId?.[p.id]?.monthlyCents;
+          return (
+            <div
+              key={p.id}
+              className={`col-span-1 flex flex-col items-center text-center px-4 ${
+                idx > 0 ? "border-l border-gray-100" : ""
+              }`}
+            >
+              <span className="text-sm font-semibold text-gray-900 mb-1">{p.name}</span>
+              <div className="mb-4">
+                <span className="text-2xl font-bold text-gray-900">
+                  {typeof monthlyCents === "number" ? dollarsFromCents(monthlyCents) : "—"}
+                </span>
+                <span className="text-xs text-gray-500">/month</span>
+              </div>
+              <Button
+                variant="outline"
+                className="w-full rounded-full text-xs h-9 font-semibold text-gray-700 bg-white hover:bg-gray-50 border-gray-300"
+              >
+                Start free
+              </Button>
+            </div>
+          );
+        })}
       </div>
 
       {/* Feature Rows */}
       <div className="flex flex-col w-full text-sm">
-        <SectionHeader id="smart-inbox" title="Smart inbox" />
-        {openSections['smart-inbox'] && (
-          <div className="flex flex-col">
-            <div className="grid grid-cols-4 px-6 py-4 border-b border-gray-100 items-center">
-              <div className="text-gray-600 font-medium">Caller or Teams</div>
-              <div className="flex justify-center"><CheckCircle /></div>
-              <div className="flex justify-center"><CheckCircle /></div>
-              <div className="flex justify-center"><CheckCircle /></div>
-            </div>
-            <div className="grid grid-cols-4 px-6 py-4 border-b border-gray-100 items-center">
-              <div className="text-gray-600 font-medium">Macro broadacting</div>
-              <div className="flex justify-center"><CheckCircle /></div>
-              <div className="flex justify-center"><CheckCircle /></div>
-              <div className="flex justify-center"><CheckCircle /></div>
-            </div>
-            <div className="grid grid-cols-4 px-6 py-4 border-b border-gray-100 items-center">
-              <div className="text-gray-600 font-medium">Free SMS messages</div>
-              <div className="flex justify-center"><CheckCircle /></div>
-              <div className="flex justify-center"><CheckCircle /></div>
-              <div className="flex justify-center"><CheckCircle /></div>
-            </div>
-            <div className="grid grid-cols-4 px-6 py-4 border-b border-gray-100 items-center">
-              <div className="text-gray-600 font-medium">Dedicated account manager</div>
-              <div className="flex justify-center"><MinusIcon /></div>
-              <div className="flex justify-center"><CheckCircle /></div>
-              <div className="flex justify-center"><CheckCircle /></div>
-            </div>
-            <div className="grid grid-cols-4 px-6 py-4 border-b border-gray-100 items-center">
-              <div className="text-gray-600 font-medium">Personalized onboarding</div>
-              <div className="flex justify-center"><MinusIcon /></div>
-              <div className="flex justify-center"><MinusIcon /></div>
-              <div className="flex justify-center"><CheckCircle /></div>
-            </div>
+        {comparison.features.map((f) => (
+          <div key={f.featureId} className="grid grid-cols-4 px-6 py-4 border-b border-gray-100 items-center">
+            <div className="text-gray-600 font-medium">{f.name}</div>
+            {plans.map((p) => {
+              const cell = f.values[p.id];
+              const enabled = cell?.enabled === true;
+              const limit = cell?.limit ?? null;
+              return (
+                <div key={`${f.featureId}-${p.id}`} className="flex justify-center">
+                  {enabled ? (
+                    f.hasLimit && limit !== null ? (
+                      <span className="text-gray-700 font-semibold">{limit}</span>
+                    ) : (
+                      <CheckCircle />
+                    )
+                  ) : (
+                    <MinusIcon />
+                  )}
+                </div>
+              );
+            })}
           </div>
-        )}
-
-        <SectionHeader id="collaboration" title="Collaboration & Teams" />
-        {openSections['collaboration'] && (
-          <div className="flex flex-col">
-            <div className="grid grid-cols-4 px-6 py-4 border-b border-gray-100 items-center">
-              <div className="text-gray-600 font-medium">Team members</div>
-              <div className="flex justify-center text-gray-500 font-medium">1</div>
-              <div className="flex justify-center text-gray-500 font-medium">5</div>
-              <div className="flex justify-center text-gray-500 font-medium">Unlimited</div>
-            </div>
-            <div className="grid grid-cols-4 px-6 py-4 border-b border-gray-100 items-center">
-              <div className="text-gray-600 font-medium">Role permissions</div>
-              <div className="flex justify-center"><MinusIcon /></div>
-              <div className="flex justify-center"><CheckCircle /></div>
-              <div className="flex justify-center"><CheckCircle /></div>
-            </div>
-          </div>
-        )}
-
-        <SectionHeader id="analytics" title="Analytics & Insights" />
-        <SectionHeader id="integrations" title="Integrations" />
-        <SectionHeader id="security" title="Security & Compliance" />
+        ))}
       </div>
 
     </div>

@@ -3,95 +3,84 @@
 import React, { useState } from "react";
 import { PricingPlanCard, PricingFeature } from "../../ds/molecules/PricingPlanCard";
 
-export function PricingCards() {
+export type PublicPricingPlan = {
+  id: string;
+  name: string;
+  description: string | null;
+  priceMonthly: number; // cents
+  priceYearly: number; // cents
+  popular: boolean;
+  includedSeats: number;
+  extraSeatPriceMonthly: number; // cents
+  features: string[];
+};
+
+function dollarsFromCents(cents: number): number {
+  return Math.round((cents / 100) * 100) / 100;
+}
+
+const SETUP_FEE_BY_PLAN_NAME: Record<string, string> = {
+  prarambha: "$49 (one-time)",
+  sankalpa: "$159 (one-time)",
+  aaradhana: "$249 (one-time)",
+};
+
+export function PricingCards({ plans }: { plans: PublicPricingPlan[] }) {
   const [isAnnual, setIsAnnual] = useState(true);
 
-  // Common features list for demonstration
-  const allFeatures = [
-    "Devotee management",
-    "Pooja booking (online + manual)",
-    "Donations + basic receipts",
-    "Temple microsite (subdomain)",
-    "Panchangam display",
-    "Compliance tax receipts",
-    "Full microsite + SEO branding",
-    "Custom domain",
-    "Inventory management",
-    "Multi-admin (up to 3 users)",
-    "Priority support",
-    "Advanced analytics",
-  ];
+  const allFeatures = Array.from(
+    new Set(plans.flatMap((p) => (Array.isArray(p.features) ? p.features : [])))
+  ).sort((a, b) => a.localeCompare(b));
 
-  const prarambhaFeatures: PricingFeature[] = allFeatures.map((f, i) => ({
-    id: `p-${i}`,
-    name: f,
-    included: i < 5,
-  }));
-
-  const sankalpaFeatures: PricingFeature[] = allFeatures.map((f, i) => ({
-    id: `s-${i}`,
-    name: f,
-    included: i < 9,
-  }));
-
-  const aaradhanaFeatures: PricingFeature[] = allFeatures.map((f, i) => ({
-    id: `a-${i}`,
-    name: f,
-    included: true,
-  }));
+  const orderedPlans = [...plans].sort((a, b) => {
+    const aPrice = isAnnual ? a.priceYearly : a.priceMonthly;
+    const bPrice = isAnnual ? b.priceYearly : b.priceMonthly;
+    if (aPrice !== bPrice) return aPrice - bPrice;
+    return a.name.localeCompare(b.name);
+  });
 
   return (
     <div className="w-full flex flex-col items-center">
       {/* Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-6xl">
-        <PricingPlanCard
-          id="prarambha"
-          name="Prarambha"
-          price={isAnnual ? 187 : 19}
-          billingCycle={isAnnual ? "yearly" : "monthly"}
-          setupFee={"$49 (one-time)"}
-          description="Ideal for small temples starting digital management of daily activities and donations."
-          isAnnual={isAnnual}
-          onToggleAnnual={setIsAnnual}
-          features={[
-            { id: "seat", name: `3 Seats included (+$6/mo per extra seat)`, included: true },
-            ...prarambhaFeatures.slice(1)
-          ]}
-          badgeText="3 Seats"
-        />
+        {orderedPlans.slice(0, 3).map((plan) => {
+          const key = plan.name.trim().toLowerCase();
+          const planFeatures = new Set(plan.features ?? []);
+          const features: PricingFeature[] = [
+            {
+              id: `${plan.id}-seats`,
+              name: `${plan.includedSeats} Seats included (+$${dollarsFromCents(plan.extraSeatPriceMonthly)}/mo per extra seat)`,
+              included: true,
+            },
+            ...allFeatures.map((f) => ({
+              id: `${plan.id}-${f}`,
+              name: f,
+              included: planFeatures.has(f),
+            })),
+          ];
 
-        <PricingPlanCard
-          id="sankalpa"
-          name="Sankalpa"
-          price={isAnnual ? 539 : 49}
-          billingCycle={isAnnual ? "yearly" : "monthly"}
-          setupFee={"$159 (one-time)"}
-          description="Ideal for small temples starting digital management of daily activities and donations."
-          isAnnual={isAnnual}
-          onToggleAnnual={setIsAnnual}
-          features={[
-            { id: "seat", name: `5 Seats included (+$5/mo per extra seat)`, included: true },
-            ...sankalpaFeatures.slice(1)
-          ]}
-          badgeText="5 Seats"
-        />
-
-        <PricingPlanCard
-          id="aaradhana"
-          name="Aaradhana"
-          price={isAnnual ? 1089 : 99}
-          billingCycle={isAnnual ? "yearly" : "monthly"}
-          setupFee={"$249 (one-time)"}
-          description="Ideal for small temples starting digital management of daily activities and donations."
-          isAnnual={isAnnual}
-          onToggleAnnual={setIsAnnual}
-          features={[
-            { id: "seat", name: `10 Seats included (+$${isAnnual ? 3 : 4}/mo per extra seat)`, included: true },
-            ...aaradhanaFeatures.slice(1)
-          ]}
-          isSelected={true}
-          badgeText="10 Seats"
-        />
+          const priceCents = isAnnual ? plan.priceYearly : plan.priceMonthly;
+          return (
+            <PricingPlanCard
+              key={plan.id}
+              id={plan.id}
+              name={plan.name}
+              price={dollarsFromCents(priceCents)}
+              billingCycle={isAnnual ? "yearly" : "monthly"}
+              setupFee={SETUP_FEE_BY_PLAN_NAME[key] ?? "$—"}
+              description={
+                plan.description ??
+                "Flexible plan designed for temple operations: devotees, bookings, donations, and more."
+              }
+              isAnnual={isAnnual}
+              onToggleAnnual={setIsAnnual}
+              features={features}
+              isSelected={plan.popular}
+              badgeText={`${plan.includedSeats} Seats`}
+              ctaText="Request demo"
+            />
+          );
+        })}
       </div>
     </div>
   );

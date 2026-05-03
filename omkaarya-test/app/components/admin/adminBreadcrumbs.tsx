@@ -95,6 +95,14 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbSegment[] {
     return [{ label: "Subscriptions", isCurrent: true }];
   }
 
+  if (pathname === "/super-admin/create-temple") {
+    return [{ label: "Create Temple", isCurrent: true }];
+  } 
+
+  if (pathname === "/super-admin/edit-temple/") {
+    return [{ label: "Edit Temple", isCurrent: true }];
+  }
+
   // ── Fallback ───────────────────────────────────────────────────────
   return [{ label: "Temples", href: "/super-admin", isCurrent: false }];
 }

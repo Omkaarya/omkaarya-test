@@ -15,7 +15,7 @@ export default function AdminDashboardLayout({
   const { theme, setTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const templesActive =
-    pathname === "/super-admin" ||
+    pathname === "/super-admin/core/temples" ||
     pathname.startsWith("/super-admin/create-temple") ||
     pathname.startsWith("/super-admin/edit-temple");
 

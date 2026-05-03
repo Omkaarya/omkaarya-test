@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import ThemeProvider from "./components/ThemeProvider";
 import ThemeToggle from "./components/ThemeToggle";
+import AutoLogoutProvider from "./components/AutoLogoutProvider";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -32,8 +33,10 @@ export default function RootLayout({
         className={`${plusJakartaSans.variable} antialiased`}
       >
         <ThemeProvider>
-          <ThemeToggle />
-          {children}
+          <AutoLogoutProvider>
+            <ThemeToggle />
+            {children}
+          </AutoLogoutProvider>
         </ThemeProvider>
       </body>
     </html>
