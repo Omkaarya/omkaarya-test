@@ -103,7 +103,12 @@ function ReceiptViewContent() {
     return (
       <div className="p-6 text-sm text-text-tertiary">
         {loadErr}
-        <Link href="/super-admin/finance/receipts" className="ml-2 text-brand">Back</Link>
+        <Link
+          href="/super-admin/finance/receipts"
+          className="ml-2 font-medium text-[var(--brand-primary)] hover:brightness-95"
+        >
+          Back
+        </Link>
       </div>
     );
   }
@@ -125,7 +130,10 @@ function ReceiptViewContent() {
     <div className="space-y-5">
       {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-xs text-text-tertiary">
-        <Link href="/super-admin/finance/receipts" className="text-brand hover:text-brand-600 font-medium transition-colors">
+        <Link
+          href="/super-admin/finance/receipts"
+          className="font-medium text-[var(--brand-primary)] transition-colors hover:brightness-95"
+        >
           Receipts
         </Link>
         <span className="text-text-quaternary">›</span>

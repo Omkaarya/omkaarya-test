@@ -42,30 +42,33 @@ export function PhoneRowField({
   return (
     <FormField id={`${idPrefix}-num`} label={label} required={required} layout={layout}>
       <div>
-        <div className="flex gap-2">
-          <SelectInput
-            id={`${idPrefix}-cc`}
-            className="w-22 shrink-0 sm:w-24"
-            value={value.countryCode}
-            onChange={(e) => onChange({ ...value, countryCode: e.target.value })}
-            onBlur={onBlur}
-            aria-label={`${label} country code`}
-          >
-            {PHONE_COUNTRY_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </SelectInput>
-          <TextInput
-            id={`${idPrefix}-num`}
-            type="tel"
-            placeholder="Number"
-            className="min-w-0 flex-1"
-            value={value.nationalNumber}
-            onChange={(e) => onChange({ ...value, nationalNumber: e.target.value })}
-            onBlur={onBlur}
-          />
+        <div className="flex min-w-0 w-full gap-2 items-center">
+          <div className="w-[6.75rem] shrink-0 sm:w-28">
+            <SelectInput
+              id={`${idPrefix}-cc`}
+              value={value.countryCode}
+              onChange={(e) => onChange({ ...value, countryCode: e.target.value })}
+              onBlur={onBlur}
+              aria-label={`${label} country code`}
+            >
+              {PHONE_COUNTRY_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </SelectInput>
+          </div>
+          <div className="min-w-0 flex-1">
+            <TextInput
+              id={`${idPrefix}-num`}
+              type="tel"
+              placeholder="Number"
+              className="w-full min-w-0"
+              value={value.nationalNumber}
+              onChange={(e) => onChange({ ...value, nationalNumber: e.target.value })}
+              onBlur={onBlur}
+            />
+          </div>
         </div>
         {error ? <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p> : null}
       </div>

@@ -6,7 +6,6 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Bell,
   Building2,
-  Calendar,
   ChevronDown,
   Cog,
   CreditCard,
@@ -14,6 +13,7 @@ import {
   FileText,
   Globe,
   LayoutDashboard,
+  LayoutTemplate,
   Mail,
   Maximize2,
   Menu,
@@ -21,6 +21,7 @@ import {
   Search,
   Settings,
   Shield,
+  Sparkles,
   Sun,
   Moon,
   Tag,
@@ -40,9 +41,9 @@ import { PENDING_PAYMENT_SUBMISSIONS_CHANGED_EVENT } from "@/lib/pending-payment
 const primaryNav = [
   { href: "/super-admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/super-admin/core/temples", label: "Temples", icon: Building2 },
+  { href: "/super-admin/core/deities", label: "Deities", icon: Sparkles },
   { href: "/super-admin/pricing-plans", label: "Pricing Plans", icon: Tag },
   { href: "/super-admin/subdomains", label: "Subdomains", icon: Globe },
-  { href: "#", label: "Panchangam", icon: Calendar },
 ] as const;
 
 const financeNav = [
@@ -79,9 +80,17 @@ const subscriptionNav = [
 ] as const;
 
 const userNav = [
-  { href: "#", label: "Users", icon: Users },
-  { href: "#", label: "Role & Permissions", icon: Shield },
-  { href: "#", label: "Delete Account Requests", icon: UserX },
+  { href: "/super-admin/user-management/users", label: "Users", icon: Users },
+  {
+    href: "/super-admin/user-management/roles",
+    label: "Roles & Permissions",
+    icon: Shield,
+  },
+  {
+    href: "/super-admin/delete-account-requests",
+    label: "Delete Account Requests",
+    icon: UserX,
+  },
 ] as const;
 
 const systemSettingsNav = [
@@ -90,8 +99,7 @@ const systemSettingsNav = [
     label: "Feature Registry",
     icon: Database,
   },
-  { href: "/super-admin/system-settings/feature-registry", label: "Feature Registry", icon: Database },
-  { href: "/super-admin/cms", label: "Website CMS", icon: Globe },
+  { href: "/super-admin/cms", label: "Website CMS", icon: LayoutTemplate },
 ] as const;
 
 /**
@@ -316,7 +324,7 @@ export function AdminDashboardShell({
             {primaryNav.map(({ href, label, icon: Icon }) => {
               const active =
                 (href === "/super-admin/core/temples" && templesActive) ||
-                (href !== "#" && pathname === href);
+                pathname === href;
               return (
                 <li key={label}>
                   <Link
@@ -373,18 +381,32 @@ export function AdminDashboardShell({
             User Management
           </p>
           <ul className="space-y-0.5">
-            {userNav.map(({ href, label, icon: Icon }) => (
-              <li key={label}>
-                <Link
-                  href={href}
-                  onClick={closeSidebar}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
-                >
-                  <Icon className="h-5 w-5 shrink-0 opacity-80" aria-hidden />
-                  {label}
-                </Link>
-              </li>
-            ))}
+            {userNav.map(({ href, label, icon: Icon }) => {
+              const active =
+                pathname === href ||
+                (href === "/super-admin/user-management/roles" &&
+                  pathname.startsWith("/super-admin/user-management/roles"));
+              return (
+                <li key={label}>
+                  <Link
+                    href={href}
+                    onClick={closeSidebar}
+                    className={[
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                      active
+                        ? "bg-zinc-100 font-semibold text-[var(--brand-primary)] dark:bg-zinc-800/80"
+                        : "text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60",
+                    ].join(" ")}
+                  >
+                    <Icon
+                      className={`h-5 w-5 shrink-0 ${active ? "opacity-100" : "opacity-80"}`}
+                      aria-hidden
+                    />
+                    {label}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
 
           {/* System Settings */}
@@ -515,14 +537,14 @@ export function AdminDashboardShell({
               <span className="font-medium text-[var(--brand-primary)]">
                 Om Kaaryaa
               </span>{" "}
-              All Right Reserved
+              All Rights Reserved
             </p>
             <p className="text-center text-[var(--text-muted)]">
               Powered By{" "}
               <span className="font-medium text-[var(--brand-primary)]">
                 Pepulux
               </span>{" "}
-              All Right Reserved
+              All Rights Reserved
             </p>
             <div className="flex flex-wrap justify-center gap-4 sm:justify-end">
               <a

@@ -11,11 +11,10 @@ import {
   Upload,
   X,
   CheckCircle2,
-  AlertCircle,
-  Loader2
+  Loader2,
 } from "lucide-react";
 import StatusBadge from "@/app/components/admin/StatusBadge";
-import AdminDataTable from "@/app/components/admin/AdminDataTable";
+import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
 
 type Deity = {
   id: string;
@@ -57,6 +56,62 @@ export default function DeitiesMasterPage() {
     return deities.filter(d => d.name.toLowerCase().includes(search.toLowerCase()));
   }, [deities, search]);
 
+  const deityColumns: ColumnDef<Deity>[] = useMemo(
+    () => [
+      {
+        key: "id",
+        header: "Deity ID",
+        cell: (d) => (
+          <span className="text-xs font-bold text-text-tertiary tracking-widest">#{d.id}</span>
+        ),
+      },
+      {
+        key: "image",
+        header: "Image",
+        cell: () => (
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-subtle">
+            <ImageIcon className="h-5 w-5 text-text-quaternary" />
+          </div>
+        ),
+      },
+      {
+        key: "name",
+        header: "Name",
+        cell: (d) => <span className="text-sm font-bold text-text-primary">{d.name}</span>,
+      },
+      {
+        key: "status",
+        header: "Status",
+        cell: (d) => <StatusBadge status={d.status} />,
+      },
+      {
+        key: "actions",
+        header: "Actions",
+        align: "right",
+        cell: () => (
+          <div className="flex items-center justify-end gap-1">
+            <button
+              type="button"
+              className="rounded-lg p-2 text-text-quaternary transition-all hover:bg-orange-50 hover:text-[var(--brand-primary)]"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              className="rounded-lg p-2 text-text-quaternary transition-all hover:bg-red-50 hover:text-red-500"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+            <button type="button" className="rounded-lg p-2 text-text-quaternary hover:text-text-primary">
+              <MoreVertical className="h-4 w-4" />
+            </button>
+          </div>
+        ),
+      },
+    ],
+    [],
+  );
+
   const handleAddDeity = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -76,16 +131,14 @@ export default function DeitiesMasterPage() {
     }, 600);
   };
 
-  const tableHeaders = ["Deity ID", "Image", "Name", "Status", "Actions"];
-
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
 
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Deities</h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400 font-medium">Manage and monitor deities here.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-text-primary">Deities</h1>
+          <p className="mt-1 text-sm font-medium text-text-tertiary">Manage and monitor deities here.</p>
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
@@ -96,53 +149,46 @@ export default function DeitiesMasterPage() {
       </div>
 
       {/* Filters & Search */}
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4 shadow-sm flex flex-col sm:flex-row gap-4 items-center">
-        <div className="relative flex-1 w-full">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+      <div className="flex flex-col gap-4 rounded-2xl border border-border bg-surface p-4 shadow-sm sm:flex-row sm:items-center">
+        <div className="relative w-full flex-1">
+          <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-quaternary" />
           <input
             type="text"
             placeholder="Search by name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full h-11 pl-11 pr-4 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-sm font-medium focus:border-[var(--brand-primary)] outline-none transition-all"
+            className="h-11 w-full rounded-xl border border-border bg-subtle py-2 pl-11 pr-4 text-sm font-medium text-text-primary outline-none transition-all focus:border-[var(--brand-primary)]"
           />
         </div>
-        <div className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl">
-          <button className="px-4 py-2 text-[10px] font-bold rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm uppercase tracking-wider">All</button>
-          <button className="px-4 py-2 text-[10px] font-bold rounded-lg text-zinc-500 uppercase tracking-wider hover:text-zinc-900 dark:hover:text-zinc-300 transition-colors">Active</button>
-          <button className="px-4 py-2 text-[10px] font-bold rounded-lg text-zinc-500 uppercase tracking-wider hover:text-zinc-900 dark:hover:text-zinc-300 transition-colors">Inactive</button>
+        <div className="flex items-center gap-2 rounded-xl bg-subtle p-1">
+          <button
+            type="button"
+            className="rounded-lg bg-surface px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-text-primary shadow-sm"
+          >
+            All
+          </button>
+          <button
+            type="button"
+            className="rounded-lg px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-text-tertiary transition-colors hover:text-text-primary"
+          >
+            Active
+          </button>
+          <button
+            type="button"
+            className="rounded-lg px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-text-tertiary transition-colors hover:text-text-primary"
+          >
+            Inactive
+          </button>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
-        <AdminDataTable headers={tableHeaders} isEmpty={filteredDeities.length === 0}>
-          {filteredDeities.map((deity) => (
-            <tr key={deity.id} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30 transition-colors group">
-              <td className="px-6 py-4">
-                <span className="text-xs font-bold text-zinc-400 tracking-widest">#{deity.id}</span>
-              </td>
-              <td className="px-6 py-4">
-                <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center border border-zinc-200 dark:border-zinc-700">
-                  <ImageIcon className="w-5 h-5 text-zinc-300" />
-                </div>
-              </td>
-              <td className="px-6 py-4">
-                <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{deity.name}</span>
-              </td>
-              <td className="px-6 py-4">
-                <StatusBadge status={deity.status} />
-              </td>
-              <td className="px-6 py-4 text-right">
-                <div className="flex items-center justify-end gap-1">
-                  <button className="p-2 rounded-lg text-zinc-400 hover:text-[var(--brand-primary)] hover:bg-orange-50 transition-all"><Pencil className="w-4 h-4" /></button>
-                  <button className="p-2 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-all"><Trash2 className="w-4 h-4" /></button>
-                  <button className="p-2 rounded-lg text-zinc-400 hover:text-zinc-800"><MoreVertical className="w-4 h-4" /></button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </AdminDataTable>
+      <div className="overflow-hidden rounded-3xl border border-border bg-surface shadow-sm">
+        <DataTable<Deity>
+          columns={deityColumns}
+          data={filteredDeities}
+          keyExtractor={(d) => d.id}
+          className="min-w-[600px]"
+        />
       </div>
 
       {/* Add Deity Modal */}

@@ -7,6 +7,9 @@ import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
 
+const inputBase =
+  "w-full rounded-xl border border-[var(--border-default)] bg-[var(--surface-elevated)] px-4 py-3 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all focus:border-[var(--brand-primary)] focus:ring-2 focus:ring-[var(--brand-primary)]/20 disabled:opacity-60";
+
 export default function LoginPage() {
   const router = useRouter();
 
@@ -48,31 +51,34 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col lg:flex-row bg-white font-sans">
+    <div className="flex min-h-screen flex-col bg-[var(--surface-page)] font-sans lg:flex-row">
       {/* ── Left Side Branding (60%) ── */}
-      <div className="flex flex-col justify-center items-center lg:w-[60%] bg-[var(--brand-primary)] p-10 text-white min-h-[350px] lg:min-h-screen relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-20 pointer-events-none">
-          <div className="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] rounded-full bg-white blur-[100px]" />
-          <div className="absolute -bottom-[10%] -right-[10%] w-[50%] h-[50%] rounded-full bg-black blur-[100px]" />
+      <div className="relative flex min-h-[350px] flex-col items-center justify-center overflow-hidden bg-[var(--brand-primary)] p-10 text-white lg:min-h-screen lg:w-[60%]">
+        <div className="pointer-events-none absolute left-0 top-0 h-full w-full overflow-hidden opacity-20">
+          <div className="absolute -left-[10%] -top-[10%] h-[50%] w-[50%] rounded-full bg-white blur-[100px]" />
+          <div className="absolute -bottom-[10%] -right-[10%] h-[50%] w-[50%] rounded-full bg-black blur-[100px]" />
         </div>
 
-        <div className="flex flex-col items-center gap-6 text-center relative z-10">
-          <div className="flex items-center justify-center p-6 rounded-3xl bg-white/10 backdrop-blur-md border border-white/20 shadow-2xl">
+        <div className="relative z-10 flex flex-col items-center gap-6 text-center">
+          <div className="flex items-center justify-center rounded-3xl border border-white/20 bg-white/10 p-6 shadow-2xl backdrop-blur-md">
             <Image
               src="/brand-logo/Omkaarya 9.svg"
               alt="Omkaarya Logo"
               width={160}
               height={50}
-              className="w-auto h-12 invert"
+              className="h-12 w-auto invert"
               priority
             />
           </div>
           <div className="mt-4">
-            <h1 className="text-4xl lg:text-5xl font-bold tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>
+            <h1
+              className="text-4xl font-bold tracking-tight lg:text-5xl"
+              style={{ fontFamily: "Poppins, sans-serif" }}
+            >
               Om Kaaryaa
             </h1>
-            <p className="text-sm font-semibold uppercase tracking-wider text-white/80 mt-2">Super Admin</p>
-            <p className="text-lg lg:text-xl font-medium text-white/90 max-w-md mt-3">
+            <p className="mt-2 text-sm font-semibold uppercase tracking-wider text-white/80">Super Admin</p>
+            <p className="mt-3 max-w-md text-lg font-medium text-white/90 lg:text-xl">
               Platform administration for temples, subscriptions, and system settings.
             </p>
           </div>
@@ -80,52 +86,67 @@ export default function LoginPage() {
       </div>
 
       {/* ── Right Side Form (40%) ── */}
-      <div className="flex flex-col justify-center items-center lg:w-[40%] px-6 py-12 lg:px-12 xl:px-20 bg-white">
+      <div className="flex flex-col items-center justify-center bg-[var(--surface-card)] px-6 py-12 lg:w-[40%] lg:px-12 xl:px-20">
         <div className="w-full max-w-[400px]">
           <div className="mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2 tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>
+            <h2
+              className="mb-2 text-3xl font-bold tracking-tight text-[var(--foreground)]"
+              style={{ fontFamily: "Poppins, sans-serif" }}
+            >
               Super Admin sign-in
             </h2>
-            <p className="text-gray-500 text-sm">Sign in with your platform administrator email and password.</p>
+            <p className="text-sm text-[var(--muted)]">
+              Sign in with your platform administrator email and password.
+            </p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
             {error && (
-              <div className="p-3 text-sm font-medium text-red-600 bg-red-50 rounded-lg border border-red-100">
+              <div
+                role="alert"
+                className="rounded-lg border border-[var(--color-border-error)] bg-[var(--color-status-danger-bg)] p-3 text-sm font-medium text-[var(--color-status-danger-text)]"
+              >
                 {error}
               </div>
             )}
 
             <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-gray-700">Email</label>
+              <label htmlFor="login-email" className="block text-sm font-medium text-[var(--foreground)]">
+                Email
+              </label>
               <input
+                id="login-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email"
                 autoComplete="email"
                 disabled={loading}
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/20 transition-all disabled:opacity-60"
+                className={inputBase}
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-gray-700">Password</label>
+              <label htmlFor="login-password" className="block text-sm font-medium text-[var(--foreground)]">
+                Password
+              </label>
               <div className="relative">
                 <input
+                  id="login-password"
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   autoComplete="current-password"
                   disabled={loading}
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 pr-11 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/20 transition-all disabled:opacity-60"
+                  className={`${inputBase} pr-11`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   disabled={loading}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none p-1 disabled:opacity-50"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--muted)] hover:text-[var(--foreground)] focus:outline-none disabled:opacity-50"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -133,28 +154,28 @@ export default function LoginPage() {
             </div>
 
             <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 cursor-pointer group">
+              <label className="group flex cursor-pointer items-center gap-2">
                 <input
                   type="checkbox"
                   disabled={loading}
-                  className="w-4 h-4 rounded border-gray-300 text-[var(--brand-primary)] focus:ring-[var(--brand-primary)]"
+                  className="h-4 w-4 rounded border-[var(--border-default)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)]"
                 />
-                <span className="text-sm font-medium text-gray-600 group-hover:text-gray-800 transition-colors">
+                <span className="text-sm font-medium text-[var(--muted)] transition-colors group-hover:text-[var(--foreground)]">
                   Remember for 30 days
                 </span>
               </label>
-              <span className="text-sm font-semibold text-gray-400">Forgot password?</span>
+              <span className="text-sm font-semibold text-[var(--muted)]">Forgot password?</span>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-[var(--brand-primary)] px-4 py-3 mt-4 text-sm font-bold text-white shadow-md shadow-orange-500/20 hover:brightness-110 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] focus:ring-offset-2 transition-all active:translate-y-0 disabled:pointer-events-none disabled:opacity-60"
+              className="mt-4 w-full rounded-xl bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white shadow-md shadow-orange-500/20 transition-all hover:-translate-y-0.5 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] focus:ring-offset-2 focus:ring-offset-[var(--surface-card)] active:translate-y-0 disabled:pointer-events-none disabled:opacity-60"
             >
               {loading ? "Signing in…" : "Sign in"}
             </button>
 
-            <p className="text-center text-xs text-gray-500 pt-2">
+            <p className="pt-2 text-center text-xs text-[var(--muted)]">
               Received an invitation with a temporary password?{" "}
               <Link href="/super-admin/invite" className="font-semibold text-[var(--brand-primary)] hover:brightness-95">
                 Continue here

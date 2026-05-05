@@ -7,6 +7,27 @@ export type BreadcrumbSegment = {
   isCurrent?: boolean;
 };
 
+function titleCaseSlug(segment: string): string {
+  return segment
+    .split("-")
+    .map((w) => (w.length ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+    .join(" ");
+}
+
+/** Last-resort trail for `/super-admin/...` routes without explicit rules. */
+function breadcrumbsForUnknownSuperAdminPath(pathname: string): BreadcrumbSegment[] {
+  const rest = pathname.replace(/^\/super-admin\/?/, "").replace(/\/$/, "");
+  if (!rest) {
+    return [{ label: "Dashboard", isCurrent: true }];
+  }
+  const segments = rest.split("/").filter(Boolean);
+  const lastRaw = segments[segments.length - 1] ?? "Page";
+  return [
+    { label: "Dashboard", href: "/super-admin/dashboard" },
+    { label: titleCaseSlug(lastRaw), isCurrent: true },
+  ];
+}
+
 export function getAdminBreadcrumbs(pathname: string): BreadcrumbSegment[] {
   // ── Temple Management ──────────────────────────────────────────────
   if (pathname === "/super-admin/create-temple") {
@@ -24,6 +45,23 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbSegment[] {
   if (pathname === "/super-admin/dashboard") {
     return [{ label: "Dashboard", isCurrent: true }];
   }
+
+  // ── Core ───────────────────────────────────────────────────────────
+  if (pathname === "/super-admin/core/temples") {
+    return [{ label: "Core" }, { label: "Temples", isCurrent: true }];
+  }
+  if (pathname === "/super-admin/core/deities") {
+    return [{ label: "Core" }, { label: "Deities", isCurrent: true }];
+  }
+
+  // ── Standalone primary pages ───────────────────────────────────────
+  if (pathname === "/super-admin/cms") {
+    return [{ label: "Website CMS", isCurrent: true }];
+  }
+  if (pathname === "/super-admin/subdomains") {
+    return [{ label: "Subdomains", isCurrent: true }];
+  }
+
   // ── User Management ────────────────────────────────────────────────
   if (pathname === "/super-admin/user-management/users") {
     return [
@@ -60,6 +98,12 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbSegment[] {
   }
 
   // ── Pricing Plans ──────────────────────────────────────────────────
+  if (pathname === "/super-admin/pricing-plans/create") {
+    return [
+      { label: "Pricing Plans", href: "/super-admin/pricing-plans" },
+      { label: "Create Plan", isCurrent: true },
+    ];
+  }
   if (pathname.startsWith("/super-admin/pricing-plans/") && pathname.includes("/features")) {
     return [
       { label: "Pricing Plans", href: "/super-admin/pricing-plans" },
@@ -90,21 +134,11 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbSegment[] {
     ];
   }
 
-  // ── Subscriptions ──────────────────────────────────────────────────
-  if (pathname === "/super-admin/subscriptions") {
-    return [{ label: "Subscriptions", isCurrent: true }];
+  if (pathname.startsWith("/super-admin")) {
+    return breadcrumbsForUnknownSuperAdminPath(pathname);
   }
 
-  if (pathname === "/super-admin/create-temple") {
-    return [{ label: "Create Temple", isCurrent: true }];
-  } 
-
-  if (pathname === "/super-admin/edit-temple/") {
-    return [{ label: "Edit Temple", isCurrent: true }];
-  }
-
-  // ── Fallback ───────────────────────────────────────────────────────
-  return [{ label: "Temples", href: "/super-admin/core/temples", isCurrent: false }];
+  return breadcrumbsForUnknownSuperAdminPath(pathname);
 }
 
 export function AdminBreadcrumbs({ pathname }: { pathname: string }) {
@@ -122,14 +156,11 @@ export function AdminBreadcrumbs({ pathname }: { pathname: string }) {
         <Home className="h-4 w-4" />
         <span className="sr-only">Home</span>
       </Link>
-      {segments.map((seg) => (
-        <span key={seg.label} className="flex items-center gap-1">
+      {segments.map((seg, index) => (
+        <span key={`${seg.label}-${index}-${seg.href ?? ""}`} className="flex items-center gap-1">
           <ChevronRight className="h-4 w-4 shrink-0 text-[var(--text-muted)]" aria-hidden />
           {seg.href && !seg.isCurrent ? (
-            <Link
-              href={seg.href}
-              className="hover:text-[var(--text-primary)]"
-            >
+            <Link href={seg.href} className="hover:text-[var(--text-primary)]">
               {seg.label}
             </Link>
           ) : (
