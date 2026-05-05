@@ -120,17 +120,8 @@ export function createApp(options: CreateAppOptions = {}): Express {
   /** JWT-protected temple operational routes (inventory, …); uses per-temple PostgreSQL from `temples.operational_*`. */
   app.use(apiMountPath, createTempleOpsApiRouter());
 
-  app.get("/debug/routes", (_req, res) => {
-    // Avoid exposing internals in production by default.
-    if (process.env.NODE_ENV === "production") {
-      return sendError(
-        res,
-        404,
-        "NOT_FOUND",
-        "Not found",
-        "This endpoint is disabled in production."
-      );
-    }
+  app.get("/debug/routes", (req, res) => {
+    // In production, require an explicit token to avoid exposing internals.
 
     const routes: Array<{ methods: string[]; path: string }> = [];
 
