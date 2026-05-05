@@ -11,18 +11,18 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbSegment[] {
   // ── Temple Management ──────────────────────────────────────────────
   if (pathname === "/super-admin/create-temple") {
     return [
-      { label: "Temples", href: "/super-admin" },
+      { label: "Temples", href: "/super-admin/core/temples" },
       { label: "Create Temple", isCurrent: true },
     ];
   }
   if (pathname.startsWith("/super-admin/edit-temple/")) {
     return [
-      { label: "Temples", href: "/super-admin" },
+      { label: "Temples", href: "/super-admin/core/temples" },
       { label: "Edit Temple", isCurrent: true },
     ];
   }
-  if (pathname === "/super-admin") {
-    return [{ label: "Temples", isCurrent: true }];
+  if (pathname === "/super-admin/dashboard") {
+    return [{ label: "Dashboard", isCurrent: true }];
   }
   // ── User Management ────────────────────────────────────────────────
   if (pathname === "/super-admin/user-management/users") {
@@ -104,7 +104,7 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbSegment[] {
   }
 
   // ── Fallback ───────────────────────────────────────────────────────
-  return [{ label: "Temples", href: "/super-admin", isCurrent: false }];
+  return [{ label: "Temples", href: "/super-admin/core/temples", isCurrent: false }];
 }
 
 export function AdminBreadcrumbs({ pathname }: { pathname: string }) {

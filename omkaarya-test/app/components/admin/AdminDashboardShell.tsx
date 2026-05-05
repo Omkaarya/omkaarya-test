@@ -38,7 +38,7 @@ import { PENDING_PAYMENT_SUBMISSIONS_CHANGED_EVENT } from "@/lib/pending-payment
 // ── Navigation Config ──────────────────────────────────────────────
 
 const primaryNav = [
-  { href: "/super-admin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/super-admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/super-admin/core/temples", label: "Temples", icon: Building2 },
   { href: "/super-admin/pricing-plans", label: "Pricing Plans", icon: Tag },
   { href: "/super-admin/subdomains", label: "Subdomains", icon: Globe },

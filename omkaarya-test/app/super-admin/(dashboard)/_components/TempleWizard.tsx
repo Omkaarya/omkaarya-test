@@ -665,13 +665,13 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
 
   const requestExit = () => {
     if (mode === "edit" && !hydrated) {
-      router.push("/super-admin");
+      router.push("/super-admin/dashboard");
       return;
     }
     if (computeSnapshot() !== snapshotRef.current) {
       unsavedDialogRef.current?.showModal();
     } else {
-      router.push("/super-admin");
+      router.push("/super-admin/dashboard");
     }
   };
 
@@ -1865,7 +1865,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
             type="button"
             onClick={() => {
               unsavedDialogRef.current?.close();
-              router.push("/super-admin");
+              router.push("/super-admin/dashboard");
             }}
           >
             Leave without saving

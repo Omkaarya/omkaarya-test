@@ -6,7 +6,10 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Define public routes
-  const isLoginPage = pathname === '/super-admin/invite' || pathname === '/temple-admin/signin';
+  const isLoginPage =
+    pathname === '/login' ||
+    pathname === '/super-admin/invite' ||
+    pathname === '/temple-admin/signin';
   const isApiRoute = pathname.startsWith('/api/');
   const isPublicAsset = pathname.match(/\.(.*)$/); // Match files like favicon.ico, images, etc.
 
@@ -25,7 +28,7 @@ export function middleware(request: NextRequest) {
     if (pathname === '/temple-admin/signin') {
       return NextResponse.redirect(new URL('/temple-admin', request.url));
     }
-    return NextResponse.redirect(new URL('/super-admin', request.url));
+    return NextResponse.redirect(new URL('/super-admin/dashboard', request.url));
   }
 
   // If user is NOT logged in and tries to access a protected page, redirect to login
@@ -33,7 +36,7 @@ export function middleware(request: NextRequest) {
     if (pathname.startsWith('/temple-admin')) {
       return NextResponse.redirect(new URL('/temple-admin/signin', request.url));
     }
-    return NextResponse.redirect(new URL('/super-admin/invite', request.url));
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   return NextResponse.next();
