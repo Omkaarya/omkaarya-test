@@ -1,11 +1,13 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
-import { sendSuccess } from "../middleware/api-envelope.js";
+import bcrypt from "bcryptjs";
+import { sendError, sendSuccess } from "../middleware/api-envelope.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { HttpError } from "../middleware/http-error.js";
 import { validateBody } from "../middleware/validate.js";
 import type { AuthService } from "./auth.service.js";
-import { loginBodySchema, setPasswordBodySchema } from "./validation.js";
+import { loginBodySchema, setPasswordBodySchema, superAdminRegisterBodySchema } from "./validation.js";
+import { getPool } from "../db/pool.js";
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -21,8 +23,103 @@ const setPasswordLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const superAdminRegisterLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 export function createAuthRouter(auth: AuthService): Router {
   const r = Router();
+
+  /**
+   * POST /api/super-admin/register
+   *
+   * Creates (or updates) a user row with role Super Admin.
+   * In production, requires header x-super-admin-register-token matching SUPER_ADMIN_REGISTER_TOKEN.
+   */
+  r.post(
+    "/super-admin/register",
+    superAdminRegisterLimiter,
+    validateBody(superAdminRegisterBodySchema),
+    asyncHandler(async (req, res) => {
+      const token = (req.header("x-super-admin-register-token") ?? "").trim();
+      const expected = (process.env.SUPER_ADMIN_REGISTER_TOKEN ?? "").trim();
+
+      if (process.env.NODE_ENV === "production") {
+        if (!expected || !token || token !== expected) {
+          return sendError(
+            res,
+            403,
+            "FORBIDDEN",
+            "Forbidden",
+            "Missing or invalid super-admin registration token."
+          );
+        }
+      }
+
+      const pool = getPool();
+      if (!pool) {
+        throw new HttpError(500, "Database not configured", {
+          code: "DB_NOT_CONFIGURED",
+          reason: "The PostgreSQL pool is not configured, so users cannot be created.",
+        });
+      }
+
+      const body = req.body as {
+        email: string;
+        tempPassword?: string;
+        permanentPassword?: string;
+        fullName?: string;
+        whatsapp?: string;
+        roles?: string[];
+      };
+
+      const email = body.email.trim().toLowerCase();
+      const roles = (body.roles?.length ? body.roles : ["Super Admin"]).map((r) => r.trim()).filter(Boolean);
+      const fullName = typeof body.fullName === "string" ? body.fullName.trim() : null;
+      const whatsapp = typeof body.whatsapp === "string" ? body.whatsapp.trim() : null;
+
+      const permanentPassword = (body.permanentPassword ?? "").trim();
+      const tempPassword = (body.tempPassword ?? "").trim();
+
+      const passwordHash = permanentPassword ? await bcrypt.hash(permanentPassword, 10) : null;
+      const effectiveTemp = passwordHash ? null : tempPassword || null;
+
+      const client = await pool.connect();
+      try {
+        const q = await client.query<{ id: number; tenant_id: string | null }>(
+          `INSERT INTO public.users (email, temp_password, password_hash, full_name, whatsapp, roles)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           ON CONFLICT (email) DO UPDATE SET
+             temp_password = COALESCE(EXCLUDED.temp_password, public.users.temp_password),
+             password_hash = COALESCE(EXCLUDED.password_hash, public.users.password_hash),
+             full_name = COALESCE(EXCLUDED.full_name, public.users.full_name),
+             whatsapp = COALESCE(EXCLUDED.whatsapp, public.users.whatsapp),
+             roles = EXCLUDED.roles
+           RETURNING id, tenant_id`,
+          [email, effectiveTemp, passwordHash, fullName, whatsapp, roles]
+        );
+
+        sendSuccess(
+          res,
+          201,
+          {
+            userId: q.rows[0]!.id,
+            tenantId: q.rows[0]!.tenant_id,
+            email,
+            roles,
+            firstLogin: passwordHash ? false : true,
+          },
+          "Super-admin registered",
+          "A super-admin user was created (or updated) in the application database."
+        );
+      } finally {
+        client.release();
+      }
+    })
+  );
 
   r.post(
     "/login",
