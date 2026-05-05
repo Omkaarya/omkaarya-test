@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Pencil } from "lucide-react";
 import type { MockTemple } from "@/lib/mock-temples";
 import type { TemplesListResponse, TemplesSortBy } from "@/lib/temples-query";
-import AdminDataTable from "@/app/components/admin/AdminDataTable";
+import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
 import AdminFiltersBar from "@/app/components/admin/AdminFiltersBar";
 import AdminPagination from "@/app/components/admin/AdminPagination";
 import StatusBadge from "@/app/components/admin/StatusBadge";
@@ -108,9 +108,83 @@ export default function SubdomainsPage() {
     return () => controller.abort();
   }, [search, statusFilter, country, sortBy, page, pageSize]);
 
-  const tableHeaders = useMemo(
-    () => ["Temple", "Subdomain", "Portal", "City", "Status", "Actions"],
-    []
+  const subdomainColumns: ColumnDef<MockTemple>[] = useMemo(
+    () => [
+      {
+        key: "temple",
+        header: "Temple",
+        cell: (row) => (
+          <div className="flex items-start gap-3">
+            <span
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-xs font-semibold text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200"
+              aria-hidden
+            >
+              {initials(row.name)}
+            </span>
+            <div className="min-w-0">
+              <p className="font-semibold text-zinc-900 dark:text-zinc-100">{row.name}</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">Temp ID {row.tenantId}</p>
+            </div>
+          </div>
+        ),
+      },
+      {
+        key: "subdomain",
+        header: "Subdomain",
+        cell: (row) => (
+          <span className="text-sm text-zinc-800 dark:text-zinc-200">{row.subdomain || "—"}</span>
+        ),
+      },
+      {
+        key: "portalHost",
+        header: "Portal",
+        cell: (row) =>
+          row.portalHost ? (
+            <a
+              href={`https://${row.portalHost}`}
+              className="block max-w-[16rem] truncate text-[var(--brand-primary)] hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {row.portalHost}
+            </a>
+          ) : (
+            <span className="text-sm text-zinc-500">—</span>
+          ),
+      },
+      {
+        key: "city",
+        header: "City",
+        cell: (row) => (
+          <div className="flex items-center gap-2">
+            <span className="text-lg" aria-hidden>
+              {row.countryFlag}
+            </span>
+            <span className="text-zinc-800 dark:text-zinc-200">{row.city}</span>
+          </div>
+        ),
+      },
+      {
+        key: "status",
+        header: "Status",
+        cell: (row) => <StatusBadge status={row.status} />,
+      },
+      {
+        key: "actions",
+        header: "Actions",
+        align: "right",
+        cell: (row) => (
+          <Link
+            href={`/super-admin/edit-temple/${encodeURIComponent(row.tenantId)}`}
+            aria-label={`Edit ${row.name}`}
+            className="inline-flex rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+          >
+            <Pencil className="h-4 w-4" />
+          </Link>
+        ),
+      },
+    ],
+    [],
   );
 
   return (
@@ -158,71 +232,12 @@ export default function SubdomainsPage() {
         ) : error ? (
           <p className="px-4 py-10 text-center text-sm text-red-600 dark:text-red-400">{error}</p>
         ) : (
-          <AdminDataTable
-            headers={tableHeaders}
-            isEmpty={rows.length === 0}
-            empty={
-              <p className="px-4 py-12 text-center text-sm text-zinc-500">
-                No temples match your filters.
-              </p>
-            }
-          >
-            {rows.map((row) => (
-              <tr key={row.tenantId} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30">
-                <td className="px-4 py-3">
-                  <div className="flex items-start gap-3">
-                    <span
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-xs font-semibold text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200"
-                      aria-hidden
-                    >
-                      {initials(row.name)}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="font-semibold text-zinc-900 dark:text-zinc-100">{row.name}</p>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400">Temp ID {row.tenantId}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-sm text-zinc-800 dark:text-zinc-200">
-                  {row.subdomain || "—"}
-                </td>
-                <td className="max-w-[16rem] px-4 py-3 text-sm">
-                  {row.portalHost ? (
-                    <a
-                      href={`https://${row.portalHost}`}
-                      className="block truncate text-[var(--brand-primary)] hover:underline"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {row.portalHost}
-                    </a>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg" aria-hidden>
-                      {row.countryFlag}
-                    </span>
-                    <span className="text-zinc-800 dark:text-zinc-200">{row.city}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <StatusBadge status={row.status} />
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <Link
-                    href={`/super-admin/edit-temple/${encodeURIComponent(row.tenantId)}`}
-                    aria-label={`Edit ${row.name}`}
-                    className="inline-flex rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </AdminDataTable>
+          <DataTable<MockTemple>
+            columns={subdomainColumns}
+            data={rows}
+            keyExtractor={(row) => row.tenantId}
+            className="min-w-[640px]"
+          />
         )}
 
         <AdminPagination

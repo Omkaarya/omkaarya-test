@@ -42,7 +42,11 @@ export function createAuthRouter(auth: AuthService): Router {
       sendSuccess(
         res,
         200,
-        { firstLogin: result.firstLogin },
+        {
+          firstLogin: result.firstLogin,
+          userId: result.userId,
+          tenantId: result.tenantId,
+        },
         "Login successful",
         "The session is authenticated; `firstLogin` is true if this is the initial password set flow."
       );

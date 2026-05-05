@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { HttpError } from "../middleware/http-error.js";
+import { syncTempleAuthMirrorFromPlatformUserId } from "../temple-ops/sync-auth-mirror.js";
 import { sendPasswordResetOtp } from "./password-reset-email.stub.js";
 import {
   applyPasswordFromResetToken,
@@ -64,6 +65,19 @@ export class PasswordResetService {
         code: "RESET_TOKEN_INVALID",
         reason: "The reset token is missing, expired, or was already used.",
       });
+    }
+
+    try {
+      await syncTempleAuthMirrorFromPlatformUserId(userId);
+    } catch (e) {
+      if (process.env.TEMPLE_AUTH_SYNC_REQUIRED?.trim() === "1") {
+        const reason = e instanceof Error ? e.message : String(e);
+        throw new HttpError(500, "Password reset succeeded but temple credential mirror failed.", {
+          code: "TEMPLE_MIRROR_SYNC_FAILED",
+          reason,
+        });
+      }
+      console.warn("[password-reset] temple auth mirror sync failed:", e);
     }
   }
 }

@@ -8,6 +8,7 @@ import { INSTANCE_ID, STARTED_AT_ISO } from "./instance-id.js";
 import { sendError, sendSuccess } from "./middleware/api-envelope.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { createSuperAdminApiRouter } from "./super-admin/index.js";
+import { createTempleOpsApiRouter } from "./temple-ops/index.js";
 
 type CreateAppOptions = {
   /** Mount path for the API router (e.g. "/api"). */
@@ -51,7 +52,8 @@ export function createApp(options: CreateAppOptions = {}): Express {
   );
 
   app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
-  app.use(express.json({ limit: "1mb" }));
+  // Temple create/update sends base64 assets (logo, admin photo); default 1mb is too small.
+  app.use(express.json({ limit: process.env.JSON_BODY_LIMIT ?? "10mb" }));
 
   const healthHandler: express.RequestHandler = async (_req, res) => {
     try {
@@ -113,7 +115,10 @@ export function createApp(options: CreateAppOptions = {}): Express {
   // Keep `/health` for local + also expose `${apiMountPath}/health` for serverless setups (e.g. Vercel).
   app.get("/health", healthHandler);
 
+  /** Platform + onboarding + billing routes. */
   app.use(apiMountPath, createSuperAdminApiRouter());
+  /** JWT-protected temple operational routes (inventory, …); uses per-temple PostgreSQL from `temples.operational_*`. */
+  app.use(apiMountPath, createTempleOpsApiRouter());
 
   app.use((_req, res) => {
     sendError(

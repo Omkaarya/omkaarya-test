@@ -12,8 +12,8 @@ export default function WebsiteCMS() {
     <div className="space-y-6 max-w-5xl">
       {/* Header */}
       <div>
-        <h1 className="text-display-xs font-bold text-text-primary tracking-tight">Website CMS</h1>
-        <p className="mt-1 text-sm text-text-tertiary">
+        <h1 className="text-display-xs font-bold tracking-tight text-[var(--text-primary)]">Website CMS</h1>
+        <p className="mt-1 text-sm text-[var(--text-muted)]">
           Manage the public-facing Omkaarya website, landing pages, and SEO metadata.
         </p>
       </div>
@@ -29,9 +29,9 @@ export default function WebsiteCMS() {
       {/* Tab Content */}
       <div className="bg-surface rounded-2xl border border-border p-6 shadow-sm">
         {activeTab === "home" && <HomePageEditor />}
-        {activeTab === "about" && <div className="text-sm text-text-tertiary">About Page editor coming soon.</div>}
-        {activeTab === "contact" && <div className="text-sm text-text-tertiary">Contact Page editor coming soon.</div>}
-        {activeTab === "settings" && <div className="text-sm text-text-tertiary">Global SEO settings coming soon.</div>}
+        {activeTab === "about" && <div className="text-sm text-[var(--text-muted)]">About Page editor coming soon.</div>}
+        {activeTab === "contact" && <div className="text-sm text-[var(--text-muted)]">Contact Page editor coming soon.</div>}
+        {activeTab === "settings" && <div className="text-sm text-[var(--text-muted)]">Global SEO settings coming soon.</div>}
       </div>
     </div>
   );
@@ -43,10 +43,10 @@ function TabButton({ active, onClick, children, icon }: any) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-        active 
-          ? "border-brand-500 text-brand-600 dark:text-brand-400" 
-          : "border-transparent text-text-secondary hover:text-text-primary hover:border-border"
+      className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+        active
+          ? "border-[var(--brand-primary)] text-[var(--brand-primary)]"
+          : "border-transparent text-[var(--text-muted)] hover:border-border hover:text-[var(--text-primary)]"
       }`}
     >
       {icon} {children}

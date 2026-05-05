@@ -8,7 +8,11 @@ export interface User {
   createdAt: string;
 }
 
-const dbPath = path.join(process.cwd(), 'data', 'users.json');
+/** Vercel serverless mounts the project read-only; use /tmp so mock persists for that instance only. */
+const dbPath =
+  process.env.VERCEL === '1'
+    ? path.join('/tmp', 'omkaarya-mock-users.json')
+    : path.join(process.cwd(), 'data', 'users.json');
 
 export async function ensureDb() {
   try {

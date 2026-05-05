@@ -14,9 +14,11 @@ import type {
   TemplesQueryInput,
   UpdateTemplePayload,
 } from "./types.js";
+import { HttpError } from "../middleware/http-error.js";
 import { sqlTempleMatchesSessionEmail } from "./temple-admin-match.js";
 import { createInitialInvoiceForNewTemple, type CreateInitialInvoiceResult } from "./billing.repository.js";
 import { storeBrandingImageIfNeeded } from "../storage/cloudinary.js";
+import { syncTempleAuthMirrorFromPlatformUserId } from "../temple-ops/sync-auth-mirror.js";
 
 const ADMIN_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -712,6 +714,28 @@ export class PostgresTempleRepository implements TempleRepository {
       } catch (e) {
         await client.query("ROLLBACK");
         throw e;
+      }
+
+      if (ADMIN_EMAIL_RE.test(row.adminEmail)) {
+        try {
+          const uidRes = await requirePool().query<{ id: number }>(
+            `SELECT id FROM public.users WHERE lower(trim(email)) = lower(trim($1::text)) LIMIT 1`,
+            [row.adminEmail]
+          );
+          const uid = uidRes.rows[0]?.id;
+          if (uid != null) {
+            await syncTempleAuthMirrorFromPlatformUserId(uid);
+          }
+        } catch (mirrorErr) {
+          if (process.env.TEMPLE_AUTH_SYNC_REQUIRED?.trim() === "1") {
+            const reason = mirrorErr instanceof Error ? mirrorErr.message : String(mirrorErr);
+            throw new HttpError(500, "Temple created but temple credential mirror failed.", {
+              code: "TEMPLE_MIRROR_SYNC_FAILED",
+              reason,
+            });
+          }
+          console.warn("[createTemple] temple auth mirror sync skipped/failed:", mirrorErr);
+        }
       }
 
       return { templeId: row.tenantId, temporaryPassword, invoice };

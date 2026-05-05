@@ -25,7 +25,6 @@ import type { TemplesSortBy } from "@/lib/temples-query";
 // ─── Omkaarya Design System ───────────────────────────────────────
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Badge } from "@/app/components/ds/atoms/Badge";
-import { Breadcrumb } from "@/app/components/ds/molecules/Breadcrumb";
 import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
 import { MetricCard } from "@/app/components/ds/molecules/MetricCard";
 import { AvatarCell, TextCell, ActionGroupCell } from "@/app/components/ds/molecules/TableCells";
@@ -68,11 +67,7 @@ export default function TemplesAdminPage() {
       {/* ─── Header ─────────────────────────────────────────────────── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <Breadcrumb 
-            items={[{ label: "Core", href: "#" }, { label: "Temples" }]} 
-            className="mb-2"
-          />
-          <h1 className="text-display-xs font-bold text-text-primary tracking-tight">Temples</h1>
+          <h1 className="text-display-xs font-bold tracking-tight text-[var(--text-primary)]">Temples</h1>
         </div>
         <Link href="/super-admin/create-temple">
           <Button leadingIcon={<Plus className="w-4 h-4" />}>Create Temple</Button>
