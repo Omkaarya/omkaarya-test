@@ -120,6 +120,53 @@ export function createApp(options: CreateAppOptions = {}): Express {
   /** JWT-protected temple operational routes (inventory, …); uses per-temple PostgreSQL from `temples.operational_*`. */
   app.use(apiMountPath, createTempleOpsApiRouter());
 
+  app.get("/debug/routes", (_req, res) => {
+    // Avoid exposing internals in production by default.
+    if (process.env.NODE_ENV === "production") {
+      return sendError(
+        res,
+        404,
+        "NOT_FOUND",
+        "Not found",
+        "This endpoint is disabled in production."
+      );
+    }
+
+    const routes: Array<{ methods: string[]; path: string }> = [];
+
+    const extractRoutes = (stack: unknown[], prefix = "") => {
+      stack.forEach((layer: any) => {
+        if (layer?.route) {
+          const methods = Object.keys(layer.route.methods ?? {}).map((m) =>
+            m.toUpperCase()
+          );
+          routes.push({
+            methods,
+            path: `${prefix}${layer.route.path}`,
+          });
+          return;
+        }
+
+        // Nested routers
+        if (layer?.name === "router" && layer?.handle?.stack) {
+          extractRoutes(layer.handle.stack, prefix);
+        }
+      });
+    };
+
+    const routerStack = (app as any)?._router?.stack;
+    if (!Array.isArray(routerStack)) {
+      return res.json({ count: 0, routes: [] });
+    }
+
+    extractRoutes(routerStack);
+
+    return res.json({
+      count: routes.length,
+      routes,
+    });
+  });
+
   app.use((_req, res) => {
     sendError(
       res,
