@@ -1,14 +1,14 @@
 import { getPool } from "../db/pool.js";
+import { getOperationalPoolForTenant } from "../db/temple-operational-pool-registry.js";
 import { sqlTempleMatchesSessionEmail } from "./temple-admin-match.js";
+import { updateTempleAdminOnboardingFlags } from "../temple-ops/temple-admin-data.js";
 
 export type CompleteTempleOnboardingInput = {
   sessionEmail: string;
   templeId: string;
 };
 
-export type CompleteTempleOnboardingResult =
-  | { ok: true }
-  | { ok: false; reason: "not_found" };
+export type CompleteTempleOnboardingResult = { ok: true } | { ok: false; reason: "not_found" };
 
 export class PostgresTempleOnboardingCompleteRepository {
   async completeOnboarding(input: CompleteTempleOnboardingInput): Promise<CompleteTempleOnboardingResult> {
@@ -20,17 +20,27 @@ export class PostgresTempleOnboardingCompleteRepository {
     const sessionEmail = input.sessionEmail.trim();
     const tenantId = input.templeId.trim();
 
-    const client = await pool.connect();
+    const gate = await pool.query<{ tenant_id: string }>(
+      `SELECT tenant_id FROM public.temples
+       WHERE tenant_id = $1 AND ${sqlTempleMatchesSessionEmail(2)}
+       LIMIT 1`,
+      [tenantId, sessionEmail]
+    );
+    if (gate.rows.length === 0) {
+      return { ok: false, reason: "not_found" };
+    }
+
+    const opsPool = await getOperationalPoolForTenant(tenantId);
+    if (!opsPool) {
+      return { ok: false, reason: "not_found" };
+    }
+
+    const client = await opsPool.connect();
     try {
-      const result = await client.query(
-        `UPDATE public.temples
-         SET onboarding_completed_at = NOW()
-         WHERE tenant_id = $1 AND ${sqlTempleMatchesSessionEmail(2)}`,
-        [tenantId, sessionEmail]
-      );
-      if (result.rowCount === 0) {
-        return { ok: false, reason: "not_found" };
-      }
+      await client.query(`INSERT INTO temple_admin_data (id) VALUES (1) ON CONFLICT (id) DO NOTHING`);
+      await updateTempleAdminOnboardingFlags(client, {
+        onboardingCompletedAt: new Date(),
+      });
       return { ok: true };
     } finally {
       client.release();

@@ -2,6 +2,7 @@ import { apiUrl } from "@/lib/api-base";
 import { nextJsonError, nextJsonSuccess } from "@/lib/api-envelope";
 import { fetchPlanFeatures, upsertPlanFeatures } from "@/lib/plan-features-db";
 import { fetchAllActiveFeaturesOrdered } from "@/lib/features-db";
+import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
 /** node-pg forwards PostgreSQL error codes (e.g. 42P01 = undefined_table). */
 function pgErrorCode(err: unknown): string | undefined {
@@ -18,6 +19,9 @@ const DB_NOT_CONFIGURED_REASON =
 
 /** GET /api/plan-features?planId=xxx — Get feature configs for a plan. */
 export async function GET(request: Request) {
+  const auth = await requireSuperAdminHeaders();
+  if (!auth.ok) return auth.response;
+
   try {
     const { searchParams } = new URL(request.url);
     const planId = searchParams.get("planId");
@@ -72,6 +76,9 @@ export async function GET(request: Request) {
 
 /** POST /api/plan-features — Bulk upsert feature configs for a plan. */
 export async function POST(request: Request) {
+  const auth = await requireSuperAdminHeaders();
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await request.json();
     const { planId, features } = body as {
@@ -109,7 +116,7 @@ export async function POST(request: Request) {
       try {
         const sync = await fetch(apiUrl(`/api/pricing-plans/${encodeURIComponent(planId)}`), {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", Authorization: auth.headers.Authorization },
           body: JSON.stringify({ features: featureNames }),
         });
         if (!sync.ok) {

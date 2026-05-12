@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiUrl } from "@/lib/api-base";
 import { nextJsonError } from "@/lib/api-envelope";
+import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
 export async function GET(_request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireSuperAdminHeaders({ Accept: "application/json" });
+    if (!auth.ok) return auth.response;
+
     const { id } = await ctx.params;
     const target = apiUrl(`/api/billing/invoices/${encodeURIComponent(id)}/receipt`);
-    const res = await fetch(target, { method: "GET", headers: { Accept: "application/json" }, cache: "no-store" });
+    const res = await fetch(target, { method: "GET", headers: auth.headers, cache: "no-store" });
     const data = await res.json().catch(() => null);
     return NextResponse.json(data, { status: res.status });
   } catch (e) {

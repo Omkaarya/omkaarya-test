@@ -1,4 +1,48 @@
-export function WhyItMatters() {
+export type WhyItMattersActivityStatus = "booked" | "receipt" | "pending";
+
+export type WhyItMattersDashboardPayload = {
+  headerIcon: string;
+  headerTitle: string;
+  devoteesFormatted: string;
+  monthAmountDisplay: string;
+  monthAmountLabel: string;
+  giftAidBannerText: string;
+  activityLines: { lineText: string; status: WhyItMattersActivityStatus }[];
+};
+
+const FALLBACK_DASHBOARD: WhyItMattersDashboardPayload = {
+  headerIcon: "📊",
+  headerTitle: "Temple Dashboard",
+  devoteesFormatted: "1,240",
+  monthAmountDisplay: "£4,820",
+  monthAmountLabel: "This Month",
+  giftAidBannerText: "🇬🇧 Gift Aid receipt generated · £125.00",
+  activityLines: [
+    { lineText: "Ganesh Pooja — Ramesh K.", status: "booked" },
+    { lineText: "Donation — Priya N. — £50", status: "receipt" },
+    { lineText: "Abhishekam — Suresh P.", status: "pending" },
+  ],
+};
+
+function tagForStatus(status: WhyItMattersActivityStatus): { className: string; label: string } {
+  switch (status) {
+    case "booked":
+      return { className: "tag-sm green", label: "✓ Booked" };
+    case "receipt":
+      return { className: "tag-sm green", label: "✓ Receipt" };
+    case "pending":
+    default:
+      return { className: "tag-sm yellow", label: "Pending" };
+  }
+}
+
+export type WhyItMattersProps = {
+  dashboard?: WhyItMattersDashboardPayload | null;
+};
+
+export function WhyItMatters({ dashboard }: WhyItMattersProps) {
+  const d = dashboard ?? FALLBACK_DASHBOARD;
+
   return (
     <section className="why-matters" id="why-matters">
       <div className="why-container">
@@ -21,16 +65,22 @@ export function WhyItMatters() {
         <div className="why-right">
           <div className="why-visual-card">
             <div className="why-visual-inner">
-              <div className="wvi-header"><span>📊</span><span>Temple Dashboard</span></div>
+              <div className="wvi-header"><span>{d.headerIcon}</span><span>{d.headerTitle}</span></div>
               <div className="wvi-stat-row">
-                <div className="wvi-stat"><strong>1,240</strong><small>Devotees</small></div>
-                <div className="wvi-stat"><strong>£4,820</strong><small>This Month</small></div>
+                <div className="wvi-stat"><strong>{d.devoteesFormatted}</strong><small>Devotees</small></div>
+                <div className="wvi-stat"><strong>{d.monthAmountDisplay}</strong><small>{d.monthAmountLabel}</small></div>
               </div>
-              <div className="wvi-row"><span>Ganesh Pooja — Ramesh K.</span><span className="tag-sm green">✓ Booked</span></div>
-              <div className="wvi-row"><span>Donation — Priya N. — £50</span><span className="tag-sm green">✓ Receipt</span></div>
-              <div className="wvi-row"><span>Abhishekam — Suresh P.</span><span className="tag-sm yellow">Pending</span></div>
+              {d.activityLines.map((row, i) => {
+                const tag = tagForStatus(row.status);
+                return (
+                  <div key={`${row.lineText}-${i}`} className="wvi-row">
+                    <span>{row.lineText}</span>
+                    <span className={tag.className}>{tag.label}</span>
+                  </div>
+                );
+              })}
             </div>
-            <div className="why-floating-badge">🇬🇧 Gift Aid receipt generated · £125.00</div>
+            <div className="why-floating-badge">{d.giftAidBannerText}</div>
             <div className="why-bell-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
           </div>
         </div>

@@ -1,23 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  Zap, Lock, CheckCircle2, XCircle, ChevronDown, Info,
-  ShoppingBag, CreditCard, Star, Users, Calendar,
-  Image, Globe, Phone, MapPin, MessageSquare, BarChart3, Bell
+  Zap,
+  Lock,
+  CheckCircle2,
+  XCircle,
+  ChevronDown,
+  Info,
+  ShoppingBag,
+  CreditCard,
+  Star,
+  Users,
+  Calendar,
+  Image,
+  Globe,
+  Phone,
+  MapPin,
+  MessageSquare,
+  BarChart3,
+  Bell,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
+import type { ElementType } from "react";
 import { Badge } from "@/app/components/ds/atoms/Badge";
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Switch } from "@/app/components/ds/atoms/Switch";
-
-// ─── Types ──────────────────────────────────────────────────────────────────
+import { useTempleSettings } from "@/lib/use-temple-settings";
 type Plan = "prarambha" | "sankalpa" | "aaradhana";
 
 interface Feature {
   id: string;
   label: string;
   description: string;
-  icon: React.ElementType;
+  icon: ElementType;
   category: string;
   availableFrom: Plan | null; // null = all plans
   enabled: boolean;
@@ -206,8 +223,20 @@ const PLAN_BADGE_COLOR: Record<Plan, "gray" | "brand" | "purple"> = {
 };
 
 export default function FeatureManagementPage() {
+  const { payload, loading, saving, error, replace, reload } = useTempleSettings<Record<string, unknown>>(
+    "public_features",
+    {}
+  );
   const [features, setFeatures] = useState<Feature[]>(INITIAL_FEATURES);
   const [expandedInfo, setExpandedInfo] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (loading) return;
+    const toggles = (payload.toggles as Record<string, boolean> | undefined) ?? {};
+    setFeatures((prev) =>
+      prev.map((f) => (toggles[f.id] !== undefined ? { ...f, enabled: toggles[f.id]! } : f))
+    );
+  }, [loading, payload]);
 
   const categories = [...new Set(INITIAL_FEATURES.map((f) => f.category))];
 
@@ -222,6 +251,11 @@ export default function FeatureManagementPage() {
   const enabledCount = features.filter((f) => f.enabled && !f.locked).length;
   const lockedCount = features.filter((f) => f.locked).length;
 
+  const saveConfiguration = async () => {
+    const toggles = Object.fromEntries(features.filter((f) => !f.locked).map((f) => [f.id, f.enabled]));
+    await replace({ toggles, currentPlan: CURRENT_PLAN } as Record<string, unknown>);
+  };
+
   return (
     <div className="space-y-10 max-w-4xl animate-in fade-in duration-500">
       {/* Header */}
@@ -235,14 +269,33 @@ export default function FeatureManagementPage() {
               Feature Management
             </h1>
             <p className="text-zinc-500 dark:text-zinc-400 font-medium mt-1">
-              Control which sections and capabilities are active on your public microsite.
+              Control which sections and capabilities are active on your public microsite. Changes are saved to{" "}
+              <code className="text-xs">public_features</code>.
             </p>
           </div>
         </div>
-        <Button variant="primary" size="lg">
-          Save Configuration
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="lg" onClick={() => reload()}>
+            Reload
+          </Button>
+          <Button variant="primary" size="lg" onClick={saveConfiguration} disabled={saving || loading}>
+            {saving ? "Saving…" : "Save Configuration"}
+          </Button>
+        </div>
       </div>
+
+      {error && (
+        <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-100">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <p>{error}</p>
+        </div>
+      )}
+
+      {loading && (
+        <div className="flex items-center gap-2 text-sm text-zinc-500">
+          <Loader2 className="w-4 h-4 animate-spin" /> Loading feature flags…
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-3 gap-4">
@@ -400,8 +453,8 @@ export default function FeatureManagementPage() {
 
       {/* Footer Save */}
       <div className="flex justify-end pt-8 border-t border-zinc-100 dark:border-zinc-800">
-        <Button variant="primary" size="lg">
-          Save Configuration
+        <Button variant="primary" size="lg" onClick={saveConfiguration} disabled={saving || loading}>
+          {saving ? "Saving…" : "Save Configuration"}
         </Button>
       </div>
     </div>

@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { sendError } from "../middleware/api-envelope.js";
 import { PostgresAuthRepository } from "./auth.repository.js";
 import { createAuthRouter } from "./auth.routes.js";
 import { AuthService } from "./auth.service.js";
@@ -30,6 +29,7 @@ import { PostgresBillingRepository } from "./billing.repository.js";
 import { createTempleBillingRouter } from "./temple-billing.routes.js";
 import { createDashboardRouter } from "./dashboard.routes.js";
 import { createPublicRouter } from "../public/public.routes.js";
+import { requireSuperAdminJwt } from "./middleware/require-super-admin-jwt.js";
 
 /**
  * Super-admin HTTP API mounted at `/api`:
@@ -39,9 +39,10 @@ import { createPublicRouter } from "../public/public.routes.js";
  * - GET  /api/temple-admin/billing/invoices?sessionEmail=&templeId=
  * - GET  /api/temples
  * - GET  /api/pricing-plans/comparison
+ * - GET  /api/public/why-it-matters-dashboard
  * - GET  /api/temples/:tenantId
  * - PATCH /api/temples/:tenantId
- * - POST /api/temples/create
+ * - POST /api/temples/create (provisions operational DB when TEMPLE_OPS_* is configured)
  * - POST /api/login
  * - POST /api/set-password
  * - POST /api/password-reset/request
@@ -75,31 +76,25 @@ export function createSuperAdminApiRouter(): Router {
   const billing = new PostgresBillingRepository();
 
   const api = Router();
+  api.use(createAuthRouter(authService));
+  api.use(createPasswordResetRouter(passwordResetService));
+  api.use(createPublicRouter(pricingPlans));
+
+  api.use(["/temples", "/billing", "/super-admin", "/subscriptions", "/pricing-plans"], requireSuperAdminJwt);
   api.use(createTemplesRouter(templesService));
   api.use(createBillingRouter(billing));
   api.use(createDashboardRouter(billing));
+  api.use(createSubscriptionsRouter(subscriptions));
+  api.use(createPricingPlansRouter(pricingPlans));
+
   api.use(createTempleBillingRouter());
   api.use(createTempleSessionProfileRouter(templeRepo));
-  api.use(createAuthRouter(authService));
-  api.use(createPasswordResetRouter(passwordResetService));
   api.use(createTempleAdminProfileRouter(templeAdminProfiles));
   api.use(createTempleDeityRouter(templeDeities));
   api.use(createTemplePlanRouter(templePlans));
   api.use(createTemplePaymentOnboardingRouter(templePaymentOnboarding));
   api.use(createTemplePaymentSubmissionsRouter(templePaymentSubmissions));
   api.use(createTempleOnboardingCompleteRouter(templeOnboardingComplete));
-  api.use(createSubscriptionsRouter(subscriptions));
-  api.use(createPricingPlansRouter(pricingPlans));
-  api.use(createPublicRouter(pricingPlans));
-  api.use((_req, res) => {
-    sendError(
-      res,
-      404,
-      "NOT_FOUND",
-      "Not found",
-      "No super-admin API route matches this method and path."
-    );
-  });
   return api;
 }
 

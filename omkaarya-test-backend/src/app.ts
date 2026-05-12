@@ -72,10 +72,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
           "The API process is up; the database pool is not configured, so `database.connected` is false."
         );
       }
-      const { rows } = await pool.query<{ name: string; temples_count: number }>(
-        `SELECT current_database() AS name,
-                (SELECT COUNT(*)::int FROM public.temples) AS temples_count`
-      );
+      await pool.query("SELECT 1");
       return sendSuccess(
         res,
         200,
@@ -85,15 +82,13 @@ export function createApp(options: CreateAppOptions = {}): Express {
           startedAt: STARTED_AT_ISO,
           database: {
             connected: true,
-            name: rows[0].name,
-            templesRowCount: rows[0].temples_count,
-            table: "public.temples",
           },
         },
         "Service is healthy",
-        "The API and PostgreSQL are reachable; row counts and database name are included for diagnostics."
+        "The API and PostgreSQL are reachable."
       );
     } catch (e) {
+      console.warn("[health] Database check failed:", e);
       return sendSuccess(
         res,
         200,
@@ -103,11 +98,10 @@ export function createApp(options: CreateAppOptions = {}): Express {
           startedAt: STARTED_AT_ISO,
           database: {
             connected: false,
-            error: e instanceof Error ? e.message : String(e),
           },
         },
         "Service is running with database check errors",
-        "The process is up but the health query failed; see `database.error` for the reason."
+        "The process is up but the database check failed."
       );
     }
   };
@@ -121,7 +115,17 @@ export function createApp(options: CreateAppOptions = {}): Express {
   app.use(apiMountPath, createTempleOpsApiRouter());
 
   app.get("/debug/routes", (req, res) => {
-    // In production, require an explicit token to avoid exposing internals.
+    const expected = process.env.DEBUG_ROUTES_TOKEN?.trim();
+    const provided = String(req.header("x-debug-routes-token") ?? "").trim();
+    if (process.env.NODE_ENV === "production" || !expected || provided !== expected) {
+      return sendError(
+        res,
+        404,
+        "NOT_FOUND",
+        "Not found",
+        "No route matches this method and path on the API."
+      );
+    }
 
     const routes: Array<{ methods: string[]; path: string }> = [];
 

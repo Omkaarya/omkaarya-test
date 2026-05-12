@@ -1,7 +1,7 @@
-import bcrypt from "bcryptjs";
 import { HttpError } from "../middleware/http-error.js";
 import { syncTempleAuthMirrorFromPlatformUserId } from "../temple-ops/sync-auth-mirror.js";
 import { sendPasswordResetOtp } from "./password-reset-email.stub.js";
+import { hashPasswordCredential } from "./password-credentials.js";
 import {
   applyPasswordFromResetToken,
   findTempleLinkedUserIdByEmail,
@@ -58,7 +58,7 @@ export class PasswordResetService {
         reason: "The email is not linked to a user eligible for this reset flow.",
       });
     }
-    const hash = await bcrypt.hash(newPassword, 10);
+    const hash = await hashPasswordCredential(newPassword);
     const ok = await applyPasswordFromResetToken(userId, resetToken.trim(), hash);
     if (!ok) {
       throw new HttpError(400, "Could not reset password. Request a new code.", {

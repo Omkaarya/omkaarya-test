@@ -2,6 +2,10 @@
  * Runs `migrations-temple-ops` against DATABASE_URL pointed at a single temple operational database.
  *
  *   TEMPLE_OPS_DATABASE_URL=postgres://... npm run temple-ops:migrate-env
+ *
+ * Includes `003_marketing_dashboard_card.sql` (homepage "Temple Dashboard" card). After migrating the
+ * demo tenant's ops DB, set `PUBLIC_MARKETING_TEMPLE_OPS_TENANT_ID` on the API server to that `tenant_id`
+ * so GET /api/public/why-it-matters-dashboard reads live rows.
  */
 import "../src/load-env.js";
 import { runPendingTempleOpsMigrations } from "../src/db/run-migrations.js";

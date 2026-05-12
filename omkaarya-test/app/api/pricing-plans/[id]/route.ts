@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiUrl } from "@/lib/api-base";
 import { nextJsonError } from "@/lib/api-envelope";
+import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireSuperAdminHeaders({ Accept: "application/json" });
+    if (!auth.ok) return auth.response;
+
     const { id } = await params;
-    const target = apiUrl(`/api/pricing-plans/${id}`);
+    const target = apiUrl(`/api/pricing-plans/${encodeURIComponent(id)}`);
     const res = await fetch(target, {
       method: "GET",
-      headers: { Accept: "application/json" },
+      headers: auth.headers,
       cache: "no-store",
     });
 
@@ -22,12 +26,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireSuperAdminHeaders({ "Content-Type": "application/json" });
+    if (!auth.ok) return auth.response;
+
     const { id } = await params;
     const body = await request.json();
-    const target = apiUrl(`/api/pricing-plans/${id}`);
+    const target = apiUrl(`/api/pricing-plans/${encodeURIComponent(id)}`);
     const res = await fetch(target, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: auth.headers,
       body: JSON.stringify(body),
     });
 
@@ -41,11 +48,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireSuperAdminHeaders({ Accept: "application/json" });
+    if (!auth.ok) return auth.response;
+
     const { id } = await params;
-    const target = apiUrl(`/api/pricing-plans/${id}`);
+    const target = apiUrl(`/api/pricing-plans/${encodeURIComponent(id)}`);
     const res = await fetch(target, {
       method: "DELETE",
-      headers: { Accept: "application/json" },
+      headers: auth.headers,
     });
 
     const data = await res.json().catch(() => null);

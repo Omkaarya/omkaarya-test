@@ -19,6 +19,10 @@ import { sqlTempleMatchesSessionEmail } from "./temple-admin-match.js";
 import { createInitialInvoiceForNewTemple, type CreateInitialInvoiceResult } from "./billing.repository.js";
 import { storeBrandingImageIfNeeded } from "../storage/cloudinary.js";
 import { syncTempleAuthMirrorFromPlatformUserId } from "../temple-ops/sync-auth-mirror.js";
+import { getOperationalPoolForTenant } from "../db/temple-operational-pool-registry.js";
+import { ensureTempleOpsDatabaseMigrated } from "../temple-ops/ensure-temple-ops-database.js";
+import { patchTempleAdminDetails, upsertTempleAdminData } from "../temple-ops/temple-admin-data.js";
+import { hashPasswordCredential } from "./password-credentials.js";
 
 const ADMIN_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -417,22 +421,13 @@ export class PostgresTempleRepository implements TempleRepository {
       city: string;
       admin_email: string;
       contact_email: string | null;
-      charity_registered: boolean;
-      charity_registration_number: string | null;
-      contact_phone: unknown;
-      website_url: string | null;
-      fax: unknown;
       domain_subdomain: string | null;
-      established_year: string | null;
-      full_address: unknown;
-      logo_data_url: string | null;
       effective_pricing_plan_id: string | null;
       effective_pricing_plan_name: string | null;
       billing_cycle: string | null;
     }>(
       `SELECT temples.tenant_id, temples.name, temples.country_code, temples.city, temples.admin_email,
-              temples.contact_email, temples.charity_registered, temples.charity_registration_number, temples.contact_phone,
-              temples.website_url, temples.fax, temples.domain_subdomain, temples.established_year, temples.full_address, temples.logo_data_url,
+              temples.contact_email, temples.domain_subdomain,
               COALESCE(
                 NULLIF(temples.pricing_plan_id::text, ''),
                 (SELECT p2.id::text FROM public.pricing_plans p2
@@ -453,8 +448,45 @@ export class PostgresTempleRepository implements TempleRepository {
     const row = result.rows[0];
     if (!row) return null;
 
+    const opsPool = await getOperationalPoolForTenant(row.tenant_id);
+    let charity_registered = false;
+    let charity_registration_number = "";
+    let contact_phone: unknown = null;
+    let website_url = "";
+    let fax: unknown = null;
+    let established_year = "";
+    let full_address: unknown = null;
+    let logo_data_url: string | null = null;
+    if (opsPool) {
+      const adm = await opsPool.query<{
+        charity_registered: boolean;
+        charity_registration_number: string | null;
+        contact_phone: unknown;
+        website_url: string | null;
+        fax: unknown;
+        established_year: string | null;
+        full_address: unknown;
+        logo_data_url: string | null;
+      }>(
+        `SELECT charity_registered, charity_registration_number, contact_phone, website_url, fax,
+                established_year, full_address, logo_data_url
+         FROM temple_admin_data WHERE id = 1 LIMIT 1`
+      );
+      const a = adm.rows[0];
+      if (a) {
+        charity_registered = a.charity_registered;
+        charity_registration_number = (a.charity_registration_number ?? "").trim();
+        contact_phone = a.contact_phone;
+        website_url = (a.website_url ?? "").trim();
+        fax = a.fax;
+        established_year = (a.established_year ?? "").trim();
+        full_address = a.full_address;
+        logo_data_url = a.logo_data_url;
+      }
+    }
+
     const contactEmail = (row.contact_email ?? row.admin_email).trim();
-    const phone = parsePhoneJson(row.contact_phone);
+    const phone = parsePhoneJson(contact_phone);
     const bc = (row.billing_cycle ?? "").trim().toLowerCase();
     const billing: "monthly" | "annual" = bc === "monthly" ? "monthly" : "annual";
 
@@ -464,20 +496,20 @@ export class PostgresTempleRepository implements TempleRepository {
       core: {
         templeName: row.name,
         charity: {
-          registered: row.charity_registered,
-          registrationNumber: (row.charity_registration_number ?? "").trim(),
+          registered: charity_registered,
+          registrationNumber: charity_registration_number,
         },
         email: contactEmail,
         phone,
         location: { countryIso: row.country_code, city: row.city },
       },
       details: {
-        logoDataUrl: row.logo_data_url,
-        websiteUrl: (row.website_url ?? "").trim(),
-        fax: parsePhoneJson(row.fax),
+        logoDataUrl: logo_data_url,
+        websiteUrl: website_url,
+        fax: parsePhoneJson(fax),
         domainSubdomain: (row.domain_subdomain ?? "").trim(),
-        establishedYear: (row.established_year ?? "").trim(),
-        fullAddress: parseFullAddressJson(row.full_address),
+        establishedYear: established_year,
+        fullAddress: parseFullAddressJson(full_address),
       },
       provisioningPlan: {
         pricingPlanId:
@@ -500,29 +532,30 @@ export class PostgresTempleRepository implements TempleRepository {
     const charityNum = charityReg ? input.charityRegistrationNumber.trim() : null;
     const res = await pool.query<{ tenant_id: string }>(
       `UPDATE public.temples
-       SET website_url = $2,
-           fax = $3::jsonb,
-           domain_subdomain = $4,
-           established_year = $5,
-           full_address = $6::jsonb,
-           logo_data_url = $7,
-           charity_registered = $8,
-           charity_registration_number = $9
+       SET domain_subdomain = $2
        WHERE ${sqlTempleMatchesSessionEmail(1)}
        RETURNING tenant_id`,
-      [
-        sessionEmail,
-        input.websiteUrl.trim() || null,
-        JSON.stringify(input.fax),
-        input.domainSubdomain.trim() || null,
-        input.establishedYear.trim() || null,
-        JSON.stringify(input.fullAddress),
-        input.logoDataUrl,
-        charityReg,
-        charityNum,
-      ]
+      [sessionEmail, input.domainSubdomain.trim() || null]
     );
     if (res.rows.length === 0) return { ok: false, reason: "not_found" };
+    const tenantId = res.rows[0]!.tenant_id;
+    const opsPool = await getOperationalPoolForTenant(tenantId);
+    if (!opsPool) return { ok: false, reason: "not_found" };
+    const oc = await opsPool.connect();
+    try {
+      await oc.query(`INSERT INTO temple_admin_data (id) VALUES (1) ON CONFLICT (id) DO NOTHING`);
+      await patchTempleAdminDetails(oc, {
+        websiteUrl: input.websiteUrl,
+        fax: input.fax,
+        establishedYear: input.establishedYear,
+        fullAddress: input.fullAddress,
+        logoDataUrl: input.logoDataUrl,
+        charityRegistered: charityReg,
+        charityRegistrationNumber: charityNum,
+      });
+    } finally {
+      oc.release();
+    }
     return { ok: true };
   }
 
@@ -601,10 +634,11 @@ export class PostgresTempleRepository implements TempleRepository {
           );
           if (existing.rows.length === 0) {
             temporaryPassword = generateTemporaryPassword();
+            const tempPasswordHash = await hashPasswordCredential(temporaryPassword);
             await client.query(
               `INSERT INTO public.users (email, temp_password, full_name, whatsapp, roles, profile_image_url)
                VALUES ($1, $2, $3, $4, $5, $6)`,
-              [row.adminEmail, temporaryPassword, adminFullName, adminWhatsapp, adminRoles, adminProfileStoredUrl]
+              [row.adminEmail, tempPasswordHash, adminFullName, adminWhatsapp, adminRoles, adminProfileStoredUrl]
             );
           } else if (existing.rows[0]!.password_hash != null) {
             // User already has a permanent password — do not reset password fields, but do overwrite profile fields.
@@ -617,6 +651,7 @@ export class PostgresTempleRepository implements TempleRepository {
             );
           } else {
             temporaryPassword = generateTemporaryPassword();
+            const tempPasswordHash = await hashPasswordCredential(temporaryPassword);
             await client.query(
               `INSERT INTO public.users (email, temp_password, full_name, whatsapp, roles, profile_image_url)
                VALUES ($1, $2, $3, $4, $5, $6)
@@ -626,7 +661,7 @@ export class PostgresTempleRepository implements TempleRepository {
                    whatsapp = EXCLUDED.whatsapp,
                    roles = EXCLUDED.roles,
                    profile_image_url = COALESCE(EXCLUDED.profile_image_url, public.users.profile_image_url)`,
-              [row.adminEmail, temporaryPassword, adminFullName, adminWhatsapp, adminRoles, adminProfileStoredUrl]
+              [row.adminEmail, tempPasswordHash, adminFullName, adminWhatsapp, adminRoles, adminProfileStoredUrl]
             );
           }
           const idRes = await client.query<{ id: number }>(
@@ -645,19 +680,11 @@ export class PostgresTempleRepository implements TempleRepository {
           `INSERT INTO public.temples (
              tenant_id, name, slug, country_code, country_flag, city, plan, pricing_plan_id, devotees, status, compliance, admin_email,
              admin_user_id,
-             contact_email, charity_registered, charity_registration_number,
-             contact_phone, contact_whatsapp, fax,
-             website_url, domain_subdomain, established_year, full_address,
-             tradition, primary_deity_id, billing_cycle,
-             logo_data_url
+             contact_email, domain_subdomain, billing_cycle
            ) VALUES (
              $1, $2, $3, $4, $5, $6, $7, $8,
              $9, $10, $11, $12, $13,
-             $14, $15, $16,
-             $17::jsonb, $18::jsonb, $19::jsonb,
-             $20, $21, $22, $23::jsonb,
-             $24, $25, $26,
-             $27
+             $14, $15, $16
            )`,
           [
             row.tenantId,
@@ -674,19 +701,8 @@ export class PostgresTempleRepository implements TempleRepository {
             row.adminEmail,
             adminUserId,
             contactEmail,
-            charityReg,
-            charityNumber,
-            JSON.stringify(contactPhone),
-            JSON.stringify(contactWhatsapp),
-            JSON.stringify(faxJson),
-            websiteUrl,
             domainSub,
-            establishedYear,
-            JSON.stringify(fullAddr),
-            tradition,
-            primaryDeity,
             billingCycle,
-            logoStoredUrl,
           ]
         );
 
@@ -714,6 +730,46 @@ export class PostgresTempleRepository implements TempleRepository {
       } catch (e) {
         await client.query("ROLLBACK");
         throw e;
+      }
+
+      const ensured = await ensureTempleOpsDatabaseMigrated(row.tenantId);
+      if (!ensured.ok) {
+        throw new HttpError(
+          500,
+          "Could not provision temple operational database. Configure TEMPLE_OPS_DB_HOST, TEMPLE_OPS_DB_USER, TEMPLE_OPS_PG_SUPERUSER_URL (for CREATE DATABASE), and TEMPLE_OPS_DB_PASS.",
+          {
+            code: "TEMPLE_OPS_PROVISION_FAILED",
+            reason: ensured.reason,
+          }
+        );
+      }
+      const opsPoolSeed = await getOperationalPoolForTenant(row.tenantId);
+      if (!opsPoolSeed) {
+        throw new HttpError(500, "Operational database pool unavailable after provisioning.", {
+          code: "TEMPLE_OPS_POOL_MISSING",
+          reason: "getOperationalPoolForTenant returned null.",
+        });
+      }
+      const ocSeed = await opsPoolSeed.connect();
+      try {
+        await upsertTempleAdminData(ocSeed, {
+          contactPhone,
+          contactWhatsapp,
+          fax: faxJson,
+          websiteUrl,
+          establishedYear,
+          fullAddress: fullAddr,
+          logoDataUrl: logoStoredUrl,
+          tradition,
+          charityRegistered: charityReg,
+          charityRegistrationNumber: charityNumber,
+          primaryDeityId: primaryDeity,
+          subDeityIds: [],
+          deityCustomNote: null,
+          deityPreferCustomLater: null,
+        });
+      } finally {
+        ocSeed.release();
       }
 
       if (ADMIN_EMAIL_RE.test(row.adminEmail)) {
@@ -759,19 +815,8 @@ export class PostgresTempleRepository implements TempleRepository {
       status: string;
       admin_email: string;
       contact_email: string | null;
-      contact_phone: unknown;
-      contact_whatsapp: unknown;
-      fax: unknown;
-      website_url: string | null;
       domain_subdomain: string | null;
-      established_year: string | null;
-      full_address: unknown;
-      tradition: string | null;
-      primary_deity_id: string | null;
       billing_cycle: string | null;
-      logo_data_url: string | null;
-      charity_registered: boolean;
-      charity_registration_number: string | null;
       u_full_name: string | null;
       u_whatsapp: string | null;
       u_roles: string[] | null;
@@ -789,19 +834,8 @@ export class PostgresTempleRepository implements TempleRepository {
          t.status,
          t.admin_email,
          t.contact_email,
-         t.contact_phone,
-         t.contact_whatsapp,
-         t.fax,
-         t.website_url,
          t.domain_subdomain,
-         t.established_year,
-         t.full_address,
-         t.tradition,
-         t.primary_deity_id,
          t.billing_cycle,
-         t.logo_data_url,
-         t.charity_registered,
-         t.charity_registration_number,
          u1.full_name AS u_full_name,
          u1.whatsapp AS u_whatsapp,
          u1.roles AS u_roles,
@@ -818,14 +852,60 @@ export class PostgresTempleRepository implements TempleRepository {
     const r = result.rows[0];
     if (!r) return null;
 
-    const fa = parseFullAddressJson(r.full_address);
+    let tradition: string | null = "Hindu";
+    let contact_phone: unknown = null;
+    let contact_whatsapp: unknown = null;
+    let faxRaw: unknown = null;
+    let website_url: string | null = null;
+    let established_year: string | null = null;
+    let full_address: unknown = null;
+    let primary_deity_id: string | null = null;
+    let logo_data_url: string | null = null;
+    let charity_registered = false;
+    let charity_registration_number: string | null = "";
+    const opsPoolEdit = await getOperationalPoolForTenant(r.tenant_id);
+    if (opsPoolEdit) {
+      const adm = await opsPoolEdit.query<{
+        tradition: string | null;
+        contact_phone: unknown;
+        contact_whatsapp: unknown;
+        fax: unknown;
+        website_url: string | null;
+        established_year: string | null;
+        full_address: unknown;
+        primary_deity_id: string | null;
+        logo_data_url: string | null;
+        charity_registered: boolean;
+        charity_registration_number: string | null;
+      }>(
+        `SELECT tradition, contact_phone, contact_whatsapp, fax, website_url, established_year, full_address,
+                primary_deity_id, logo_data_url, charity_registered, charity_registration_number
+         FROM temple_admin_data WHERE id = 1 LIMIT 1`
+      );
+      const a = adm.rows[0];
+      if (a) {
+        tradition = a.tradition;
+        contact_phone = a.contact_phone;
+        contact_whatsapp = a.contact_whatsapp;
+        faxRaw = a.fax;
+        website_url = a.website_url;
+        established_year = a.established_year;
+        full_address = a.full_address;
+        primary_deity_id = a.primary_deity_id;
+        logo_data_url = a.logo_data_url;
+        charity_registered = a.charity_registered;
+        charity_registration_number = a.charity_registration_number;
+      }
+    }
+
+    const fa = parseFullAddressJson(full_address);
     const country = (fa.countryIso || r.country_code || "GB").trim() || "GB";
     const city = (fa.city || r.city || "").trim() || r.city.trim();
     const addressLine = (fa.street ?? "").trim();
     const email = (r.contact_email ?? r.admin_email ?? "").trim();
-    const telephone = parsePhoneJson(r.contact_phone);
-    const tWhatsapp = parsePhoneJson(r.contact_whatsapp);
-    const fax = parsePhoneJson(r.fax);
+    const telephone = parsePhoneJson(contact_phone);
+    const tWhatsapp = parsePhoneJson(contact_whatsapp);
+    const fax = parsePhoneJson(faxRaw);
     const adminName = (r.u_full_name ?? r.u2_full_name ?? "").trim();
     const adminWhatsappStr = (r.u_whatsapp ?? r.u2_whatsapp ?? "").trim();
     const roles = r.u_roles ?? r.u2_roles ?? [];
@@ -834,15 +914,15 @@ export class PostgresTempleRepository implements TempleRepository {
     const trialEnabled = r.status === "Trial";
     const trialDays = trialEnabled ? 7 : null;
 
-    const est = (r.established_year ?? "").trim();
+    const est = (established_year ?? "").trim();
     const establishedYear = est && /^\d{4}$/.test(est) ? est : "2000";
 
     const response: SuperAdminTempleDetailResponse = {
       tenantId: r.tenant_id,
       temple: {
-        tradition: (r.tradition ?? "Hindu").trim() || "Hindu",
+        tradition: (tradition ?? "Hindu").trim() || "Hindu",
         name: r.name.trim(),
-        deity: (r.primary_deity_id ?? "").trim(),
+        deity: (primary_deity_id ?? "").trim(),
         country,
         city,
         address: addressLine,
@@ -850,11 +930,11 @@ export class PostgresTempleRepository implements TempleRepository {
         phone: telephone,
         whatsapp: tWhatsapp,
         fax,
-        website: websitePathFromStored(r.website_url),
+        website: websitePathFromStored(website_url),
         subdomain: subdomainFromSlugAndDomain(r.slug, r.domain_subdomain),
         establishedYear,
-        charityRegistered: r.charity_registered === true,
-        charityRegistrationNumber: (r.charity_registration_number ?? "").trim(),
+        charityRegistered: charity_registered === true,
+        charityRegistrationNumber: (charity_registration_number ?? "").trim(),
       },
       admin: {
         fullName: adminName,
@@ -870,7 +950,7 @@ export class PostgresTempleRepository implements TempleRepository {
           days: trialDays,
         },
       },
-      logoTempleDataUrl: r.logo_data_url,
+      logoTempleDataUrl: logo_data_url,
     };
     return response;
   }
@@ -885,16 +965,24 @@ export class PostgresTempleRepository implements TempleRepository {
 
     const client = await pool.connect();
     try {
-      const existing = await client.query<{ admin_email: string; logo_data_url: string | null }>(
-        `SELECT admin_email, logo_data_url FROM public.temples WHERE tenant_id = $1 LIMIT 1`,
+      const existing = await client.query<{ admin_email: string }>(
+        `SELECT admin_email FROM public.temples WHERE tenant_id = $1 LIMIT 1`,
         [id]
       );
       if (existing.rows.length === 0) return { ok: false, reason: "not_found" };
       const adminEmail = existing.rows[0]!.admin_email.trim();
+      let prevLogo: string | null = null;
+      const opPrev = await getOperationalPoolForTenant(id);
+      if (opPrev) {
+        const lr = await opPrev.query<{ logo_data_url: string | null }>(
+          `SELECT logo_data_url FROM temple_admin_data WHERE id = 1 LIMIT 1`
+        );
+        prevLogo = lr.rows[0]?.logo_data_url ?? null;
+      }
       const nextLogo: string | null =
         payload.logoTempleDataUrl !== undefined
           ? await storeBrandingImageIfNeeded(payload.logoTempleDataUrl, "temple-logo", "temple-logo")
-          : existing.rows[0]!.logo_data_url;
+          : prevLogo;
 
       const countryCode = payload.temple.country.trim() || "GB";
       const plan = normalizePlan(payload.planBilling.selectedPlan);
@@ -932,22 +1020,11 @@ export class PostgresTempleRepository implements TempleRepository {
                country_flag = $5,
                city = $6,
                plan = $7,
-               pricing_plan_id = $21,
+               pricing_plan_id = $11,
                status = $8,
                contact_email = $9,
-               contact_phone = $10::jsonb,
-               contact_whatsapp = $11::jsonb,
-               fax = $12::jsonb,
-               website_url = $13,
-               domain_subdomain = $14,
-               established_year = $15,
-               full_address = $16::jsonb,
-               tradition = $17,
-               primary_deity_id = $18,
-               billing_cycle = $19,
-               logo_data_url = $20,
-               charity_registered = $22,
-               charity_registration_number = $23
+               domain_subdomain = $10,
+               billing_cycle = $12
            WHERE tenant_id = $1`,
           [
             id,
@@ -959,20 +1036,9 @@ export class PostgresTempleRepository implements TempleRepository {
             plan,
             status,
             contactEmail,
-            JSON.stringify(contactPhone),
-            JSON.stringify(contactWhatsapp),
-            JSON.stringify(faxJson),
-            websiteUrl,
             domainSub,
-            establishedYear,
-            JSON.stringify(fullAddr),
-            tradition,
-            primaryDeity,
-            billingCycle,
-            nextLogo,
             pricingPlanIdResolved,
-            charityReg,
-            charityNumber,
+            billingCycle,
           ]
         );
 
@@ -993,6 +1059,32 @@ export class PostgresTempleRepository implements TempleRepository {
       } catch (e) {
         await client.query("ROLLBACK");
         throw e;
+      }
+
+      const opsPoolUp = await getOperationalPoolForTenant(id);
+      if (opsPoolUp) {
+        const ocx = await opsPoolUp.connect();
+        try {
+          await ocx.query(`INSERT INTO temple_admin_data (id) VALUES (1) ON CONFLICT (id) DO NOTHING`);
+          await upsertTempleAdminData(ocx, {
+            contactPhone,
+            contactWhatsapp,
+            fax: faxJson,
+            websiteUrl,
+            establishedYear,
+            fullAddress: fullAddr,
+            logoDataUrl: nextLogo,
+            tradition,
+            charityRegistered: charityReg,
+            charityRegistrationNumber: charityNumber,
+            primaryDeityId: primaryDeity,
+            subDeityIds: [],
+            deityCustomNote: null,
+            deityPreferCustomLater: null,
+          });
+        } finally {
+          ocx.release();
+        }
       }
 
       return { ok: true };

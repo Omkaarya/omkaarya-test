@@ -6,6 +6,15 @@ import { nextJsonError } from "@/lib/api-envelope";
 
 export async function POST(request: NextRequest) {
   try {
+    if (process.env.NODE_ENV === "production" && process.env.ENABLE_MOCK_REGISTER !== "1") {
+      return nextJsonError(
+        404,
+        "NOT_FOUND",
+        "Not found",
+        "This registration endpoint is not available."
+      );
+    }
+
     const payload = await request.json();
     const { email, password } = payload;
 

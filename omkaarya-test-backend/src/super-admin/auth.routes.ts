@@ -1,6 +1,5 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
-import bcrypt from "bcryptjs";
 import { sendError, sendSuccess } from "../middleware/api-envelope.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { HttpError } from "../middleware/http-error.js";
@@ -8,6 +7,7 @@ import { validateBody } from "../middleware/validate.js";
 import type { AuthService } from "./auth.service.js";
 import { loginBodySchema, setPasswordBodySchema, superAdminRegisterBodySchema } from "./validation.js";
 import { getPool } from "../db/pool.js";
+import { hashPasswordCredential } from "./password-credentials.js";
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -37,7 +37,7 @@ export function createAuthRouter(auth: AuthService): Router {
    * POST /api/super-admin/register
    *
    * Creates (or updates) a user row with role Super Admin.
-   * In production, requires header x-super-admin-register-token matching SUPER_ADMIN_REGISTER_TOKEN.
+   * Requires header x-super-admin-register-token matching SUPER_ADMIN_REGISTER_TOKEN.
    */
   r.post(
     "/super-admin/register",
@@ -47,16 +47,14 @@ export function createAuthRouter(auth: AuthService): Router {
       const token = (req.header("x-super-admin-register-token") ?? "").trim();
       const expected = (process.env.SUPER_ADMIN_REGISTER_TOKEN ?? "").trim();
 
-      if (process.env.NODE_ENV === "production") {
-        if (!expected || !token || token !== expected) {
-          return sendError(
-            res,
-            403,
-            "FORBIDDEN",
-            "Forbidden",
-            "Missing or invalid super-admin registration token."
-          );
-        }
+      if (!expected || !token || token !== expected) {
+        return sendError(
+          res,
+          403,
+          "FORBIDDEN",
+          "Forbidden",
+          "Missing or invalid super-admin registration token."
+        );
       }
 
       const pool = getPool();
@@ -84,8 +82,8 @@ export function createAuthRouter(auth: AuthService): Router {
       const permanentPassword = (body.permanentPassword ?? "").trim();
       const tempPassword = (body.tempPassword ?? "").trim();
 
-      const passwordHash = permanentPassword ? await bcrypt.hash(permanentPassword, 10) : null;
-      const effectiveTemp = passwordHash ? null : tempPassword || null;
+      const passwordHash = permanentPassword ? await hashPasswordCredential(permanentPassword) : null;
+      const effectiveTemp = passwordHash ? null : tempPassword ? await hashPasswordCredential(tempPassword) : null;
 
       const client = await pool.connect();
       try {

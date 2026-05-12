@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { HeroSection } from "../components/marketing/HeroSection";
 import { BentoFeatures } from "../components/marketing/BentoFeatures";
 import { CoreFeatures } from "../components/marketing/CoreFeatures";
-import { WhyItMatters } from "../components/marketing/WhyItMatters";
+import { WhyItMatters, type WhyItMattersDashboardPayload } from "../components/marketing/WhyItMatters";
 import { ComplianceBanner } from "../components/marketing/ComplianceBanner";
 import { Comparison } from "../components/marketing/Comparison";
 import { HowToJoin } from "../components/marketing/HowToJoin";
@@ -57,16 +57,22 @@ type PublicTemplesResponse = {
   offset: number;
 };
 
+type PublicWhyItMattersDashboardResponse = {
+  source: "database" | "defaults";
+  dashboard: WhyItMattersDashboardPayload;
+};
+
 export const metadata: Metadata = {
   title: "Omkaarya",
   description: "Complete management platform for Hindu temples worldwide.",
 };
 
 export default async function HomePage() {
-  const [overview, temples, testimonials] = await Promise.all([
+  const [overview, temples, testimonials, whyDashboard] = await Promise.all([
     fetchApiData<PublicOverview>("/api/public/overview"),
     fetchApiData<PublicTemplesResponse>("/api/public/temples?limit=6&offset=0"),
     fetchApiData<MarketingTestimonial[]>("/api/public/testimonials"),
+    fetchApiData<PublicWhyItMattersDashboardResponse>("/api/public/why-it-matters-dashboard"),
   ]);
 
   const tItems = (testimonials ?? []).slice(0, 8);
@@ -82,7 +88,7 @@ export default async function HomePage() {
       <HeroSection />
       <BentoFeatures />
       <CoreFeatures />
-      <WhyItMatters />
+      <WhyItMatters dashboard={whyDashboard?.dashboard ?? null} />
       <ComplianceBanner />
       <Comparison />
       <HowToJoin />

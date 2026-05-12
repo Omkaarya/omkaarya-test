@@ -1,8 +1,12 @@
 import { nextJsonError, nextJsonSuccess } from "@/lib/api-envelope";
 import { fetchAllFeatures, insertFeature } from "@/lib/features-db";
+import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
 /** GET /api/features — List all features (for Feature Registry admin page). */
 export async function GET() {
+  const auth = await requireSuperAdminHeaders();
+  if (!auth.ok) return auth.response;
+
   try {
     const features = await fetchAllFeatures();
     return nextJsonSuccess(200, features, "Feature registry list loaded", "All feature definitions from the database are returned in display order.");
@@ -15,6 +19,9 @@ export async function GET() {
 
 /** POST /api/features — Create a new feature. */
 export async function POST(request: Request) {
+  const auth = await requireSuperAdminHeaders();
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await request.json();
     const { name, key, moduleKey, description, hasLimit, limitType, isVisibleInPlanConfig } = body;

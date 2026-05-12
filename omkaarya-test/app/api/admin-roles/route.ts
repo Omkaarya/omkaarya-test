@@ -1,8 +1,12 @@
 import { nextJsonError, nextJsonSuccess } from "@/lib/api-envelope";
 import { fetchAllSaRoles, insertSaRole } from "@/lib/sa-users-db";
+import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
 /** GET /api/admin-roles — List all super admin roles with user counts. */
 export async function GET() {
+  const auth = await requireSuperAdminHeaders();
+  if (!auth.ok) return auth.response;
+
   try {
     const roles = await fetchAllSaRoles();
     return nextJsonSuccess(200, roles, "Admin roles loaded", "All super admin roles with user counts returned.");
@@ -15,6 +19,9 @@ export async function GET() {
 
 /** POST /api/admin-roles — Create a new role. */
 export async function POST(request: Request) {
+  const auth = await requireSuperAdminHeaders();
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await request.json();
     const { name, description } = body;

@@ -1,14 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiUrl } from "@/lib/api-base";
 import { nextJsonError } from "@/lib/api-envelope";
+import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireSuperAdminHeaders({
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    });
+    if (!auth.ok) return auth.response;
+
     const payload = await request.json();
 
     const res = await fetch(apiUrl("/api/temples/create"), {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: auth.headers,
       body: JSON.stringify(payload),
     });
 

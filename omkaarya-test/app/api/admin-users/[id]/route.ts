@@ -1,10 +1,14 @@
 import { nextJsonError, nextJsonSuccess } from "@/lib/api-envelope";
 import { fetchSaUserById, updateSaUser, deleteSaUser, toggleSaUserActive } from "@/lib/sa-users-db";
+import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
 type Params = { params: Promise<{ id: string }> };
 
 /** GET /api/admin-users/[id] — Get a single admin user. */
 export async function GET(_req: Request, { params }: Params) {
+  const auth = await requireSuperAdminHeaders();
+  if (!auth.ok) return auth.response;
+
   const { id } = await params;
   const uid = parseInt(id, 10);
   if (isNaN(uid)) return nextJsonError(400, "INVALID_ID", "Invalid user ID", "ID must be a number.");
@@ -19,6 +23,9 @@ export async function GET(_req: Request, { params }: Params) {
 
 /** PATCH /api/admin-users/[id] — Update or toggle an admin user. */
 export async function PATCH(request: Request, { params }: Params) {
+  const auth = await requireSuperAdminHeaders();
+  if (!auth.ok) return auth.response;
+
   const { id } = await params;
   const uid = parseInt(id, 10);
   if (isNaN(uid)) return nextJsonError(400, "INVALID_ID", "Invalid user ID", "ID must be a number.");
@@ -40,6 +47,9 @@ export async function PATCH(request: Request, { params }: Params) {
 
 /** DELETE /api/admin-users/[id] — Remove an admin user. */
 export async function DELETE(_req: Request, { params }: Params) {
+  const auth = await requireSuperAdminHeaders();
+  if (!auth.ok) return auth.response;
+
   const { id } = await params;
   const uid = parseInt(id, 10);
   if (isNaN(uid)) return nextJsonError(400, "INVALID_ID", "Invalid user ID", "ID must be a number.");

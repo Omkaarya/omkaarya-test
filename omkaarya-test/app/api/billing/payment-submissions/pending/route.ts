@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { apiUrl } from "@/lib/api-base";
 import { nextJsonError } from "@/lib/api-envelope";
+import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
 export async function GET() {
   try {
+    const auth = await requireSuperAdminHeaders({ Accept: "application/json" });
+    if (!auth.ok) return auth.response;
+
     const res = await fetch(apiUrl("/api/billing/payment-submissions/pending"), {
       method: "GET",
-      headers: { Accept: "application/json" },
+      headers: auth.headers,
       cache: "no-store",
     });
     const data = await res.json().catch(() => null);

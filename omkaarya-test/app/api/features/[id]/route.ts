@@ -1,11 +1,15 @@
 import { nextJsonError, nextJsonSuccess } from "@/lib/api-envelope";
 import { updateFeature, toggleFeatureActive } from "@/lib/features-db";
+import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
 /** PUT /api/features/[id] — Update a feature. */
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireSuperAdminHeaders();
+  if (!auth.ok) return auth.response;
+
   try {
     const { id } = await params;
     const featureId = parseInt(id, 10);
@@ -32,6 +36,9 @@ export async function PATCH(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireSuperAdminHeaders();
+  if (!auth.ok) return auth.response;
+
   try {
     const { id } = await params;
     const featureId = parseInt(id, 10);

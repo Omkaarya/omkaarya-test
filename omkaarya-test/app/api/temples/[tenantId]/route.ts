@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiUrl } from "@/lib/api-base";
 import { nextJsonError } from "@/lib/api-envelope";
+import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
 export async function GET(
   _request: NextRequest,
   context: { params: Promise<{ tenantId: string }> }
 ) {
   try {
+    const auth = await requireSuperAdminHeaders({ Accept: "application/json" });
+    if (!auth.ok) return auth.response;
+
     const { tenantId } = await context.params;
     const target = apiUrl(`/api/temples/${encodeURIComponent(tenantId)}`);
     const res = await fetch(target, {
       method: "GET",
-      headers: { Accept: "application/json" },
+      headers: auth.headers,
       cache: "no-store",
     });
     const data = await res.json().catch(() => null);
@@ -27,12 +31,18 @@ export async function PATCH(
   context: { params: Promise<{ tenantId: string }> }
 ) {
   try {
+    const auth = await requireSuperAdminHeaders({
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    });
+    if (!auth.ok) return auth.response;
+
     const { tenantId } = await context.params;
     const body = await request.json();
     const target = apiUrl(`/api/temples/${encodeURIComponent(tenantId)}`);
     const res = await fetch(target, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: auth.headers,
       body: JSON.stringify(body),
     });
     const data = await res.json().catch(() => null);
