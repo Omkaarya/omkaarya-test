@@ -1,11 +1,19 @@
 import { createApp } from "../src/app.js";
 import { runPendingMigrations } from "../src/db/run-migrations.js";
+import { runOpsAuthMirrorUserIdMigration } from "../src/db/run-ops-auth-mirror-migration.js";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
-// Run migrations once on cold start (Vercel serverless).
-// Skips already-applied files, so it's safe to run on every deploy.
+// Run platform SQL migrations + best-effort ops auth mirror UUID pass once per cold start (Vercel serverless).
+// Both are idempotent / safe to run on every deploy.
 const migrationReady = runPendingMigrations()
-  .then(() => console.log("[db] Migrations complete"))
+  .then(async () => {
+    console.log("[db] Platform migrations complete");
+    try {
+      await runOpsAuthMirrorUserIdMigration();
+    } catch (e) {
+      console.warn("[db] Ops auth mirror UUID pass failed (non-fatal; API will still start):", e);
+    }
+  })
   .catch((e) => {
     console.error("[db] Migration failed on cold start:", e);
     throw e;

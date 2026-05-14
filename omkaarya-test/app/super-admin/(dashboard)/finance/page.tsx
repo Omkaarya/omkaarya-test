@@ -1,23 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
-import {
-  ArrowUpRight,
-  CheckCircle2,
-  Clock,
-  DollarSign,
-  Download,
-  FileText,
-  Landmark,
-  Plus,
-  TrendingUp,
-  X,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Plus } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Badge } from "@/app/components/ds/atoms/Badge";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
+import AdminListCard from "@/app/components/admin/AdminListCard";
 import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
 
@@ -127,26 +117,12 @@ function HorizontalBarChart({ title, subtitle, bars }: {
   );
 }
 
-// ── Toast ────────────────────────────────────────────────────────
-
-function Toast({ message, onClose }: { message: string; onClose: () => void }) {
-  return (
-    <div className="fixed bottom-6 right-6 z-[200] flex items-center gap-3 rounded-xl border border-success-500/20 bg-status-success-bg text-status-success-text px-5 py-4 shadow-xl">
-      <CheckCircle2 className="h-5 w-5 shrink-0" />
-      <p className="text-sm font-semibold">{message}</p>
-      <button onClick={onClose} className="ml-2 opacity-60 hover:opacity-100"><X className="h-4 w-4" /></button>
-    </div>
-  );
-}
-
 // ── Page ────────────────────────────────────────────────────────
 
 export default function RevenueDashboard() {
-  const [toast, setToast] = useState<string | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [dash, setDash] = useState<ApiDashboard | null>(null);
   const [profile, setProfile] = useState<BillingProfile | null>(null);
-  const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 4000); }, []);
 
   useEffect(() => {
     let cancel = false;
@@ -236,7 +212,7 @@ export default function RevenueDashboard() {
         </div>
       ),
     },
-  ], [showToast]);
+  ], []);
 
   return (
     <div className="space-y-5">
@@ -323,18 +299,17 @@ export default function RevenueDashboard() {
 
       {/* Temple Subscription Summary Table */}
       <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-bold text-text-primary">Temple subscription summary</h2>
-          <Link href="/super-admin/finance/subscriptions">
-            <Button variant="outline" size="sm">View all →</Button>
-          </Link>
-        </div>
-        <div className="bg-surface rounded-xl border border-border shadow-xs">
+        <AdminListCard>
+          <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-sm font-bold text-text-primary">Temple subscription summary</h2>
+            <Link href="/super-admin/finance/subscriptions" className="shrink-0">
+              <Button variant="outline" size="sm">View all →</Button>
+            </Link>
+          </div>
           <DataTable<TempleSummary> columns={columns} data={temples} keyExtractor={(r) => r.id} />
-        </div>
+        </AdminListCard>
       </div>
 
-      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
     </div>
   );
 }

@@ -1,8 +1,10 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { nextJsonError } from "@/lib/api-envelope";
+import { isSuperAdminProtectedApiPath } from "@/lib/super-admin-api-paths";
 
 export function middleware(request: NextRequest) {
-  const token = request.cookies.get('auth_token')?.value;
+  const token = request.cookies.get("auth_token")?.value;
   const { pathname } = request.nextUrl;
 
   const publicRoutes = new Set([
@@ -26,7 +28,17 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Allow API routes to pass through (API routes have their own auth checks)
+  // Super-admin API proxies require a session cookie; handlers still enforce role + Bearer upstream.
+  if (isApiRoute && isSuperAdminProtectedApiPath(pathname) && !token?.trim()) {
+    return nextJsonError(
+      401,
+      "UNAUTHORIZED",
+      "Authentication required.",
+      "Sign in with a super-admin account to use this API."
+    );
+  }
+
+  // Other API routes use their own auth (e.g. temple-admin, public marketing).
   if (isApiRoute) {
     return NextResponse.next();
   }

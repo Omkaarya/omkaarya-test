@@ -11,7 +11,7 @@ import Link from "next/link";
 // ── Types ──────────────────────────────────────────────────────────
 
 type SaRole = {
-  id: number;
+  id: string;
   name: string;
   description: string;
   isActive: boolean;

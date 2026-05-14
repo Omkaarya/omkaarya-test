@@ -36,7 +36,7 @@ async function main(): Promise<void> {
   await platform.connect();
 
   try {
-    const { rows: temples } = await platform.query(`SELECT tenant_id FROM public.temples ORDER BY tenant_id::int ASC`);
+    const { rows: temples } = await platform.query(`SELECT tenant_id FROM public.temples ORDER BY tenant_id::text ASC`);
 
     for (const t of temples) {
       const tenantId = String((t as { tenant_id: string }).tenant_id);

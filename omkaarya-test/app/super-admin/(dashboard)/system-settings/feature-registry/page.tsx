@@ -10,7 +10,6 @@ import {
   X,
   ChevronDown,
   ChevronRight,
-  Search,
   Layers,
   CheckCircle2,
   Settings2,
@@ -28,12 +27,16 @@ import {
   Settings,
   Zap,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import SelectInput from "@/app/components/admin/SelectInput";
+import AdminListCard from "@/app/components/admin/AdminListCard";
+import { AdminTableToolbar, AdminTableToolbarEnd, AdminTableToolbarStart } from "@/app/components/admin/AdminTableToolbar";
+import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
 
 // ── Types ──────────────────────────────────────────────────────────
 
 type Feature = {
-  id: number;
+  id: string;
   name: string;
   key: string;
   moduleKey: string;
@@ -55,7 +58,7 @@ type FeatureFormData = {
   isVisibleInPlanConfig: boolean;
 };
 
-const MODULE_META: Record<string, { label: string; icon: any; color: string }> = {
+const MODULE_META: Record<string, { label: string; icon: LucideIcon; color: string }> = {
   pooja: { label: "Pooja Management", icon: LayoutGrid, color: "text-orange-500" },
   donation: { label: "Donations Management", icon: HeartHandshake, color: "text-pink-500" },
   inventory: { label: "Inventory Management", icon: Package, color: "text-blue-500" },
@@ -91,7 +94,7 @@ function FeatureModal({
 }: {
   feature: Feature | null;
   onClose: () => void;
-  onSave: (data: FeatureFormData, id?: number) => Promise<void>;
+  onSave: (data: FeatureFormData, id?: string) => Promise<void>;
 }) {
   const isEdit = feature !== null;
   const [form, setForm] = useState<FeatureFormData>({
@@ -284,7 +287,7 @@ export default function FeatureRegistryPage() {
   const [moduleFilter, setModuleFilter] = useState("all");
   const [modalOpen, setModalOpen] = useState(false);
   const [editFeature, setEditFeature] = useState<Feature | null>(null);
-  const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState("");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
@@ -309,7 +312,7 @@ export default function FeatureRegistryPage() {
 
   useEffect(() => { loadFeatures(); }, [loadFeatures]);
 
-  const handleSave = async (data: FeatureFormData, id?: number) => {
+  const handleSave = async (data: FeatureFormData, id?: string) => {
     const url = id ? `/api/features/${id}` : "/api/features";
     const method = id ? "PUT" : "POST";
     const res = await fetch(url, {
@@ -321,7 +324,7 @@ export default function FeatureRegistryPage() {
     await loadFeatures();
   };
 
-  const handleToggle = async (id: number) => {
+  const handleToggle = async (id: string) => {
     setTogglingId(id);
     try {
       const res = await fetch(`/api/features/${id}`, { method: "PATCH" });
@@ -350,7 +353,7 @@ export default function FeatureRegistryPage() {
   }, {});
 
   return (
-    <div className="mx-auto w-full max-w-[min(100rem,calc(100vw-2rem))] space-y-6">
+    <div className="w-full space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between bg-white dark:bg-zinc-900 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
         <div>
@@ -392,27 +395,36 @@ export default function FeatureRegistryPage() {
       )}
 
       {/* Main Container */}
-      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3 border-b border-zinc-100 dark:border-zinc-800 px-6 py-4">
-          <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-            <input
-              placeholder="Search features..."
+      <AdminListCard>
+        <AdminTableToolbar>
+          <AdminTableToolbarStart>
+            <SearchInput
               value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 bg-zinc-50 py-2.5 pl-10 pr-4 text-sm outline-none focus:ring-2 ring-[var(--brand-primary)] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+              onClear={search ? () => setSearch("") : undefined}
+              placeholder="Search features…"
             />
-          </div>
-          <select
-            value={moduleFilter}
-            onChange={e => setModuleFilter(e.target.value)}
-            className="rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 ring-[var(--brand-primary)] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-          >
-            <option value="all">All Modules</option>
-            {modulesFound.map(m => <option key={m} value={m}>{MODULE_META[m]?.label || m}</option>)}
-          </select>
-        </div>
+          </AdminTableToolbarStart>
+          <AdminTableToolbarEnd>
+            <label htmlFor="feature-module-filter" className="sr-only">
+              Module
+            </label>
+            <SelectInput
+              id="feature-module-filter"
+              value={moduleFilter}
+              onChange={(e) => setModuleFilter(e.target.value)}
+              className="text-sm text-text-secondary"
+              wrapperClassName="w-full min-w-[12rem] sm:w-auto"
+            >
+              <option value="all">All Modules</option>
+              {modulesFound.map((m) => (
+                <option key={m} value={m}>
+                  {MODULE_META[m]?.label || m}
+                </option>
+              ))}
+            </SelectInput>
+          </AdminTableToolbarEnd>
+        </AdminTableToolbar>
 
         {/* Content */}
         {loading ? (
@@ -518,7 +530,7 @@ export default function FeatureRegistryPage() {
             })}
           </div>
         )}
-      </div>
+      </AdminListCard>
 
       {modalOpen && (
         <FeatureModal

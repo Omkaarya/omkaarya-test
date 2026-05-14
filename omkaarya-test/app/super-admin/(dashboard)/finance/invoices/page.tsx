@@ -4,14 +4,13 @@ import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import {
-  Bell,
   Calendar,
   CheckCircle2,
   Download,
   Expand,
   Eye,
   FileText,
-  MoreVertical,
+  ChevronDown,
   Plus,
   Send,
   X,
@@ -20,7 +19,9 @@ import {
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Badge } from "@/app/components/ds/atoms/Badge";
 import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
-import { Pagination } from "@/app/components/ds/molecules/Pagination";
+import AdminListCard from "@/app/components/admin/AdminListCard";
+import AdminPagination from "@/app/components/admin/AdminPagination";
+import { AdminTableToolbar, AdminTableToolbarEnd, AdminTableToolbarStart } from "@/app/components/admin/AdminTableToolbar";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
 import Link from "next/link";
 
@@ -97,8 +98,8 @@ function ActionsDropdown({ children }: { children: React.ReactNode }) {
   }, [open]);
   return (
     <div className="relative" ref={ref}>
-      <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(!open); }} className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors">
-        <MoreVertical className="h-4 w-4" />
+      <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(!open); }} className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors" aria-expanded={open} aria-label="Open actions menu">
+        <ChevronDown className="h-4 w-4" aria-hidden />
       </button>
       {open && <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-xl border border-border bg-surface shadow-xl animate-in fade-in zoom-in-95 duration-150" onClick={() => setOpen(false)}><div className="p-1.5">{children}</div></div>}
     </div>
@@ -297,7 +298,7 @@ export default function InvoicesPage() {
   const [listTotalPages, setListTotalPages] = useState(1);
   const [kpi, setKpi] = useState({ all: 0, paid: 0, pending: 0, overdue: 0, draft: 0, loading: true, error: "" });
   const [searchDebounced, setSearchDebounced] = useState("");
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 400);
@@ -356,7 +357,9 @@ export default function InvoicesPage() {
     (async () => {
       const profRes = await fetch("/api/billing/profile", { cache: "no-store" });
       const prof = (await profRes.json().catch(() => null)) as { success?: boolean; data?: BillingProfile } | null;
-      if (!cancel && prof && prof.success === true && prof.data) setProfile(prof.data);
+      if (!cancel && prof && prof.success === true && prof.data) {
+        setProfile(prof.data);
+      }
     })();
     return () => { cancel = true; };
   }, []);
@@ -384,10 +387,12 @@ export default function InvoicesPage() {
   }, [filter, page, pageSize, searchDebounced, showToast]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load invoice KPI counts
     void loadKpi();
   }, [loadKpi]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load paginated invoice list
     void loadList();
   }, [loadList]);
 
@@ -423,7 +428,7 @@ export default function InvoicesPage() {
     { key: "dueDate", header: "Due date", cell: (r) => <span className={`text-xs ${r.status === "overdue" ? "text-red-600 font-semibold" : "text-text-tertiary"}`}>{r.dueDate}</span> },
     { key: "status", header: "Status", cell: (r) => <Badge color={statusColor(r.status)} size="sm" dot>{statusLabel(r.status)}</Badge> },
     {
-      key: "actions", header: "", align: "right",
+      key: "actions", header: "Actions", align: "right",
       cell: (r) => {
         const items: React.ReactNode[] = [];
         if (r.status === "paid") {
@@ -491,7 +496,7 @@ export default function InvoicesPage() {
         return <ActionsDropdown>{items}</ActionsDropdown>;
       },
     },
-  ], [showToast]);
+  ], [showToast, filter, searchDebounced]);
 
   return (
     <div className="space-y-5">
@@ -531,26 +536,58 @@ export default function InvoicesPage() {
         </div>
       </div>
 
-      {/* Tab Filters */}
-      <div className="flex bg-surface border border-border rounded-xl overflow-hidden">
-        {FILTERS.map(({ id, label }) => (
-          <button
-            key={id}
-            onClick={() => { setFilter(id); setPage(1); }}
-            className={`flex-1 px-4 py-2.5 text-xs font-medium border-r border-border last:border-r-0 transition-colors ${
-              filter === id ? "bg-brand-50 text-brand font-bold" : "text-text-tertiary hover:text-text-primary"
-            }`}
-          >
-            {label} ({counts[id as keyof typeof counts]})
-          </button>
-        ))}
-      </div>
+      <AdminListCard>
+        <AdminTableToolbar stacked>
+          <AdminTableToolbarStart>
+            <SearchInput
+              value={search}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              onClear={search ? () => { setSearch(""); setPage(1); } : undefined}
+              placeholder="Search temple, invoice no., or email…"
+            />
+          </AdminTableToolbarStart>
+          <AdminTableToolbarEnd className="w-full md:w-full">
+            <div className="overflow-x-auto pb-0.5 [-webkit-overflow-scrolling:touch]">
+              <div className="flex min-w-max gap-1 rounded-xl border border-border bg-subtle p-1 sm:min-w-0 sm:flex-1">
+                {FILTERS.map(({ id, label }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => {
+                      setFilter(id);
+                      setPage(1);
+                    }}
+                    className={`shrink-0 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:flex-1 sm:px-4 sm:py-2.5 ${
+                      filter === id ? "bg-brand-50 text-brand font-bold shadow-xs" : "text-text-tertiary hover:text-text-primary"
+                    }`}
+                  >
+                    {label} ({counts[id as keyof typeof counts]})
+                  </button>
+                ))}
+              </div>
+            </div>
+          </AdminTableToolbarEnd>
+        </AdminTableToolbar>
 
-      {/* Table */}
-      <div className="bg-surface rounded-xl border border-border shadow-xs">
         <DataTable<Invoice> columns={columns} data={pageRows} keyExtractor={(r) => r.id} />
-        <div className="px-6"><Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} showResultsCount /></div>
-      </div>
+
+        <AdminPagination
+          page={page}
+          pageSize={pageSize}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
+        <p className="border-t border-border px-4 py-3 text-xs text-text-tertiary">
+          {listTotal} result{listTotal !== 1 ? "s" : ""} for this status and search · page {page} of {totalPages}
+        </p>
+      </AdminListCard>
 
       {viewInvoice && <InvoiceModal invoice={viewInvoice} profile={profile} onClose={() => setViewInvoice(null)} />}
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}

@@ -10,7 +10,7 @@ import {
   Expand,
   Eye,
   FileText,
-  MoreVertical,
+  ChevronDown,
   RefreshCw,
   Repeat,
   ShieldCheck,
@@ -20,11 +20,13 @@ import {
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Badge } from "@/app/components/ds/atoms/Badge";
 import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
-import { Pagination } from "@/app/components/ds/molecules/Pagination";
+import AdminListCard from "@/app/components/admin/AdminListCard";
+import AdminPagination from "@/app/components/admin/AdminPagination";
+import { AdminTableToolbar, AdminTableToolbarEnd, AdminTableToolbarStart } from "@/app/components/admin/AdminTableToolbar";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
 import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
-import { PlanName } from "./_components/types";
+
 // ── Types ──────────────────────────────────────────────────────────
 
 type SubscriptionStatus = "Pending" | "Active" | "Expired" | "Rejected";
@@ -120,8 +122,10 @@ function ActionsDropdown({ actions }: { actions: ActionItem[] }) {
           setOpen(!open);
         }}
         className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors"
+        aria-expanded={open}
+        aria-label="Open actions menu"
       >
-        <MoreVertical className="h-4 w-4" />
+        <ChevronDown className="h-4 w-4" aria-hidden />
       </button>
 
       {open && (
@@ -490,16 +494,14 @@ export default function SubscriptionsPage() {
   const [searchDebounced, setSearchDebounced] = useState("");
   const [filter, setFilter] = useState<FilterId>("All");
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(10);
   const [isLoading, setIsLoading] = useState(true);
   const [verifyingRow, setVerifyingRow] = useState<SubscriptionRow | null>(null);
   const [invoiceRow, setInvoiceRow] = useState<SubscriptionRow | null>(null);
-  const [changePlanRow, setChangePlanRow] = useState<SubscriptionRow | null>(null);
-  const [extendRow, setExtendRow] = useState<SubscriptionRow | null>(null);
-  const [convertToPaidRow, setConvertToPaidRow] = useState<SubscriptionRow | null>(null);
   const [rows, setRows] = useState<SubscriptionRow[]>([]);
   const [profile, setProfile] = useState<BillingProfile | null>(null);
   const [totalPages, setTotalPages] = useState(1);
+  const [listTotal, setListTotal] = useState(0);
   const [counts, setCounts] = useState<Record<FilterId, number>>({ All: 0, Pending: 0, Active: 0, Expired: 0, Rejected: 0 });
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [toast, setToast] = useState<{
@@ -560,11 +562,12 @@ export default function SubscriptionsPage() {
     if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
     const res = await fetch(`/api/subscriptions?${p.toString()}`, { cache: "no-store" });
     const d = (await res.json().catch(() => null)) as
-      | { success?: boolean; data?: { data: ApiRow[]; totalPages: number } }
+      | { success?: boolean; data?: { data: ApiRow[]; totalPages: number; total?: number } }
       | null;
     if (!d || d.success !== true || !d.data) {
       setRows([]);
       setTotalPages(1);
+      setListTotal(0);
       setLoadErr(jsonApiErrorMessage(d) || "Failed to load subscriptions");
       return;
     }
@@ -587,6 +590,7 @@ export default function SubscriptionsPage() {
       }))
     );
     setTotalPages(Math.max(1, d.data.totalPages ?? 1));
+    setListTotal(typeof d.data.total === "number" ? d.data.total : (d.data.data ?? []).length);
   }, [filter, page, pageSize, searchDebounced]);
 
   const loadCounts = useCallback(async () => {
@@ -609,12 +613,10 @@ export default function SubscriptionsPage() {
     setCounts(out);
   }, [searchDebounced]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     void loadList();
   }, [loadList]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     void loadCounts();
   }, [loadCounts]);
@@ -667,44 +669,6 @@ export default function SubscriptionsPage() {
     })();
   }, [verifyingRow, showToast, loadList, loadCounts]);
 
-  const handleChangePlan = useCallback((newPlan: PlanName) => {
-    if (!changePlanRow) return;
-    setRows((prev) =>
-      prev.map((r) =>
-        r.id === changePlanRow.id ? { ...r, plan: newPlan } : r
-      )
-    );
-    setChangePlanRow(null);
-    showToast(`Plan updated to ${newPlan} for ${changePlanRow.templeName}.`, "success");
-  }, [changePlanRow, showToast]);
-
-  const handleExtend = useCallback((months: number) => {
-    if (!extendRow) return;
-    setRows((prev) =>
-      prev.map((r) => {
-        if (r.id === extendRow.id) {
-          const d = new Date(r.expiresOn);
-          d.setMonth(d.getMonth() + months);
-          return { ...r, expiresOn: d.toISOString().split("T")[0], status: "Active" as SubscriptionStatus };
-        }
-        return r;
-      })
-    );
-    setExtendRow(null);
-    showToast(`Subscription extended by ${months} months for ${extendRow.templeName}.`, "success");
-  }, [extendRow, showToast]);
-
-  const handleConvertToPaid = useCallback(() => {
-    if (!convertToPaidRow) return;
-    setRows((prev) =>
-      prev.map((r) =>
-        r.id === convertToPaidRow.id ? { ...r, status: "Active" as SubscriptionStatus, verifiedBy: "Super Admin" } : r
-      )
-    );
-    setConvertToPaidRow(null);
-    showToast(`${convertToPaidRow.templeName} converted to paid subscription successfully.`, "success");
-  }, [convertToPaidRow, showToast]);
-
   // ── Row Actions Builder ──────────────────────────────────────────
 
   function getRowActions(row: SubscriptionRow): ActionItem[] {
@@ -723,7 +687,8 @@ export default function SubscriptionsPage() {
       {
         label: "Change Plan",
         icon: <Repeat className="h-4 w-4" />,
-        onClick: () => setChangePlanRow(row),
+        onClick: () =>
+          showToast(`Change plan for ${row.templeName} — coming soon.`, "success"),
       },
       {
         label: "Reminder",
@@ -737,7 +702,8 @@ export default function SubscriptionsPage() {
       base.push({
         label: "Extend",
         icon: <RefreshCw className="h-4 w-4" />,
-        onClick: () => setExtendRow(row),
+        onClick: () =>
+          showToast(`Extend subscription for ${row.templeName} — coming soon.`, "success"),
       });
     }
 
@@ -882,10 +848,9 @@ export default function SubscriptionsPage() {
       </div>
 
       {/* Table Container */}
-      <div className="bg-surface rounded-xl border border-border shadow-xs">
-        {/* Filter Bar — search + tabs with count badges */}
-        <div className="flex flex-col gap-4 border-b border-border p-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="w-full max-w-md">
+      <AdminListCard>
+        <AdminTableToolbar>
+          <AdminTableToolbarStart>
             <SearchInput
               value={searchInput}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -902,9 +867,10 @@ export default function SubscriptionsPage() {
               }
               placeholder="Search by name, city, or admin email"
             />
-          </div>
+          </AdminTableToolbarStart>
 
-          <div className="flex flex-wrap items-center gap-1 rounded-lg bg-subtle p-1">
+          <AdminTableToolbarEnd>
+            <div className="flex max-w-full flex-wrap items-center gap-1 rounded-lg bg-subtle p-1">
             {FILTERS.map((id) => {
               const active = filter === id;
               const count = counts[id];
@@ -917,7 +883,7 @@ export default function SubscriptionsPage() {
                     setPage(1);
                   }}
                   className={[
-                    "rounded-md px-3 py-1.5 text-xs font-semibold transition-all flex items-center gap-1.5",
+                    "rounded-md px-3 py-1.5 text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0",
                     active
                       ? "bg-surface text-text-primary shadow-xs border border-border/50"
                       : "text-text-secondary hover:text-text-primary",
@@ -937,8 +903,9 @@ export default function SubscriptionsPage() {
                 </button>
               );
             })}
-          </div>
-        </div>
+            </div>
+          </AdminTableToolbarEnd>
+        </AdminTableToolbar>
 
         {/* Data Table */}
         <DataTable<SubscriptionRow>
@@ -949,16 +916,20 @@ export default function SubscriptionsPage() {
           loadingRows={pageSize}
         />
 
-        {/* Pagination */}
-        <div className="px-6">
-          <Pagination
-            currentPage={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
-            showResultsCount
-          />
-        </div>
-      </div>
+        <AdminPagination
+          page={page}
+          pageSize={pageSize}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
+        <p className="border-t border-border px-4 py-3 text-xs text-text-tertiary">
+          {listTotal} subscription{listTotal !== 1 ? "s" : ""} matching filters · page {page} of {totalPages}
+        </p>
+      </AdminListCard>
 
       {/* Verification Modal */}
       {verifyingRow && (

@@ -23,7 +23,7 @@ import {
 // ── Types ──────────────────────────────────────────────────────────
 
 type RegistryFeatureRow = {
-  id: number;
+  id: string;
   name: string;
   moduleKey: string;
   isActive: boolean;

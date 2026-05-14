@@ -1,5 +1,6 @@
 import { nextJsonError, nextJsonSuccess } from "@/lib/api-envelope";
 import { updateFeature, toggleFeatureActive } from "@/lib/features-db";
+import { isUuidString } from "@/lib/is-uuid";
 import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
 /** PUT /api/features/[id] — Update a feature. */
@@ -12,9 +13,9 @@ export async function PUT(
 
   try {
     const { id } = await params;
-    const featureId = parseInt(id, 10);
-    if (isNaN(featureId)) {
-      return nextJsonError(400, "INVALID_ID", "Invalid feature ID", "The path segment must be a numeric feature primary key.");
+    const featureId = id.trim();
+    if (!isUuidString(featureId)) {
+      return nextJsonError(400, "INVALID_ID", "Invalid feature ID", "The path segment must be a UUID.");
     }
 
     const body = await request.json();
@@ -41,9 +42,9 @@ export async function PATCH(
 
   try {
     const { id } = await params;
-    const featureId = parseInt(id, 10);
-    if (isNaN(featureId)) {
-      return nextJsonError(400, "INVALID_ID", "Invalid feature ID", "The path segment must be a numeric feature primary key.");
+    const featureId = id.trim();
+    if (!isUuidString(featureId)) {
+      return nextJsonError(400, "INVALID_ID", "Invalid feature ID", "The path segment must be a UUID.");
     }
 
     const feature = await toggleFeatureActive(featureId);

@@ -261,3 +261,15 @@ export const updatePricingPlanBodySchema = createPricingPlanBodySchema
   });
 
 export const pricingPlanIdParamSchema = z.string().uuid("Invalid pricing plan id");
+
+/** Path/query segment for `temples.tenant_id` (UUID after migration 029). */
+export const tenantIdParamSchema = z
+  .string()
+  .trim()
+  .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Invalid temple id");
+
+/** Path segment for `public.users.id` (UUID after migration 029). */
+export const platformUserIdParamSchema = z
+  .string()
+  .trim()
+  .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Invalid user id");

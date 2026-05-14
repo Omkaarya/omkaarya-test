@@ -116,6 +116,7 @@ export default function ConfirmPaymentsPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load pending payments on mount
     void load();
   }, [load]);
 

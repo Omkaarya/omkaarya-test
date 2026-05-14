@@ -9,9 +9,9 @@ import { getPoolConfig } from "@/lib/pg-config";
 // ── Types ──────────────────────────────────────────────────────────
 
 export type PlanFeature = {
-  id: number;
+  id: string;
   planId: string;
-  featureId: number;
+  featureId: string;
   featureName: string;
   featureKey: string;
   moduleKey: string;
@@ -23,7 +23,7 @@ export type PlanFeature = {
 
 export type PlanFeatureUpsert = {
   planId: string;
-  featureId: number;
+  featureId: string;
   isEnabled: boolean;
   limitValue?: number | null;
 };
@@ -65,7 +65,7 @@ export async function fetchPlanFeatures(planId: string): Promise<PlanFeature[]> 
     [planId]
   );
   return result.rows.map((r: {
-    id: number; plan_id: string; feature_id: number; feature_name: string;
+    id: string; plan_id: string; feature_id: string; feature_name: string;
     feature_key: string; module_key: string; has_limit: boolean;
     is_enabled: boolean; limit_value: number | null; created_at: string;
   }) => ({

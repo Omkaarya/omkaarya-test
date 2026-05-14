@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiUrl } from "@/lib/api-base";
 import { nextJsonError } from "@/lib/api-envelope";
+import { isUuidString } from "@/lib/is-uuid";
 import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
 export async function GET(
@@ -12,6 +13,9 @@ export async function GET(
     if (!auth.ok) return auth.response;
 
     const { tenantId } = await context.params;
+    if (!isUuidString(tenantId)) {
+      return nextJsonError(400, "INVALID_ID", "Invalid temple id", "The path parameter must be a UUID.");
+    }
     const target = apiUrl(`/api/temples/${encodeURIComponent(tenantId)}`);
     const res = await fetch(target, {
       method: "GET",
@@ -38,6 +42,9 @@ export async function PATCH(
     if (!auth.ok) return auth.response;
 
     const { tenantId } = await context.params;
+    if (!isUuidString(tenantId)) {
+      return nextJsonError(400, "INVALID_ID", "Invalid temple id", "The path parameter must be a UUID.");
+    }
     const body = await request.json();
     const target = apiUrl(`/api/temples/${encodeURIComponent(tenantId)}`);
     const res = await fetch(target, {

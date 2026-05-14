@@ -1,9 +1,10 @@
 "use client";
 
 import { Mail, Lock, EyeOff, ArrowRight } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
+import { SUPER_ADMIN_REMEMBER_ME_STORAGE_KEY } from "@/lib/super-admin-session-prefs";
 
 const inputBase =
   "w-full rounded-lg border border-[var(--border-default)] bg-[var(--surface-elevated)] py-2 text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]";
@@ -11,9 +12,20 @@ const inputBase =
 export default function InvitationLogin() {
   const [email, setEmail] = useState("");
   const [tempPassword, setTempPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined" && localStorage.getItem(SUPER_ADMIN_REMEMBER_ME_STORAGE_KEY) === "1") {
+        setRememberMe(true);
+      }
+    } catch {
+      /* storage unavailable */
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,12 +46,17 @@ export default function InvitationLogin() {
       const response = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: trimmedEmail, tempPassword }),
+        body: JSON.stringify({ email: trimmedEmail, tempPassword, rememberMe }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
+        try {
+          localStorage.setItem(SUPER_ADMIN_REMEMBER_ME_STORAGE_KEY, rememberMe ? "1" : "0");
+        } catch {
+          /* ignore */
+        }
         router.push("/super-admin/dashboard");
       } else {
         setError(jsonApiErrorMessage(data) || "Login failed");
@@ -112,12 +129,16 @@ export default function InvitationLogin() {
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
           <div className="flex items-center justify-between text-sm">
-            <label className="flex items-center gap-2 text-[var(--text-muted)]">
+            <label className="flex cursor-pointer items-center gap-2 text-[var(--text-muted)]">
               <input
+                id="super-admin-invite-remember"
                 type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                disabled={loading}
                 className="rounded border-[var(--border-default)] bg-[var(--surface-elevated)]"
               />
-              Remember me
+              <span>Remember me for 30 days</span>
             </label>
             <button type="button" className="text-[var(--brand-primary)] hover:underline">
               Forgot password?

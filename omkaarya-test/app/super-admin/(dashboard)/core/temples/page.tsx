@@ -2,34 +2,20 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { 
-  Eye, 
-  MoreVertical, 
-  Pencil, 
-  Plus, 
-  Globe, 
-  ShieldCheck, 
-  TrendingUp, 
-  Users2, 
-  MapPin, 
-  CreditCard, 
-  Building2,
-  AlertTriangle,
-  Search,
-  ArrowRight,
-  History
-} from "lucide-react";
-import type { MockTemple, TemplePlan } from "@/lib/mock-temples";
-import type { TemplesSortBy } from "@/lib/temples-query";
+import { Eye, Pencil, Plus } from "lucide-react";
 
-// ─── Omkaarya Design System ───────────────────────────────────────
+import type { MockTemple, TemplePlan } from "@/lib/mock-temples";
+import type { TemplesListResponse, TemplesSortBy } from "@/lib/temples-query";
+import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
+import AdminListCard from "@/app/components/admin/AdminListCard";
+import AdminFiltersBar from "@/app/components/admin/AdminFiltersBar";
+import AdminPagination from "@/app/components/admin/AdminPagination";
 import { Button } from "@/app/components/ds/atoms/Button";
-import { Badge } from "@/app/components/ds/atoms/Badge";
-import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
-import { MetricCard } from "@/app/components/ds/molecules/MetricCard";
-import { AvatarCell, TextCell, ActionGroupCell } from "@/app/components/ds/molecules/TableCells";
+import { Badge, type BadgeColor } from "@/app/components/ds/atoms/Badge";
 import StatusBadge from "@/app/components/admin/StatusBadge";
 import ComplianceBadge from "@/app/components/admin/ComplianceBadge";
+
+type StatusFilter = "all" | "Active" | "Trial" | "Suspended";
 
 function initials(name: string): string {
   const parts = name.split(/\s+/).filter(Boolean);
@@ -37,111 +23,258 @@ function initials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
+function planBadgeColor(plan: TemplePlan): BadgeColor {
+  switch (plan) {
+    case "Aaradhana":
+      return "purple";
+    case "Sankalpa":
+      return "pink";
+    case "Prarambha":
+      return "indigo";
+    case "Free":
+    default:
+      return "gray";
+  }
+}
+
 export default function TemplesAdminPage() {
   const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [country, setCountry] = useState<string>("all");
+  /** Default `name` lists all temples; `last7` intentionally hides rows older than 7 days. */
+  const [sortBy, setSortBy] = useState<TemplesSortBy>("name");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [rows, setRows] = useState<MockTemple[]>([]);
+  const [countries, setCountries] = useState<string[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalAll, setTotalAll] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const timeout = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(timeout);
+  }, [searchInput]);
+
+  useEffect(() => {
+    const controller = new AbortController();
     const run = async () => {
       setLoading(true);
+      setError(null);
+
+      const params = new URLSearchParams({
+        q: search,
+        status: statusFilter,
+        country,
+        sortBy,
+        page: String(page),
+        pageSize: String(pageSize),
+      });
+
       try {
-        const response = await fetch(`/api/temples`);
+        const response = await fetch(`/api/temples?${params.toString()}`, {
+          signal: controller.signal,
+        });
         if (!response.ok) throw new Error("Failed to load temples");
-        const j = await response.json();
-        const payload = j.success ? j.data : j;
-        setRows(payload.data || []);
+        const j = (await response.json()) as
+          | { success: true; data: TemplesListResponse; message: string; reason: string }
+          | (TemplesListResponse & { success?: never });
+        const payload =
+          "success" in j && j.success === true && j.data ? j.data : (j as TemplesListResponse);
+        setRows(payload.data);
+        setCountries(payload.countries);
+        setTotal(payload.total);
+        setTotalAll(payload.totalAll);
+        setTotalPages(payload.totalPages);
+        if (page > payload.totalPages) {
+          setPage(payload.totalPages);
+        }
       } catch (err) {
-        setError("Failed to load data.");
+        if ((err as Error).name !== "AbortError") {
+          setError("Failed to load data.");
+          setRows([]);
+          setTotal(0);
+          setTotalPages(1);
+        }
       } finally {
         setLoading(false);
       }
     };
-    run();
-  }, []);
+
+    void run();
+    return () => controller.abort();
+  }, [search, statusFilter, country, sortBy, page, pageSize]);
+
+  const columns: ColumnDef<MockTemple>[] = useMemo(
+    () => [
+      {
+        key: "tenantId",
+        header: "Tenant ID",
+        cell: (row) => (
+          <span className="font-mono text-xs font-semibold text-text-tertiary">Temp ID {row.tenantId}</span>
+        ),
+      },
+      {
+        key: "name",
+        header: "Temple",
+        cell: (row) => (
+          <div className="flex min-w-0 max-w-[18rem] items-start gap-3 whitespace-normal">
+            <span
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-subtle text-xs font-semibold text-text-secondary"
+              aria-hidden
+            >
+              {initials(row.name)}
+            </span>
+            <div className="min-w-0">
+              <p className="font-semibold text-text-primary">{row.name}</p>
+              {row.portalHost ? (
+                <p className="truncate text-xs text-text-tertiary">{row.portalHost}</p>
+              ) : (
+                <p className="text-xs text-text-tertiary">—</p>
+              )}
+            </div>
+          </div>
+        ),
+      },
+      {
+        key: "city",
+        header: "Country",
+        cell: (row) => (
+          <div className="flex items-center gap-2 whitespace-nowrap">
+            <span className="text-lg leading-none" aria-hidden>
+              {row.countryFlag || "🌐"}
+            </span>
+            <span className="text-sm text-text-primary">{row.city}</span>
+          </div>
+        ),
+      },
+      {
+        key: "plan",
+        header: "Plan",
+        cell: (row) => (
+          <Badge color={planBadgeColor(row.plan)} size="sm">
+            {row.plan}
+          </Badge>
+        ),
+      },
+      {
+        key: "devotees",
+        header: "Devotees",
+        cell: (row) => (
+          <span className="text-sm font-medium tabular-nums text-text-primary">
+            {row.devotees.toLocaleString()}
+          </span>
+        ),
+      },
+      {
+        key: "status",
+        header: "Status",
+        cell: (row) => <StatusBadge status={row.status} />,
+      },
+      {
+        key: "compliance",
+        header: "Compliance",
+        cell: (row) => <ComplianceBadge compliance={row.compliance} />,
+      },
+      {
+        key: "actions",
+        header: "Actions",
+        align: "right",
+        cell: (row) => (
+          <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+            <Link
+              href={`/super-admin/edit-temple/${encodeURIComponent(row.tenantId)}?view=1`}
+              aria-label="View temple"
+              title="View temple"
+            >
+              <Button variant="ghost" size="sm" iconOnly aria-label="View temple">
+                <Eye className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href={`/super-admin/edit-temple/${encodeURIComponent(row.tenantId)}`} aria-label="Edit temple" title="Edit temple">
+              <Button variant="ghost" size="sm" iconOnly aria-label="Edit temple">
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        ),
+      },
+    ],
+    []
+  );
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      
-      {/* ─── Header ─────────────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <h1 className="text-display-xs font-bold tracking-tight text-[var(--text-primary)]">Temples</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-display-xs font-bold tracking-tight text-[var(--text-primary)]">Temples</h1>
+            <span className="rounded-full border border-border bg-subtle px-2.5 py-0.5 text-xs font-semibold text-text-secondary">
+              {totalAll} temples
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-text-tertiary">Manage and monitor your temples here.</p>
         </div>
-        <Link href="/super-admin/create-temple">
-          <Button leadingIcon={<Plus className="w-4 h-4" />}>Create Temple</Button>
+        <Link href="/super-admin/create-temple" className="shrink-0">
+          <Button leadingIcon={<Plus className="h-4 w-4" />}>Create Temple</Button>
         </Link>
       </div>
 
-      {/* ─── Table Card ─────────────────────────────────────────────── */}
-      <div className="bg-surface rounded-2xl border border-border shadow-xs overflow-hidden">
-        
-        {/* Toolbar */}
-        <div className="px-6 py-5 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-           <div className="flex-1 max-w-md">
-              <SearchInput 
-                placeholder="Search temples..." 
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-              />
-           </div>
-           <div className="flex items-center gap-3">
-              <Button variant="outline" size="sm">Filters</Button>
-              <Button variant="outline" size="sm">Export</Button>
-           </div>
-        </div>
+      <AdminListCard>
+        <AdminFiltersBar
+          search={searchInput}
+          onSearchChange={setSearchInput}
+          status={statusFilter}
+          onStatusChange={(status) => {
+            setStatusFilter(status);
+            setPage(1);
+          }}
+          country={country}
+          onCountryChange={(nextCountry) => {
+            setCountry(nextCountry);
+            setPage(1);
+          }}
+          countries={countries}
+          sortBy={sortBy}
+          onSortByChange={(nextSortBy) => {
+            setSortBy(nextSortBy as TemplesSortBy);
+            setPage(1);
+          }}
+        />
 
-        {/* Table */}
-        <div className="overflow-x-auto min-h-[400px]">
-          {loading ? (
-            <div className="p-20 text-center text-text-tertiary font-bold animate-pulse">Loading temples...</div>
-          ) : (
-            <table className="w-full text-left">
-              <thead className="bg-subtle border-b border-border">
-                <tr>
-                  <th className="px-6 py-4 text-[11px] font-black text-text-tertiary uppercase tracking-widest">ID</th>
-                  <th className="px-6 py-4 text-[11px] font-black text-text-tertiary uppercase tracking-widest">Temple Name</th>
-                  <th className="px-6 py-4 text-[11px] font-black text-text-tertiary uppercase tracking-widest">Location</th>
-                  <th className="px-6 py-4 text-[11px] font-black text-text-tertiary uppercase tracking-widest">Plan</th>
-                  <th className="px-6 py-4 text-[11px] font-black text-text-tertiary uppercase tracking-widest">Status</th>
-                  <th className="px-6 py-4 text-right"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {rows.map((row) => (
-                  <tr key={row.tenantId} className="hover:bg-subtle/50 transition-colors group">
-                    <td className="px-6 py-5">
-                       <span className="text-xs font-bold text-text-tertiary font-mono">{row.tenantId}</span>
-                    </td>
-                    <td className="px-6 py-5">
-                       <AvatarCell title={row.name} subtitle={row.slug} initials={initials(row.name)} />
-                    </td>
-                    <td className="px-6 py-5">
-                       <TextCell text="Chennai, India" subtext="Tamil Nadu" />
-                    </td>
-                    <td className="px-6 py-5">
-                       <Badge variant="outline">{row.plan}</Badge>
-                    </td>
-                    <td className="px-6 py-5">
-                       <StatusBadge status={row.status} />
-                    </td>
-                    <td className="px-6 py-5">
-                       <ActionGroupCell>
-                          <Button variant="ghost" size="sm" iconOnly><Eye className="w-4 h-4" /></Button>
-                          <Link href={`/super-admin/edit-temple/${row.tenantId}`}>
-                            <Button variant="ghost" size="sm" iconOnly><Pencil className="w-4 h-4" /></Button>
-                          </Link>
-                          <Button variant="ghost" size="sm" iconOnly><MoreVertical className="w-4 h-4" /></Button>
-                       </ActionGroupCell>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
+        {error ? (
+          <p className="px-6 py-10 text-center text-sm text-red-600 dark:text-red-400">{error}</p>
+        ) : (
+          <DataTable<MockTemple>
+            columns={columns}
+            data={rows}
+            keyExtractor={(row) => row.tenantId}
+            tableClassName="min-w-[960px]"
+            isLoading={loading}
+            loadingRows={pageSize}
+          />
+        )}
+
+        <AdminPagination
+          page={page}
+          pageSize={pageSize}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
+        <p className="border-t border-border px-4 py-3 text-xs text-text-tertiary">
+          {total} filtered results{sortBy === "last7" ? " (created in the last 7 days)" : ""} · {totalAll} total on platform
+        </p>
+      </AdminListCard>
     </div>
   );
 }

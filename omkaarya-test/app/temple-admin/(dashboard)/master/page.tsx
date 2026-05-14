@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from "react";
 import {
-  MoreVertical,
   Clock,
   X,
   Info,
@@ -158,7 +157,7 @@ function SevaTable({ data, onDelete }: { data: PoojaSeva[]; onDelete: (id: strin
             <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400 text-center">Duration</th>
             <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Price</th>
             <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Status</th>
-            <th className="px-6 py-4"></th>
+            <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-zinc-400">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800">
@@ -202,7 +201,7 @@ function ScheduleTable({ data, onDelete }: { data: Schedule[]; onDelete: (id: st
             <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Time</th>
             <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Priest</th>
             <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Slots</th>
-            <th className="px-6 py-4"></th>
+            <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-zinc-400">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800">
@@ -242,7 +241,7 @@ function FestivalTable({ data, onDelete }: { data: Festival[]; onDelete: (id: st
             <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Festival Name</th>
             <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Date</th>
             <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Category</th>
-            <th className="px-6 py-4 text-right text-xs font-bold text-zinc-400"></th>
+            <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-zinc-400">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800">
@@ -281,7 +280,7 @@ function PanchTable({ data, onDelete }: { data: PanchangamEntry[]; onDelete: (id
             <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Date</th>
             <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Festival / Day</th>
             <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Auspicious Type</th>
-            <th className="px-6 py-4 text-right"></th>
+            <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-zinc-400">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800">

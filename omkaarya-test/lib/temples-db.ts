@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import bcrypt from "bcryptjs";
 import type { MockTemple } from "@/lib/mock-temples";
@@ -76,7 +76,7 @@ export async function fetchTemplesFromDb(): Promise<MockTemple[]> {
   }>(
     `SELECT tenant_id, name, slug, domain_subdomain, country_code, country_flag, city, plan, devotees, status, compliance, admin_email
      FROM public.temples
-     ORDER BY tenant_id::int DESC`
+     ORDER BY tenant_id::text DESC`
   );
   return result.rows.map(rowToTemple);
 }
@@ -118,11 +118,7 @@ export async function insertTempleFromPayload(payload: {
   const p = getPool();
   const client = await p.connect();
   try {
-    const maxRes = await client.query<{ m: number | null }>(
-      `SELECT MAX(tenant_id::int) AS m FROM public.temples WHERE tenant_id ~ '^[0-9]+$'`
-    );
-    const maxNum = maxRes.rows[0]?.m ?? 1000;
-    const tenantId = String(maxNum + 1);
+    const tenantId = randomUUID();
     const countryCode = payload.temple.country.trim() || "GB";
     const plan = normalizePlan(payload.planBilling.selectedPlan);
     const trial = payload.planBilling.trial?.enabled === true;
@@ -132,7 +128,7 @@ export async function insertTempleFromPayload(payload: {
     const adminEmail =
       payload.admin.email.trim() || payload.temple.email.trim() || "";
 
-    let adminUserId: number | null = null;
+    let adminUserId: string | null = null;
     await client.query("BEGIN");
     try {
       if (ADMIN_EMAIL_RE.test(adminEmail)) {
@@ -157,7 +153,7 @@ export async function insertTempleFromPayload(payload: {
             [adminEmail, tempPasswordHash]
           );
         }
-        const idRes = await client.query<{ id: number }>(
+        const idRes = await client.query<{ id: string }>(
           "SELECT id FROM public.users WHERE email = $1 LIMIT 1",
           [adminEmail]
         );

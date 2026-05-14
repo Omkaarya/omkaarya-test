@@ -14,8 +14,8 @@ export function parseTemplesQuery(searchParams: URLSearchParams): TemplesQueryIn
   const rawCountry = (searchParams.get("country") ?? "all").trim();
   const country = rawCountry || "all";
 
-  const rawSort = (searchParams.get("sortBy") ?? "last7").trim() as TemplesSortBy;
-  const sortBy = ALLOWED_SORTS.includes(rawSort) ? rawSort : "last7";
+  const rawSort = (searchParams.get("sortBy") ?? "name").trim() as TemplesSortBy;
+  const sortBy = ALLOWED_SORTS.includes(rawSort) ? rawSort : "name";
 
   const rawPage = Number(searchParams.get("page") ?? "1");
   const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.floor(rawPage) : 1;
@@ -66,7 +66,7 @@ export function sortTemples(rows: TempleRecord[], sortBy: TemplesSortBy): Temple
     return sorted;
   }
 
-  sorted.sort((a, b) => Number(b.tenantId) - Number(a.tenantId));
+  sorted.sort((a, b) => (a.tenantId < b.tenantId ? 1 : a.tenantId > b.tenantId ? -1 : 0));
   return sorted;
 }
 

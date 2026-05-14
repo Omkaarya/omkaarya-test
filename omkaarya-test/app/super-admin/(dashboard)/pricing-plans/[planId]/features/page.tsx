@@ -16,7 +16,7 @@ import {
 // ── Types ──────────────────────────────────────────────────────────
 
 type PlanFeatureConfig = {
-  featureId: number;
+  featureId: string;
   featureName: string;
   featureKey: string;
   moduleKey: string;
@@ -149,7 +149,7 @@ export default function PlanFeaturesPage() {
 
   // ── Handlers ────────────────────────────────────────────────────
 
-  const toggleFeature = (featureId: number) => {
+  const toggleFeature = (featureId: string) => {
     setFeatures((prev) =>
       prev.map((f) =>
         f.featureId === featureId ? { ...f, isEnabled: !f.isEnabled } : f
@@ -159,7 +159,7 @@ export default function PlanFeaturesPage() {
     setSaved(false);
   };
 
-  const setLimit = (featureId: number, value: string) => {
+  const setLimit = (featureId: string, value: string) => {
     const numValue = value === "" ? null : parseInt(value, 10);
     setFeatures((prev) =>
       prev.map((f) =>

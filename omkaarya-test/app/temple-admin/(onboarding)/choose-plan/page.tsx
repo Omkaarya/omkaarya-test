@@ -38,7 +38,7 @@ type ComparisonPayload = {
   data?: {
     plans: { id: string; name: string }[];
     features: {
-      featureId: number;
+      featureId: string;
       name: string;
       key: string;
       moduleKey: string;

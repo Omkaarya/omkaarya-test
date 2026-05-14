@@ -6,7 +6,6 @@ import {
   Plus,
   Filter,
   Download,
-  MoreVertical,
   CheckCircle2,
   XCircle,
   Image as ImageIcon,
@@ -133,10 +132,10 @@ export default function PrasadItemsPage() {
       key: "name",
       header: "Prashadham",
       cell: (item) => (
-        <AvatarCell 
-          title={item.name} 
-          subtitle={item.sku} 
-          initials={item.emoji} 
+        <AvatarCell
+          title={item.name}
+          subtitle={item.sku}
+          initials={item.emoji}
         />
       )
     },
@@ -171,8 +170,8 @@ export default function PrasadItemsPage() {
       key: "status",
       header: "Status",
       cell: (item) => (
-        <Badge 
-          color={item.status === "available" ? "success" : "error"} 
+        <Badge
+          color={item.status === "available" ? "success" : "error"}
           size="sm"
           leadingIcon={item.status === "available" ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
         >
@@ -184,16 +183,6 @@ export default function PrasadItemsPage() {
       key: "updated",
       header: "Last Updated",
       cell: (item) => <TextCell text={item.updated} />
-    },
-    {
-      key: "actions",
-      header: "",
-      align: "right",
-      cell: () => (
-        <Button variant="ghost" size="sm" iconOnly>
-          <MoreVertical className="w-4 h-4 text-text-tertiary" />
-        </Button>
-      )
     }
   ];
 
@@ -223,23 +212,23 @@ export default function PrasadItemsPage() {
       {/* ─── Filters & Table ────────────────────────────────────────── */}
       <div className="bg-surface rounded-2xl border border-border shadow-xs overflow-hidden">
         <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-4 items-center justify-between">
-           <div className="w-full sm:w-80">
-              <Input 
-                placeholder="Search items..." 
-                leadingIcon={<Search className="w-4 h-4" />}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-           </div>
-           <div className="flex items-center gap-3 w-full sm:w-auto">
-              <div className="w-full sm:w-48">
-                <Select options={CATEGORIES} defaultValue="all" />
-              </div>
-              <Button variant="outline" iconOnly><Filter className="w-4 h-4" /></Button>
-           </div>
+          <div className="w-full sm:w-80">
+            <Input
+              placeholder="Search items..."
+              leadingIcon={<Search className="w-4 h-4" />}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="w-full sm:w-48">
+              <Select options={CATEGORIES} defaultValue="all" />
+            </div>
+            <Button variant="outline" iconOnly><Filter className="w-4 h-4" /></Button>
+          </div>
         </div>
 
-        <DataTable 
+        <DataTable
           columns={columns}
           data={filteredItems}
           keyExtractor={(item) => String(item.id)}
@@ -247,20 +236,20 @@ export default function PrasadItemsPage() {
         />
 
         <div className="px-6 py-4 border-t border-border bg-subtle/30 flex items-center justify-between">
-           <p className="text-xs font-medium text-text-tertiary">
-             Showing <span className="text-text-primary">{filteredItems.length}</span> results
-           </p>
-           <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="h-8 px-2">Previous</Button>
-              <Button variant="outline" size="sm" className="h-8 px-2 bg-brand text-white border-brand">1</Button>
-              <Button variant="outline" size="sm" className="h-8 px-2">Next</Button>
-           </div>
+          <p className="text-xs font-medium text-text-tertiary">
+            Showing <span className="text-text-primary">{filteredItems.length}</span> results
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="h-8 px-2">Previous</Button>
+            <Button variant="outline" size="sm" className="h-8 px-2 bg-brand text-white border-brand">1</Button>
+            <Button variant="outline" size="sm" className="h-8 px-2">Next</Button>
+          </div>
         </div>
       </div>
 
       {/* ─── Footer ─────────────────────────────────────────────────── */}
       <footer className="text-center text-[10px] text-text-disabled py-4 uppercase tracking-widest font-bold">
-        2024–2026 © Om Kaaryaa All Rights Reserved • Powered By Pepulux
+        2024–2026 © Omkaarya All Rights Reserved • Powered By Pepulux
       </footer>
 
       {/* Add Prasad Modal */}
@@ -394,8 +383,8 @@ function AddPrasadModal({ onClose }: { onClose: () => void }) {
 
         </div>
         <div className="p-6 border-t border-border bg-subtle/50 flex justify-end gap-3">
-           <Button variant="outline" size="md" className="px-6" onClick={onClose}>Cancel</Button>
-           <Button size="md" className="px-8" onClick={onClose}>Save Product</Button>
+          <Button variant="outline" size="md" className="px-6" onClick={onClose}>Cancel</Button>
+          <Button size="md" className="px-8" onClick={onClose}>Save Product</Button>
         </div>
       </div>
     </div>

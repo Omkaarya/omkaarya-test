@@ -9,7 +9,9 @@ import SelectInput from "@/app/components/admin/SelectInput";
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Badge } from "@/app/components/ds/atoms/Badge";
 import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
-import { Pagination } from "@/app/components/ds/molecules/Pagination";
+import AdminListCard from "@/app/components/admin/AdminListCard";
+import AdminPagination from "@/app/components/admin/AdminPagination";
+import { AdminTableToolbar, AdminTableToolbarEnd, AdminTableToolbarStart } from "@/app/components/admin/AdminTableToolbar";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -91,9 +93,11 @@ export default function TransactionsPage() {
   const [planFilter, setPlanFilter] = useState("all");
   const [periodFilter, setPeriodFilter] = useState("this-month");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [toast, setToast] = useState<string | null>(null);
   const [rows, setRows] = useState<Transaction[]>([]);
   const [totalPages, setTotalPages] = useState(1);
+  const [listTotal, setListTotal] = useState(0);
   const [kpis, setKpis] = useState<{
     paidAmountCents: number;
     paidCount: number;
@@ -103,7 +107,6 @@ export default function TransactionsPage() {
     overdueCount: number;
     avgCollectionDays: number | null;
   } | null>(null);
-  const pageSize = 10;
 
   const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 4000); }, []);
 
@@ -122,16 +125,18 @@ export default function TransactionsPage() {
     if (periodFilter !== "custom") p.set("period", periodFilter);
     const res = await fetch(`/api/billing/transactions?${p.toString()}`, { cache: "no-store" });
     const d = (await res.json().catch(() => null)) as
-      | { success?: boolean; data?: { data: ApiTx[]; totalPages: number } }
+      | { success?: boolean; data?: { data: ApiTx[]; totalPages: number; total?: number } }
       | null;
     if (!d || d.success !== true || !d.data) {
       setRows([]);
       setTotalPages(1);
+      setListTotal(0);
       showToast(jsonApiErrorMessage(d) || "Failed to load transactions");
       return;
     }
     setRows((d.data.data ?? []).map(mapTx));
     setTotalPages(Math.max(1, d.data.totalPages));
+    setListTotal(typeof d.data.total === "number" ? d.data.total : (d.data.data ?? []).length);
   }, [page, pageSize, statusFilter, planFilter, searchDebounced, showToast, periodFilter]);
 
   const loadKpis = useCallback(async () => {
@@ -148,13 +153,13 @@ export default function TransactionsPage() {
     setKpis(d.data);
   }, [periodFilter]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch transactions when deps change
     void load();
   }, [load]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch KPIs when period changes
     void loadKpis();
   }, [loadKpis]);
 
@@ -259,51 +264,81 @@ export default function TransactionsPage() {
         </div>
       </div>
 
-      {/* Toolbar: Search + Dropdown Filters */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="w-full max-w-[260px]">
-          <SearchInput value={search} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setPage(1); }} onClear={search ? () => { setSearch(""); setPage(1); } : undefined} placeholder="Search temple or transaction…" />
-        </div>
-        <SelectInput
-          value={statusFilter}
-          onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
-          className="text-xs text-zinc-700 dark:text-zinc-200"
-          wrapperClassName="w-auto min-w-[140px]"
-        >
-          <option value="all">All status</option>
-          <option value="paid">Confirmed</option>
-          <option value="pending">Pending confirmation</option>
-          <option value="overdue">Overdue</option>
-        </SelectInput>
-        <SelectInput
-          value={planFilter}
-          onChange={e => { setPlanFilter(e.target.value); setPage(1); }}
-          className="text-xs text-zinc-700 dark:text-zinc-200"
-          wrapperClassName="w-auto min-w-[120px]"
-        >
-          <option value="all">All plans</option>
-          <option value="Aaradhana">Aaradhana</option>
-          <option value="Sankalpa">Sankalpa</option>
-          <option value="Prarambha">Prarambha</option>
-        </SelectInput>
-        <SelectInput
-          value={periodFilter}
-          onChange={e => setPeriodFilter(e.target.value)}
-          className="text-xs text-zinc-700 dark:text-zinc-200"
-          wrapperClassName="w-auto min-w-[120px]"
-        >
-          <option value="this-month">This month</option>
-          <option value="last-month">Last month</option>
-          <option value="this-year">This year</option>
-          <option value="custom">Custom range</option>
-        </SelectInput>
-      </div>
+      <AdminListCard>
+        <AdminTableToolbar>
+          <AdminTableToolbarStart>
+            <SearchInput
+              value={search}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              onClear={search ? () => { setSearch(""); setPage(1); } : undefined}
+              placeholder="Search temple or transaction…"
+            />
+          </AdminTableToolbarStart>
+          <AdminTableToolbarEnd>
+            <SelectInput
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+              className="text-xs text-text-secondary"
+              wrapperClassName="w-full min-w-[140px] sm:w-auto"
+            >
+              <option value="all">All status</option>
+              <option value="paid">Confirmed</option>
+              <option value="pending">Pending confirmation</option>
+              <option value="overdue">Overdue</option>
+            </SelectInput>
+            <SelectInput
+              value={planFilter}
+              onChange={(e) => {
+                setPlanFilter(e.target.value);
+                setPage(1);
+              }}
+              className="text-xs text-text-secondary"
+              wrapperClassName="w-full min-w-[120px] sm:w-auto"
+            >
+              <option value="all">All plans</option>
+              <option value="Aaradhana">Aaradhana</option>
+              <option value="Sankalpa">Sankalpa</option>
+              <option value="Prarambha">Prarambha</option>
+            </SelectInput>
+            <SelectInput
+              value={periodFilter}
+              onChange={(e) => {
+                setPeriodFilter(e.target.value);
+                setPage(1);
+              }}
+              className="text-xs text-text-secondary"
+              wrapperClassName="w-full min-w-[120px] sm:w-auto"
+            >
+              <option value="this-month">This month</option>
+              <option value="last-month">Last month</option>
+              <option value="this-year">This year</option>
+              <option value="custom">Custom range</option>
+            </SelectInput>
+          </AdminTableToolbarEnd>
+        </AdminTableToolbar>
 
-      {/* Table */}
-      <div className="bg-surface rounded-xl border border-border shadow-xs">
         <DataTable<Transaction> columns={columns} data={pageRows} keyExtractor={(r) => r.id} />
-        <div className="px-6"><Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} showResultsCount /></div>
-      </div>
+
+        <AdminPagination
+          page={page}
+          pageSize={pageSize}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
+        <p className="border-t border-border px-4 py-3 text-xs text-text-tertiary">
+          {listTotal} result{listTotal !== 1 ? "s" : ""} matching filters · page {page} of {totalPages}
+        </p>
+      </AdminListCard>
 
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
     </div>

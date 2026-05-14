@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
+import { SUPER_ADMIN_REMEMBER_ME_STORAGE_KEY } from "@/lib/super-admin-session-prefs";
 
 const inputBase =
   "w-full rounded-xl border border-[var(--border-default)] bg-[var(--surface-elevated)] px-4 py-3 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all focus:border-[var(--brand-primary)] focus:ring-2 focus:ring-[var(--brand-primary)]/20 disabled:opacity-60";
@@ -16,8 +17,19 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined" && localStorage.getItem(SUPER_ADMIN_REMEMBER_ME_STORAGE_KEY) === "1") {
+        setRememberMe(true);
+      }
+    } catch {
+      /* storage unavailable */
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,12 +45,17 @@ export default function LoginPage() {
       const response = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({ email: email.trim(), password, rememberMe }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
+        try {
+          localStorage.setItem(SUPER_ADMIN_REMEMBER_ME_STORAGE_KEY, rememberMe ? "1" : "0");
+        } catch {
+          /* ignore */
+        }
         router.push("/super-admin/dashboard");
       } else {
         setError(jsonApiErrorMessage(data) || "Invalid email or password.");
@@ -75,7 +92,7 @@ export default function LoginPage() {
               className="text-4xl font-bold tracking-tight lg:text-5xl"
               style={{ fontFamily: "Poppins, sans-serif" }}
             >
-              Om Kaaryaa
+              Omkaarya
             </h1>
             <p className="mt-2 text-sm font-semibold uppercase tracking-wider text-white/80">Super Admin</p>
             <p className="mt-3 max-w-md text-lg font-medium text-white/90 lg:text-xl">
@@ -154,14 +171,20 @@ export default function LoginPage() {
             </div>
 
             <div className="flex items-center justify-between pt-1">
-              <label className="group flex cursor-pointer items-center gap-2">
+              <label
+                htmlFor="super-admin-login-remember"
+                className="group flex cursor-pointer items-center gap-2"
+              >
                 <input
+                  id="super-admin-login-remember"
                   type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
                   disabled={loading}
                   className="h-4 w-4 rounded border-[var(--border-default)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)]"
                 />
                 <span className="text-sm font-medium text-[var(--muted)] transition-colors group-hover:text-[var(--foreground)]">
-                  Remember for 30 days
+                  Remember me for 30 days
                 </span>
               </label>
               <span className="text-sm font-semibold text-[var(--muted)]">Forgot password?</span>

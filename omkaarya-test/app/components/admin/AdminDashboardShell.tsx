@@ -310,12 +310,12 @@ export function AdminDashboardShell({
         ].join(" ")}
       >
         <div className="flex h-16 items-center border-b border-white px-6 dark:border-zinc-950">
-          <Image 
-            src="/brand-logo/Omkaarya 9.svg" 
-            alt="Omkaarya" 
-            width={120} 
-            height={32} 
-            className="h-8 w-auto dark:invert" 
+          <Image
+            src="/brand-logo/Omkaarya 9.svg"
+            alt="Omkaarya"
+            width={120}
+            height={32}
+            className="h-8 w-auto dark:invert"
           />
         </div>
         <nav className="flex-1 overflow-y-auto px-3 py-4">
@@ -535,7 +535,7 @@ export function AdminDashboardShell({
             <p className="text-center text-[var(--text-muted)] sm:text-left">
               2024 - 2026 ©{" "}
               <span className="font-medium text-[var(--brand-primary)]">
-                Om Kaaryaa
+                Omkaarya
               </span>{" "}
               All Rights Reserved
             </p>

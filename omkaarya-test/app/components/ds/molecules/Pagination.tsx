@@ -10,7 +10,11 @@ export interface PaginationProps {
   totalPages: number;
   onPageChange: (page: number) => void;
   showTextLabels?: boolean;
-  showResultsCount?: boolean; // E.g. "Showing results: 10 per page" metadata block
+  /** When true, shows a page-size row. If `onPageSizeChange` is omitted, the row is hidden (legacy callers had a non-functional select). Prefer `AdminPagination` for list tables. */
+  showResultsCount?: boolean;
+  pageSize?: number;
+  onPageSizeChange?: (pageSize: number) => void;
+  pageSizeOptions?: number[];
   className?: string;
 }
 
@@ -20,6 +24,9 @@ export const Pagination: React.FC<PaginationProps> = ({
   onPageChange,
   showTextLabels = true,
   showResultsCount = false,
+  pageSize = 10,
+  onPageSizeChange,
+  pageSizeOptions = [10, 20, 50],
   className = "",
 }) => {
   const getPageNumbers = () => {
@@ -37,16 +44,27 @@ export const Pagination: React.FC<PaginationProps> = ({
   return (
     <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 w-full py-4 border-t border-border ${className}`}>
       
-      {showResultsCount && (
+      {showResultsCount && onPageSizeChange && (
         <div className="flex items-center gap-2 text-sm text-text-secondary w-full sm:w-auto justify-center sm:justify-start">
           <span>Showing results:</span>
+          <label htmlFor="ds-pagination-page-size" className="sr-only">
+            Rows per page
+          </label>
           <SelectInput
+            id="ds-pagination-page-size"
+            value={String(pageSize)}
+            onChange={(e) => {
+              onPageSizeChange(Number(e.target.value));
+              onPageChange(1);
+            }}
             className="!w-auto !min-w-0 !border-border !bg-surface !px-2 !py-1 !text-sm !font-medium !text-text-primary"
             wrapperClassName="w-auto min-w-0"
           >
-            <option>10</option>
-            <option>20</option>
-            <option>50</option>
+            {pageSizeOptions.map((n) => (
+              <option key={n} value={String(n)}>
+                {n}
+              </option>
+            ))}
           </SelectInput>
           <span>per page</span>
         </div>

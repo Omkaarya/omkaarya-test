@@ -13,7 +13,7 @@ import { getPoolConfig } from "@/lib/pg-config";
 export type AccessLevel = "none" | "view" | "full";
 
 export type SaRole = {
-  id: number;
+  id: string;
   name: string;
   description: string;
   isActive: boolean;
@@ -22,17 +22,17 @@ export type SaRole = {
 };
 
 export type SaRolePermission = {
-  id: number;
-  roleId: number;
+  id: string;
+  roleId: string;
   featureKey: string;
   accessLevel: AccessLevel;
 };
 
 export type SaUser = {
-  id: number;
+  id: string;
   name: string;
   email: string;
-  roleId: number | null;
+  roleId: string | null;
   roleName: string | null;
   isActive: boolean;
   lastLogin: string | null;
@@ -42,7 +42,7 @@ export type SaUser = {
 export type CreateSaUserInput = {
   name: string;
   email: string;
-  roleId?: number | null;
+  roleId?: string | null;
   isActive?: boolean;
 };
 
@@ -71,10 +71,10 @@ function getPool(): Pool {
 // ── Row mappers ────────────────────────────────────────────────────
 
 function rowToSaUser(r: {
-  id: number;
+  id: string;
   name: string;
   email: string;
-  role_id: number | null;
+  role_id: string | null;
   role_name: string | null;
   is_active: boolean;
   last_login: string | null;
@@ -93,7 +93,7 @@ function rowToSaUser(r: {
 }
 
 function rowToSaRole(r: {
-  id: number;
+  id: string;
   name: string;
   description: string;
   is_active: boolean;
@@ -126,7 +126,7 @@ export async function fetchAllSaUsers(): Promise<SaUser[]> {
 }
 
 /** Get a single super admin user by ID. */
-export async function fetchSaUserById(id: number): Promise<SaUser | null> {
+export async function fetchSaUserById(id: string): Promise<SaUser | null> {
   const p = getPool();
   const result = await p.query(`
     SELECT u.id, u.name, u.email, u.role_id, r.name AS role_name,
@@ -153,7 +153,7 @@ export async function insertSaUser(input: CreateSaUserInput): Promise<SaUser> {
 }
 
 /** Update a super admin user. */
-export async function updateSaUser(id: number, input: UpdateSaUserInput): Promise<SaUser | null> {
+export async function updateSaUser(id: string, input: UpdateSaUserInput): Promise<SaUser | null> {
   const p = getPool();
   const sets: string[] = [];
   const vals: unknown[] = [];
@@ -175,7 +175,7 @@ export async function updateSaUser(id: number, input: UpdateSaUserInput): Promis
 }
 
 /** Toggle active status for a super admin user. */
-export async function toggleSaUserActive(id: number): Promise<SaUser | null> {
+export async function toggleSaUserActive(id: string): Promise<SaUser | null> {
   const p = getPool();
   await p.query(
     `UPDATE sa_users SET is_active = NOT is_active, updated_at = NOW() WHERE id = $1`,
@@ -185,7 +185,7 @@ export async function toggleSaUserActive(id: number): Promise<SaUser | null> {
 }
 
 /** Delete a super admin user (hard delete — use with caution). */
-export async function deleteSaUser(id: number): Promise<boolean> {
+export async function deleteSaUser(id: string): Promise<boolean> {
   const p = getPool();
   const result = await p.query(`DELETE FROM sa_users WHERE id = $1`, [id]);
   return (result.rowCount ?? 0) > 0;
@@ -208,7 +208,7 @@ export async function fetchAllSaRoles(): Promise<SaRole[]> {
 }
 
 /** Get permissions for a role. */
-export async function fetchRolePermissions(roleId: number): Promise<SaRolePermission[]> {
+export async function fetchRolePermissions(roleId: string): Promise<SaRolePermission[]> {
   const p = getPool();
   const result = await p.query(`
     SELECT id, role_id, feature_key, access_level
@@ -226,7 +226,7 @@ export async function fetchRolePermissions(roleId: number): Promise<SaRolePermis
 
 /** Upsert permissions for a role (batch replace). */
 export async function saveRolePermissions(
-  roleId: number,
+  roleId: string,
   permissions: Array<{ featureKey: string; accessLevel: AccessLevel }>
 ): Promise<void> {
   const p = getPool();

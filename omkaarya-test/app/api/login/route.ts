@@ -6,7 +6,7 @@ import { signToken, setAuthCookie } from "@/lib/auth-utils";
 import { nextJsonError, nextJsonSuccess, type ApiErrorBody, type ApiSuccessBody } from "@/lib/api-envelope";
 
 type BackendLoginEnvelope =
-  | ApiSuccessBody<{ firstLogin: boolean; userId?: number; tenantId?: string | null }>
+  | ApiSuccessBody<{ firstLogin: boolean; userId?: string | number; tenantId?: string | null }>
   | ApiErrorBody;
 
 function mockLoginEnabled(): boolean {
@@ -17,7 +17,7 @@ function parseBackendLogin(
   body: unknown
 ): {
   firstLogin: boolean;
-  userId?: number;
+  userId?: string;
   tenantId?: string | null;
   message?: string;
   reason?: string;
@@ -33,10 +33,15 @@ function parseBackendLogin(
   ) {
     return null;
   }
-  const envelope = body as ApiSuccessBody<{ firstLogin?: boolean; userId?: number; tenantId?: string | null }>;
+  const envelope = body as ApiSuccessBody<{ firstLogin?: boolean; userId?: string | number; tenantId?: string | null }>;
   const d = envelope.data;
   const firstLogin = d.firstLogin !== false;
-  const userId = typeof d.userId === "number" ? d.userId : undefined;
+  const userId =
+    typeof d.userId === "string" && d.userId.trim() !== ""
+      ? d.userId.trim()
+      : typeof d.userId === "number" && Number.isFinite(d.userId)
+        ? String(d.userId)
+        : undefined;
   const tenantId =
     d.tenantId === null ? null : typeof d.tenantId === "string" && d.tenantId.trim() !== "" ? d.tenantId.trim() : null;
   return {
@@ -51,11 +56,13 @@ function parseBackendLogin(
 export async function POST(request: NextRequest) {
   try {
     const payload = await request.json();
-    const { email, tempPassword, password } = payload as {
+    const { email, tempPassword, password, rememberMe: rememberRaw } = payload as {
       email?: string;
       tempPassword?: string;
       password?: string;
+      rememberMe?: unknown;
     };
+    const rememberMe = rememberRaw === true;
     const trimmedEmail = typeof email === "string" ? email.trim() : "";
     const rawPwd = password ?? tempPassword;
     const loginPassword = typeof rawPwd === "string" ? rawPwd.trim() : "";
@@ -80,14 +87,17 @@ export async function POST(request: NextRequest) {
 
       const parsed = res.ok ? parseBackendLogin(data) : null;
       if (res.ok && parsed) {
-        const token = await signToken({
-          userId: parsed.userId != null ? String(parsed.userId) : trimmedEmail,
-          email: trimmedEmail,
-          ...(parsed.tenantId != null && parsed.tenantId !== ""
-            ? { tenantId: parsed.tenantId }
-            : {}),
-        });
-        await setAuthCookie(token);
+        const token = await signToken(
+          {
+            userId: parsed.userId ?? trimmedEmail,
+            email: trimmedEmail,
+            ...(parsed.tenantId != null && parsed.tenantId !== ""
+              ? { tenantId: parsed.tenantId }
+              : {}),
+          },
+          { rememberMe }
+        );
+        await setAuthCookie(token, { rememberMe });
         return nextJsonSuccess(
           200,
           { firstLogin: parsed.firstLogin },
@@ -132,8 +142,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const token = await signToken({ userId: user.id, email: user.email });
-    await setAuthCookie(token);
+    const token = await signToken({ userId: user.id, email: user.email }, { rememberMe });
+    await setAuthCookie(token, { rememberMe });
 
     return nextJsonSuccess(
       200,

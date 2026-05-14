@@ -30,6 +30,7 @@ import { createTempleBillingRouter } from "./temple-billing.routes.js";
 import { createDashboardRouter } from "./dashboard.routes.js";
 import { createPublicRouter } from "../public/public.routes.js";
 import { requireSuperAdminJwt } from "./middleware/require-super-admin-jwt.js";
+import { SUPER_ADMIN_JWT_PATH_PREFIXES } from "./super-admin-protected-path-prefixes.js";
 
 /**
  * Super-admin HTTP API mounted at `/api`:
@@ -80,7 +81,7 @@ export function createSuperAdminApiRouter(): Router {
   api.use(createPasswordResetRouter(passwordResetService));
   api.use(createPublicRouter(pricingPlans));
 
-  api.use(["/temples", "/billing", "/super-admin", "/subscriptions", "/pricing-plans"], requireSuperAdminJwt);
+  api.use([...SUPER_ADMIN_JWT_PATH_PREFIXES], requireSuperAdminJwt);
   api.use(createTemplesRouter(templesService));
   api.use(createBillingRouter(billing));
   api.use(createDashboardRouter(billing));

@@ -1,4 +1,5 @@
 import { nextJsonError, nextJsonSuccess } from "@/lib/api-envelope";
+import { isUuidString } from "@/lib/is-uuid";
 import { fetchSaUserById, updateSaUser, deleteSaUser, toggleSaUserActive } from "@/lib/sa-users-db";
 import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
@@ -10,8 +11,8 @@ export async function GET(_req: Request, { params }: Params) {
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const uid = parseInt(id, 10);
-  if (isNaN(uid)) return nextJsonError(400, "INVALID_ID", "Invalid user ID", "ID must be a number.");
+  const uid = id.trim();
+  if (!isUuidString(uid)) return nextJsonError(400, "INVALID_ID", "Invalid user ID", "ID must be a UUID.");
   try {
     const user = await fetchSaUserById(uid);
     if (!user) return nextJsonError(404, "USER_NOT_FOUND", "User not found", `No admin user with id ${uid} exists.`);
@@ -27,8 +28,8 @@ export async function PATCH(request: Request, { params }: Params) {
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const uid = parseInt(id, 10);
-  if (isNaN(uid)) return nextJsonError(400, "INVALID_ID", "Invalid user ID", "ID must be a number.");
+  const uid = id.trim();
+  if (!isUuidString(uid)) return nextJsonError(400, "INVALID_ID", "Invalid user ID", "ID must be a UUID.");
   try {
     const body = await request.json();
     // Support toggleActive shorthand
@@ -51,8 +52,8 @@ export async function DELETE(_req: Request, { params }: Params) {
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const uid = parseInt(id, 10);
-  if (isNaN(uid)) return nextJsonError(400, "INVALID_ID", "Invalid user ID", "ID must be a number.");
+  const uid = id.trim();
+  if (!isUuidString(uid)) return nextJsonError(400, "INVALID_ID", "Invalid user ID", "ID must be a UUID.");
   try {
     const deleted = await deleteSaUser(uid);
     if (!deleted) return nextJsonError(404, "USER_NOT_FOUND", "User not found", `No admin user with id ${uid}.`);

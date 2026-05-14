@@ -17,7 +17,8 @@
     "verify:set-password": "tsx scripts/verify-set-password-smoke.ts",
     "temple-ops:bootstrap": "tsx scripts/temple-ops-bootstrap.ts",
     "temple-ops:migrate-env": "tsx scripts/temple-ops-migrate-env.ts",
-    "migrate:temple-admin-data-to-ops": "tsx scripts/migrate-temple-admin-data-to-ops.ts"
+    "migrate:temple-admin-data-to-ops": "tsx scripts/migrate-temple-admin-data-to-ops.ts",
+    "migrate:ops-auth-mirror-user-ids": "tsx scripts/migrate-ops-auth-mirror-platform-user-uuid.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1034.0",

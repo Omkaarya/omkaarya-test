@@ -8,7 +8,6 @@ import {
   Search,
   Filter,
   ChevronRight,
-  MoreVertical,
   History,
   Eye,
   Pencil,
@@ -298,7 +297,7 @@ export default function InventoryPage() {
                   <th className="px-5 py-3 text-[10px] font-black text-text-tertiary uppercase tracking-widest">Stock Qty</th>
                   <th className="px-5 py-3 text-[10px] font-black text-text-tertiary uppercase tracking-widest">Unit Cost</th>
                   <th className="px-5 py-3 text-[10px] font-black text-text-tertiary uppercase tracking-widest">Status</th>
-                  <th className="px-5 py-3"></th>
+                  <th className="px-5 py-3 text-right text-[10px] font-black text-text-tertiary uppercase tracking-widest">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-secondary">
@@ -376,9 +375,6 @@ export default function InventoryPage() {
                         </Button>
                         <Button variant="ghost" size="sm" iconOnly>
                           <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" iconOnly>
-                          <MoreVertical className="w-4 h-4" />
                         </Button>
                       </div>
                     </td>

@@ -52,7 +52,7 @@ export const requireSuperAdminJwt: RequestHandler = async (req, res, next) => {
       });
     }
 
-    const { rows } = await pool.query<{ id: number; roles: string[] | null }>(
+    const { rows } = await pool.query<{ id: string; roles: string[] | null }>(
       `SELECT id, roles FROM public.users WHERE lower(trim(email)) = lower(trim($1)) LIMIT 1`,
       [email]
     );
@@ -64,7 +64,7 @@ export const requireSuperAdminJwt: RequestHandler = async (req, res, next) => {
       });
     }
 
-    (res.locals as { superAdminSession?: { email: string; platformUserId: number } }).superAdminSession = {
+    (res.locals as { superAdminSession?: { email: string; platformUserId: string } }).superAdminSession = {
       email,
       platformUserId: rows[0]!.id,
     };

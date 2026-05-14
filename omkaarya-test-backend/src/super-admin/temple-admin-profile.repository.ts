@@ -70,7 +70,7 @@ export class PostgresTempleAdminProfileRepository {
     try {
       await client.query("BEGIN");
 
-      const exists = await client.query<{ id: number }>(
+      const exists = await client.query<{ id: string }>(
         "SELECT id FROM public.users WHERE email = $1 LIMIT 1",
         [sessionEmail]
       );
@@ -80,7 +80,7 @@ export class PostgresTempleAdminProfileRepository {
       }
 
       if (nextEmail !== sessionEmail) {
-        const taken = await client.query<{ id: number }>(
+        const taken = await client.query<{ id: string }>(
           "SELECT id FROM public.users WHERE email = $1 AND email <> $2 LIMIT 1",
           [nextEmail, sessionEmail]
         );

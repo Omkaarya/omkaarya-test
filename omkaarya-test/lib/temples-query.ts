@@ -35,8 +35,8 @@ export function parseTemplesQuery(searchParams: URLSearchParams): TemplesQueryIn
   const rawCountry = (searchParams.get("country") ?? "all").trim();
   const country = rawCountry || "all";
 
-  const rawSort = (searchParams.get("sortBy") ?? "last7").trim() as TemplesSortBy;
-  const sortBy = ALLOWED_SORTS.includes(rawSort) ? rawSort : "last7";
+  const rawSort = (searchParams.get("sortBy") ?? "name").trim() as TemplesSortBy;
+  const sortBy = ALLOWED_SORTS.includes(rawSort) ? rawSort : "name";
 
   const rawPage = Number(searchParams.get("page") ?? "1");
   const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.floor(rawPage) : 1;

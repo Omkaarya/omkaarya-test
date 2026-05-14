@@ -65,7 +65,7 @@ async function main(): Promise<void> {
 
   const platformClient = new pg.Client(platformConfig);
   await platformClient.connect();
-  let adminUserId: number | undefined;
+  let adminUserId: string | undefined;
   try {
     const t = await platformClient.query<{ tenant_id: string; operational_db_name: string | null }>(
       `SELECT tenant_id, operational_db_name FROM public.temples WHERE tenant_id = $1 LIMIT 1`,
@@ -76,10 +76,10 @@ async function main(): Promise<void> {
       process.exit(1);
     }
 
-    const uid = await platformClient.query<{ id: number }>(
+    const uid = await platformClient.query<{ id: string }>(
       `SELECT u.id FROM public.users u
         WHERE u.tenant_id = $1
-        ORDER BY u.id ASC
+        ORDER BY u.email ASC
         LIMIT 1`,
       [tenantId]
     );

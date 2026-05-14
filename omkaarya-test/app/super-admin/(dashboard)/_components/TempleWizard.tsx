@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   useCallback,
@@ -55,6 +56,8 @@ export type TempleWizardProps = {
   mode: TempleWizardMode;
   tenantId?: string;
   initialDetail?: SuperAdminTempleDetail | null;
+  /** When `mode === "edit"`, render the same wizard read-only (no PATCH). */
+  readOnly?: boolean;
 };
 
 /** Temple form country (ISO) → default dial code for phone rows when country changes */
@@ -149,8 +152,11 @@ const CITIES_BY_COUNTRY: Record<string, { value: string; label: string }[]> = {
   CA: [{ value: "Toronto", label: "Toronto" }],
 };
 
-function nextButtonLabel(step: number, wizardMode: TempleWizardMode): string {
-  if (step >= STEP_LABELS.length - 1) return wizardMode === "edit" ? "Save changes" : "Create temple";
+function nextButtonLabel(step: number, wizardMode: TempleWizardMode, viewOnly: boolean): string {
+  if (step >= STEP_LABELS.length - 1) {
+    if (viewOnly) return "Continue";
+    return wizardMode === "edit" ? "Save changes" : "Create temple";
+  }
   const nextName = STEP_LABELS[step + 1];
   if (step === 0) return `Next: ${nextName}`;
   return `Next: ${nextName}`;
@@ -215,8 +221,13 @@ function readFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
-export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWizardProps) {
+export default function TempleWizard({ mode, tenantId, initialDetail, readOnly = false }: TempleWizardProps) {
   const router = useRouter();
+  const isViewOnly = mode === "edit" && readOnly;
+  const editTempleHref =
+    tenantId != null && tenantId.trim() !== ""
+      ? `/super-admin/edit-temple/${encodeURIComponent(tenantId.trim())}`
+      : "/super-admin/core/temples";
   const [step, setStep] = useState(0);
   const unsavedDialogRef = useRef<HTMLDialogElement>(null);
   const validationToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -421,8 +432,16 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
     // eslint-disable-next-line react-hooks/exhaustive-deps -- baseline after hydrate only
   }, [mode, hydrated]);
 
+  useLayoutEffect(() => {
+    if (isViewOnly && mode === "edit" && hydrated) {
+      snapshotRef.current = computeSnapshot();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isViewOnly, mode, hydrated]);
+
   useEffect(() => {
     const fn = (e: BeforeUnloadEvent) => {
+      if (isViewOnly) return;
       if (mode === "edit" && !hydrated) return;
       if (computeSnapshot() !== snapshotRef.current) {
         e.preventDefault();
@@ -431,7 +450,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
     };
     window.addEventListener("beforeunload", fn);
     return () => window.removeEventListener("beforeunload", fn);
-  }, [mode, hydrated, computeSnapshot]);
+  }, [mode, hydrated, computeSnapshot, isViewOnly]);
 
   const cityOptions = useMemo(() => {
     const base = CITIES_BY_COUNTRY[country] ?? [];
@@ -590,13 +609,15 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
   };
 
   const isDirty = useMemo(() => {
+    if (isViewOnly) return false;
     if (mode === "edit" && !hydrated) return false;
     return computeSnapshot() !== snapshotRef.current;
-  }, [mode, hydrated, computeSnapshot]);
+  }, [isViewOnly, mode, hydrated, computeSnapshot]);
 
   /** Jump back freely; jump forward only when earlier wizard sections are valid (filled). */
   const isStepReachable = (target: number): boolean => {
     if (target < 0 || target >= STEP_LABELS.length) return false;
+    if (isViewOnly) return true;
     if (target <= step) return true;
     if (target >= 1 && !isStep1Valid) return false;
     if (target >= 2 && !isStep2Valid) return false;
@@ -664,6 +685,10 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
   };
 
   const requestExit = () => {
+    if (isViewOnly) {
+      router.push("/super-admin/core/temples");
+      return;
+    }
     if (mode === "edit" && !hydrated) {
       router.push("/super-admin/dashboard");
       return;
@@ -809,6 +834,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
   };
 
   const handleUpdateTemple = async () => {
+    if (isViewOnly) return;
     if (!canSubmitAllSteps || mode !== "edit" || !tenantId?.trim()) {
       setSubmitError("Please complete all required information before saving.");
       return;
@@ -893,6 +919,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
   };
 
   const handleFinalSubmit = async () => {
+    if (isViewOnly) return;
     if (!canSubmitAllSteps) {
       showRequiredFieldsToast();
       setStep1ShowErrors(true);
@@ -927,32 +954,37 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
   };
 
   const onNext = () => {
-    if (step === 0 && !isStep1Valid) {
-      setStep1ShowErrors(true);
-      showRequiredFieldsToast();
-      return;
+    if (!isViewOnly) {
+      if (step === 0 && !isStep1Valid) {
+        setStep1ShowErrors(true);
+        showRequiredFieldsToast();
+        return;
+      }
+      if (step === 1 && !isStep2Valid) {
+        setAdminTouched({
+          fullName: true,
+          email: true,
+          whatsapp: true,
+          role: true,
+        });
+        showRequiredFieldsToast();
+        return;
+      }
+      if (step === 2 && !isStep3Valid) {
+        setStep3Touched({
+          selectedPlan: true,
+          billingCycle: true,
+          trialDays: true,
+        });
+        showRequiredFieldsToast();
+        return;
+      }
     }
-    if (step === 1 && !isStep2Valid) {
-      setAdminTouched({
-        fullName: true,
-        email: true,
-        whatsapp: true,
-        role: true,
-      });
-      showRequiredFieldsToast();
-      return;
-    }
-    if (step === 2 && !isStep3Valid) {
-      setStep3Touched({
-        selectedPlan: true,
-        billingCycle: true,
-        trialDays: true,
-      });
-      showRequiredFieldsToast();
-      return;
-    }
-    if (step >= STEP_LABELS.length - 1) {
+    if (step >= STEP_LABELS.length - 1 && !isViewOnly) {
       void handleFinalSubmit();
+      return;
+    }
+    if (step >= STEP_LABELS.length - 1 && isViewOnly) {
       return;
     }
     setStep((s) => Math.min(STEP_LABELS.length - 1, s + 1));
@@ -969,6 +1001,17 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
 
   return (
     <div className="mx-auto max-w-5xl">
+      {isViewOnly ? (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/50">
+          <p className="text-sm text-zinc-700 dark:text-zinc-200">View only — fields cannot be changed here.</p>
+          <Link
+            href={editTempleHref}
+            className="text-sm font-semibold text-[var(--brand-primary)] hover:underline"
+          >
+            Edit temple
+          </Link>
+        </div>
+      ) : null}
       <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-8">
         <WizardStepper
           currentStep={step}
@@ -1005,6 +1048,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                     bullets={t.bullets}
                     icon={t.icon}
                     selected={tradition === t.id}
+                    disabled={isViewOnly}
                     onClick={() => setTradition(t.id)}
                   />
                 ))}
@@ -1016,6 +1060,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                   file={logoFile}
                   onFileChange={setLogoFile}
                   initialDataUrl={initialTempleLogoDataUrl}
+                  disabled={isViewOnly}
                 />
               </div>
 
@@ -1027,6 +1072,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                       value={templeName}
                       onChange={(e) => setTempleName(e.target.value)}
                       placeholder="e.g. Shiva Mandir London"
+                      disabled={isViewOnly}
                     />
                     {step1ShowErrors && step1Errors.templeName ? (
                       <p className="mt-1 text-xs text-red-500">{step1Errors.templeName}</p>
@@ -1041,7 +1087,8 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                   topRight={
                     <button
                       type="button"
-                      className="text-sm font-medium text-[var(--brand-primary)] hover:underline"
+                      disabled={isViewOnly}
+                      className="text-sm font-medium text-[var(--brand-primary)] hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       + Add New
                     </button>
@@ -1052,6 +1099,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                       id="deity"
                       value={deity}
                       onChange={(e) => setDeity(e.target.value)}
+                      disabled={isViewOnly}
                     >
                       <option value="">Select deity</option>
                       {deityOptions.map((d) => (
@@ -1072,6 +1120,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                       id="country"
                       value={country}
                       onChange={(e) => handleCountryChange(e.target.value)}
+                      disabled={isViewOnly}
                     >
                       {COUNTRIES.map((c) => (
                         <option key={c.value} value={c.value}>
@@ -1087,7 +1136,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
 
                 <FormField id="city" label="City" required>
                   <div>
-                    <SelectInput id="city" value={city} onChange={(e) => setCity(e.target.value)}>
+                    <SelectInput id="city" value={city} onChange={(e) => setCity(e.target.value)} disabled={isViewOnly}>
                       {cityOptions.map((c) => (
                         <option key={c.value} value={c.value}>
                           {c.label}
@@ -1109,6 +1158,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                         onChange={(e) => setAddress(e.target.value)}
                         placeholder="Street, area, postal code"
                         startIcon={<MapPin className="h-4 w-4" aria-hidden />}
+                        disabled={isViewOnly}
                       />
                       {step1ShowErrors && step1Errors.address ? (
                         <p className="mt-1 text-xs text-red-500">{step1Errors.address}</p>
@@ -1126,6 +1176,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="temple@example.com"
                       startIcon={<Mail className="h-4 w-4" aria-hidden />}
+                      disabled={isViewOnly}
                     />
                     {step1ShowErrors && step1Errors.email ? (
                       <p className="mt-1 text-xs text-red-500">{step1Errors.email}</p>
@@ -1139,6 +1190,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                     whatsapp={whatsapp}
                     fax={fax}
                     onChange={handlePhoneChange}
+                    disabled={isViewOnly}
                     errors={
                       step1ShowErrors
                         ? {
@@ -1158,6 +1210,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                     value={websitePath}
                     onChange={(e) => setWebsitePath(e.target.value)}
                     placeholder="www.yourtemple.org"
+                    disabled={isViewOnly}
                   />
                 </FormField>
 
@@ -1172,7 +1225,8 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                     suffixAction={
                       <button
                         type="button"
-                        className="rounded-md bg-zinc-200 px-2 py-1 text-xs font-semibold text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600"
+                        disabled={isViewOnly}
+                        className="rounded-md bg-zinc-200 px-2 py-1 text-xs font-semibold text-zinc-700 hover:bg-zinc-300 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600"
                       >
                         Upgrade
                       </button>
@@ -1180,6 +1234,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                     value={subdomain}
                     onChange={(e) => setSubdomain(e.target.value.replace(/\s+/g, "-").toLowerCase())}
                     placeholder="your-temple"
+                    disabled={isViewOnly}
                   />
                 </FormField>
 
@@ -1193,6 +1248,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                       value={establishedYear}
                       onChange={(e) => setEstablishedYear(e.target.value)}
                       placeholder="e.g. 1998"
+                      disabled={isViewOnly}
                     />
                     {step1ShowErrors && step1Errors.establishedYear ? (
                       <p className="mt-1 text-xs text-red-500">{step1Errors.establishedYear}</p>
@@ -1201,11 +1257,14 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                 </FormField>
 
                 <div className="md:col-span-2">
-                  <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-zinc-200 bg-zinc-50/50 p-3 dark:border-zinc-700 dark:bg-zinc-800/40">
+                  <label
+                    className={`flex items-start gap-3 rounded-lg border border-zinc-200 bg-zinc-50/50 p-3 dark:border-zinc-700 dark:bg-zinc-800/40 ${isViewOnly ? "cursor-default" : "cursor-pointer"}`}
+                  >
                     <input
                       type="checkbox"
                       className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-[var(--brand-primary)] focus:ring-[var(--brand-primary)]"
                       checked={charityRegistered}
+                      disabled={isViewOnly}
                       onChange={(e) => {
                         setCharityRegistered(e.target.checked);
                         if (!e.target.checked) setCharityRegistrationNumber("");
@@ -1224,6 +1283,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                             value={charityRegistrationNumber}
                             onChange={(e) => setCharityRegistrationNumber(e.target.value)}
                             placeholder="Official registration number"
+                            disabled={isViewOnly}
                           />
                           {step1ShowErrors && step1Errors.charityRegistrationNumber ? (
                             <p className="mt-1 text-xs text-red-500">{step1Errors.charityRegistrationNumber}</p>
@@ -1266,6 +1326,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                   file={adminProfileFile}
                   onFileChange={setAdminProfileFile}
                   placeholderLabel="Profile"
+                  disabled={isViewOnly}
                 />
               </div>
 
@@ -1280,6 +1341,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                         setAdminTouched((prev) => ({ ...prev, fullName: true }))
                       }
                       placeholder="e.g. Rajin Pillai"
+                      disabled={isViewOnly}
                     />
                     {adminTouched.fullName && adminErrors.fullName && (
                       <p className="mt-1 text-xs text-red-500">{adminErrors.fullName}</p>
@@ -1297,8 +1359,8 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                       onBlur={() => setAdminTouched((prev) => ({ ...prev, email: true }))}
                       placeholder="user@example.com"
                       startIcon={<Mail className="h-4 w-4" aria-hidden />}
-                      disabled={mode === "edit"}
-                      readOnly={mode === "edit"}
+                      disabled={mode === "edit" || isViewOnly}
+                      readOnly={mode === "edit" || isViewOnly}
                     />
                     {adminTouched.email && adminErrors.email && (
                       <p className="mt-1 text-xs text-red-500">{adminErrors.email}</p>
@@ -1314,6 +1376,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                   onChange={setAdminWhatsapp}
                   onBlur={() => setAdminTouched((prev) => ({ ...prev, whatsapp: true }))}
                   error={adminTouched.whatsapp ? adminErrors.whatsapp : undefined}
+                  disabled={isViewOnly}
                 />
 
                 <FormField
@@ -1323,7 +1386,8 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                   topRight={
                     <button
                       type="button"
-                      className="text-sm font-medium text-[var(--brand-primary)] hover:underline"
+                      disabled={isViewOnly}
+                      className="text-sm font-medium text-[var(--brand-primary)] hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       + Add New
                     </button>
@@ -1335,6 +1399,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                       value={adminRole}
                       onChange={(e) => setAdminRole(e.target.value)}
                       onBlur={() => setAdminTouched((prev) => ({ ...prev, role: true }))}
+                      disabled={isViewOnly}
                     >
                       <option value="Temple Admin">Temple Admin</option>
                       <option value="Operations Manager">Operations Manager</option>
@@ -1376,6 +1441,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                 <div className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-200">
                   <button
                     type="button"
+                    disabled={isViewOnly}
                     onClick={() => {
                       setBillingCycle("Monthly");
                       setStep3Touched((prev) => ({ ...prev, billingCycle: true }));
@@ -1387,6 +1453,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                   <button
                     type="button"
                     role="switch"
+                    disabled={isViewOnly}
                     aria-checked={billingCycle === "Annually"}
                     onClick={() => {
                       setBillingCycle(billingCycle === "Annually" ? "Monthly" : "Annually");
@@ -1408,6 +1475,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                   </button>
                   <button
                     type="button"
+                    disabled={isViewOnly}
                     onClick={() => {
                       setBillingCycle("Annually");
                       setStep3Touched((prev) => ({ ...prev, billingCycle: true }));
@@ -1470,6 +1538,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
 
                         <button
                           type="button"
+                          disabled={isViewOnly}
                           onClick={() => {
                             setSelectedPlanId(plan.id);
                             setStep3Touched((prev) => ({ ...prev, selectedPlan: true }));
@@ -1499,6 +1568,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                     <button
                       type="button"
                       role="switch"
+                      disabled={isViewOnly}
                       aria-checked={trialEnabled}
                       onClick={() => {
                         setTrialEnabled((prev) => !prev);
@@ -1526,6 +1596,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                       <SelectInput
                         id="trial-days"
                         value={trialDays}
+                        disabled={isViewOnly}
                         onChange={(e) => {
                           setTrialDays(e.target.value as "7" | "14" | "30");
                           setStep3Touched((prev) => ({ ...prev, trialDays: true }));
@@ -1547,6 +1618,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                     <SelectInput
                       id="billing-cycle"
                       value={billingCycle}
+                      disabled={isViewOnly}
                       onChange={(e) => {
                         setBillingCycle(e.target.value as BillingCycle);
                         setStep3Touched((prev) => ({ ...prev, billingCycle: true }));
@@ -1609,7 +1681,9 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
               </div>
 
               <p className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-300">
-                {mode === "edit" ? (
+                {isViewOnly ? (
+                  <>Read-only preview — no changes will be saved from this screen.</>
+                ) : mode === "edit" ? (
                   <>
                     Saving will update the microsite at{" "}
                     <span className="font-medium text-[var(--brand-primary)]">{slugPreview}.omkaarya.com</span> and subscription
@@ -1650,13 +1724,17 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                 <section className="rounded-lg border border-zinc-100 bg-zinc-50/70 p-4 dark:border-zinc-800 dark:bg-zinc-800/40">
                   <div className="mb-3 flex items-center justify-between">
                     <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Temple Details</h3>
-                    <button
-                      type="button"
-                      onClick={() => setStep(0)}
-                      className="text-xs font-semibold text-[var(--brand-primary)] hover:underline"
-                    >
-                      Edit
-                    </button>
+                    {!isViewOnly ? (
+                      <button
+                        type="button"
+                        onClick={() => setStep(0)}
+                        className="text-xs font-semibold text-[var(--brand-primary)] hover:underline"
+                      >
+                        Edit
+                      </button>
+                    ) : (
+                      <span />
+                    )}
                   </div>
                   <dl className="space-y-2 text-sm">
                     <div className="flex justify-between gap-4"><dt className="text-zinc-500">Temple Name</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{templeName || "—"}</dd></div>
@@ -1671,13 +1749,17 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                 <section className="rounded-lg border border-zinc-100 bg-zinc-50/70 p-4 dark:border-zinc-800 dark:bg-zinc-800/40">
                   <div className="mb-3 flex items-center justify-between">
                     <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Admin Details</h3>
-                    <button
-                      type="button"
-                      onClick={() => setStep(1)}
-                      className="text-xs font-semibold text-[var(--brand-primary)] hover:underline"
-                    >
-                      Edit
-                    </button>
+                    {!isViewOnly ? (
+                      <button
+                        type="button"
+                        onClick={() => setStep(1)}
+                        className="text-xs font-semibold text-[var(--brand-primary)] hover:underline"
+                      >
+                        Edit
+                      </button>
+                    ) : (
+                      <span />
+                    )}
                   </div>
                   <dl className="space-y-2 text-sm">
                     <div className="flex justify-between gap-4"><dt className="text-zinc-500">Full Name</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{invitePayload.admin.fullName || "—"}</dd></div>
@@ -1721,8 +1803,9 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                     </dl>
                     <button
                       type="button"
+                      disabled={isViewOnly}
                       onClick={() => setStep(2)}
-                      className="mt-3 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                      className="mt-3 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
                     >
                       Change Plan
                     </button>
@@ -1750,8 +1833,9 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                         <button
                           key={label}
                           type="button"
+                          disabled={isViewOnly}
                           onClick={() => setQuickActionMessage(`${label} is coming soon.`)}
-                          className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                          className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
                         >
                           {label}
                         </button>
@@ -1759,15 +1843,17 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
+                          disabled={isViewOnly}
                           onClick={() => setQuickActionMessage("Suspend Subscription is coming soon.")}
-                          className="rounded-lg border border-rose-300 px-3 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30"
+                          className="rounded-lg border border-rose-300 px-3 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30"
                         >
                           Suspend Subscription
                         </button>
                         <button
                           type="button"
+                          disabled={isViewOnly}
                           onClick={() => setQuickActionMessage("Delete This Temple is coming soon.")}
-                          className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+                          className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Delete This Temple
                         </button>
@@ -1778,7 +1864,9 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
               </div>
 
               <p className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-300">
-                {mode === "edit" ? (
+                {isViewOnly ? (
+                  <>You are viewing this temple in read-only mode. Use Edit temple above to make changes.</>
+                ) : mode === "edit" ? (
                   <>
                     Saving will update the microsite at{" "}
                     <span className="font-medium text-[var(--brand-primary)]">{slugPreview}.omkaarya.com</span> and subscription
@@ -1802,32 +1890,43 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
 
         <div className="mt-10 flex flex-wrap items-center justify-end gap-3 border-t border-zinc-100 pt-6 dark:border-zinc-800">
           {step === 4 ? (
-            <>
-              <AdminButton variant="outline" onClick={() => setStep(3)}>
-                Back
-              </AdminButton>
-              <AdminButton variant="outline" onClick={() => setStep(0)}>
-                Edit Temple Details
-              </AdminButton>
-              <div className="inline-flex">
-                <AdminButton
-                  variant="primary"
-                  onClick={() => void handleFinalSubmit()}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                      {mode === "edit" ? "Saving…" : "Creating Temple..."}
-                    </>
-                  ) : mode === "edit" ? (
-                    "Save changes"
-                  ) : (
-                    "Create Temple & Send Invite"
-                  )}
+            isViewOnly ? (
+              <>
+                <AdminButton variant="outline" onClick={() => setStep(3)}>
+                  Back
                 </AdminButton>
-              </div>
-            </>
+                <AdminButton variant="primary" onClick={() => router.push("/super-admin/core/temples")}>
+                  Back to list
+                </AdminButton>
+              </>
+            ) : (
+              <>
+                <AdminButton variant="outline" onClick={() => setStep(3)}>
+                  Back
+                </AdminButton>
+                <AdminButton variant="outline" onClick={() => setStep(0)}>
+                  Edit Temple Details
+                </AdminButton>
+                <div className="inline-flex">
+                  <AdminButton
+                    variant="primary"
+                    onClick={() => void handleFinalSubmit()}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                        {mode === "edit" ? "Saving…" : "Creating Temple..."}
+                      </>
+                    ) : mode === "edit" ? (
+                      "Save changes"
+                    ) : (
+                      "Create Temple & Send Invite"
+                    )}
+                  </AdminButton>
+                </div>
+              </>
+            )
           ) : (
             <>
               <AdminButton variant="outline" onClick={requestExit}>
@@ -1840,7 +1939,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail }: TempleWi
                 </AdminButton>
               )}
               <AdminButton variant="primary" onClick={onNext} disabled={isSubmitting}>
-                {nextButtonLabel(step, mode)}
+                {nextButtonLabel(step, mode, isViewOnly)}
                 <ArrowRight className="h-4 w-4" aria-hidden />
               </AdminButton>
             </>

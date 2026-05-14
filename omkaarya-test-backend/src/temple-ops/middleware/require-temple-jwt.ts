@@ -6,7 +6,7 @@ import { HttpError } from "../../middleware/http-error.js";
 export type TempleSessionLocals = {
   email: string;
   tenantId: string;
-  platformUserId: number;
+  platformUserId: string;
 };
 
 function jwtSecretKey(): Uint8Array {
@@ -64,7 +64,7 @@ export const requireTempleJwtSession: RequestHandler = async (_req, res, next) =
     const uidClaim = payload.userId;
     const userIdStr = typeof uidClaim === "number" ? String(uidClaim) : typeof uidClaim === "string" ? uidClaim.trim() : "";
 
-    const userRes = await pool.query<{ id: number; tenant_id: string | null }>(
+    const userRes = await pool.query<{ id: string; tenant_id: string | null }>(
       `SELECT id, tenant_id FROM public.users WHERE lower(trim(email)) = lower(trim($1)) LIMIT 1`,
       [email]
     );
@@ -84,7 +84,9 @@ export const requireTempleJwtSession: RequestHandler = async (_req, res, next) =
       });
     }
 
-    if (userIdStr && /^\d+$/.test(userIdStr) && Number(userIdStr) !== u.id) {
+    const normalizedClaim = userIdStr.trim().toLowerCase();
+    const normalizedDb = String(u.id).trim().toLowerCase();
+    if (normalizedClaim && normalizedClaim !== normalizedDb) {
       throw new HttpError(403, "Invalid session.", {
         code: "INVALID_SESSION",
         reason: "User id claim does not match the user record.",
@@ -94,7 +96,7 @@ export const requireTempleJwtSession: RequestHandler = async (_req, res, next) =
     (res.locals as { templeSession: TempleSessionLocals }).templeSession = {
       email,
       tenantId: tenantClaim,
-      platformUserId: u.id,
+      platformUserId: String(u.id),
     };
     next();
   } catch (e) {

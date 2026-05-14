@@ -133,24 +133,28 @@ export default function SuperAdminDashboard() {
             value={overview ? String(overview.kpis.totalTemples) : "—"}
             trendLabel="Total onboarded"
             chartColor="brand"
+            showMenu={false}
           />
           <MetricCard
             title="Plan Breakdown"
             value={overview && topPlan ? `${topPlan.percent}%` : "—"}
             trendLabel={overview && topPlan ? `${topPlan.plan} (${topPlan.count})` : "Top plan"}
             chartColor="brand"
+            showMenu={false}
           />
           <MetricCard
             title="Global Devotees"
             value={overview ? compactNumber(overview.kpis.globalDevotees) : "—"}
             trendLabel="Sum across temples"
             chartColor="brand"
+            showMenu={false}
           />
           <MetricCard
             title="Avg. Compliance"
             value={overview?.kpis.avgCompliancePct != null ? `${overview.kpis.avgCompliancePct}%` : "—"}
             trendLabel="From compliance status"
             chartColor="success"
+            showMenu={false}
           />
         </div>
       </div>
@@ -169,24 +173,28 @@ export default function SuperAdminDashboard() {
             value={overview ? formatUsdFromCents(overview.kpis.financial.kpis.paidAmountCents) : "—"}
             trendLabel="Confirmed this period"
             chartColor="success"
+            showMenu={false}
           />
           <MetricCard
             title="Pending Subs"
             value={overview ? String(pendingPaymentAlert?.count ?? 0) : "—"}
             trendLabel="Awaiting verification"
             chartColor="warning"
+            showMenu={false}
           />
           <MetricCard
             title="Active Subs"
             value={overview ? String(overview.kpis.financial.kpis.activeTemples) : "—"}
             trendLabel={overview ? `${overview.kpis.financial.kpis.trialTemples} on trial` : "Verified accounts"}
             chartColor="brand"
+            showMenu={false}
           />
           <MetricCard
             title="Avg. MRR"
             value={overview ? formatUsdFromCents(overview.kpis.financial.kpis.paidAmountCents) : "—"}
             trendLabel="Recurring revenue (period)"
             chartColor="brand"
+            showMenu={false}
           />
         </div>
       </div>

@@ -376,7 +376,7 @@ export class PostgresBillingRepository {
     const { rows } = await pool.query<{ tenant_id: string; name: string; slug: string; admin_email: string }>(
       `SELECT tenant_id, name, slug, admin_email
        FROM public.temples
-       ORDER BY tenant_id::int DESC`
+       ORDER BY tenant_id::text DESC`
     );
     return rows.map((r) => ({
       tenantId: r.tenant_id,
@@ -656,7 +656,7 @@ export class PostgresBillingRepository {
          ORDER BY s.payment_date DESC, s.created_at DESC
          LIMIT 1
        ) s ON true
-       ORDER BY t.tenant_id::int DESC`,
+       ORDER BY t.tenant_id::text DESC`,
       []
     );
 

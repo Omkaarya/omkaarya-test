@@ -2,6 +2,7 @@ import { apiUrl } from "@/lib/api-base";
 import { nextJsonError, nextJsonSuccess } from "@/lib/api-envelope";
 import { fetchPlanFeatures, upsertPlanFeatures } from "@/lib/plan-features-db";
 import { fetchAllActiveFeaturesOrdered } from "@/lib/features-db";
+import { isUuidString } from "@/lib/is-uuid";
 import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
 /** node-pg forwards PostgreSQL error codes (e.g. 42P01 = undefined_table). */
@@ -83,7 +84,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { planId, features } = body as {
       planId: string;
-      features: Array<{ featureId: number; isEnabled: boolean; limitValue?: number | null }>;
+      features: Array<{ featureId: string; isEnabled: boolean; limitValue?: number | null }>;
     };
 
     if (!planId || !Array.isArray(features)) {
@@ -105,9 +106,7 @@ export async function POST(request: Request) {
     );
 
     // Keep Express `pricing_plans.features` JSONB in sync (super-admin list / comparison)
-    const uuidRe =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (uuidRe.test(planId)) {
+    if (isUuidString(planId)) {
       const allActive = await fetchAllActiveFeaturesOrdered();
       const byId = new Map(features.map((x) => [x.featureId, x.isEnabled]));
       const featureNames = allActive

@@ -16,7 +16,7 @@ type PermissionEntry = {
 };
 
 type Feature = {
-  id: number;
+  id: string;
   name: string;
   key: string;
   moduleKey: string;

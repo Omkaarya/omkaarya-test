@@ -7,6 +7,16 @@ type AuthTokenPayload = {
   tenantId?: string;
 };
 
+/** Default browser cookie + JWT lifetime when “Remember me” is off. */
+export const AUTH_SESSION_MAX_AGE_SEC = 60 * 60 * 24; // 24h
+
+/** Cookie + JWT lifetime when super-admin enables “Remember me for 30 days”. */
+export const AUTH_REMEMBER_ME_MAX_AGE_SEC = 60 * 60 * 24 * 30; // 30d
+
+export type AuthSessionLengthOptions = {
+  rememberMe?: boolean;
+};
+
 function jwtKey(): Uint8Array {
   const secret = process.env.JWT_SECRET?.trim();
   if (!secret) {
@@ -18,11 +28,12 @@ function jwtKey(): Uint8Array {
   return new TextEncoder().encode(secret);
 }
 
-export async function signToken(payload: AuthTokenPayload) {
+export async function signToken(payload: AuthTokenPayload, options?: AuthSessionLengthOptions) {
+  const rememberMe = options?.rememberMe === true;
   return await new SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('24h')
+    .setExpirationTime(rememberMe ? "30d" : "24h")
     .sign(jwtKey());
 }
 
@@ -35,7 +46,9 @@ export async function verifyToken(token: string) {
   }
 }
 
-export async function setAuthCookie(token: string) {
+export async function setAuthCookie(token: string, options?: AuthSessionLengthOptions) {
+  const rememberMe = options?.rememberMe === true;
+  const maxAge = rememberMe ? AUTH_REMEMBER_ME_MAX_AGE_SEC : AUTH_SESSION_MAX_AGE_SEC;
   const cookieStore = await cookies();
   cookieStore.set({
     name: 'auth_token',
@@ -44,6 +57,6 @@ export async function setAuthCookie(token: string) {
     path: '/',
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 60 * 60 * 24, // 1 day
+    maxAge,
   });
 }

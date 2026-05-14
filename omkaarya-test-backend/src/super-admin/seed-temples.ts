@@ -6,7 +6,7 @@ type SeedRow = Omit<TempleRecord, "subdomain" | "portalHost">;
 /** Core seed rows; `subdomain` / `portalHost` are derived from `slug` for consistency with the list API. */
 const SEED_TEMPLES_CORE: SeedRow[] = [
   {
-    tenantId: "1001",
+    tenantId: "f0001001-0001-4001-8001-000000000001",
     name: "Shiva Mandffir London",
     slug: "shiva-mandir-london.omkaarya.com",
     countryCode: "GB",
@@ -19,7 +19,7 @@ const SEED_TEMPLES_CORE: SeedRow[] = [
     adminEmail: "admin@shivalondon.org",
   },
   {
-    tenantId: "1002",
+    tenantId: "f0001002-0001-4001-8001-000000000002",
     name: "Sri Venkateswara Temple",
     slug: "svt-birmingham.pepulux.app",
     countryCode: "GB",
@@ -32,7 +32,7 @@ const SEED_TEMPLES_CORE: SeedRow[] = [
     adminEmail: "temple@svtb.org",
   },
   {
-    tenantId: "1003",
+    tenantId: "f0001003-0001-4001-8001-000000000003",
     name: "Ganesha Temple NYC",
     slug: "ganesha-nyc.omkaarya.com",
     countryCode: "US",
@@ -45,7 +45,7 @@ const SEED_TEMPLES_CORE: SeedRow[] = [
     adminEmail: "office@ganeshanyc.org",
   },
   {
-    tenantId: "1004",
+    tenantId: "f0001004-0001-4001-8001-000000000004",
     name: "Durga Mata Seva",
     slug: "durga-seva.omkaarya.com",
     countryCode: "IN",
@@ -58,7 +58,7 @@ const SEED_TEMPLES_CORE: SeedRow[] = [
     adminEmail: "contact@durgaseva.in",
   },
   {
-    tenantId: "1005",
+    tenantId: "f0001005-0001-4001-8001-000000000005",
     name: "Hanuman Dham",
     slug: "hanuman-dham.omkaarya.com",
     countryCode: "IN",
@@ -71,7 +71,7 @@ const SEED_TEMPLES_CORE: SeedRow[] = [
     adminEmail: "admin@hanumandham.in",
   },
   {
-    tenantId: "1006",
+    tenantId: "f0001006-0001-4001-8001-000000000006",
     name: "Murugan Temple Sydney",
     slug: "murugan-sydney.pepulux.app",
     countryCode: "AU",
@@ -84,7 +84,7 @@ const SEED_TEMPLES_CORE: SeedRow[] = [
     adminEmail: "info@murugansydney.au",
   },
   {
-    tenantId: "1007",
+    tenantId: "f0001007-0001-4001-8001-000000000007",
     name: "ISKCON Community Hub",
     slug: "iskcon-hub.omkaarya.com",
     countryCode: "US",
@@ -97,7 +97,7 @@ const SEED_TEMPLES_CORE: SeedRow[] = [
     adminEmail: "la@iskcon.example",
   },
   {
-    tenantId: "1008",
+    tenantId: "f0001008-0001-4001-8001-000000000008",
     name: "Lakshmi Narayan Mandir",
     slug: "lnm-toronto.omkaarya.com",
     countryCode: "CA",
@@ -110,7 +110,7 @@ const SEED_TEMPLES_CORE: SeedRow[] = [
     adminEmail: "secretary@lnmtoronto.ca",
   },
   {
-    tenantId: "1009",
+    tenantId: "f0001009-0001-4001-8001-000000000009",
     name: "Sai Baba Sansthan",
     slug: "sai-sansthan.omkaarya.com",
     countryCode: "IN",
@@ -123,7 +123,7 @@ const SEED_TEMPLES_CORE: SeedRow[] = [
     adminEmail: "trust@saisansthan.in",
   },
   {
-    tenantId: "1010",
+    tenantId: "f000100a-0001-4001-8001-00000000000a",
     name: "Radha Krishna Vihar",
     slug: "rkv-dubai.pepulux.app",
     countryCode: "AE",
@@ -136,7 +136,7 @@ const SEED_TEMPLES_CORE: SeedRow[] = [
     adminEmail: "admin@rkdubai.ae",
   },
   {
-    tenantId: "1011",
+    tenantId: "f000100b-0001-4001-8001-00000000000b",
     name: "Kali Bari Singapore",
     slug: "kali-bari-sg.omkaarya.com",
     countryCode: "SG",
@@ -149,7 +149,7 @@ const SEED_TEMPLES_CORE: SeedRow[] = [
     adminEmail: "committee@kalibari.sg",
   },
   {
-    tenantId: "1012",
+    tenantId: "f000100c-0001-4001-8001-00000000000c",
     name: "Vishnu Temple Berlin",
     slug: "vishnu-berlin.omkaarya.com",
     countryCode: "DE",

@@ -300,13 +300,13 @@ export function TempleDashboardShell({
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           {children}
         </main>
 
         <footer className="shrink-0 border-t border-zinc-100 bg-white px-4 py-4 text-xs text-[var(--text-muted)] dark:border-zinc-800 dark:bg-zinc-950">
           <div className="mx-auto flex max-w-7xl items-center justify-between">
-            <p>© 2024 - 2026 Om Kaaryaa</p>
+            <p>© 2024 - 2026 Omkaarya</p>
             <div className="flex gap-4">
               <a href="#" className="hover:text-[var(--brand-primary)]">Terms</a>
               <a href="#" className="hover:text-[var(--brand-primary)]">Privacy</a>

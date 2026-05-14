@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { requirePool } from "../db/pool.js";
 import type {
@@ -266,7 +266,7 @@ export class PostgresTempleRepository implements TempleRepository {
     }>(
       `SELECT tenant_id, name, slug, domain_subdomain, country_code, country_flag, city, plan, devotees, status, compliance, admin_email
        FROM public.temples
-       ORDER BY tenant_id::int DESC`
+       ORDER BY tenant_id::text DESC`
     );
     return result.rows.map((r) => {
       const ph = portalLabelAndHost(r.slug, r.domain_subdomain);
@@ -304,7 +304,6 @@ export class PostgresTempleRepository implements TempleRepository {
     const country = (query.country ?? "all").trim();
     const pageSize = Number.isFinite(query.pageSize) && query.pageSize > 0 ? Math.floor(query.pageSize) : 10;
     const page = Number.isFinite(query.page) && query.page > 0 ? Math.floor(query.page) : 1;
-    const offset = (page - 1) * pageSize;
 
     const where: string[] = [];
     const params: unknown[] = [];
@@ -323,6 +322,9 @@ export class PostgresTempleRepository implements TempleRepository {
     if (country !== "all" && country) {
       params.push(country);
       where.push(`t.country_code = $${params.length}`);
+    }
+    if (query.sortBy === "last7") {
+      where.push(`t.created_at >= NOW() - INTERVAL '7 days'`);
     }
 
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
@@ -351,11 +353,13 @@ export class PostgresTempleRepository implements TempleRepository {
     const safeOffset = (safePage - 1) * pageSize;
 
     const orderBy =
-      query.sortBy === "name"
-        ? `t.name ASC, t.tenant_id::int DESC`
-        : query.sortBy === "devotees"
-          ? `t.devotees DESC, t.tenant_id::int DESC`
-          : `t.tenant_id::int DESC`;
+      query.sortBy === "last7"
+        ? `t.created_at DESC, t.tenant_id::text DESC`
+        : query.sortBy === "name"
+          ? `t.name ASC, t.tenant_id::text DESC`
+          : query.sortBy === "devotees"
+            ? `t.devotees DESC, t.tenant_id::text DESC`
+            : `t.tenant_id::text DESC`;
 
     const dataRes = await pool.query<{
       tenant_id: string;
@@ -576,11 +580,7 @@ export class PostgresTempleRepository implements TempleRepository {
 
     const client = await pool.connect();
     try {
-      const maxRes = await client.query<{ m: number | null }>(
-        `SELECT MAX(tenant_id::int) AS m FROM public.temples WHERE tenant_id ~ '^[0-9]+$'`
-      );
-      const maxNum = maxRes.rows[0]?.m ?? 1000;
-      const tenantId = String(maxNum + 1);
+      const tenantId = randomUUID();
       const countryCode = payload.temple.country.trim() || "GB";
       const plan = normalizePlan(payload.planBilling.selectedPlan);
       const trial = payload.planBilling.trial?.enabled === true;
@@ -621,7 +621,7 @@ export class PostgresTempleRepository implements TempleRepository {
       let invoice: CreateInitialInvoiceResult | undefined;
       await client.query("BEGIN");
       try {
-        let adminUserId: number | null = null;
+        let adminUserId: string | null = null;
         if (ADMIN_EMAIL_RE.test(row.adminEmail)) {
           const adminFullName = payload.admin.fullName?.trim() ?? "";
           const adminWhatsapp = payload.admin.whatsapp?.trim() ?? "";
@@ -664,7 +664,7 @@ export class PostgresTempleRepository implements TempleRepository {
               [row.adminEmail, tempPasswordHash, adminFullName, adminWhatsapp, adminRoles, adminProfileStoredUrl]
             );
           }
-          const idRes = await client.query<{ id: number }>(
+          const idRes = await client.query<{ id: string }>(
             "SELECT id FROM public.users WHERE email = $1 LIMIT 1",
             [row.adminEmail]
           );
@@ -774,7 +774,7 @@ export class PostgresTempleRepository implements TempleRepository {
 
       if (ADMIN_EMAIL_RE.test(row.adminEmail)) {
         try {
-          const uidRes = await requirePool().query<{ id: number }>(
+          const uidRes = await requirePool().query<{ id: string }>(
             `SELECT id FROM public.users WHERE lower(trim(email)) = lower(trim($1::text)) LIMIT 1`,
             [row.adminEmail]
           );

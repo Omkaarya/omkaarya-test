@@ -11,6 +11,7 @@ type LogoUploadProps = {
   placeholderLabel?: string;
   uploadLabel?: string;
   replaceLabel?: string;
+  disabled?: boolean;
 };
 
 export default function LogoUpload({
@@ -20,6 +21,7 @@ export default function LogoUpload({
   placeholderLabel = "Logo",
   uploadLabel = "Upload",
   replaceLabel = "Replace",
+  disabled = false,
 }: LogoUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const id = useId();
@@ -52,6 +54,7 @@ export default function LogoUpload({
         type="file"
         accept="image/*"
         className="sr-only"
+        disabled={disabled}
         onChange={(e) => {
           const f = e.target.files?.[0];
           onFileChange(f ?? null);
@@ -60,14 +63,15 @@ export default function LogoUpload({
       <div className="flex items-center gap-2">
         <button
           type="button"
+          disabled={disabled}
           onClick={() => inputRef.current?.click()}
-          className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:pointer-events-none disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
           aria-label={file ? "Replace logo" : "Upload logo"}
         >
           <CloudUpload className="h-4 w-4 text-[var(--brand-primary)]" aria-hidden />
           {file ? replaceLabel : uploadLabel}
         </button>
-        {file && (
+        {file && !disabled && (
           <button
             type="button"
             onClick={() => {

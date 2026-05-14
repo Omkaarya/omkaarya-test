@@ -10,7 +10,7 @@ function templeAuthSyncStrict(): boolean {
  */
 export async function upsertTempleAuthMirror(input: {
   tenantId: string;
-  platformUserId: number;
+  platformUserId: string;
   email: string;
   passwordHash: string | null;
   tempPassword: string | null;
@@ -48,14 +48,14 @@ export async function upsertTempleAuthMirror(input: {
 /**
  * Reads current credential fields from platform `public.users` and mirrors into the tenant operational DB.
  */
-export async function syncTempleAuthMirrorFromPlatformUserId(platformUserId: number): Promise<void> {
+export async function syncTempleAuthMirrorFromPlatformUserId(platformUserId: string): Promise<void> {
   const pool = getPool();
   if (!pool) {
     return;
   }
 
   const res = await pool.query<{
-    id: number;
+    id: string;
     tenant_id: string | null;
     email: string;
     password_hash: string | null;
@@ -88,7 +88,7 @@ export async function syncTempleAuthMirrorFromEmail(email: string): Promise<void
   if (!pool) {
     return;
   }
-  const res = await pool.query<{ id: number }>(
+  const res = await pool.query<{ id: string }>(
     `SELECT id FROM public.users WHERE lower(trim(email)) = lower(trim($1::text)) LIMIT 1`,
     [email]
   );
