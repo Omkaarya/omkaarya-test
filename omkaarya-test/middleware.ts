@@ -5,11 +5,19 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('auth_token')?.value;
   const { pathname } = request.nextUrl;
 
-  // Define public routes
+  const publicRoutes = new Set([
+    '/',
+    '/pricing',
+    '/login',
+    '/super-admin/invite',
+    '/temple-admin/signin',
+  ]);
+
   const isLoginPage =
     pathname === '/login' ||
     pathname === '/super-admin/invite' ||
     pathname === '/temple-admin/signin';
+  const isPublicRoute = publicRoutes.has(pathname);
   const isApiRoute = pathname.startsWith('/api/');
   const isPublicAsset = pathname.match(/\.(.*)$/); // Match files like favicon.ico, images, etc.
 
@@ -28,11 +36,14 @@ export function middleware(request: NextRequest) {
     if (pathname === '/temple-admin/signin') {
       return NextResponse.redirect(new URL('/temple-admin', request.url));
     }
+    if (pathname === '/login') {
+      return NextResponse.next();
+    }
     return NextResponse.redirect(new URL('/super-admin/dashboard', request.url));
   }
 
   // If user is NOT logged in and tries to access a protected page, redirect to login
-  if (!token && !isLoginPage) {
+  if (!token && !isPublicRoute) {
     if (pathname.startsWith('/temple-admin')) {
       return NextResponse.redirect(new URL('/temple-admin/signin', request.url));
     }

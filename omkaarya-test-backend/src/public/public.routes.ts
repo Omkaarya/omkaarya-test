@@ -3,7 +3,19 @@ import { asyncHandler } from "../middleware/async-handler.js";
 import { sendSuccess } from "../middleware/api-envelope.js";
 import { HttpError } from "../middleware/http-error.js";
 import { requirePool } from "../db/pool.js";
+import { getOperationalPoolForTenant } from "../db/temple-operational-pool-registry.js";
 import type { PostgresPricingPlansRepository } from "../super-admin/pricing-plans.repository.js";
+import {
+  defaultWhyItMattersDashboardResponse,
+  loadWhyItMattersDashboardFromOpsPool,
+  type PublicWhyItMattersDashboardResponse,
+} from "./why-it-matters-dashboard.js";
+
+export type {
+  PublicWhyItMattersDashboardResponse,
+  WhyItMattersActivityStatus,
+  WhyItMattersDashboardPayload,
+} from "./why-it-matters-dashboard.js";
 
 function asInt(v: unknown): number | null {
   if (typeof v !== "string") return null;
@@ -180,6 +192,58 @@ export function createPublicRouter(pricingPlans: PostgresPricingPlansRepository)
       }));
 
       sendSuccess(res, 200, data, "Public testimonials loaded", "Published testimonials for marketing pages.");
+    })
+  );
+
+  r.get(
+    "/public/why-it-matters-dashboard",
+    asyncHandler(async (_req, res) => {
+      const tenantId = (process.env.PUBLIC_MARKETING_TEMPLE_OPS_TENANT_ID ?? "").trim();
+      if (!tenantId) {
+        const data: PublicWhyItMattersDashboardResponse = defaultWhyItMattersDashboardResponse();
+        sendSuccess(
+          res,
+          200,
+          data,
+          "Why it matters dashboard (defaults)",
+          "PUBLIC_MARKETING_TEMPLE_OPS_TENANT_ID is unset; returning built-in marketing card defaults."
+        );
+        return;
+      }
+
+      try {
+        const opsPool = await getOperationalPoolForTenant(tenantId);
+        if (!opsPool) {
+          const data = defaultWhyItMattersDashboardResponse();
+          sendSuccess(
+            res,
+            200,
+            data,
+            "Why it matters dashboard (defaults)",
+            "No operational database configured for the marketing tenant; returning built-in defaults."
+          );
+          return;
+        }
+
+        const data = await loadWhyItMattersDashboardFromOpsPool(opsPool);
+        sendSuccess(
+          res,
+          200,
+          data,
+          "Why it matters dashboard loaded",
+          "Temple operational database snapshot for the public marketing homepage card."
+        );
+      } catch (e) {
+        console.error("[GET /public/why-it-matters-dashboard] failed:", e);
+        const data = defaultWhyItMattersDashboardResponse();
+        sendSuccess(
+          res,
+          200,
+          data,
+          "Why it matters dashboard (defaults)",
+          "Temple ops query failed; returning built-in marketing card defaults."
+        );
+      }
     })
   );
 

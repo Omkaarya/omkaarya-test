@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { requirePool } from "../db/pool.js";
+import { getOperationalPoolForTenant } from "../db/temple-operational-pool-registry.js";
 import { sqlTempleMatchesSessionEmail } from "./temple-admin-match.js";
 
 export type InvoiceStatus = "proforma" | "pending" | "paid" | "void" | "rejected";
@@ -1015,7 +1016,7 @@ export class PostgresBillingRepository {
             WHEN b.status = 'pending' THEN 'pending'
             ELSE 'pending'
           END AS ui_status
-        FROM public.temple_payment_submissions s
+        FROM public.temple_payment_submission_index s
         JOIN public.temples t ON t.tenant_id = s.tenant_id
         JOIN public.billing_invoices b ON b.id = s.invoice_id
         WHERE ${subFilters.join(" AND ")}
@@ -1246,7 +1247,7 @@ export class PostgresBillingRepository {
       `SELECT ps.payment_ref
        FROM public.billing_receipts r0
        JOIN public.billing_transactions tx ON tx.id = r0.transaction_id
-       LEFT JOIN public.temple_payment_submissions ps ON ps.id = tx.payment_submission_id
+       LEFT JOIN public.temple_payment_submission_index ps ON ps.id = tx.payment_submission_id
        WHERE r0.id = $1::uuid`,
       [id.trim()]
     );
@@ -1295,14 +1296,15 @@ export type AttachPayableInvoiceResult =
   | { ok: false; reason: "no_payable_invoice" | "amount_mismatch" | "not_found" };
 
 export async function attachPayableInvoiceToSubmission(
-  client: PoolClient,
+  platformClient: PoolClient,
+  opsClient: PoolClient,
   input: AttachPayableInvoiceInput
 ): Promise<AttachPayableInvoiceResult> {
   const { submissionId, tenantId, amountCents, currency } = input;
   const wantInv = (input.optionalInvoiceId ?? "").trim();
 
   if (wantInv) {
-    const v = await client.query<{
+    const v = await platformClient.query<{
       id: string;
       amount_cents: number;
       currency: string;
@@ -1320,14 +1322,14 @@ export async function attachPayableInvoiceToSubmission(
     if (inv.amount_cents !== amountCents || inv.currency.toUpperCase() !== currency.trim().toUpperCase()) {
       return { ok: false, reason: "amount_mismatch" };
     }
-    await client.query(
-      `UPDATE public.temple_payment_submissions SET invoice_id = $1::uuid WHERE id = $2::uuid`,
-      [inv.id, submissionId]
-    );
+    await opsClient.query(`UPDATE temple_payment_submissions SET invoice_id = $1::uuid WHERE id = $2::uuid`, [
+      inv.id,
+      submissionId,
+    ]);
     return { ok: true, invoiceId: inv.id };
   }
 
-  const open = await client.query<{
+  const open = await platformClient.query<{
     id: string;
     amount_cents: number;
     currency: string;
@@ -1347,10 +1349,10 @@ export async function attachPayableInvoiceToSubmission(
   if (inv.amount_cents !== amountCents || inv.currency.toUpperCase() !== currency.trim().toUpperCase()) {
     return { ok: false, reason: "amount_mismatch" };
   }
-  await client.query(
-    `UPDATE public.temple_payment_submissions SET invoice_id = $1::uuid WHERE id = $2::uuid`,
-    [inv.id, submissionId]
-  );
+  await opsClient.query(`UPDATE temple_payment_submissions SET invoice_id = $1::uuid WHERE id = $2::uuid`, [
+    inv.id,
+    submissionId,
+  ]);
   return { ok: true, invoiceId: inv.id };
 }
 
@@ -1401,7 +1403,7 @@ export async function listPendingPaymentSubmissionsForConfirm(): Promise<Pending
        s.storage_public_url,
        s.invoice_id::text AS invoice_id,
        b.invoice_number
-     FROM public.temple_payment_submissions s
+     FROM public.temple_payment_submission_index s
      JOIN public.temples t ON t.tenant_id = s.tenant_id
      LEFT JOIN public.billing_invoices b ON b.id = s.invoice_id
      WHERE s.status = 'pending'
@@ -1454,7 +1456,7 @@ export async function confirmPaymentSubmission(
       currency: string;
     }>(
       `SELECT id::text, status, tenant_id, invoice_id::text, amount_cents, currency
-       FROM public.temple_payment_submissions
+       FROM public.temple_payment_submission_index
        WHERE id = $1::uuid
        FOR UPDATE`,
       [submissionId]
@@ -1512,7 +1514,7 @@ export async function confirmPaymentSubmission(
     const receiptNumber = await nextReceiptNumber(client);
 
     await client.query(
-      `UPDATE public.temple_payment_submissions
+      `UPDATE public.temple_payment_submission_index
        SET status = 'approved'
        WHERE id = $1::uuid`,
       [sub.id]
@@ -1559,6 +1561,18 @@ export async function confirmPaymentSubmission(
     );
 
     await client.query("COMMIT");
+
+    const opsPool = await getOperationalPoolForTenant(sub.tenant_id);
+    if (opsPool) {
+      try {
+        await opsPool.query(`UPDATE temple_payment_submissions SET status = 'approved' WHERE id = $1::uuid`, [
+          submissionId,
+        ]);
+      } catch (e) {
+        console.error("[confirmPaymentSubmission] ops status sync failed:", e);
+      }
+    }
+
     return {
       ok: true,
       receiptNumber,
@@ -1581,15 +1595,34 @@ export async function rejectPaymentSubmission(
 ): Promise<{ ok: true } | { ok: false; reason: "not_found" | "bad_state" }> {
   const pool = requirePool();
   const res = await pool.query(
-    `UPDATE public.temple_payment_submissions
+    `UPDATE public.temple_payment_submission_index
      SET status = 'rejected'
      WHERE id = $1::uuid AND status = 'pending'`,
     [submissionId]
   );
   if (res.rowCount === 0) {
-    const ex = await pool.query(`SELECT 1 FROM public.temple_payment_submissions WHERE id = $1::uuid`, [submissionId]);
+    const ex = await pool.query(`SELECT 1 FROM public.temple_payment_submission_index WHERE id = $1::uuid`, [
+      submissionId,
+    ]);
     if (ex.rowCount === 0) return { ok: false, reason: "not_found" };
     return { ok: false, reason: "bad_state" };
+  }
+  const t = await pool.query<{ tenant_id: string }>(
+    `SELECT tenant_id FROM public.temple_payment_submission_index WHERE id = $1::uuid`,
+    [submissionId]
+  );
+  const tenantId = t.rows[0]?.tenant_id;
+  if (tenantId) {
+    const opsPool = await getOperationalPoolForTenant(tenantId);
+    if (opsPool) {
+      try {
+        await opsPool.query(`UPDATE temple_payment_submissions SET status = 'rejected' WHERE id = $1::uuid`, [
+          submissionId,
+        ]);
+      } catch (e) {
+        console.error("[rejectPaymentSubmission] ops status sync failed:", e);
+      }
+    }
   }
   return { ok: true };
 }

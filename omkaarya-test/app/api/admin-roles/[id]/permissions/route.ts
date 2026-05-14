@@ -1,11 +1,15 @@
 import { nextJsonError, nextJsonSuccess } from "@/lib/api-envelope";
 import { fetchRolePermissions, saveRolePermissions } from "@/lib/sa-users-db";
 import type { AccessLevel } from "@/lib/sa-users-db";
+import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
 type Params = { params: Promise<{ id: string }> };
 
 /** GET /api/admin-roles/[id]/permissions — Get all permissions for a role. */
 export async function GET(_req: Request, { params }: Params) {
+  const auth = await requireSuperAdminHeaders();
+  if (!auth.ok) return auth.response;
+
   const { id } = await params;
   const rid = parseInt(id, 10);
   if (isNaN(rid)) return nextJsonError(400, "INVALID_ID", "Invalid role ID", "ID must be a number.");
@@ -19,6 +23,9 @@ export async function GET(_req: Request, { params }: Params) {
 
 /** PUT /api/admin-roles/[id]/permissions — Save (replace) all permissions for a role. */
 export async function PUT(request: Request, { params }: Params) {
+  const auth = await requireSuperAdminHeaders();
+  if (!auth.ok) return auth.response;
+
   const { id } = await params;
   const rid = parseInt(id, 10);
   if (isNaN(rid)) return nextJsonError(400, "INVALID_ID", "Invalid role ID", "ID must be a number.");

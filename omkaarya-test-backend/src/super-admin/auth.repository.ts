@@ -1,7 +1,7 @@
-import bcrypt from "bcryptjs";
 import { getPool } from "../db/pool.js";
 import { HttpError } from "../middleware/http-error.js";
 import { syncTempleAuthMirrorFromEmail } from "../temple-ops/sync-auth-mirror.js";
+import { hashPasswordCredential, passwordCredentialMatches } from "./password-credentials.js";
 
 export type LoginResult =
   | { ok: false }
@@ -38,7 +38,7 @@ export class PostgresAuthRepository implements AuthRepository {
       }
       const row = result.rows[0]!;
       if (row.password_hash) {
-        const match = await bcrypt.compare(password, row.password_hash);
+        const match = await passwordCredentialMatches(row.password_hash, password);
         return match
           ? {
               ok: true,
@@ -48,7 +48,7 @@ export class PostgresAuthRepository implements AuthRepository {
             }
           : { ok: false };
       }
-      if (row.temp_password != null && row.temp_password === password) {
+      if (await passwordCredentialMatches(row.temp_password, password)) {
         return {
           ok: true,
           firstLogin: true,
@@ -67,17 +67,28 @@ export class PostgresAuthRepository implements AuthRepository {
     if (!pool) {
       return false;
     }
-    const hash = await bcrypt.hash(newPassword, 10);
+    const hash = await hashPasswordCredential(newPassword);
     const client = await pool.connect();
     let updated = false;
     try {
+      const existing = await client.query<{ id: number; temp_password: string | null }>(
+        `SELECT id, temp_password
+           FROM public.users
+          WHERE lower(trim(email)) = lower(trim($1))
+            AND password_hash IS NULL
+          LIMIT 1`,
+        [email.trim()]
+      );
+      const row = existing.rows[0];
+      if (!row || !(await passwordCredentialMatches(row.temp_password, tempPassword))) {
+        return false;
+      }
+
       const result = await client.query(
         `UPDATE public.users
          SET password_hash = $1, temp_password = NULL
-         WHERE lower(trim(email)) = lower(trim($2))
-           AND temp_password = $3
-           AND password_hash IS NULL`,
-        [hash, email.trim(), tempPassword]
+         WHERE id = $2 AND password_hash IS NULL`,
+        [hash, row.id]
       );
       updated = result.rowCount === 1;
     } finally {

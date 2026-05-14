@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { Pool } from "pg";
+import bcrypt from "bcryptjs";
 import type { MockTemple } from "@/lib/mock-temples";
 import { getPoolConfig } from "@/lib/pg-config";
 import { portalLabelAndHost } from "@/lib/portal-label-host";
@@ -141,17 +142,19 @@ export async function insertTempleFromPayload(payload: {
         );
         if (existing.rows.length === 0) {
           const tempPassword = generateTemporaryPassword();
+          const tempPasswordHash = await bcrypt.hash(tempPassword, 10);
           await client.query(`INSERT INTO public.users (email, temp_password) VALUES ($1, $2)`, [
             adminEmail,
-            tempPassword,
+            tempPasswordHash,
           ]);
         } else if (existing.rows[0]!.password_hash == null) {
           const tempPassword = generateTemporaryPassword();
+          const tempPasswordHash = await bcrypt.hash(tempPassword, 10);
           await client.query(
             `INSERT INTO public.users (email, temp_password)
              VALUES ($1, $2)
              ON CONFLICT (email) DO UPDATE SET temp_password = EXCLUDED.temp_password`,
-            [adminEmail, tempPassword]
+            [adminEmail, tempPasswordHash]
           );
         }
         const idRes = await client.query<{ id: number }>(

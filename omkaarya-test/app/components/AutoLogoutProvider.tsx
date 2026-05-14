@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
 export default function AutoLogoutProvider({ children }: { children: React.ReactNode }) {
@@ -9,8 +9,10 @@ export default function AutoLogoutProvider({ children }: { children: React.React
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const INACTIVITY_LIMIT_MS = 5 * 60 * 1000; // 5 minutes
+  const shouldTrackInactivity =
+    pathname.startsWith("/temple-admin") || pathname.startsWith("/super-admin");
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await fetch("/api/logout", { method: "POST" });
       if (pathname.startsWith("/temple-admin")) {
@@ -21,22 +23,17 @@ export default function AutoLogoutProvider({ children }: { children: React.React
     } catch (error) {
       console.error("Auto logout failed", error);
     }
-  };
+  }, [pathname, router]);
 
-  const resetTimer = () => {
+  const resetTimer = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
     timeoutRef.current = setTimeout(logout, INACTIVITY_LIMIT_MS);
-  };
+  }, [logout]);
 
   useEffect(() => {
-    // Only track inactivity if the user is not on a login page
-    if (
-      pathname === "/login" ||
-      pathname === "/super-admin/invite" ||
-      pathname === "/temple-admin/signin"
-    ) {
+    if (!shouldTrackInactivity || pathname === "/super-admin/invite" || pathname === "/temple-admin/signin") {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       return;
     }
@@ -53,7 +50,7 @@ export default function AutoLogoutProvider({ children }: { children: React.React
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       events.forEach((event) => window.removeEventListener(event, resetTimer));
     };
-  }, [pathname]);
+  }, [pathname, resetTimer, shouldTrackInactivity]);
 
   return <>{children}</>;
 }

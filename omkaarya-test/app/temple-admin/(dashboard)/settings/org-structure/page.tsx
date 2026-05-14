@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Plus, ChevronRight, ChevronDown, Edit2, Trash2,
-  Package, X, Info, Users, MapPin, Check,
+  Package, X, Info, Users, MapPin, Check, Loader2, AlertCircle,
 } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Badge } from "@/app/components/ds/atoms/Badge";
 import { Input } from "@/app/components/ds/atoms/Input";
 import { Switch } from "@/app/components/ds/atoms/Switch";
+import { fetchTempleAdminJson, type SettingsAreaResponse } from "@/lib/temple-admin-api";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -450,13 +451,45 @@ function deleteUnit(tree: TempleUnit[], id: string): TempleUnit[] {
 // ── Main Page ──────────────────────────────────────────────────────
 
 export default function OrgStructurePage() {
-  const [tree, setTree] = useState<TempleUnit[]>(INITIAL_TREE);
+  const [tree, setTree] = useState<TempleUnit[]>([]);
   const [selectedUnit, setSelectedUnit] = useState<TempleUnit | null>(null);
   const [drawer, setDrawer] = useState<{
     mode: "create" | "edit";
     parentId?: string | null;
     initial?: Partial<TempleUnit>;
   } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await fetchTempleAdminJson<SettingsAreaResponse>("/api/temple-admin/settings/org_tree");
+        const loaded = (data.payload?.tree as TempleUnit[]) ?? [];
+        setTree(Array.isArray(loaded) ? loaded : []);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not load org structure.");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const persistTree = async (next: TempleUnit[]) => {
+    setSaving(true);
+    setError(null);
+    try {
+      await fetchTempleAdminJson("/api/temple-admin/settings/org_tree", {
+        method: "PUT",
+        body: JSON.stringify({ payload: { tree: next } }),
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save org structure.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const allUnits = flattenTree(tree);
 
@@ -464,26 +497,39 @@ export default function OrgStructurePage() {
     ? allUnits.find((u) => u.id === drawer.parentId)?.name
     : undefined;
 
-  const handleSave = (data: Omit<TempleUnit, "id" | "children">) => {
+  const handleSave = async (data: Omit<TempleUnit, "id" | "children">) => {
+    let next = tree;
     if (drawer?.mode === "create") {
       const newUnit: TempleUnit = { ...data, id: generateId(), children: [] };
-      setTree((prev) => insertUnit(prev, newUnit, drawer.parentId ?? null));
+      next = insertUnit(tree, newUnit, drawer.parentId ?? null);
     } else if (drawer?.mode === "edit" && drawer.initial?.id) {
       const updated: TempleUnit = {
         ...data,
         id: drawer.initial.id,
         children: allUnits.find((u) => u.id === drawer.initial?.id)?.children ?? [],
       };
-      setTree((prev) => updateUnit(prev, updated));
+      next = updateUnit(tree, updated);
       setSelectedUnit(updated);
     }
+    setTree(next);
     setDrawer(null);
+    await persistTree(next);
   };
 
-  const handleDelete = (id: string) => {
-    setTree((prev) => deleteUnit(prev, id));
+  const handleDelete = async (id: string) => {
+    const next = deleteUnit(tree, id);
+    setTree(next);
     if (selectedUnit?.id === id) setSelectedUnit(null);
+    await persistTree(next);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center gap-2 py-20 text-zinc-400 text-sm">
+        <Loader2 className="w-4 h-4 animate-spin" /> Loading organizational structure…
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-10 max-w-full animate-in fade-in duration-700">
@@ -497,13 +543,20 @@ export default function OrgStructurePage() {
         <Button 
           variant="primary" 
           size="lg" 
-          leadingIcon={<Plus className="w-5 h-5" />}
+          leadingIcon={saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
           onClick={() => setDrawer({ mode: "create", parentId: null })}
           className="rounded-2xl h-14 px-8"
         >
-          Create Root Unit
+          {saving ? "Saving…" : "Create Root Unit"}
         </Button>
       </div>
+
+      {error && (
+        <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <p className="font-medium">{error}</p>
+        </div>
+      )}
 
       {/* Main layout */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8 items-start">

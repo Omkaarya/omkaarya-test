@@ -1,10 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Package, Wrench, ShoppingCart, FileBox, PartyPopper } from "lucide-react";
 import SelectInput from "@/app/components/admin/SelectInput";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
+import {
+  fetchTempleAdminJson,
+  type InventoryCategory,
+  type InventoryStore,
+  type InventorySupplier,
+} from "@/lib/temple-admin-api";
 
 type ProductType = "Consumable" | "Equipment" | "Sale Item" | "Admin" | "Festival";
 
@@ -43,7 +49,39 @@ export default function CreateProductPage() {
   const [costAmount, setCostAmount] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const supplierName: string | null = null;
+  const [categoryId, setCategoryId] = useState("");
+  const [supplierId, setSupplierId] = useState("");
+  const [defaultStoreId, setDefaultStoreId] = useState("");
+  const [categories, setCategories] = useState<InventoryCategory[]>([]);
+  const [suppliers, setSuppliers] = useState<InventorySupplier[]>([]);
+  const [stores, setStores] = useState<InventoryStore[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [cats, sups, sts] = await Promise.all([
+          fetchTempleAdminJson<{ items: InventoryCategory[] }>("/api/temple-admin/inventory/categories").catch(() => ({ items: [] })),
+          fetchTempleAdminJson<{ items: InventorySupplier[] }>("/api/temple-admin/inventory/suppliers").catch(() => ({ items: [] })),
+          fetchTempleAdminJson<{ items: InventoryStore[] }>("/api/temple-admin/inventory/stores").catch(() => ({ items: [] })),
+        ]);
+        if (!cancelled) {
+          setCategories(cats.items ?? []);
+          setSuppliers(sups.items ?? []);
+          setStores(sts.items ?? []);
+        }
+      } catch {
+        // best-effort only; leave empty
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const supplierName: string | null = supplierId
+    ? suppliers.find((s) => s.id === supplierId)?.name ?? null
+    : null;
 
   const showToast = (msg: string) => {
     setToast({ msg, show: true });
@@ -84,6 +122,9 @@ export default function CreateProductPage() {
           costAmount: Number.isFinite(costNum) && costNum >= 0 ? costNum : 0,
           supplierName,
           imageUrl: null,
+          categoryId: categoryId || null,
+          supplierId: supplierId || null,
+          defaultStoreId: defaultStoreId || null,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -244,6 +285,51 @@ export default function CreateProductPage() {
             />
           </div>
         </div>
+
+        {(categories.length > 0 || suppliers.length > 0 || stores.length > 0) && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 pt-4 mt-4 border-t border-zinc-100 dark:border-zinc-800">
+            {categories.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <label className={labelCls}>Category (live)</label>
+                <SelectInput className={formSelectClass} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+                  <option value="">—</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </SelectInput>
+              </div>
+            )}
+            {suppliers.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <label className={labelCls}>Supplier</label>
+                <SelectInput className={formSelectClass} value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
+                  <option value="">—</option>
+                  {suppliers.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </SelectInput>
+              </div>
+            )}
+            {stores.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <label className={labelCls}>Default store</label>
+                <SelectInput className={formSelectClass} value={defaultStoreId} onChange={(e) => setDefaultStoreId(e.target.value)}>
+                  <option value="">—</option>
+                  {stores.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </SelectInput>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex gap-2 justify-end pt-4 mt-4 border-t border-zinc-100 dark:border-zinc-800">
           <button
             type="button"

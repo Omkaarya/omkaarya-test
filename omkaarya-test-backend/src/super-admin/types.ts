@@ -42,7 +42,7 @@ export type TemplesListResponse = {
   countries: string[];
 };
 
-/** JSON shape stored in `temples.contact_phone` / `temples.fax` — aligned with frontend `PhoneRowValue`. */
+/** JSON shape stored in temple-ops `temple_admin_data.contact_phone` / `fax` — aligned with frontend `PhoneRowValue`. */
 export type PhoneRowJson = {
   countryCode: string;
   nationalNumber: string;

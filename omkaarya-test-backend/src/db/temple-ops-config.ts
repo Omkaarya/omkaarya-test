@@ -11,6 +11,26 @@ export type TempleOperationalConnectionRow = {
 export function poolConfigForTempleOperationalRow(row: TempleOperationalConnectionRow): PoolConfig | null {
   const url = row.operational_database_url?.trim();
   if (url) {
+    if (process.env.TEMPLE_OPS_ALLOW_DATABASE_URL?.trim() !== "1") {
+      return null;
+    }
+
+    const allowedHosts = (process.env.TEMPLE_OPS_ALLOWED_DATABASE_URL_HOSTS ?? "")
+      .split(",")
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
+
+    try {
+      const parsed = new URL(url);
+      const protocolAllowed = parsed.protocol === "postgres:" || parsed.protocol === "postgresql:";
+      const hostAllowed = allowedHosts.length > 0 && allowedHosts.includes(parsed.hostname.toLowerCase());
+      if (!protocolAllowed || !hostAllowed) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+
     return { connectionString: url };
   }
 

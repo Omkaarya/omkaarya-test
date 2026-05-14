@@ -16,7 +16,8 @@
     "db:setup": "npm run migrate && npm run seed",
     "verify:set-password": "tsx scripts/verify-set-password-smoke.ts",
     "temple-ops:bootstrap": "tsx scripts/temple-ops-bootstrap.ts",
-    "temple-ops:migrate-env": "tsx scripts/temple-ops-migrate-env.ts"
+    "temple-ops:migrate-env": "tsx scripts/temple-ops-migrate-env.ts",
+    "migrate:temple-admin-data-to-ops": "tsx scripts/migrate-temple-admin-data-to-ops.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1034.0",

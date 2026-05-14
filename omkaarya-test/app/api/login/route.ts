@@ -9,6 +9,10 @@ type BackendLoginEnvelope =
   | ApiSuccessBody<{ firstLogin: boolean; userId?: number; tenantId?: string | null }>
   | ApiErrorBody;
 
+function mockLoginEnabled(): boolean {
+  return process.env.NODE_ENV !== "production" || process.env.ENABLE_MOCK_LOGIN === "1";
+}
+
 function parseBackendLogin(
   body: unknown
 ): {
@@ -60,6 +64,7 @@ export async function POST(request: NextRequest) {
       return nextJsonError(400, "VALIDATION_ERROR", "Validation failed", "Email and password are required.");
     }
 
+    let backendFailed = false;
     try {
       const res = await fetch(apiUrl("/api/login"), {
         method: "POST",
@@ -95,7 +100,16 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(data, { status: res.status });
       }
     } catch {
-      // Backend unreachable — try local mock users below.
+      backendFailed = true;
+    }
+
+    if (!mockLoginEnabled()) {
+      return nextJsonError(
+        backendFailed ? 503 : 502,
+        backendFailed ? "UPSTREAM_UNREACHABLE" : "UPSTREAM_INVALID_RESPONSE",
+        "Authentication service unavailable",
+        "The application database login service could not complete the request."
+      );
     }
 
     const user = await getUserByEmail(trimmedEmail);

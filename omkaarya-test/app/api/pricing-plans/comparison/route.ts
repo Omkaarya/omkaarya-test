@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiUrl } from "@/lib/api-base";
 import { nextJsonError } from "@/lib/api-envelope";
+import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireSuperAdminHeaders({ Accept: "application/json" });
+    if (!auth.ok) return auth.response;
+
     const target = `${apiUrl("/api/pricing-plans/comparison")}${request.nextUrl.search}`;
     const res = await fetch(target, {
       method: "GET",
-      headers: { Accept: "application/json" },
+      headers: auth.headers,
       cache: "no-store",
     });
 

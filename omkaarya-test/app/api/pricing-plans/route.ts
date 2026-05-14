@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiUrl } from "@/lib/api-base";
 import { nextJsonError } from "@/lib/api-envelope";
+import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireSuperAdminHeaders({ Accept: "application/json" });
+    if (!auth.ok) return auth.response;
+
     const target = `${apiUrl("/api/pricing-plans")}${request.nextUrl.search}`;
     const res = await fetch(target, {
       method: "GET",
-      headers: { Accept: "application/json" },
+      headers: auth.headers,
       cache: "no-store",
     });
 
@@ -21,11 +25,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireSuperAdminHeaders({ "Content-Type": "application/json" });
+    if (!auth.ok) return auth.response;
+
     const body = await request.json();
     const target = apiUrl("/api/pricing-plans");
     const res = await fetch(target, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: auth.headers,
       body: JSON.stringify(body),
     });
 
