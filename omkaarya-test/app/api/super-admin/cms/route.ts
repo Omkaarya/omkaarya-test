@@ -1,56 +1,47 @@
-import { nextJsonError, nextJsonSuccess } from "@/lib/api-envelope";
-import { fetchAllCmsPages, upsertCmsPage } from "@/lib/website-cms-db";
-import type { CmsPageKey } from "@/lib/website-cms-defaults";
+import { NextResponse } from "next/server";
+import { apiUrl } from "@/lib/api-base";
+import { nextJsonError } from "@/lib/api-envelope";
 import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
-const KEYS = new Set<CmsPageKey>(["home", "about", "contact", "settings"]);
-
-/** GET /api/super-admin/cms — merged CMS bundle (defaults + DB). */
+/** GET /api/super-admin/cms */
 export async function GET() {
-  const auth = await requireSuperAdminHeaders();
-  if (!auth.ok) return auth.response;
-
   try {
-    const pages = await fetchAllCmsPages();
-    return nextJsonSuccess(200, { pages }, "CMS content loaded", "Website CMS payloads merged with defaults.");
-  } catch (err) {
-    console.error("GET /api/super-admin/cms error:", err);
-    const m = err instanceof Error ? err.message : String(err);
-    return nextJsonError(500, "CMS_LOAD_FAILED", "Failed to load CMS content", m);
+    const auth = await requireSuperAdminHeaders({ Accept: "application/json" });
+    if (!auth.ok) return auth.response;
+
+    const res = await fetch(apiUrl("/api/super-admin/cms"), {
+      method: "GET",
+      headers: auth.headers,
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => null);
+    return NextResponse.json(data, { status: res.status });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to load CMS content";
+    return nextJsonError(503, "UPSTREAM_UNREACHABLE", "Could not reach the API server", message);
   }
 }
 
-type PutBody = { pageKey?: string; payload?: unknown };
-
-/** PUT /api/super-admin/cms — upsert one page payload. */
+/** PUT /api/super-admin/cms */
 export async function PUT(request: Request) {
-  const auth = await requireSuperAdminHeaders();
-  if (!auth.ok) return auth.response;
-
-  let body: PutBody;
   try {
-    body = (await request.json()) as PutBody;
-  } catch {
-    return nextJsonError(400, "VALIDATION_ERROR", "Invalid JSON", "Request body must be JSON.");
-  }
+    const auth = await requireSuperAdminHeaders({
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    });
+    if (!auth.ok) return auth.response;
 
-  const pageKey = body.pageKey as CmsPageKey | undefined;
-  if (!pageKey || !KEYS.has(pageKey)) {
-    return nextJsonError(
-      400,
-      "VALIDATION_ERROR",
-      "Invalid pageKey",
-      "pageKey must be one of: home, about, contact, settings."
-    );
-  }
-
-  try {
-    await upsertCmsPage(pageKey, body.payload ?? {});
-    const pages = await fetchAllCmsPages();
-    return nextJsonSuccess(200, { pages }, "CMS page saved", `Payload for \"${pageKey}\" was persisted.`);
-  } catch (err) {
-    console.error("PUT /api/super-admin/cms error:", err);
-    const m = err instanceof Error ? err.message : String(err);
-    return nextJsonError(500, "CMS_SAVE_FAILED", "Failed to save CMS content", m);
+    const body = await request.text();
+    const res = await fetch(apiUrl("/api/super-admin/cms"), {
+      method: "PUT",
+      headers: { ...auth.headers, "Content-Type": "application/json" },
+      body,
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => null);
+    return NextResponse.json(data, { status: res.status });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to save CMS content";
+    return nextJsonError(503, "UPSTREAM_UNREACHABLE", "Could not reach the API server", message);
   }
 }

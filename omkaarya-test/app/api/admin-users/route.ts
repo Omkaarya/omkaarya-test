@@ -1,36 +1,47 @@
-import { nextJsonError, nextJsonSuccess } from "@/lib/api-envelope";
-import { fetchAllSaUsers, insertSaUser, deleteSaUser } from "@/lib/sa-users-db";
+import { NextResponse } from "next/server";
+import { apiUrl } from "@/lib/api-base";
+import { nextJsonError } from "@/lib/api-envelope";
+import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
-/** GET /api/admin-users — List all super admin users. */
+/** GET /api/admin-users */
 export async function GET() {
   try {
-    const users = await fetchAllSaUsers();
-    return nextJsonSuccess(200, users, "Admin users loaded", "All super admin users returned.");
-  } catch (err) {
-    console.error("GET /api/admin-users error:", err);
-    const m = err instanceof Error ? err.message : String(err);
-    return nextJsonError(500, "SA_USERS_LIST_FAILED", "Failed to fetch admin users", m);
+    const auth = await requireSuperAdminHeaders({ Accept: "application/json" });
+    if (!auth.ok) return auth.response;
+
+    const res = await fetch(apiUrl("/api/admin-users"), {
+      method: "GET",
+      headers: auth.headers,
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => null);
+    return NextResponse.json(data, { status: res.status });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to fetch admin users";
+    return nextJsonError(503, "UPSTREAM_UNREACHABLE", "Could not reach the API server", message);
   }
 }
 
-/** POST /api/admin-users — Create a new super admin user. */
+/** POST /api/admin-users */
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { name, email, roleId, isActive } = body;
+    const auth = await requireSuperAdminHeaders({
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    });
+    if (!auth.ok) return auth.response;
 
-    if (!name || !email) {
-      return nextJsonError(400, "VALIDATION_ERROR", "name and email are required", "Provide both name and email in the request body.");
-    }
-
-    const user = await insertSaUser({ name, email, roleId, isActive });
-    return nextJsonSuccess(201, user, "Admin user created", "A new super admin user was added to the system.");
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Failed to create user";
-    if (message.includes("unique") || message.includes("duplicate")) {
-      return nextJsonError(409, "EMAIL_CONFLICT", "Email already exists", "Another user already uses this email address.");
-    }
-    console.error("POST /api/admin-users error:", err);
-    return nextJsonError(500, "SA_USER_CREATE_FAILED", "Failed to create admin user", message);
+    const body = await request.text();
+    const res = await fetch(apiUrl("/api/admin-users"), {
+      method: "POST",
+      headers: { ...auth.headers, "Content-Type": "application/json" },
+      body,
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => null);
+    return NextResponse.json(data, { status: res.status });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to create admin user";
+    return nextJsonError(503, "UPSTREAM_UNREACHABLE", "Could not reach the API server", message);
   }
 }

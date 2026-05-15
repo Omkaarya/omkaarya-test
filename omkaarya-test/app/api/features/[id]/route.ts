@@ -1,61 +1,51 @@
-import { nextJsonError, nextJsonSuccess } from "@/lib/api-envelope";
-import { updateFeature, toggleFeatureActive } from "@/lib/features-db";
-import { isUuidString } from "@/lib/is-uuid";
+import { NextRequest, NextResponse } from "next/server";
+import { apiUrl } from "@/lib/api-base";
+import { nextJsonError } from "@/lib/api-envelope";
 import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
-/** PUT /api/features/[id] — Update a feature. */
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const auth = await requireSuperAdminHeaders();
-  if (!auth.ok) return auth.response;
+type RouteContext = { params: Promise<{ id: string }> };
 
+/** PUT /api/features/[id] */
+export async function PUT(request: NextRequest, context: RouteContext) {
   try {
-    const { id } = await params;
-    const featureId = id.trim();
-    if (!isUuidString(featureId)) {
-      return nextJsonError(400, "INVALID_ID", "Invalid feature ID", "The path segment must be a UUID.");
-    }
+    const auth = await requireSuperAdminHeaders({
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    });
+    if (!auth.ok) return auth.response;
 
-    const body = await request.json();
-    const feature = await updateFeature(featureId, body);
-    if (!feature) {
-      return nextJsonError(404, "FEATURE_NOT_FOUND", "Feature not found", "No row exists for the given id.");
-    }
-
-    return nextJsonSuccess(200, feature, "Feature updated", "The feature registry row was written with the submitted fields.");
-  } catch (err) {
-    console.error("PUT /api/features/[id] error:", err);
-    const m = err instanceof Error ? err.message : String(err);
-    return nextJsonError(500, "FEATURE_UPDATE_FAILED", "Failed to update feature", m);
+    const { id } = await context.params;
+    const body = await request.text();
+    const res = await fetch(apiUrl(`/api/features/${encodeURIComponent(id)}`), {
+      method: "PUT",
+      headers: { ...auth.headers, "Content-Type": "application/json" },
+      body,
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => null);
+    return NextResponse.json(data, { status: res.status });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to update feature";
+    return nextJsonError(503, "UPSTREAM_UNREACHABLE", "Could not reach the API server", message);
   }
 }
 
-/** PATCH /api/features/[id] — Toggle active status. */
-export async function PATCH(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const auth = await requireSuperAdminHeaders();
-  if (!auth.ok) return auth.response;
-
+/** PATCH /api/features/[id] */
+export async function PATCH(_request: NextRequest, context: RouteContext) {
   try {
-    const { id } = await params;
-    const featureId = id.trim();
-    if (!isUuidString(featureId)) {
-      return nextJsonError(400, "INVALID_ID", "Invalid feature ID", "The path segment must be a UUID.");
-    }
+    const auth = await requireSuperAdminHeaders({ Accept: "application/json" });
+    if (!auth.ok) return auth.response;
 
-    const feature = await toggleFeatureActive(featureId);
-    if (!feature) {
-      return nextJsonError(404, "FEATURE_NOT_FOUND", "Feature not found", "No row exists for the given id.");
-    }
-
-    return nextJsonSuccess(200, feature, "Feature toggled", "The feature's active flag was flipped and the updated row is returned.");
-  } catch (err) {
-    console.error("PATCH /api/features/[id] error:", err);
-    const m = err instanceof Error ? err.message : String(err);
-    return nextJsonError(500, "FEATURE_TOGGLE_FAILED", "Failed to toggle feature", m);
+    const { id } = await context.params;
+    const res = await fetch(apiUrl(`/api/features/${encodeURIComponent(id)}`), {
+      method: "PATCH",
+      headers: auth.headers,
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => null);
+    return NextResponse.json(data, { status: res.status });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to toggle feature";
+    return nextJsonError(503, "UPSTREAM_UNREACHABLE", "Could not reach the API server", message);
   }
 }

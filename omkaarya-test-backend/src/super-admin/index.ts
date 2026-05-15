@@ -18,6 +18,7 @@ import { PostgresTemplePlanRepository } from "./temple-plan.repository.js";
 import { createTemplePlanRouter } from "./temple-plan.routes.js";
 import { PostgresTempleRepository } from "./temples.repository.js";
 import { createTempleSessionProfileRouter } from "./temple-session-profile.routes.js";
+import { createTempleSubdomainCheckRouter } from "./temples-check-subdomain.routes.js";
 import { createTemplesRouter } from "./temples.routes.js";
 import { TemplesService } from "./temples.service.js";
 import { PostgresSubscriptionsRepository } from "./subscriptions.repository.js";
@@ -32,6 +33,17 @@ import { createSuperAdminSessionRouter } from "./super-admin-session.routes.js";
 import { createTempleDeityCatalogRouter } from "./temple-deity-catalog.routes.js";
 import { createMasterDeitiesRouter } from "./master-deities.routes.js";
 import { PostgresMasterDeitiesRepository } from "./master-deities.repository.js";
+import { createDeleteAccountRequestsRouter } from "./delete-account-requests.routes.js";
+import { PostgresDeleteAccountRequestsRepository } from "./delete-account-requests.repository.js";
+import { PostgresCmsPagesRepository } from "./cms-pages.repository.js";
+import { createSuperAdminCmsRouter } from "./cms-pages.routes.js";
+import { PostgresFeatureRegistryRepository } from "./feature-registry.repository.js";
+import { createFeatureRegistryRouter } from "./feature-registry.routes.js";
+import { createPlanFeaturesAdminRouter } from "./plan-features-admin.routes.js";
+import { PostgresSaRbacRepository } from "./sa-rbac.repository.js";
+import { createSaRbacRouter } from "./sa-rbac.routes.js";
+import { PostgresTempleDefaultRolePermissionsRepository } from "./temple-default-role-permissions.repository.js";
+import { createTempleDefaultRolesAdminRouter } from "./temple-default-roles-admin.routes.js";
 import { createPublicRouter } from "../public/public.routes.js";
 import { requireSuperAdminJwt } from "./middleware/require-super-admin-jwt.js";
 import { SUPER_ADMIN_JWT_PATH_PREFIXES } from "./super-admin-protected-path-prefixes.js";
@@ -80,6 +92,11 @@ export function createSuperAdminApiRouter(): Router {
   const pricingPlans = new PostgresPricingPlansRepository();
   const billing = new PostgresBillingRepository();
   const masterDeities = new PostgresMasterDeitiesRepository();
+  const deleteAccountRequests = new PostgresDeleteAccountRequestsRepository();
+  const cmsPages = new PostgresCmsPagesRepository();
+  const featureRegistry = new PostgresFeatureRegistryRepository();
+  const saRbac = new PostgresSaRbacRepository();
+  const templeDefaultRolePerms = new PostgresTempleDefaultRolePermissionsRepository();
 
   const api = Router();
   api.use(createAuthRouter(authService));
@@ -89,6 +106,7 @@ export function createSuperAdminApiRouter(): Router {
 
   api.use([...SUPER_ADMIN_JWT_PATH_PREFIXES], requireSuperAdminJwt);
   api.use(createSuperAdminSessionRouter());
+  api.use(createTempleSubdomainCheckRouter());
   api.use(createTemplesRouter(templesService));
   api.use(createBillingRouter(billing));
   api.use(createDashboardRouter(billing));
@@ -99,6 +117,12 @@ export function createSuperAdminApiRouter(): Router {
   api.use(createTempleSessionProfileRouter(templeRepo));
   api.use(createTempleAdminProfileRouter(templeAdminProfiles));
   api.use(createMasterDeitiesRouter(masterDeities));
+  api.use(createDeleteAccountRequestsRouter(deleteAccountRequests));
+  api.use(createSuperAdminCmsRouter(cmsPages));
+  api.use(createFeatureRegistryRouter(featureRegistry));
+  api.use(createPlanFeaturesAdminRouter(featureRegistry, pricingPlans));
+  api.use(createSaRbacRouter(saRbac));
+  api.use(createTempleDefaultRolesAdminRouter(templeDefaultRolePerms));
   api.use(createTempleDeityRouter(templeDeities, masterDeities));
   api.use(createTemplePlanRouter(templePlans));
   api.use(createTemplePaymentOnboardingRouter(templePaymentOnboarding));

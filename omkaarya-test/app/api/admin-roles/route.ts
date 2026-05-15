@@ -1,41 +1,47 @@
-import { nextJsonError, nextJsonSuccess } from "@/lib/api-envelope";
-import { fetchAllSaRoles, insertSaRole } from "@/lib/sa-users-db";
+import { NextResponse } from "next/server";
+import { apiUrl } from "@/lib/api-base";
+import { nextJsonError } from "@/lib/api-envelope";
 import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
-/** GET /api/admin-roles — List all super admin roles with user counts. */
+/** GET /api/admin-roles */
 export async function GET() {
-  const auth = await requireSuperAdminHeaders();
-  if (!auth.ok) return auth.response;
-
   try {
-    const roles = await fetchAllSaRoles();
-    return nextJsonSuccess(200, roles, "Admin roles loaded", "All super admin roles with user counts returned.");
-  } catch (err) {
-    console.error("GET /api/admin-roles error:", err);
-    const m = err instanceof Error ? err.message : String(err);
-    return nextJsonError(500, "SA_ROLES_LIST_FAILED", "Failed to fetch admin roles", m);
+    const auth = await requireSuperAdminHeaders({ Accept: "application/json" });
+    if (!auth.ok) return auth.response;
+
+    const res = await fetch(apiUrl("/api/admin-roles"), {
+      method: "GET",
+      headers: auth.headers,
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => null);
+    return NextResponse.json(data, { status: res.status });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to fetch admin roles";
+    return nextJsonError(503, "UPSTREAM_UNREACHABLE", "Could not reach the API server", message);
   }
 }
 
-/** POST /api/admin-roles — Create a new role. */
+/** POST /api/admin-roles */
 export async function POST(request: Request) {
-  const auth = await requireSuperAdminHeaders();
-  if (!auth.ok) return auth.response;
-
   try {
-    const body = await request.json();
-    const { name, description } = body;
-    if (!name) {
-      return nextJsonError(400, "VALIDATION_ERROR", "name is required", "Provide a role name in the request body.");
-    }
-    const role = await insertSaRole({ name, description });
-    return nextJsonSuccess(201, role, "Role created", "A new super admin role was created.");
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Failed to create role";
-    if (message.includes("unique") || message.includes("duplicate")) {
-      return nextJsonError(409, "ROLE_NAME_CONFLICT", "Role name already exists", "Another role already has this name.");
-    }
-    console.error("POST /api/admin-roles error:", err);
-    return nextJsonError(500, "SA_ROLE_CREATE_FAILED", "Failed to create role", message);
+    const auth = await requireSuperAdminHeaders({
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    });
+    if (!auth.ok) return auth.response;
+
+    const body = await request.text();
+    const res = await fetch(apiUrl("/api/admin-roles"), {
+      method: "POST",
+      headers: { ...auth.headers, "Content-Type": "application/json" },
+      body,
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => null);
+    return NextResponse.json(data, { status: res.status });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to create role";
+    return nextJsonError(503, "UPSTREAM_UNREACHABLE", "Could not reach the API server", message);
   }
 }
