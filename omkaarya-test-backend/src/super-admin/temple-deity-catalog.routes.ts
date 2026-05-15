@@ -1,14 +1,12 @@
 import { Router } from "express";
-import rateLimit from "express-rate-limit";
+import { createRateLimiter } from "../middleware/rate-limit.js";
 import { sendSuccess } from "../middleware/api-envelope.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import type { PostgresMasterDeitiesRepository } from "./master-deities.repository.js";
 
-const catalogLimiter = rateLimit({
+const catalogLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 120,
-  standardHeaders: true,
-  legacyHeaders: false,
 });
 
 /** Public catalog for temple onboarding (active deities only). Mounted before super-admin JWT. */

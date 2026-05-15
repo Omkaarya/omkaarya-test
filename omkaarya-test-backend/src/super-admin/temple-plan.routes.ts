@@ -1,5 +1,5 @@
 import { Router } from "express";
-import rateLimit from "express-rate-limit";
+import { createRateLimiter } from "../middleware/rate-limit.js";
 import { sendSuccess } from "../middleware/api-envelope.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { HttpError } from "../middleware/http-error.js";
@@ -7,11 +7,9 @@ import { validateBody } from "../middleware/validate.js";
 import type { PostgresTemplePlanRepository } from "./temple-plan.repository.js";
 import { templePlanSelectionBodySchema } from "./validation.js";
 
-const planSelectionLimiter = rateLimit({
+const planSelectionLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 40,
-  standardHeaders: true,
-  legacyHeaders: false,
 });
 
 export function createTemplePlanRouter(plans: PostgresTemplePlanRepository): Router {

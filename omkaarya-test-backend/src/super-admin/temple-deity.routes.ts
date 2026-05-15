@@ -1,5 +1,5 @@
 import { Router } from "express";
-import rateLimit from "express-rate-limit";
+import { createRateLimiter } from "../middleware/rate-limit.js";
 import { sendSuccess } from "../middleware/api-envelope.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { HttpError } from "../middleware/http-error.js";
@@ -8,11 +8,9 @@ import type { PostgresTempleDeityRepository } from "./temple-deity.repository.js
 import type { PostgresMasterDeitiesRepository } from "./master-deities.repository.js";
 import { templeDeitySelectionBodySchema } from "./validation.js";
 
-const deitySelectionLimiter = rateLimit({
+const deitySelectionLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 40,
-  standardHeaders: true,
-  legacyHeaders: false,
 });
 
 export function createTempleDeityRouter(

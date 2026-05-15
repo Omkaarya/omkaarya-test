@@ -1,5 +1,5 @@
 import { Router } from "express";
-import rateLimit from "express-rate-limit";
+import { createRateLimiter } from "../middleware/rate-limit.js";
 import { sendSuccess } from "../middleware/api-envelope.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { validateBody } from "../middleware/validate.js";
@@ -10,25 +10,19 @@ import {
   passwordResetVerifyOtpBodySchema,
 } from "./validation.js";
 
-const requestLimiter = rateLimit({
+const requestLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
 });
 
-const verifyLimiter = rateLimit({
+const verifyLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
 });
 
-const completeLimiter = rateLimit({
+const completeLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
 });
 
 export function createPasswordResetRouter(service: PasswordResetService): Router {
