@@ -1,4 +1,5 @@
 import { SignJWT, jwtVerify } from 'jose';
+import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
 type AuthTokenPayload = {
@@ -39,24 +40,37 @@ export async function signToken(payload: AuthTokenPayload, options?: AuthSession
 
 export async function verifyToken(token: string) {
   try {
-    const { payload } = await jwtVerify(token, jwtKey());
+    const { payload } = await jwtVerify(token, jwtKey(), { clockTolerance: 60 });
     return payload;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
 
-export async function setAuthCookie(token: string, options?: AuthSessionLengthOptions) {
+function authCookieFields(token: string, options?: AuthSessionLengthOptions) {
   const rememberMe = options?.rememberMe === true;
   const maxAge = rememberMe ? AUTH_REMEMBER_ME_MAX_AGE_SEC : AUTH_SESSION_MAX_AGE_SEC;
-  const cookieStore = await cookies();
-  cookieStore.set({
-    name: 'auth_token',
+  return {
+    name: 'auth_token' as const,
     value: token,
     httpOnly: true,
     path: '/',
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: 'lax' as const,
     maxAge,
-  });
+  };
+}
+
+/** Prefer this in Route Handlers so `Set-Cookie` is bound to the returned `NextResponse`. */
+export function applyAuthCookieToResponse(
+  response: NextResponse,
+  token: string,
+  options?: AuthSessionLengthOptions
+): NextResponse {
+  response.cookies.set(authCookieFields(token, options));
+  return response;
+}
+
+export async function setAuthCookie(token: string, options?: AuthSessionLengthOptions) {
+  (await cookies()).set(authCookieFields(token, options));
 }

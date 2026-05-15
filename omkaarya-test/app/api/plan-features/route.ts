@@ -2,6 +2,10 @@ import { apiUrl } from "@/lib/api-base";
 import { nextJsonError, nextJsonSuccess } from "@/lib/api-envelope";
 import { fetchPlanFeatures, upsertPlanFeatures } from "@/lib/plan-features-db";
 import { fetchAllActiveFeaturesOrdered } from "@/lib/features-db";
+import {
+  expressFeatureTokensFromPayload,
+  registryFeatureInExpressSet,
+} from "@/lib/plan-features-merge";
 import { isUuidString } from "@/lib/is-uuid";
 import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
@@ -35,10 +39,35 @@ export async function GET(request: Request) {
       fetchAllActiveFeaturesOrdered(),
     ]);
 
-    // Merge: all active registry features; plan_features row enables (default off)
+    let expressTokens = new Set<string>();
+    if (isUuidString(planId)) {
+      try {
+        const exRes = await fetch(apiUrl(`/api/pricing-plans/${encodeURIComponent(planId)}`), {
+          method: "GET",
+          headers: { ...auth.headers, Accept: "application/json" },
+          cache: "no-store",
+        });
+        if (exRes.ok) {
+          const ej = (await exRes.json().catch(() => null)) as {
+            success?: boolean;
+            data?: { features?: unknown };
+          };
+          const raw = ej?.success ? ej?.data?.features : undefined;
+          expressTokens = expressFeatureTokensFromPayload(raw);
+        }
+      } catch {
+        /* Express unavailable — fall back to plan_features only */
+      }
+    }
+
+    // Merge: plan_features row wins when present; else default from Express `features` name/key list
     const configMap = new Map(planFeatures.map((pf) => [pf.featureId, pf]));
     const merged = allActiveFeatures.map((f) => {
       const existing = configMap.get(f.id);
+      const fromExpress =
+        !existing &&
+        expressTokens.size > 0 &&
+        registryFeatureInExpressSet(f.name, f.key, expressTokens);
       return {
         featureId: f.id,
         featureName: f.name,
@@ -47,7 +76,7 @@ export async function GET(request: Request) {
         hasLimit: f.hasLimit,
         limitType: f.limitType,
         description: f.description,
-        isEnabled: existing ? existing.isEnabled : false,
+        isEnabled: existing ? existing.isEnabled : fromExpress,
         limitValue: existing?.limitValue ?? null,
       };
     });
@@ -56,7 +85,7 @@ export async function GET(request: Request) {
       200,
       merged,
       "Plan feature config loaded",
-      "Merged the global feature registry with per-plan `plan_features` rows (defaults off when unset)."
+      "Merged the global feature registry with per-plan `plan_features` rows; when no row exists, inclusion is inferred from Express `pricing_plans.features` (name or key) for UUID plans."
     );
   } catch (err) {
     console.error("GET /api/plan-features error:", err);
@@ -113,10 +142,42 @@ export async function POST(request: Request) {
         .filter((f) => byId.get(f.id) === true)
         .map((f) => f.name);
       try {
+        let includedSeats = 3;
+        let extraSeatPriceMonthly = 0;
+        const getRes = await fetch(apiUrl(`/api/pricing-plans/${encodeURIComponent(planId)}`), {
+          method: "GET",
+          headers: { ...auth.headers, Accept: "application/json" },
+          cache: "no-store",
+        });
+        if (getRes.ok) {
+          const gj = (await getRes.json().catch(() => null)) as {
+            success?: boolean;
+            data?: {
+              includedSeats?: unknown;
+              totalSeats?: unknown;
+              extraSeatPriceMonthly?: unknown;
+            };
+          };
+          const d = gj?.success ? gj?.data : undefined;
+          if (d) {
+            if (typeof d.includedSeats === "number" && Number.isFinite(d.includedSeats)) {
+              includedSeats = d.includedSeats;
+            } else if (typeof d.totalSeats === "number" && Number.isFinite(d.totalSeats)) {
+              includedSeats = d.totalSeats;
+            }
+            if (typeof d.extraSeatPriceMonthly === "number" && Number.isFinite(d.extraSeatPriceMonthly)) {
+              extraSeatPriceMonthly = d.extraSeatPriceMonthly;
+            }
+          }
+        }
         const sync = await fetch(apiUrl(`/api/pricing-plans/${encodeURIComponent(planId)}`), {
           method: "PATCH",
-          headers: { "Content-Type": "application/json", Authorization: auth.headers.Authorization },
-          body: JSON.stringify({ features: featureNames }),
+          headers: { "Content-Type": "application/json", ...auth.headers },
+          body: JSON.stringify({
+            features: featureNames,
+            includedSeats,
+            extraSeatPriceMonthly,
+          }),
         });
         if (!sync.ok) {
           console.error("POST /api/plan-features: could not sync pricing_plans.features", await sync.text());

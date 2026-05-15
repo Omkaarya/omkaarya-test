@@ -14,6 +14,7 @@ import AdminListCard from "@/app/components/admin/AdminListCard";
 import AdminPagination from "@/app/components/admin/AdminPagination";
 import { AdminTableToolbar, AdminTableToolbarEnd, AdminTableToolbarStart } from "@/app/components/admin/AdminTableToolbar";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
+import { KpiTileGridSkeleton } from "@/app/components/admin/ApiFetchPlaceholders";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -86,6 +87,8 @@ export default function ReceiptsPage() {
     confirmedAmountCentsThisPeriod: number;
     pendingCount: number;
   } | null>(null);
+  const [listLoading, setListLoading] = useState(true);
+  const [kpisLoading, setKpisLoading] = useState(true);
 
   const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 4000); }, []);
 
@@ -95,39 +98,49 @@ export default function ReceiptsPage() {
   }, [search]);
 
   const load = useCallback(async () => {
-    const p = new URLSearchParams();
-    p.set("page", String(page));
-    p.set("pageSize", String(pageSize));
-    if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
-    p.set("period", periodFilter);
-    const res = await fetch(`/api/billing/receipts?${p.toString()}`, { cache: "no-store" });
-    const d = (await res.json().catch(() => null)) as
-      | { success?: boolean; data?: { data: ApiR[]; totalPages: number; total?: number } }
-      | null;
-    if (!d || d.success !== true || !d.data) {
-      setRows([]);
-      setTotalPages(1);
-      setListTotal(0);
-      showToast(jsonApiErrorMessage(d) || "Failed to load receipts");
-      return;
+    setListLoading(true);
+    try {
+      const p = new URLSearchParams();
+      p.set("page", String(page));
+      p.set("pageSize", String(pageSize));
+      if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
+      p.set("period", periodFilter);
+      const res = await fetch(`/api/billing/receipts?${p.toString()}`, { cache: "no-store" });
+      const d = (await res.json().catch(() => null)) as
+        | { success?: boolean; data?: { data: ApiR[]; totalPages: number; total?: number } }
+        | null;
+      if (!d || d.success !== true || !d.data) {
+        setRows([]);
+        setTotalPages(1);
+        setListTotal(0);
+        showToast(jsonApiErrorMessage(d) || "Failed to load receipts");
+        return;
+      }
+      setRows((d.data.data ?? []).map(mapR));
+      setTotalPages(Math.max(1, d.data.totalPages));
+      setListTotal(typeof d.data.total === "number" ? d.data.total : (d.data.data ?? []).length);
+    } finally {
+      setListLoading(false);
     }
-    setRows((d.data.data ?? []).map(mapR));
-    setTotalPages(Math.max(1, d.data.totalPages));
-    setListTotal(typeof d.data.total === "number" ? d.data.total : (d.data.data ?? []).length);
   }, [page, pageSize, searchDebounced, showToast, periodFilter]);
 
   const loadKpis = useCallback(async () => {
-    const p = new URLSearchParams();
-    p.set("period", periodFilter);
-    const res = await fetch(`/api/billing/receipts/kpis?${p.toString()}`, { cache: "no-store" });
-    const d = (await res.json().catch(() => null)) as
-      | { success?: boolean; data?: { receiptsIssuedAllTime: number; receiptsIssuedThisPeriod: number; confirmedAmountCentsThisPeriod: number; pendingCount: number } }
-      | null;
-    if (!d || d.success !== true || !d.data) {
-      setKpis(null);
-      return;
+    setKpisLoading(true);
+    try {
+      const p = new URLSearchParams();
+      p.set("period", periodFilter);
+      const res = await fetch(`/api/billing/receipts/kpis?${p.toString()}`, { cache: "no-store" });
+      const d = (await res.json().catch(() => null)) as
+        | { success?: boolean; data?: { receiptsIssuedAllTime: number; receiptsIssuedThisPeriod: number; confirmedAmountCentsThisPeriod: number; pendingCount: number } }
+        | null;
+      if (!d || d.success !== true || !d.data) {
+        setKpis(null);
+        return;
+      }
+      setKpis(d.data);
+    } finally {
+      setKpisLoading(false);
     }
-    setKpis(d.data);
   }, [periodFilter]);
 
   useEffect(() => {
@@ -219,23 +232,27 @@ export default function ReceiptsPage() {
       </div>
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-surface rounded-xl border border-border p-4">
-          <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Receipts issued</p>
-          <p className="text-2xl font-bold text-green-600">{kpis?.receiptsIssuedAllTime ?? 0}</p>
-          <p className="text-[10px] text-text-tertiary mt-1">all time</p>
+      {kpisLoading ? (
+        <KpiTileGridSkeleton columns={3} />
+      ) : (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-surface rounded-xl border border-border p-4">
+            <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Receipts issued</p>
+            <p className="text-2xl font-bold text-green-600">{kpis?.receiptsIssuedAllTime ?? 0}</p>
+            <p className="text-[10px] text-text-tertiary mt-1">all time</p>
+          </div>
+          <div className="bg-surface rounded-xl border border-border p-4">
+            <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">{periodFilter === "this-year" ? "This year" : "This month"}</p>
+            <p className="text-xl font-bold text-text-primary">{kpis?.receiptsIssuedThisPeriod ?? 0}</p>
+            <p className="text-[10px] text-text-tertiary mt-1">{formatUsdFromCents(kpis?.confirmedAmountCentsThisPeriod ?? 0)} confirmed</p>
+          </div>
+          <div className="bg-surface rounded-xl border border-border p-4">
+            <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Pending (no receipt yet)</p>
+            <p className="text-xl font-bold text-text-primary">{kpis?.pendingCount ?? 0}</p>
+            <p className="text-[10px] text-text-tertiary mt-1">awaiting payment confirmation</p>
+          </div>
         </div>
-        <div className="bg-surface rounded-xl border border-border p-4">
-          <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">{periodFilter === "this-year" ? "This year" : "This month"}</p>
-          <p className="text-xl font-bold text-text-primary">{kpis?.receiptsIssuedThisPeriod ?? 0}</p>
-          <p className="text-[10px] text-text-tertiary mt-1">{formatUsdFromCents(kpis?.confirmedAmountCentsThisPeriod ?? 0)} confirmed</p>
-        </div>
-        <div className="bg-surface rounded-xl border border-border p-4">
-          <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Pending (no receipt yet)</p>
-          <p className="text-xl font-bold text-text-primary">{kpis?.pendingCount ?? 0}</p>
-          <p className="text-[10px] text-text-tertiary mt-1">awaiting payment confirmation</p>
-        </div>
-      </div>
+      )}
 
       <AdminListCard>
         <AdminTableToolbar>
@@ -266,7 +283,13 @@ export default function ReceiptsPage() {
           </AdminTableToolbarEnd>
         </AdminTableToolbar>
 
-        <DataTable<ReceiptRow> columns={columns} data={pageRows} keyExtractor={(r) => r.id} />
+        <DataTable<ReceiptRow>
+          columns={columns}
+          data={pageRows}
+          keyExtractor={(r) => r.id}
+          isLoading={listLoading}
+          loadingRows={pageSize}
+        />
 
         <AdminPagination
           page={page}

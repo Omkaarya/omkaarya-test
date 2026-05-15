@@ -2,7 +2,6 @@
 
 import { Mail, Lock, EyeOff, ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import { SUPER_ADMIN_REMEMBER_ME_STORAGE_KEY } from "@/lib/super-admin-session-prefs";
 
@@ -15,7 +14,6 @@ export default function InvitationLogin() {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   useEffect(() => {
     try {
@@ -57,11 +55,11 @@ export default function InvitationLogin() {
         } catch {
           /* ignore */
         }
-        router.push("/super-admin/dashboard");
+        window.location.assign("/super-admin/dashboard");
       } else {
         setError(jsonApiErrorMessage(data) || "Login failed");
       }
-    } catch (err) {
+    } catch {
       setError("Network error. Please try again.");
     } finally {
       setLoading(false);

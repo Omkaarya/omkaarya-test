@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
-import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import { SUPER_ADMIN_REMEMBER_ME_STORAGE_KEY } from "@/lib/super-admin-session-prefs";
@@ -12,8 +10,6 @@ const inputBase =
   "w-full rounded-xl border border-[var(--border-default)] bg-[var(--surface-elevated)] px-4 py-3 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all focus:border-[var(--brand-primary)] focus:ring-2 focus:ring-[var(--brand-primary)]/20 disabled:opacity-60";
 
 export default function LoginPage() {
-  const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -56,7 +52,7 @@ export default function LoginPage() {
         } catch {
           /* ignore */
         }
-        router.push("/super-admin/dashboard");
+        window.location.assign("/super-admin/dashboard");
       } else {
         setError(jsonApiErrorMessage(data) || "Invalid email or password.");
       }

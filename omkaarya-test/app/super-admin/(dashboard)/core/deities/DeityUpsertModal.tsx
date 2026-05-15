@@ -24,8 +24,10 @@ function readFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
-const ACCEPT = "image/svg+xml,image/png,image/jpeg,image/jpg";
-const MAX_BYTES = 2 * 1024 * 1024;
+/** Match `LogoUpload` / temple wizard: any raster or SVG the browser treats as `image/*`. */
+const ACCEPT = "image/*";
+/** Align with Express `JSON_BODY_LIMIT` default (`10mb`) used for temple create payloads. */
+const MAX_BYTES = 10 * 1024 * 1024;
 
 export default function DeityUpsertModal({ open, mode, initial, onClose, onSaved }: DeityUpsertModalProps) {
   const dialogId = useId();
@@ -292,7 +294,11 @@ export default function DeityUpsertModal({ open, mode, initial, onClose, onSaved
                     <span className="font-semibold text-[var(--brand-primary)]">Click to upload</span> or drag and
                     drop
                   </p>
-                  <p className="mt-1 text-xs text-zinc-400">SVG, PNG, JPG or JPEG (max. 800×400px recommended)</p>
+                  <p className="mt-1 text-xs text-zinc-400">
+                    Same as temple logo: any image type (e.g. JPEG, PNG, WebP, GIF, SVG), max{" "}
+                    {Math.round(MAX_BYTES / (1024 * 1024))}MB. Files are stored on Cloudinary; the catalog
+                    keeps the hosted URL.
+                  </p>
                 </div>
               </div>
             </div>

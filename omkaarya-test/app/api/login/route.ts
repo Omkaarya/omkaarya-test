@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { apiUrl } from "@/lib/api-base";
 import { getUserByEmail } from "@/lib/mock-db";
-import { signToken, setAuthCookie } from "@/lib/auth-utils";
+import { applyAuthCookieToResponse, signToken } from "@/lib/auth-utils";
 import { nextJsonError, nextJsonSuccess, type ApiErrorBody, type ApiSuccessBody } from "@/lib/api-envelope";
+import { isPlatformSuperAdminEmail } from "@/lib/super-admin-auth";
 
 type BackendLoginEnvelope =
   | ApiSuccessBody<{ firstLogin: boolean; userId?: string | number; tenantId?: string | null }>
@@ -87,23 +88,30 @@ export async function POST(request: NextRequest) {
 
       const parsed = res.ok ? parseBackendLogin(data) : null;
       if (res.ok && parsed) {
+        let platformSuper = false;
+        try {
+          platformSuper = await isPlatformSuperAdminEmail(trimmedEmail);
+        } catch {
+          /* DB unavailable: keep tenant-scoped JWT so login still succeeds */
+        }
+        const includeTenant =
+          !platformSuper && parsed.tenantId != null && parsed.tenantId !== "";
         const token = await signToken(
           {
             userId: parsed.userId ?? trimmedEmail,
             email: trimmedEmail,
-            ...(parsed.tenantId != null && parsed.tenantId !== ""
-              ? { tenantId: parsed.tenantId }
-              : {}),
+            ...(includeTenant ? { tenantId: parsed.tenantId as string } : {}),
           },
           { rememberMe }
         );
-        await setAuthCookie(token, { rememberMe });
-        return nextJsonSuccess(
+        const okRes = nextJsonSuccess(
           200,
           { firstLogin: parsed.firstLogin },
           parsed.message ?? "Login successful",
           parsed.reason ?? "Authenticated against the application database."
         );
+        applyAuthCookieToResponse(okRes, token, { rememberMe });
+        return okRes;
       }
 
       if (!res.ok && data && typeof data === "object" && "success" in data && data.success === false) {
@@ -143,14 +151,14 @@ export async function POST(request: NextRequest) {
     }
 
     const token = await signToken({ userId: user.id, email: user.email }, { rememberMe });
-    await setAuthCookie(token, { rememberMe });
-
-    return nextJsonSuccess(
+    const mockOk = nextJsonSuccess(
       200,
       { firstLogin: false },
       "Login successful",
       "Authenticated against local demo user store (no temporary password on this path)."
     );
+    applyAuthCookieToResponse(mockOk, token, { rememberMe });
+    return mockOk;
   } catch (error) {
     console.error("Login error:", error);
     const r = error instanceof Error ? error.message : "Internal server error during login.";

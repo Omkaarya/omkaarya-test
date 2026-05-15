@@ -23,6 +23,7 @@ import AdminListCard from "@/app/components/admin/AdminListCard";
 import AdminPagination from "@/app/components/admin/AdminPagination";
 import { AdminTableToolbar, AdminTableToolbarEnd, AdminTableToolbarStart } from "@/app/components/admin/AdminTableToolbar";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
+import { KpiTileGridSkeleton } from "@/app/components/admin/ApiFetchPlaceholders";
 import Link from "next/link";
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -297,6 +298,7 @@ export default function InvoicesPage() {
   const [listTotal, setListTotal] = useState(0);
   const [listTotalPages, setListTotalPages] = useState(1);
   const [kpi, setKpi] = useState({ all: 0, paid: 0, pending: 0, overdue: 0, draft: 0, loading: true, error: "" });
+  const [listLoading, setListLoading] = useState(true);
   const [searchDebounced, setSearchDebounced] = useState("");
   const [pageSize, setPageSize] = useState(10);
 
@@ -365,25 +367,30 @@ export default function InvoicesPage() {
   }, []);
 
   const loadList = useCallback(async () => {
-    const p = new URLSearchParams();
-    p.set("status", statusForApi(filter));
-    p.set("page", String(page));
-    p.set("pageSize", String(pageSize));
-    if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
-    const res = await fetch(`/api/billing/invoices?${p.toString()}`, { cache: "no-store" });
-    const d = (await res.json().catch(() => null)) as
-      | { success?: boolean; data?: { data: ApiRow[]; total: number; totalPages: number } }
-      | null;
-    if (!d || d.success !== true || !d.data) {
-      setRows([]);
-      setListTotal(0);
-      setListTotalPages(1);
-      showToast(jsonApiErrorMessage(d) || "Failed to load invoices");
-      return;
+    setListLoading(true);
+    try {
+      const p = new URLSearchParams();
+      p.set("status", statusForApi(filter));
+      p.set("page", String(page));
+      p.set("pageSize", String(pageSize));
+      if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
+      const res = await fetch(`/api/billing/invoices?${p.toString()}`, { cache: "no-store" });
+      const d = (await res.json().catch(() => null)) as
+        | { success?: boolean; data?: { data: ApiRow[]; total: number; totalPages: number } }
+        | null;
+      if (!d || d.success !== true || !d.data) {
+        setRows([]);
+        setListTotal(0);
+        setListTotalPages(1);
+        showToast(jsonApiErrorMessage(d) || "Failed to load invoices");
+        return;
+      }
+      setRows((d.data.data ?? []).map(mapApiRow));
+      setListTotal(d.data.total);
+      setListTotalPages(Math.max(1, d.data.totalPages));
+    } finally {
+      setListLoading(false);
     }
-    setRows((d.data.data ?? []).map(mapApiRow));
-    setListTotal(d.data.total);
-    setListTotalPages(Math.max(1, d.data.totalPages));
   }, [filter, page, pageSize, searchDebounced, showToast]);
 
   useEffect(() => {
@@ -513,28 +520,32 @@ export default function InvoicesPage() {
       </div>
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-4 gap-3">
-        <div className="bg-surface rounded-xl border border-border p-4">
-          <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Paid invoices</p>
-          <p className="text-2xl font-bold text-green-600">{kpi.loading ? "…" : counts.paid}</p>
-          <p className="text-[10px] text-text-tertiary mt-1">all time (total count)</p>
+      {kpi.loading ? (
+        <KpiTileGridSkeleton columns={4} />
+      ) : (
+        <div className="grid grid-cols-4 gap-3">
+          <div className="bg-surface rounded-xl border border-border p-4">
+            <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Paid invoices</p>
+            <p className="text-2xl font-bold text-green-600">{counts.paid}</p>
+            <p className="text-[10px] text-text-tertiary mt-1">all time (total count)</p>
+          </div>
+          <div className="bg-surface rounded-xl border border-border p-4">
+            <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Awaiting payment</p>
+            <p className="text-2xl font-bold text-amber-600">{counts.pending}</p>
+            <p className="text-[10px] text-text-tertiary mt-1">pending in system</p>
+          </div>
+          <div className="bg-surface rounded-xl border border-border p-4">
+            <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Overdue (&gt;14 days)</p>
+            <p className="text-2xl font-bold text-red-600">{counts.overdue}</p>
+            <p className="text-[10px] text-text-tertiary mt-1">past due date</p>
+          </div>
+          <div className="bg-surface rounded-xl border border-border p-4">
+            <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Draft invoices</p>
+            <p className="text-xl font-bold text-text-primary">{counts.draft}</p>
+            <p className="text-[10px] text-text-tertiary mt-1">pro-forma or draft</p>
+          </div>
         </div>
-        <div className="bg-surface rounded-xl border border-border p-4">
-          <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Awaiting payment</p>
-          <p className="text-2xl font-bold text-amber-600">{kpi.loading ? "…" : counts.pending}</p>
-          <p className="text-[10px] text-text-tertiary mt-1">pending in system</p>
-        </div>
-        <div className="bg-surface rounded-xl border border-border p-4">
-          <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Overdue (&gt;14 days)</p>
-          <p className="text-2xl font-bold text-red-600">{kpi.loading ? "…" : counts.overdue}</p>
-          <p className="text-[10px] text-text-tertiary mt-1">past due date</p>
-        </div>
-        <div className="bg-surface rounded-xl border border-border p-4">
-          <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Draft invoices</p>
-          <p className="text-xl font-bold text-text-primary">{kpi.loading ? "…" : counts.draft}</p>
-          <p className="text-[10px] text-text-tertiary mt-1">pro-forma or draft</p>
-        </div>
-      </div>
+      )}
 
       <AdminListCard>
         <AdminTableToolbar stacked>
@@ -572,7 +583,13 @@ export default function InvoicesPage() {
           </AdminTableToolbarEnd>
         </AdminTableToolbar>
 
-        <DataTable<Invoice> columns={columns} data={pageRows} keyExtractor={(r) => r.id} />
+        <DataTable<Invoice>
+          columns={columns}
+          data={pageRows}
+          keyExtractor={(r) => r.id}
+          isLoading={listLoading}
+          loadingRows={pageSize}
+        />
 
         <AdminPagination
           page={page}

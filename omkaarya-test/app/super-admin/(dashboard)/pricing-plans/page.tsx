@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { Check, Plus, Loader2, Users2, Box } from "lucide-react";
+import { Check, Plus, Users2, Box } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
 import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
+import { PricingPlanCardSkeletonGrid } from "@/app/components/admin/ApiFetchPlaceholders";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -19,6 +20,41 @@ type PricingPlan = {
   roleQuotas: Array<{ roleName: string; count: number }>;
   features: string[];
 };
+
+const DEFAULT_ROLE_QUOTAS: Array<{ roleName: string; count: number }> = [
+  { roleName: "Temple Admin", count: 1 },
+  { roleName: "Head Priest", count: 1 },
+  { roleName: "Accountant", count: 1 },
+];
+
+/** Normalize API row so "TOTAL SEATS" matches the sum of role rows (avoids includedSeats vs roleQuotas drift). */
+function normalizePricingPlanRow(p: Record<string, unknown>): PricingPlan {
+  const raw = p.roleQuotas;
+  const hasQuotas = Array.isArray(raw) && raw.length > 0;
+  const roleQuotas: Array<{ roleName: string; count: number }> = hasQuotas
+    ? (raw as Array<{ roleName?: string; role?: string; count?: unknown }>).map((rq) => ({
+        roleName: String(rq.roleName ?? rq.role ?? "Unknown"),
+        count: Math.max(0, Number(rq.count) || 0),
+      }))
+    : DEFAULT_ROLE_QUOTAS;
+
+  const seatsFromRoles = roleQuotas.reduce((s, r) => s + r.count, 0);
+  const included =
+    typeof p.includedSeats === "number" && Number.isFinite(p.includedSeats) ? p.includedSeats : undefined;
+  const legacyTotal =
+    typeof p.totalSeats === "number" && Number.isFinite(p.totalSeats) ? p.totalSeats : undefined;
+
+  const totalSeats = hasQuotas ? seatsFromRoles : included ?? legacyTotal ?? (seatsFromRoles || 3);
+
+  const features = Array.isArray(p.features) ? (p.features as string[]).filter((x): x is string => typeof x === "string") : [];
+
+  return {
+    ...(p as unknown as PricingPlan),
+    totalSeats,
+    roleQuotas,
+    features,
+  };
+}
 
 // ── Page Component ──────────────────────────────────────────────────
 
@@ -35,16 +71,9 @@ export default function PricingPlansPage() {
       const res = await fetch("/api/pricing-plans", { cache: "no-store" });
       const data = await res.json();
       if (data.success) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- API row shape varies; normalized below
-        setPlans(data.data.map((p: any) => ({
-          ...p,
-          totalSeats: p.includedSeats || 3,
-          roleQuotas: p.roleQuotas || [
-            { roleName: "Temple Admin", count: 1 },
-            { roleName: "Head Priest", count: 1 },
-            { roleName: "Accountant", count: 1 }
-          ]
-        })));
+        setPlans(
+          (data.data as Record<string, unknown>[]).map((p) => normalizePricingPlanRow(p))
+        );
       }
     } catch (error) {
       console.error("Failed to fetch plans", error);
@@ -70,7 +99,7 @@ export default function PricingPlansPage() {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [fetchPlans]);
 
-  if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-[var(--brand-primary)]" /></div>;
+  // loading state is handled inline below — no early return needed
 
   return (
     <div className="mx-auto w-full max-w-[min(100rem,calc(100vw-2rem))] space-y-5 animate-in fade-in duration-500">
@@ -113,7 +142,10 @@ export default function PricingPlansPage() {
       />
 
       {/* Plan Cards */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      {loading ? (
+        <PricingPlanCardSkeletonGrid cards={3} />
+      ) : null}
+      <div className={`grid gap-6 lg:grid-cols-3 ${loading ? "hidden" : ""}`}>
         {plans.map((plan) => (
           <div key={plan.id} className={`relative flex flex-col p-8 rounded-3xl border-2 transition-all hover:shadow-2xl ${plan.popular ? 'border-[var(--brand-primary)] bg-white dark:bg-zinc-900' : 'border-zinc-100 bg-white dark:bg-zinc-900 dark:border-zinc-800'}`}>
             {plan.popular && <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-[var(--brand-primary)] text-white px-4 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase shadow-lg">Most Popular</div>}

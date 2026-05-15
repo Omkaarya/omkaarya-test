@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { getUserByEmail, saveUser } from "@/lib/mock-db";
-import { signToken, setAuthCookie } from "@/lib/auth-utils";
+import { applyAuthCookieToResponse, signToken } from "@/lib/auth-utils";
 import { nextJsonError } from "@/lib/api-envelope";
 
 export async function POST(request: NextRequest) {
@@ -41,15 +41,15 @@ export async function POST(request: NextRequest) {
 
     // Generate JWT and set it as HTTP-only cookie
     const token = await signToken({ userId: newUser.id, email: newUser.email });
-    await setAuthCookie(token);
-
-    return NextResponse.json(
-      { 
+    const created = NextResponse.json(
+      {
         message: "User registered successfully",
-        user: { id: newUser.id, email: newUser.email }
-      }, 
+        user: { id: newUser.id, email: newUser.email },
+      },
       { status: 201 }
     );
+    applyAuthCookieToResponse(created, token);
+    return created;
   } catch (error) {
     console.error("Registration error:", error);
     const r = error instanceof Error ? error.message : "Internal server error during registration.";

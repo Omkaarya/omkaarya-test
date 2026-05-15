@@ -356,7 +356,7 @@ export default function AdminUsersPage() {
                     e.stopPropagation();
                     setActionMenu(actionMenu === user.id ? null : user.id);
                   }}
-                  className="rounded-lg p-2 text-text-quaternary opacity-0 transition-all hover:bg-subtle hover:text-text-primary group-hover:opacity-100"
+                  className="rounded-lg p-2 text-text-quaternary transition-colors hover:bg-subtle hover:text-text-primary"
                   aria-label="Open actions"
                 >
                   <MoreHorizontal className="h-4 w-4" />
@@ -409,14 +409,14 @@ export default function AdminUsersPage() {
         description="Manage platform-level users and their access roles"
         actions={
           <>
-            <button
+            {/* <button
               type="button"
               onClick={load}
               className="rounded-lg border border-zinc-200 p-2.5 text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-700 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
               title="Refresh"
             >
               <RefreshCw className="h-4 w-4" />
-            </button>
+            </button> */}
             <Button variant="primary" size="sm" className="gap-2" onClick={() => setShowModal(true)}>
               <UserPlus className="h-4 w-4" /> Add User
             </Button>

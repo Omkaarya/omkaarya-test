@@ -1,5 +1,6 @@
 import type { PoolClient } from "pg";
 import { getPool, requirePool } from "../db/pool.js";
+import { storeBrandingImageIfNeeded } from "../storage/cloudinary.js";
 
 export type MasterDeityRow = {
   id: string;
@@ -35,6 +36,9 @@ export type MasterDeityCatalogEntry = {
 function displayCodeFromSerial(n: number): string {
   return `D${String(n).padStart(3, "0")}`;
 }
+
+/** Serialize `master_deities.display_serial` allocation (MAX+1) across concurrent creates. */
+const MASTER_DEITIES_SERIAL_LOCK_KEY = 872934551;
 
 function mapRow(r: {
   id: string;
@@ -265,7 +269,7 @@ export class PostgresMasterDeitiesRepository {
 
   async nextDisplaySerial(client: Pick<PoolClient, "query">): Promise<number> {
     const { rows } = await client.query<{ m: string }>(
-      `SELECT COALESCE(MAX(display_serial), 0) + 1::text AS m FROM public.master_deities`
+      `SELECT (COALESCE(MAX(display_serial), 0) + 1)::text AS m FROM public.master_deities`
     );
     return Number(rows[0]?.m ?? 1);
   }
@@ -288,9 +292,18 @@ export class PostgresMasterDeitiesRepository {
     slug?: string | null;
   }): Promise<MasterDeityRow> {
     const pool = requirePool();
+
+    /** Same pipeline as temple logos: base64 `data:` → Cloudinary `https`; existing `https` unchanged. */
+    const imageStoredUrl = await storeBrandingImageIfNeeded(
+      input.imageDataUrl,
+      "master-deity",
+      "master-deity"
+    );
+
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
+      await client.query("SELECT pg_advisory_xact_lock($1)", [MASTER_DEITIES_SERIAL_LOCK_KEY]);
       const displaySerial = await this.nextDisplaySerial(client);
 
       let slug: string;
@@ -338,7 +351,7 @@ export class PostgresMasterDeitiesRepository {
           input.isActive,
           input.countryCode?.trim() ? input.countryCode.trim().toUpperCase() : null,
           input.placeholderHue?.trim() || "from-zinc-400 to-zinc-600",
-          input.imageDataUrl?.trim() ? input.imageDataUrl.trim() : null,
+          imageStoredUrl,
         ]
       );
       await client.query("COMMIT");
@@ -393,6 +406,12 @@ export class PostgresMasterDeitiesRepository {
           : String(patch.imageDataUrl).trim()
         : existing.imageDataUrl;
 
+    const imageStoredUrl = await storeBrandingImageIfNeeded(
+      imageDataUrl,
+      "master-deity",
+      existing.slug?.trim() || "master-deity"
+    );
+
     const { rows } = await pool.query<{
       id: string;
       slug: string;
@@ -417,7 +436,7 @@ export class PostgresMasterDeitiesRepository {
        WHERE id = $1
        RETURNING id, slug, display_serial, name, secondary_label, is_active, country_code,
                  placeholder_hue, image_data_url, created_at::text, updated_at::text`,
-      [id, name, secondaryLabel, isActive, countryCode, placeholderHue, imageDataUrl]
+      [id, name, secondaryLabel, isActive, countryCode, placeholderHue, imageStoredUrl]
     );
     return rows[0] ? mapRow(rows[0]) : null;
   }

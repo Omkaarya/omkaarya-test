@@ -12,9 +12,6 @@ type DeitiesFiltersBarProps = {
   onSearchChange: (value: string) => void;
   status: DeityStatusFilter;
   onStatusChange: (status: DeityStatusFilter) => void;
-  country: string;
-  onCountryChange: (country: string) => void;
-  countries: string[];
   sortBy: DeitiesSortBy;
   onSortByChange: (sortBy: DeitiesSortBy) => void;
 };
@@ -30,9 +27,6 @@ export default function DeitiesFiltersBar({
   onSearchChange,
   status,
   onStatusChange,
-  country,
-  onCountryChange,
-  countries,
   sortBy,
   onSortByChange,
 }: DeitiesFiltersBarProps) {
@@ -71,23 +65,6 @@ export default function DeitiesFiltersBar({
       </div>
 
       <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto lg:ml-auto lg:flex-nowrap">
-        <label className="sr-only" htmlFor="deity-country-filter">
-          Country
-        </label>
-        <SelectInput
-          id="deity-country-filter"
-          value={country}
-          onChange={(e) => onCountryChange(e.target.value)}
-          className="min-w-[12rem] w-full sm:w-[13rem]"
-        >
-          <option value="all">All Countries</option>
-          {countries.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </SelectInput>
-
         <label className="sr-only" htmlFor="deity-sort-filter">
           Sort by
         </label>

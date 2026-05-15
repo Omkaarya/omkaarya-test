@@ -176,14 +176,14 @@ function ConfigureContent() {
         }
         actions={
           <>
-            <button
+            {/* <button
               type="button"
               onClick={load}
               className="rounded-lg border border-zinc-200 p-2.5 text-zinc-500 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
               title="Refresh"
             >
               <RefreshCw className="h-4 w-4" />
-            </button>
+            </button> */}
             <Button variant="primary" size="sm" loading={saving} onClick={handleSave} className="gap-2 px-5" disabled={!roleId}>
               {saved ? (
                 <>

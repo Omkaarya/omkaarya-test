@@ -94,12 +94,16 @@ export default function CreatePricingPlanPage() {
     e?.preventDefault();
     setIsSubmitting(true);
     try {
+      const seatCount = Math.max(1, Number.parseInt(formData.totalSeats, 10) || 0);
       const payload = {
         name: formData.name,
         description: formData.description,
-        priceMonthly: parseInt(formData.priceMonthly) * 100,
-        priceYearly: parseInt(formData.priceYearly) * 100,
-        totalSeats: parseInt(formData.totalSeats),
+        priceMonthly: parseInt(formData.priceMonthly, 10) * 100,
+        priceYearly: parseInt(formData.priceYearly, 10) * 100,
+        /** Express validates these; align with tier seat total (no per-seat add-on in this UI). */
+        includedSeats: seatCount,
+        extraSeatPriceMonthly: 0,
+        totalSeats: seatCount,
         roleQuotas: formData.selectedRoles,
         popular: formData.popular,
         features: formData.selectedFeatures,

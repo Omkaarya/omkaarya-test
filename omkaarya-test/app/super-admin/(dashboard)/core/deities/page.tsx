@@ -18,12 +18,10 @@ export default function DeitiesMasterPage() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<DeityStatusFilter>("all");
-  const [country, setCountry] = useState("all");
   const [sortBy, setSortBy] = useState<DeitiesSortBy>("name");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [rows, setRows] = useState<MasterDeityRow[]>([]);
-  const [countries, setCountries] = useState<string[]>([]);
   const [total, setTotal] = useState(0);
   const [totalAll, setTotalAll] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -64,7 +62,7 @@ export default function DeitiesMasterPage() {
     const params = new URLSearchParams({
       q: search,
       status: statusFilter,
-      country,
+      country: "all",
       sortBy,
       page: String(page),
       pageSize: String(pageSize),
@@ -88,9 +86,6 @@ export default function DeitiesMasterPage() {
       setTotal(d.total);
       setTotalAll(d.totalAll);
       setTotalPages(d.totalPages);
-      if (Array.isArray(d.countries) && d.countries.length > 0) {
-        setCountries(d.countries);
-      }
       if (page > d.totalPages) {
         setPage(d.totalPages);
       }
@@ -100,7 +95,7 @@ export default function DeitiesMasterPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter, country, sortBy, page, pageSize]);
+  }, [search, statusFilter, sortBy, page, pageSize]);
 
   useEffect(() => {
     void load();
@@ -326,12 +321,6 @@ export default function DeitiesMasterPage() {
             setStatusFilter(s);
             setPage(1);
           }}
-          country={country}
-          onCountryChange={(c) => {
-            setCountry(c);
-            setPage(1);
-          }}
-          countries={countries}
           sortBy={sortBy}
           onSortByChange={(s) => {
             setSortBy(s);

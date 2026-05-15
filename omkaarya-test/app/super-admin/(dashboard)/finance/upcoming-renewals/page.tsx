@@ -44,6 +44,7 @@ function formatIsoToUi(d: string): string {
 
 export default function UpcomingRenewalsPage() {
   const [rows, setRows] = useState<RenewalRow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [invoiceFilter, setInvoiceFilter] = useState<"all" | "sent" | "unsent">("all");
@@ -53,35 +54,40 @@ export default function UpcomingRenewalsPage() {
   useEffect(() => {
     let cancel = false;
     (async () => {
+      setLoading(true);
       setLoadErr(null);
-      const p = new URLSearchParams();
-      p.set("days", "30");
-      p.set("page", "1");
-      p.set("pageSize", "200");
-      const res = await fetch(`/api/subscriptions/upcoming-renewals?${p.toString()}`, { cache: "no-store" });
-      const d = (await res.json().catch(() => null)) as
-        | { success?: boolean; data?: { data: Array<{ id: string; templeName: string; location: string; plan: string; billingCycle: string; amountCents: number; renewalDate: string; daysLeft: number; invoiceSent: boolean }> } }
-        | null;
-      if (cancel) return;
-      if (!d || d.success !== true || !d.data) {
-        setRows([]);
-        setLoadErr(jsonApiErrorMessage(d) || "Failed to load upcoming renewals");
-        return;
+      try {
+        const p = new URLSearchParams();
+        p.set("days", "30");
+        p.set("page", "1");
+        p.set("pageSize", "200");
+        const res = await fetch(`/api/subscriptions/upcoming-renewals?${p.toString()}`, { cache: "no-store" });
+        const d = (await res.json().catch(() => null)) as
+          | { success?: boolean; data?: { data: Array<{ id: string; templeName: string; location: string; plan: string; billingCycle: string; amountCents: number; renewalDate: string; daysLeft: number; invoiceSent: boolean }> } }
+          | null;
+        if (cancel) return;
+        if (!d || d.success !== true || !d.data) {
+          setRows([]);
+          setLoadErr(jsonApiErrorMessage(d) || "Failed to load upcoming renewals");
+          return;
+        }
+        setRows(
+          (d.data.data ?? []).map((r) => ({
+            id: r.id,
+            temple: r.templeName,
+            templeLocation: r.location,
+            initials: (r.templeName.trim().split(/\s+/).filter(Boolean)[0]?.[0] ?? "T") + (r.templeName.trim().split(/\s+/).filter(Boolean)[1]?.[0] ?? ""),
+            plan: r.plan,
+            amountCents: r.amountCents,
+            renewalDate: r.renewalDate,
+            daysLeft: r.daysLeft,
+            invoiceSent: r.invoiceSent,
+            status: "active",
+          }))
+        );
+      } finally {
+        if (!cancel) setLoading(false);
       }
-      setRows(
-        (d.data.data ?? []).map((r) => ({
-          id: r.id,
-          temple: r.templeName,
-          templeLocation: r.location,
-          initials: (r.templeName.trim().split(/\s+/).filter(Boolean)[0]?.[0] ?? "T") + (r.templeName.trim().split(/\s+/).filter(Boolean)[1]?.[0] ?? ""),
-          plan: r.plan,
-          amountCents: r.amountCents,
-          renewalDate: r.renewalDate,
-          daysLeft: r.daysLeft,
-          invoiceSent: r.invoiceSent,
-          status: "active",
-        }))
-      );
     })();
     return () => { cancel = true; };
   }, []);
@@ -209,7 +215,13 @@ export default function UpcomingRenewalsPage() {
           </AdminTableToolbarEnd>
         </AdminTableToolbar>
 
-        <DataTable<RenewalRow> columns={columns} data={pageRows} keyExtractor={(r) => r.id} />
+        <DataTable<RenewalRow>
+          columns={columns}
+          data={pageRows}
+          keyExtractor={(r) => r.id}
+          isLoading={loading}
+          loadingRows={pageSize}
+        />
 
         <AdminPagination
           page={Math.min(page, totalPages)}
