@@ -1,6 +1,6 @@
 import { Router } from "express";
 import multer from "multer";
-import rateLimit from "express-rate-limit";
+import { createRateLimiter } from "../middleware/rate-limit.js";
 import { sendSuccess } from "../middleware/api-envelope.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { HttpError } from "../middleware/http-error.js";
@@ -8,11 +8,9 @@ import { uploadPaymentSlipToCloudinary } from "../storage/cloudinary.js";
 import type { PostgresTemplePaymentSubmissionsRepository } from "./temple-payment-submissions.repository.js";
 import { templePaymentSubmissionFieldsSchema } from "./validation.js";
 
-const limiter = rateLimit({
+const limiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
 });
 
 const upload = multer({

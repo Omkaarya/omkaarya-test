@@ -1,5 +1,5 @@
 import { Router } from "express";
-import rateLimit from "express-rate-limit";
+import { createRateLimiter } from "../middleware/rate-limit.js";
 import { sendError, sendSuccess } from "../middleware/api-envelope.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { HttpError } from "../middleware/http-error.js";
@@ -9,25 +9,19 @@ import { loginBodySchema, setPasswordBodySchema, superAdminRegisterBodySchema } 
 import { getPool } from "../db/pool.js";
 import { hashPasswordCredential } from "./password-credentials.js";
 
-const loginLimiter = rateLimit({
+const loginLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
 });
 
-const setPasswordLimiter = rateLimit({
+const setPasswordLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
 });
 
-const superAdminRegisterLimiter = rateLimit({
+const superAdminRegisterLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
 });
 
 export function createAuthRouter(auth: AuthService): Router {

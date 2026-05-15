@@ -32,6 +32,15 @@ export function createApp(options: CreateAppOptions = {}): Express {
 
   const app = express();
 
+  // Vercel (and similar) terminate TLS and set X-Forwarded-For; required for req.ip + rate limits.
+  const trustProxyRaw = process.env.TRUST_PROXY?.trim();
+  if (trustProxyRaw !== undefined && trustProxyRaw !== "") {
+    const n = Number(trustProxyRaw);
+    app.set("trust proxy", Number.isFinite(n) ? n : trustProxyRaw);
+  } else if (process.env.VERCEL === "1") {
+    app.set("trust proxy", 1);
+  }
+
   app.use(
     helmet({
       crossOriginResourcePolicy: { policy: "cross-origin" },

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import rateLimit from "express-rate-limit";
+import { createRateLimiter } from "../middleware/rate-limit.js";
 import { sendSuccess } from "../middleware/api-envelope.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { HttpError } from "../middleware/http-error.js";
@@ -7,11 +7,9 @@ import { validateBody } from "../middleware/validate.js";
 import type { PostgresTempleOnboardingCompleteRepository } from "./temple-onboarding-complete.repository.js";
 import { templeOnboardingCompleteBodySchema } from "./validation.js";
 
-const onboardingCompleteLimiter = rateLimit({
+const onboardingCompleteLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
 });
 
 export function createTempleOnboardingCompleteRouter(
