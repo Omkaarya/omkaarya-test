@@ -1,70 +1,51 @@
-import { nextJsonError, nextJsonSuccess } from "@/lib/api-envelope";
-import type { AccessLevel } from "@/lib/sa-users-db";
-import {
-  fetchTempleDefaultRolePermissions,
-  saveTempleDefaultRolePermissions,
-} from "@/lib/temple-default-roles-db";
-import { isTempleDefaultRoleSlug } from "@/lib/temple-default-roles";
+import { NextRequest, NextResponse } from "next/server";
+import { apiUrl } from "@/lib/api-base";
+import { nextJsonError } from "@/lib/api-envelope";
 import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
 type Params = { params: Promise<{ slug: string }> };
 
-/** GET /api/temple-default-roles/[slug]/permissions — Temple default role template permissions. */
-export async function GET(_req: Request, { params }: Params) {
-  const auth = await requireSuperAdminHeaders();
-  if (!auth.ok) return auth.response;
-
-  const { slug } = await params;
-  const roleSlug = slug.trim();
-  if (!isTempleDefaultRoleSlug(roleSlug)) {
-    return nextJsonError(404, "ROLE_NOT_FOUND", "Unknown temple role", `No default temple role with slug "${roleSlug}".`);
-  }
-
+/** GET /api/temple-default-roles/[slug]/permissions */
+export async function GET(_req: NextRequest, { params }: Params) {
   try {
-    const permissions = await fetchTempleDefaultRolePermissions(roleSlug);
-    return nextJsonSuccess(
-      200,
-      permissions,
-      "Temple role permissions loaded",
-      `Permissions for temple role "${roleSlug}" returned.`
-    );
-  } catch (err) {
-    return nextJsonError(500, "TEMPLE_ROLE_PERMS_FETCH_FAILED", "Failed to fetch permissions", String(err));
+    const auth = await requireSuperAdminHeaders({ Accept: "application/json" });
+    if (!auth.ok) return auth.response;
+
+    const { slug } = await params;
+    const res = await fetch(apiUrl(`/api/temple-default-roles/${encodeURIComponent(slug)}/permissions`), {
+      method: "GET",
+      headers: auth.headers,
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => null);
+    return NextResponse.json(data, { status: res.status });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to fetch temple role permissions";
+    return nextJsonError(503, "UPSTREAM_UNREACHABLE", "Could not reach the API server", message);
   }
 }
 
-/** PUT /api/temple-default-roles/[slug]/permissions — Save temple default role template permissions. */
-export async function PUT(request: Request, { params }: Params) {
-  const auth = await requireSuperAdminHeaders();
-  if (!auth.ok) return auth.response;
-
-  const { slug } = await params;
-  const roleSlug = slug.trim();
-  if (!isTempleDefaultRoleSlug(roleSlug)) {
-    return nextJsonError(404, "ROLE_NOT_FOUND", "Unknown temple role", `No default temple role with slug "${roleSlug}".`);
-  }
-
+/** PUT /api/temple-default-roles/[slug]/permissions */
+export async function PUT(request: NextRequest, { params }: Params) {
   try {
-    const body = await request.json();
-    const { permissions } = body as {
-      permissions: Array<{ featureKey: string; accessLevel: AccessLevel }>;
-    };
-    if (!Array.isArray(permissions)) {
-      return nextJsonError(
-        400,
-        "VALIDATION_ERROR",
-        "permissions must be an array",
-        "Provide a permissions array in the request body."
-      );
-    }
-    const saved = await saveTempleDefaultRolePermissions(roleSlug, permissions);
-    return nextJsonSuccess(
-      200,
-      saved,
-      "Permissions saved",
-      `Permissions for temple role "${roleSlug}" updated successfully.`
-    );
-  } catch (err) {
-    return nextJsonError(500, "TEMPLE_ROLE_PERMS_SAVE_FAILED", "Failed to save permissions", String(err));
+    const auth = await requireSuperAdminHeaders({
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    });
+    if (!auth.ok) return auth.response;
+
+    const { slug } = await params;
+    const body = await request.text();
+    const res = await fetch(apiUrl(`/api/temple-default-roles/${encodeURIComponent(slug)}/permissions`), {
+      method: "PUT",
+      headers: { ...auth.headers, "Content-Type": "application/json" },
+      body,
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => null);
+    return NextResponse.json(data, { status: res.status });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to save temple role permissions";
+    return nextJsonError(503, "UPSTREAM_UNREACHABLE", "Could not reach the API server", message);
   }
 }

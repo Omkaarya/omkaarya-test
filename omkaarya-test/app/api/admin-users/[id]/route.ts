@@ -1,64 +1,71 @@
-import { nextJsonError, nextJsonSuccess } from "@/lib/api-envelope";
-import { isUuidString } from "@/lib/is-uuid";
-import { fetchSaUserById, updateSaUser, deleteSaUser, toggleSaUserActive } from "@/lib/sa-users-db";
+import { NextRequest, NextResponse } from "next/server";
+import { apiUrl } from "@/lib/api-base";
+import { nextJsonError } from "@/lib/api-envelope";
 import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
 type Params = { params: Promise<{ id: string }> };
 
-/** GET /api/admin-users/[id] — Get a single admin user. */
-export async function GET(_req: Request, { params }: Params) {
-  const auth = await requireSuperAdminHeaders();
-  if (!auth.ok) return auth.response;
-
-  const { id } = await params;
-  const uid = id.trim();
-  if (!isUuidString(uid)) return nextJsonError(400, "INVALID_ID", "Invalid user ID", "ID must be a UUID.");
+/** GET /api/admin-users/[id] */
+export async function GET(_req: NextRequest, { params }: Params) {
   try {
-    const user = await fetchSaUserById(uid);
-    if (!user) return nextJsonError(404, "USER_NOT_FOUND", "User not found", `No admin user with id ${uid} exists.`);
-    return nextJsonSuccess(200, user, "User loaded", "Admin user record returned.");
-  } catch (err) {
-    return nextJsonError(500, "SA_USER_FETCH_FAILED", "Failed to fetch user", String(err));
+    const auth = await requireSuperAdminHeaders({ Accept: "application/json" });
+    if (!auth.ok) return auth.response;
+
+    const { id } = await params;
+    const res = await fetch(apiUrl(`/api/admin-users/${encodeURIComponent(id)}`), {
+      method: "GET",
+      headers: auth.headers,
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => null);
+    return NextResponse.json(data, { status: res.status });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to fetch user";
+    return nextJsonError(503, "UPSTREAM_UNREACHABLE", "Could not reach the API server", message);
   }
 }
 
-/** PATCH /api/admin-users/[id] — Update or toggle an admin user. */
-export async function PATCH(request: Request, { params }: Params) {
-  const auth = await requireSuperAdminHeaders();
-  if (!auth.ok) return auth.response;
-
-  const { id } = await params;
-  const uid = id.trim();
-  if (!isUuidString(uid)) return nextJsonError(400, "INVALID_ID", "Invalid user ID", "ID must be a UUID.");
+/** PATCH /api/admin-users/[id] */
+export async function PATCH(request: NextRequest, { params }: Params) {
   try {
-    const body = await request.json();
-    // Support toggleActive shorthand
-    if (body.toggleActive === true) {
-      const user = await toggleSaUserActive(uid);
-      if (!user) return nextJsonError(404, "USER_NOT_FOUND", "User not found", `No admin user with id ${uid}.`);
-      return nextJsonSuccess(200, user, "User status toggled", `User is now ${user.isActive ? "active" : "inactive"}.`);
-    }
-    const user = await updateSaUser(uid, body);
-    if (!user) return nextJsonError(404, "USER_NOT_FOUND", "User not found", `No admin user with id ${uid}.`);
-    return nextJsonSuccess(200, user, "User updated", "Admin user record updated.");
-  } catch (err) {
-    return nextJsonError(500, "SA_USER_UPDATE_FAILED", "Failed to update user", String(err));
+    const auth = await requireSuperAdminHeaders({
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    });
+    if (!auth.ok) return auth.response;
+
+    const { id } = await params;
+    const body = await request.text();
+    const res = await fetch(apiUrl(`/api/admin-users/${encodeURIComponent(id)}`), {
+      method: "PATCH",
+      headers: { ...auth.headers, "Content-Type": "application/json" },
+      body,
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => null);
+    return NextResponse.json(data, { status: res.status });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to update user";
+    return nextJsonError(503, "UPSTREAM_UNREACHABLE", "Could not reach the API server", message);
   }
 }
 
-/** DELETE /api/admin-users/[id] — Remove an admin user. */
-export async function DELETE(_req: Request, { params }: Params) {
-  const auth = await requireSuperAdminHeaders();
-  if (!auth.ok) return auth.response;
-
-  const { id } = await params;
-  const uid = id.trim();
-  if (!isUuidString(uid)) return nextJsonError(400, "INVALID_ID", "Invalid user ID", "ID must be a UUID.");
+/** DELETE /api/admin-users/[id] */
+export async function DELETE(_req: NextRequest, { params }: Params) {
   try {
-    const deleted = await deleteSaUser(uid);
-    if (!deleted) return nextJsonError(404, "USER_NOT_FOUND", "User not found", `No admin user with id ${uid}.`);
-    return nextJsonSuccess(200, { id: uid }, "User deleted", "The admin user was permanently removed.");
-  } catch (err) {
-    return nextJsonError(500, "SA_USER_DELETE_FAILED", "Failed to delete user", String(err));
+    const auth = await requireSuperAdminHeaders({ Accept: "application/json" });
+    if (!auth.ok) return auth.response;
+
+    const { id } = await params;
+    const res = await fetch(apiUrl(`/api/admin-users/${encodeURIComponent(id)}`), {
+      method: "DELETE",
+      headers: auth.headers,
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => null);
+    return NextResponse.json(data, { status: res.status });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to delete user";
+    return nextJsonError(503, "UPSTREAM_UNREACHABLE", "Could not reach the API server", message);
   }
 }

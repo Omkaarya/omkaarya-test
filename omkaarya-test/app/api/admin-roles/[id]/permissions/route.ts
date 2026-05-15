@@ -1,47 +1,51 @@
-import { nextJsonError, nextJsonSuccess } from "@/lib/api-envelope";
-import { isUuidString } from "@/lib/is-uuid";
-import { fetchRolePermissions, saveRolePermissions } from "@/lib/sa-users-db";
-import type { AccessLevel } from "@/lib/sa-users-db";
+import { NextRequest, NextResponse } from "next/server";
+import { apiUrl } from "@/lib/api-base";
+import { nextJsonError } from "@/lib/api-envelope";
 import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
 type Params = { params: Promise<{ id: string }> };
 
-/** GET /api/admin-roles/[id]/permissions — Get all permissions for a role. */
-export async function GET(_req: Request, { params }: Params) {
-  const auth = await requireSuperAdminHeaders();
-  if (!auth.ok) return auth.response;
-
-  const { id } = await params;
-  const rid = id.trim();
-  if (!isUuidString(rid)) return nextJsonError(400, "INVALID_ID", "Invalid role ID", "ID must be a UUID.");
+/** GET /api/admin-roles/[id]/permissions */
+export async function GET(_req: NextRequest, { params }: Params) {
   try {
-    const permissions = await fetchRolePermissions(rid);
-    return nextJsonSuccess(200, permissions, "Role permissions loaded", `Permissions for role ${rid} returned.`);
-  } catch (err) {
-    return nextJsonError(500, "SA_PERMS_FETCH_FAILED", "Failed to fetch permissions", String(err));
+    const auth = await requireSuperAdminHeaders({ Accept: "application/json" });
+    if (!auth.ok) return auth.response;
+
+    const { id } = await params;
+    const res = await fetch(apiUrl(`/api/admin-roles/${encodeURIComponent(id)}/permissions`), {
+      method: "GET",
+      headers: auth.headers,
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => null);
+    return NextResponse.json(data, { status: res.status });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to fetch permissions";
+    return nextJsonError(503, "UPSTREAM_UNREACHABLE", "Could not reach the API server", message);
   }
 }
 
-/** PUT /api/admin-roles/[id]/permissions — Save (replace) all permissions for a role. */
-export async function PUT(request: Request, { params }: Params) {
-  const auth = await requireSuperAdminHeaders();
-  if (!auth.ok) return auth.response;
-
-  const { id } = await params;
-  const rid = id.trim();
-  if (!isUuidString(rid)) return nextJsonError(400, "INVALID_ID", "Invalid role ID", "ID must be a UUID.");
+/** PUT /api/admin-roles/[id]/permissions */
+export async function PUT(request: NextRequest, { params }: Params) {
   try {
-    const body = await request.json();
-    const { permissions } = body as {
-      permissions: Array<{ featureKey: string; accessLevel: AccessLevel }>;
-    };
-    if (!Array.isArray(permissions)) {
-      return nextJsonError(400, "VALIDATION_ERROR", "permissions must be an array", "Provide a permissions array in the request body.");
-    }
-    await saveRolePermissions(rid, permissions);
-    const saved = await fetchRolePermissions(rid);
-    return nextJsonSuccess(200, saved, "Permissions saved", `Permissions for role ${rid} updated successfully.`);
-  } catch (err) {
-    return nextJsonError(500, "SA_PERMS_SAVE_FAILED", "Failed to save permissions", String(err));
+    const auth = await requireSuperAdminHeaders({
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    });
+    if (!auth.ok) return auth.response;
+
+    const { id } = await params;
+    const body = await request.text();
+    const res = await fetch(apiUrl(`/api/admin-roles/${encodeURIComponent(id)}/permissions`), {
+      method: "PUT",
+      headers: { ...auth.headers, "Content-Type": "application/json" },
+      body,
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => null);
+    return NextResponse.json(data, { status: res.status });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to save permissions";
+    return nextJsonError(503, "UPSTREAM_UNREACHABLE", "Could not reach the API server", message);
   }
 }

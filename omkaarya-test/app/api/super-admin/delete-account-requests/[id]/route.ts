@@ -1,59 +1,28 @@
-import { nextJsonError, nextJsonSuccess } from "@/lib/api-envelope";
-import { updateDeleteAccountRequestStatus } from "@/lib/delete-account-requests-db";
+import { NextRequest, NextResponse } from "next/server";
+import { apiUrl } from "@/lib/api-base";
+import { nextJsonError } from "@/lib/api-envelope";
 import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
 
-type PatchBody = { status?: string };
+type RouteContext = { params: Promise<{ id: string }> };
 
 /** PATCH /api/super-admin/delete-account-requests/:id — approve or reject while Pending. */
-export async function PATCH(request: Request, ctx: { params: Promise<{ id: string }> }) {
-  const auth = await requireSuperAdminHeaders();
-  if (!auth.ok) return auth.response;
-
-  const { id } = await ctx.params;
-  if (!id?.trim()) {
-    return nextJsonError(400, "VALIDATION_ERROR", "Missing id", "Request path must include a request id.");
-  }
-
-  let body: PatchBody;
+export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
-    body = (await request.json()) as PatchBody;
-  } catch {
-    return nextJsonError(400, "VALIDATION_ERROR", "Invalid JSON", "Request body must be JSON.");
-  }
+    const auth = await requireSuperAdminHeaders({ Accept: "application/json" });
+    if (!auth.ok) return auth.response;
 
-  const status = body.status;
-  if (status !== "Approved" && status !== "Rejected") {
-    return nextJsonError(
-      400,
-      "VALIDATION_ERROR",
-      "Invalid status",
-      "Body.status must be \"Approved\" or \"Rejected\"."
-    );
-  }
-
-  try {
-    const result = await updateDeleteAccountRequestStatus(id.trim(), status);
-    switch (result.ok) {
-      case true:
-        return nextJsonSuccess(200, { id: id.trim(), status }, "Status updated", "Delete request status was saved.");
-      case false:
-        if (result.reason === "not_found") {
-          return nextJsonError(404, "NOT_FOUND", "Request not found", "No delete request with this id.");
-        }
-        return nextJsonError(
-          409,
-          "INVALID_STATE",
-          "Request is not pending",
-          "Only pending requests can be approved or rejected."
-        );
-      default: {
-        const _exhaust: never = result;
-        return _exhaust;
-      }
-    }
-  } catch (err) {
-    console.error("PATCH /api/super-admin/delete-account-requests/[id] error:", err);
-    const m = err instanceof Error ? err.message : String(err);
-    return nextJsonError(500, "DELETE_REQUEST_UPDATE_FAILED", "Failed to update request", m);
+    const { id } = await context.params;
+    const body = await request.json().catch(() => ({}));
+    const res = await fetch(apiUrl(`/api/super-admin/delete-account-requests/${encodeURIComponent(id)}`), {
+      method: "PATCH",
+      headers: { ...auth.headers, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => null);
+    return NextResponse.json(data, { status: res.status });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to update delete request";
+    return nextJsonError(503, "UPSTREAM_UNREACHABLE", "Could not reach the API server", message);
   }
 }
