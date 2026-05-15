@@ -86,6 +86,8 @@ export async function POST(request: NextRequest) {
 
     let backendFailed = false;
     let upstreamError: string | undefined;
+    let parsedLogin: ReturnType<typeof parseBackendLogin> = null;
+
     try {
       const loginUrl = apiUrl("/api/login");
       const res = await fetch(loginUrl, {
@@ -99,34 +101,7 @@ export async function POST(request: NextRequest) {
       });
 
       const data = (await res.json().catch(() => null)) as BackendLoginEnvelope | null;
-
-      const parsed = res.ok ? parseBackendLogin(data) : null;
-      if (res.ok && parsed) {
-        let platformSuper = false;
-        try {
-          platformSuper = await isPlatformSuperAdminEmail(trimmedEmail);
-        } catch {
-          /* DB unavailable: keep tenant-scoped JWT so login still succeeds */
-        }
-        const includeTenant =
-          !platformSuper && parsed.tenantId != null && parsed.tenantId !== "";
-        const token = await signToken(
-          {
-            userId: parsed.userId ?? trimmedEmail,
-            email: trimmedEmail,
-            ...(includeTenant ? { tenantId: parsed.tenantId as string } : {}),
-          },
-          { rememberMe }
-        );
-        const okRes = nextJsonSuccess(
-          200,
-          { firstLogin: parsed.firstLogin },
-          parsed.message ?? "Login successful",
-          parsed.reason ?? "Authenticated against the application database."
-        );
-        applyAuthCookieToResponse(okRes, token, { rememberMe });
-        return okRes;
-      }
+      parsedLogin = res.ok ? parseBackendLogin(data) : null;
 
       if (!res.ok && data && typeof data === "object" && "success" in data && data.success === false) {
         return NextResponse.json(data, { status: res.status });
@@ -135,6 +110,48 @@ export async function POST(request: NextRequest) {
       backendFailed = true;
       upstreamError = err instanceof Error ? err.message : String(err);
       console.error("[login] Backend fetch failed:", { base: getApiBaseUrl(), upstreamError });
+    }
+
+    if (parsedLogin) {
+      let platformSuper = false;
+      try {
+        platformSuper = await isPlatformSuperAdminEmail(trimmedEmail);
+      } catch {
+        /* DB unavailable: keep tenant-scoped JWT so login still succeeds */
+      }
+      const includeTenant =
+        !platformSuper && parsedLogin.tenantId != null && parsedLogin.tenantId !== "";
+
+      try {
+        const token = await signToken(
+          {
+            userId: parsedLogin.userId ?? trimmedEmail,
+            email: trimmedEmail,
+            ...(includeTenant ? { tenantId: parsedLogin.tenantId as string } : {}),
+          },
+          { rememberMe }
+        );
+        const okRes = nextJsonSuccess(
+          200,
+          { firstLogin: parsedLogin.firstLogin },
+          parsedLogin.message ?? "Login successful",
+          parsedLogin.reason ?? "Authenticated against the application database."
+        );
+        applyAuthCookieToResponse(okRes, token, { rememberMe });
+        return okRes;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("JWT_SECRET")) {
+          console.error("[login] JWT_SECRET missing on Next.js deployment");
+          return nextJsonError(
+            503,
+            "AUTH_NOT_CONFIGURED",
+            "Authentication service unavailable",
+            "Set JWT_SECRET on the Next.js Vercel project (must match the backend JWT_SECRET)."
+          );
+        }
+        throw err;
+      }
     }
 
     if (!mockLoginEnabled()) {

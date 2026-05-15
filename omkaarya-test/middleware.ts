@@ -68,6 +68,10 @@ export function middleware(request: NextRequest) {
     if (pathname === '/login') {
       return NextResponse.redirect(new URL('/super-admin/login', request.url));
     }
+    // Super-admin login validates session via /api/super-admin/me (role + upstream API).
+    if (pathname === '/super-admin/login' || pathname === '/super-admin/invite') {
+      return NextResponse.next();
+    }
     return NextResponse.redirect(new URL('/super-admin/dashboard', request.url));
   }
 

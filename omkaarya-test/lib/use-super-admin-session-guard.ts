@@ -4,47 +4,82 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { isSuperAdminPublicPath, redirectToSuperAdminLogin } from "@/lib/super-admin-login";
 
+const REFETCH_COOLDOWN_MS = 3000;
+
 /**
- * Verifies the super-admin session on mount and whenever the user returns via Back,
+ * Verifies the super-admin session on mount and when the user returns via Back,
  * bfcache, tab focus, or visibility — redirects to login if unauthenticated.
  */
 export function useSuperAdminSessionGuard(): { sessionReady: boolean } {
   const pathname = usePathname() ?? "";
   const [sessionReady, setSessionReady] = useState(false);
   const verifyInFlight = useRef(false);
+  const verifiedRef = useRef(false);
+  const lastFetchAtRef = useRef(0);
 
-  const verifySession = useCallback(async () => {
-    if (!pathname.startsWith("/super-admin") || isSuperAdminPublicPath(pathname)) {
-      setSessionReady(true);
-      return true;
-    }
-    if (verifyInFlight.current) return false;
-    verifyInFlight.current = true;
-    try {
-      const res = await fetch("/api/super-admin/me", {
-        method: "GET",
-        cache: "no-store",
-        credentials: "same-origin",
-      });
-      if (!res.ok) {
-        setSessionReady(false);
-        redirectToSuperAdminLogin();
-        return false;
+  const verifySession = useCallback(
+    async (options?: { force?: boolean }) => {
+      if (!pathname.startsWith("/super-admin") || isSuperAdminPublicPath(pathname)) {
+        verifiedRef.current = true;
+        setSessionReady(true);
+        return true;
       }
-      setSessionReady(true);
-      return true;
-    } catch {
-      setSessionReady(false);
-      redirectToSuperAdminLogin();
-      return false;
-    } finally {
-      verifyInFlight.current = false;
-    }
-  }, [pathname]);
+
+      const now = Date.now();
+      if (
+        !options?.force &&
+        verifiedRef.current &&
+        now - lastFetchAtRef.current < REFETCH_COOLDOWN_MS
+      ) {
+        return true;
+      }
+
+      if (verifyInFlight.current) return verifiedRef.current;
+
+      verifyInFlight.current = true;
+      lastFetchAtRef.current = now;
+
+      try {
+        const res = await fetch("/api/super-admin/me", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+
+        if (res.status === 401 || res.status === 403) {
+          verifiedRef.current = false;
+          setSessionReady(false);
+          redirectToSuperAdminLogin();
+          return false;
+        }
+
+        if (!res.ok) {
+          verifiedRef.current = false;
+          setSessionReady(false);
+          console.error("[super-admin] Session check failed:", res.status);
+          return false;
+        }
+
+        verifiedRef.current = true;
+        setSessionReady(true);
+        return true;
+      } catch (err) {
+        verifiedRef.current = false;
+        setSessionReady(false);
+        console.error("[super-admin] Session check error:", err);
+        return false;
+      } finally {
+        verifyInFlight.current = false;
+      }
+    },
+    [pathname]
+  );
 
   useEffect(() => {
-    setSessionReady(false);
-    void verifySession();
+    if (!verifiedRef.current) {
+      setSessionReady(false);
+    }
+    void verifySession({ force: true });
 
     const onPageShow = (event: PageTransitionEvent) => {
       if (event.persisted) void verifySession();
