@@ -125,7 +125,7 @@ export default function SuperAdminLoginPage() {
       {/* ── Right Side Form (40%) ── */}
       <div className="flex flex-col items-center justify-center bg-[var(--surface-card)] px-6 py-12 lg:w-[40%] lg:px-12 xl:px-20">
         <div className="w-full max-w-[400px]">
-          <div className="mb-8">
+          <div className="mb-8 text-center">
             <h2
               className="mb-2 text-3xl font-bold tracking-tight text-[var(--foreground)]"
               style={{ fontFamily: "Poppins, sans-serif" }}
