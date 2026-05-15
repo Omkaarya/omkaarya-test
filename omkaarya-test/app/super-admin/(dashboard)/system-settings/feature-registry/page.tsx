@@ -30,6 +30,8 @@ import {
 import type { LucideIcon } from "lucide-react";
 import SelectInput from "@/app/components/admin/SelectInput";
 import AdminListCard from "@/app/components/admin/AdminListCard";
+import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
+import { Button } from "@/app/components/ds/atoms/Button";
 import { AdminTableToolbar, AdminTableToolbarEnd, AdminTableToolbarStart } from "@/app/components/admin/AdminTableToolbar";
 import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
 
@@ -353,24 +355,31 @@ export default function FeatureRegistryPage() {
   }, {});
 
   return (
-    <div className="w-full space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between bg-white dark:bg-zinc-900 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Feature Registry</h1>
-            <span className="rounded-md bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800 dark:bg-blue-950/50 dark:text-blue-300">{features.length} total</span>
-          </div>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">System-level feature definitions · Controls what appears in Pricing Plan configuration</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => { setEditFeature(null); setModalOpen(true); }}
-          className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)]"
-        >
-          <Plus className="h-4 w-4" /> Add Feature
-        </button>
-      </div>
+    <div className="w-full space-y-5">
+      <DashboardPageHeader
+        title="Feature registry"
+        titleAccessory={
+          <span className="rounded-md bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800 dark:bg-blue-950/50 dark:text-blue-300">
+            {features.length} total
+          </span>
+        }
+        description="System-level feature definitions · Controls what appears in pricing plan configuration"
+        actions={
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            className="gap-2"
+            leadingIcon={<Plus className="h-4 w-4" />}
+            onClick={() => {
+              setEditFeature(null);
+              setModalOpen(true);
+            }}
+          >
+            Add Feature
+          </Button>
+        }
+      />
 
       {/* Stats */}
       {!loading && (

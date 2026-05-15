@@ -10,8 +10,9 @@ import {
   ToggleRight,
   AlertTriangle,
   CheckCircle2,
-  Loader2,
 } from "lucide-react";
+import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
+import { Button } from "@/app/components/ds/atoms/Button";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -216,46 +217,42 @@ export default function PlanFeaturesPage() {
   return (
     <div className="mx-auto w-full max-w-[min(100rem,calc(100vw-2rem))]">
       <div className="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        {/* Header */}
-        <div className="flex flex-col gap-4 border-b border-zinc-100 p-6 dark:border-zinc-800 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <Link
-              href="/super-admin/pricing-plans"
-              className="mb-2 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--brand-primary)] hover:underline"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to Pricing Plans
-            </Link>
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-                Feature Configuration
-              </h1>
-              <span className={`rounded-full px-3 py-0.5 text-xs font-semibold ${meta.tierColor}`}>
-                {meta.label}
-              </span>
-            </div>
-            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-              Enable or disable features · Set limits for metered features · {enabledCount}/{features.length} enabled
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={enableAll}
-              className="rounded-lg border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              Enable All
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving || !dirty}
-              className="inline-flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)] disabled:opacity-50"
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {saving ? "Saving…" : "Save Configuration"}
-            </button>
-          </div>
+        <div className="border-b border-zinc-100 p-6 dark:border-zinc-800">
+          <DashboardPageHeader
+            breadcrumb={
+              <Link
+                href="/super-admin/pricing-plans"
+                className="inline-flex items-center gap-1.5 font-medium text-[var(--brand-primary)] hover:underline"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to pricing plans
+              </Link>
+            }
+            title="Feature configuration"
+            titleAccessory={
+              <span className={`rounded-full px-3 py-0.5 text-xs font-semibold ${meta.tierColor}`}>{meta.label}</span>
+            }
+            description={`Enable or disable features · Set limits for metered features · ${enabledCount}/${features.length} enabled`}
+            actions={
+              <>
+                <Button type="button" variant="outline" size="sm" onClick={enableAll}>
+                  Enable all
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  className="gap-2"
+                  loading={saving}
+                  disabled={!dirty}
+                  onClick={handleSave}
+                  leadingIcon={!saving ? <Save className="h-4 w-4" /> : undefined}
+                >
+                  {saving ? "Saving…" : "Save configuration"}
+                </Button>
+              </>
+            }
+          />
         </div>
 
         {/* Status Messages */}

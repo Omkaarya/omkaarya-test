@@ -6,6 +6,7 @@ import {
   Loader2, AlertCircle, RefreshCw,
 } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
+import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
 import Link from "next/link";
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -373,28 +374,26 @@ export default function AdminRolesPage() {
   ];
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Roles &amp; Permissions</h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Manage organization roles and user assignments.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={load}
-            className="p-2.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-            title="Refresh"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-          <Button variant="primary" size="sm" className="gap-2" onClick={() => setShowModal(true)}>
-            <Plus className="h-4 w-4" /> Create Role
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <DashboardPageHeader
+        title="Roles & Permissions"
+        description="Manage organization roles and user assignments."
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={load}
+              className="rounded-lg border border-zinc-200 p-2.5 text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-700 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+              title="Refresh"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+            <Button variant="primary" size="sm" className="gap-2" onClick={() => setShowModal(true)}>
+              <Plus className="h-4 w-4" /> Create Role
+            </Button>
+          </>
+        }
+      />
 
       {/* Tabs */}
       <div className="border-b border-zinc-200 dark:border-zinc-800">

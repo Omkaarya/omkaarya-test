@@ -8,6 +8,7 @@ import type { MockTemple, TemplePlan } from "@/lib/mock-temples";
 import type { TemplesListResponse, TemplesSortBy } from "@/lib/temples-query";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
 import AdminListCard from "@/app/components/admin/AdminListCard";
+import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
 import AdminFiltersBar from "@/app/components/admin/AdminFiltersBar";
 import AdminPagination from "@/app/components/admin/AdminPagination";
 import { Button } from "@/app/components/ds/atoms/Button";
@@ -210,21 +211,21 @@ export default function TemplesAdminPage() {
   );
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-display-xs font-bold tracking-tight text-[var(--text-primary)]">Temples</h1>
-            <span className="rounded-full border border-border bg-subtle px-2.5 py-0.5 text-xs font-semibold text-text-secondary">
-              {totalAll} temples
-            </span>
-          </div>
-          <p className="mt-1 text-sm text-text-tertiary">Manage and monitor your temples here.</p>
-        </div>
-        <Link href="/super-admin/create-temple" className="shrink-0">
-          <Button leadingIcon={<Plus className="h-4 w-4" />}>Create Temple</Button>
-        </Link>
-      </div>
+    <div className="space-y-5 animate-in fade-in duration-500">
+      <DashboardPageHeader
+        title="Temples"
+        titleAccessory={
+          <span className="rounded-full border border-border bg-subtle px-2.5 py-0.5 text-xs font-semibold text-text-secondary">
+            {totalAll} temples
+          </span>
+        }
+        description="Manage and monitor your temples here."
+        actions={
+          <Link href="/super-admin/create-temple">
+            <Button leadingIcon={<Plus className="h-4 w-4" />}>Create Temple</Button>
+          </Link>
+        }
+      />
 
       <AdminListCard>
         <AdminFiltersBar

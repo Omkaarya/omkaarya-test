@@ -56,7 +56,12 @@ export interface TempleRepository {
   }>;
   createTemple(
     payload: CreateTemplePayload
-  ): Promise<{ templeId: string; temporaryPassword?: string; invoice?: CreateInitialInvoiceResult }>;
+  ): Promise<{
+    templeId: string;
+    operationalDbName: string;
+    temporaryPassword?: string;
+    invoice?: CreateInitialInvoiceResult;
+  }>;
   getTempleForEdit(tenantId: string): Promise<SuperAdminTempleDetailResponse | null>;
   updateTemple(tenantId: string, payload: UpdateTemplePayload): Promise<{ ok: true } | { ok: false; reason: "not_found" }>;
 }
@@ -565,7 +570,12 @@ export class PostgresTempleRepository implements TempleRepository {
 
   async createTemple(
     payload: CreateTemplePayload
-  ): Promise<{ templeId: string; temporaryPassword?: string; invoice?: CreateInitialInvoiceResult }> {
+  ): Promise<{
+    templeId: string;
+    operationalDbName: string;
+    temporaryPassword?: string;
+    invoice?: CreateInitialInvoiceResult;
+  }> {
     const pool = requirePool();
 
     await this.assertTempleEmailsNotInUse({
@@ -734,14 +744,14 @@ export class PostgresTempleRepository implements TempleRepository {
 
       const ensured = await ensureTempleOpsDatabaseMigrated(row.tenantId);
       if (!ensured.ok) {
-        throw new HttpError(
-          500,
-          "Could not provision temple operational database. Configure TEMPLE_OPS_DB_HOST, TEMPLE_OPS_DB_USER, TEMPLE_OPS_PG_SUPERUSER_URL (for CREATE DATABASE), and TEMPLE_OPS_DB_PASS.",
-          {
-            code: "TEMPLE_OPS_PROVISION_FAILED",
-            reason: ensured.reason,
-          }
-        );
+        const msg =
+          ensured.reason === "operational_db_not_created"
+            ? "The per-temple PostgreSQL database does not exist and could not be created automatically. Set TEMPLE_OPS_PG_SUPERUSER_URL to a role that can CREATE DATABASE (connection string should use the maintenance database, usually /postgres), or create the operational database manually and ensure DB_HOST/DB_USER can connect to it."
+            : "Could not provision temple operational database. Set DATABASE_URL (or DB_HOST and DB_USER) so the app can open each per-temple database on the same PostgreSQL server, plus TEMPLE_OPS_PG_SUPERUSER_URL for CREATE DATABASE. Override with TEMPLE_OPS_DB_* only if ops credentials differ.";
+        throw new HttpError(500, msg, {
+          code: "TEMPLE_OPS_PROVISION_FAILED",
+          reason: ensured.reason,
+        });
       }
       const opsPoolSeed = await getOperationalPoolForTenant(row.tenantId);
       if (!opsPoolSeed) {
@@ -794,7 +804,12 @@ export class PostgresTempleRepository implements TempleRepository {
         }
       }
 
-      return { templeId: row.tenantId, temporaryPassword, invoice };
+      return {
+        templeId: row.tenantId,
+        operationalDbName: ensured.operationalDbName,
+        temporaryPassword,
+        invoice,
+      };
     } finally {
       client.release();
     }

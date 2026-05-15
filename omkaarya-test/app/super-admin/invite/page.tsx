@@ -140,9 +140,9 @@ export default function InvitationLogin() {
               />
               <span>Remember me for 30 days</span>
             </label>
-            <button type="button" className="text-[var(--brand-primary)] hover:underline">
+            {/* <button type="button" className="text-[var(--brand-primary)] hover:underline">
               Forgot password?
-            </button>
+            </button> */}
           </div>
 
           <button

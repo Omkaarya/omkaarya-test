@@ -1,28 +1,31 @@
+"use client";
+
 import { Search } from "lucide-react";
 import SelectInput from "@/app/components/admin/SelectInput";
 
-type StatusFilter = "all" | "Active" | "Trial" | "Suspended";
+export type DeityStatusFilter = "all" | "active" | "inactive";
 
-type AdminFiltersBarProps = {
+export type DeitiesSortBy = "name" | "last7";
+
+type DeitiesFiltersBarProps = {
   search: string;
   onSearchChange: (value: string) => void;
-  status: StatusFilter;
-  onStatusChange: (status: StatusFilter) => void;
+  status: DeityStatusFilter;
+  onStatusChange: (status: DeityStatusFilter) => void;
   country: string;
   onCountryChange: (country: string) => void;
   countries: string[];
-  sortBy: string;
-  onSortByChange: (sortBy: string) => void;
+  sortBy: DeitiesSortBy;
+  onSortByChange: (sortBy: DeitiesSortBy) => void;
 };
 
-const statusPills: { key: StatusFilter; label: string }[] = [
-  { key: "all", label: "All Temples" },
-  { key: "Active", label: "Active" },
-  { key: "Trial", label: "Trial" },
-  { key: "Suspended", label: "Suspended" },
+const statusPills: { key: DeityStatusFilter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "active", label: "Active" },
+  { key: "inactive", label: "Inactive" },
 ];
 
-export default function AdminFiltersBar({
+export default function DeitiesFiltersBar({
   search,
   onSearchChange,
   status,
@@ -32,14 +35,14 @@ export default function AdminFiltersBar({
   countries,
   sortBy,
   onSortByChange,
-}: AdminFiltersBarProps) {
+}: DeitiesFiltersBarProps) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-3 border-b border-border p-4 lg:flex-nowrap lg:gap-4">
       <div className="relative min-w-[min(100%,280px)] w-full flex-1 lg:min-w-[320px] lg:max-w-2xl">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
         <input
           type="search"
-          placeholder="Search by name, city, or admin email"
+          placeholder="Search by name"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           className="w-full rounded-lg border border-zinc-200 py-2.5 pl-10 pr-14 text-sm outline-none ring-[var(--brand-primary)] focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800/50"
@@ -68,11 +71,11 @@ export default function AdminFiltersBar({
       </div>
 
       <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto lg:ml-auto lg:flex-nowrap">
-        <label className="sr-only" htmlFor="country-filter">
+        <label className="sr-only" htmlFor="deity-country-filter">
           Country
         </label>
         <SelectInput
-          id="country-filter"
+          id="deity-country-filter"
           value={country}
           onChange={(e) => onCountryChange(e.target.value)}
           className="min-w-[12rem] w-full sm:w-[13rem]"
@@ -85,17 +88,16 @@ export default function AdminFiltersBar({
           ))}
         </SelectInput>
 
-        <label className="sr-only" htmlFor="sort-filter">
+        <label className="sr-only" htmlFor="deity-sort-filter">
           Sort by
         </label>
         <SelectInput
-          id="sort-filter"
+          id="deity-sort-filter"
           value={sortBy}
-          onChange={(e) => onSortByChange(e.target.value)}
+          onChange={(e) => onSortByChange(e.target.value as DeitiesSortBy)}
           className="min-w-[12rem] w-full sm:w-[13rem]"
         >
           <option value="name">Sort By: Name</option>
-          <option value="devotees">Sort By: Devotees</option>
           <option value="last7">Sort By: Last 7 Days</option>
         </SelectInput>
       </div>

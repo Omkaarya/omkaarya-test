@@ -803,28 +803,59 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
         body: JSON.stringify(payload),
       });
       const data = (await response.json()) as
-        | { success: true; data: { temporaryPassword?: string; inviteEmailSent?: boolean } }
-        | { success?: boolean; data?: { temporaryPassword?: string; inviteEmailSent?: boolean }; temporaryPassword?: string; inviteEmailSent?: boolean; error?: unknown }
+        | {
+            success: true;
+            data: {
+              temporaryPassword?: string;
+              inviteEmailSent?: boolean;
+              operationalDbName?: string;
+            };
+          }
+        | {
+            success?: boolean;
+            data?: {
+              temporaryPassword?: string;
+              inviteEmailSent?: boolean;
+              operationalDbName?: string;
+            };
+            temporaryPassword?: string;
+            inviteEmailSent?: boolean;
+            operationalDbName?: string;
+            error?: unknown;
+          }
         | null;
       if (!response.ok) {
         throw new Error(jsonApiErrorMessage(data) || "Failed to create temple.");
       }
       const inner =
         data && typeof data === "object" && "data" in data && data && (data as { data?: unknown }).data
-          ? (data as { data: { temporaryPassword?: string; inviteEmailSent?: boolean } }).data
-          : (data as { temporaryPassword?: string; inviteEmailSent?: boolean } | null);
+          ? (data as {
+              data: { temporaryPassword?: string; inviteEmailSent?: boolean; operationalDbName?: string };
+            }).data
+          : (data as {
+              temporaryPassword?: string;
+              inviteEmailSent?: boolean;
+              operationalDbName?: string;
+            } | null);
       const tempPwd =
         inner && typeof inner.temporaryPassword === "string" ? inner.temporaryPassword : "";
       const inviteEmailSent =
         inner && "inviteEmailSent" in inner && typeof inner.inviteEmailSent === "boolean"
           ? inner.inviteEmailSent
           : undefined;
+      const operationalDbName =
+        inner && typeof inner.operationalDbName === "string" && inner.operationalDbName.trim() !== ""
+          ? inner.operationalDbName.trim()
+          : null;
+      const opsNote = operationalDbName
+        ? ` Operational PostgreSQL database: ${operationalDbName}.`
+        : "";
       setSubmitSuccess(
         inviteEmailSent === true
-            ? "Temple successfully created. An invite email has been sent to the admin."
-            : inviteEmailSent === false
-              ? "Temple successfully created, but invite email could not be sent (email not configured or SMTP failed)."
-              : "Temple successfully created."
+          ? `Temple successfully created.${opsNote} An invite email has been sent to the admin.`
+          : inviteEmailSent === false
+            ? `Temple successfully created.${opsNote} Invite email could not be sent (email not configured or SMTP failed).`
+            : `Temple successfully created.${opsNote}`
       );
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Failed to create temple.");
@@ -1048,7 +1079,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                     bullets={t.bullets}
                     icon={t.icon}
                     selected={tradition === t.id}
-                    disabled={isViewOnly}
+                    disabled={isViewOnly || t.id !== "Hindu"}
                     onClick={() => setTradition(t.id)}
                   />
                 ))}
@@ -1256,7 +1287,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                   </div>
                 </FormField>
 
-                <div className="md:col-span-2">
+                {/* <div className="md:col-span-2">
                   <label
                     className={`flex items-start gap-3 rounded-lg border border-zinc-200 bg-zinc-50/50 p-3 dark:border-zinc-700 dark:bg-zinc-800/40 ${isViewOnly ? "cursor-default" : "cursor-pointer"}`}
                   >
@@ -1292,7 +1323,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                       </FormField>
                     </div>
                   ) : null}
-                </div>
+                </div> */}
               </div>
             </>
           )}

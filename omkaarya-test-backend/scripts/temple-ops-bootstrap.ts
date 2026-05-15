@@ -6,7 +6,7 @@
  *
  * Env:
  *   - Platform: DATABASE_URL or DB_* (same as main app)
- *   - TEMPLE_OPS_DB_HOST, TEMPLE_OPS_DB_USER, TEMPLE_OPS_DB_PASS, TEMPLE_OPS_DB_PORT — target server for the new DB
+ *   - TEMPLE_OPS_DB_HOST, TEMPLE_OPS_DB_USER, TEMPLE_OPS_DB_PASS, TEMPLE_OPS_DB_PORT — optional; default to DB_HOST, DB_USER, DB_PASS, DB_PORT (same role on one server; only the database name differs per temple)
  *   - TEMPLE_OPS_DB_NAME_PREFIX (default omkaarya_temple_) — database name = prefix + tenant_id (sanitized)
  *   - TEMPLE_OPS_PG_SUPERUSER_URL — optional; connect to maintenance DB `postgres` to run CREATE DATABASE
  */
@@ -99,7 +99,7 @@ async function main(): Promise<void> {
   });
   if (!bootstrapCfg) {
     console.error(
-      "[temple-ops:bootstrap] Cannot build ops pool config — set TEMPLE_OPS_DB_HOST, TEMPLE_OPS_DB_USER (and PASS/PORT as needed)."
+      "[temple-ops:bootstrap] Cannot build ops pool config — set DB_HOST and DB_USER (or TEMPLE_OPS_DB_HOST / TEMPLE_OPS_DB_USER), and password/port as needed."
     );
     process.exit(1);
   }

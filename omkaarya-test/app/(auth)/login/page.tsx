@@ -187,7 +187,7 @@ export default function LoginPage() {
                   Remember me for 30 days
                 </span>
               </label>
-              <span className="text-sm font-semibold text-[var(--muted)]">Forgot password?</span>
+              {/* <span className="text-sm font-semibold text-[var(--muted)]">Forgot password?</span> */}
             </div>
 
             <button
@@ -198,13 +198,13 @@ export default function LoginPage() {
               {loading ? "Signing in…" : "Sign in"}
             </button>
 
-            <p className="pt-2 text-center text-xs text-[var(--muted)]">
+            {/* <p className="pt-2 text-center text-xs text-[var(--muted)]">
               Received an invitation with a temporary password?{" "}
               <Link href="/super-admin/invite" className="font-semibold text-[var(--brand-primary)] hover:brightness-95">
                 Continue here
               </Link>
               .
-            </p>
+            </p> */}
           </form>
         </div>
       </div>

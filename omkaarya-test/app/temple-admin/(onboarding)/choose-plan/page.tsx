@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { DM_Serif_Display } from "next/font/google";
 import { ArrowRight, Check, ChevronDown, ChevronUp, Layers2, Minus } from "lucide-react";
 import TempleOnboardingStepActions from "@/app/components/temple-admin/TempleOnboardingStepActions";
-import { getDeityById } from "@/lib/deity-catalog";
+import { getDeityById, type DeityCatalogEntry } from "@/lib/deity-catalog";
 import { isDeitySelectionComplete, loadTempleOnboardingDeityDraft } from "@/lib/temple-onboarding-deity";
 import {
   loadTempleOnboardingPlanDraft,
@@ -65,6 +65,7 @@ export default function TempleAdminChoosePlanPage() {
   const [isConfirming, setIsConfirming] = useState(false);
   /** false until local plan draft (if any) is read, or server provisioning plan is fetched — avoids defaulting to “popular” before we know the temple’s plan. */
   const [planSelectionSourceReady, setPlanSelectionSourceReady] = useState(false);
+  const [deityCatalog, setDeityCatalog] = useState<DeityCatalogEntry[]>([]);
 
   const loadCatalog = useCallback(async () => {
     setLoadError(null);
@@ -143,6 +144,29 @@ export default function TempleAdminChoosePlanPage() {
   }, [isHydrated, loadCatalog]);
 
   useEffect(() => {
+    if (!isHydrated) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/temple-admin/deity-catalog", { cache: "no-store" });
+        const j = (await res.json().catch(() => null)) as {
+          success?: boolean;
+          data?: { entries?: DeityCatalogEntry[] };
+        };
+        if (cancelled) return;
+        if (res.ok && j?.success && Array.isArray(j.data?.entries)) {
+          setDeityCatalog(j.data.entries);
+        }
+      } catch {
+        /* labels fall back to raw ids */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isHydrated]);
+
+  useEffect(() => {
     if (!planSelectionSourceReady) return;
     if (plans.length > 0 && !selectedPlanId) {
       const def = plans.find((p) => p.popular)?.id ?? plans[0]!.id;
@@ -172,15 +196,15 @@ export default function TempleAdminChoosePlanPage() {
   const primaryDeityLabel = useMemo(() => {
     const id = deityDraft?.primaryDeityId;
     if (!id) return "—";
-    const d = getDeityById(id);
+    const d = getDeityById(deityCatalog, id);
     return d ? `${d.name}${d.secondaryLabel ? ` ${d.secondaryLabel}` : ""}` : id;
-  }, [deityDraft]);
+  }, [deityDraft, deityCatalog]);
 
   const subDeityLabels = useMemo(() => {
     const ids = deityDraft?.subDeityIds ?? [];
     if (ids.length === 0) return "—";
-    return ids.map((id) => getDeityById(id)?.name ?? id).join(", ");
-  }, [deityDraft]);
+    return ids.map((id) => getDeityById(deityCatalog, id)?.name ?? id).join(", ");
+  }, [deityDraft, deityCatalog]);
 
   async function handleConfirm() {
     setConfirmError(null);

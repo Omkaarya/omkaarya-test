@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Save, Plus, Trash2, LayoutTemplate, Settings, Users, MessageSquare, Loader2 } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
+import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
 import { Input } from "@/app/components/ds/atoms/Input";
 import type {
   CmsBundle,
@@ -116,28 +117,32 @@ export default function WebsiteCMS() {
 
   if (!bundle) {
     return (
-      <div className="max-w-5xl space-y-4">
-        <h1 className="text-display-xs font-bold tracking-tight text-[var(--text-primary)]">Website CMS</h1>
-        {error ? (
-          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-        ) : (
-          <p className="text-sm text-[var(--text-muted)]">No content loaded.</p>
-        )}
-        <Button type="button" variant="outline" onClick={() => void load()}>
-          Retry
-        </Button>
+      <div className="max-w-5xl space-y-5">
+        <DashboardPageHeader
+          title="Website CMS"
+          description={
+            error ? (
+              <span className="text-red-600 dark:text-red-400">{error}</span>
+            ) : (
+              "No content loaded."
+            )
+          }
+          actions={
+            <Button type="button" variant="outline" onClick={() => void load()}>
+              Retry
+            </Button>
+          }
+        />
       </div>
     );
   }
 
   return (
-    <div className="max-w-5xl space-y-6">
-      <div>
-        <h1 className="text-display-xs font-bold tracking-tight text-[var(--text-primary)]">Website CMS</h1>
-        <p className="mt-1 text-sm text-[var(--text-muted)]">
-          Manage the public-facing Omkaarya website copy. Each tab saves independently to the database.
-        </p>
-      </div>
+    <div className="max-w-5xl space-y-5">
+      <DashboardPageHeader
+        title="Website CMS"
+        description="Manage the public-facing Omkaarya website copy. Each tab saves independently to the database."
+      />
 
       {error ? (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">

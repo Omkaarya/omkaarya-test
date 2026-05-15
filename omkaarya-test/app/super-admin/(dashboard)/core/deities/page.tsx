@@ -1,87 +1,201 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Image as ImageIcon, Loader2, RefreshCw } from "lucide-react";
-import type { DeityCatalogEntry } from "@/lib/deity-catalog";
+import { Eye, Image as ImageIcon, Loader2, Pencil, Plus, X } from "lucide-react";
 import AdminListCard from "@/app/components/admin/AdminListCard";
 import AdminPagination from "@/app/components/admin/AdminPagination";
-import { AdminTableToolbar, AdminTableToolbarStart } from "@/app/components/admin/AdminTableToolbar";
-import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
 import { Button } from "@/app/components/ds/atoms/Button";
+import type { MasterDeityListPayload, MasterDeityRow } from "@/lib/master-deities";
+import DeitiesFiltersBar, { type DeitiesSortBy, type DeityStatusFilter } from "./DeitiesFiltersBar";
+import DeityUpsertModal, { type DeityModalMode } from "./DeityUpsertModal";
+import StatusBadge from "@/app/components/admin/StatusBadge";
+import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
 
-type CatalogResponse = { entries: DeityCatalogEntry[] };
+type ModalState = { open: true; mode: DeityModalMode; row: MasterDeityRow | null } | { open: false };
 
 export default function DeitiesMasterPage() {
-  const [entries, setEntries] = useState<DeityCatalogEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<DeityStatusFilter>("all");
+  const [country, setCountry] = useState("all");
+  const [sortBy, setSortBy] = useState<DeitiesSortBy>("name");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [rows, setRows] = useState<MasterDeityRow[]>([]);
+  const [countries, setCountries] = useState<string[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalAll, setTotalAll] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actionMenuId, setActionMenuId] = useState<string | null>(null);
+  const [modal, setModal] = useState<ModalState>({ open: false });
+  const [imagePreview, setImagePreview] = useState<{ src: string; title: string } | null>(null);
+  const [actionBusyId, setActionBusyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [searchInput]);
+
+  useEffect(() => {
+    if (!actionMenuId) return;
+    const onDocClick = () => setActionMenuId(null);
+    window.addEventListener("click", onDocClick);
+    return () => window.removeEventListener("click", onDocClick);
+  }, [actionMenuId]);
+
+  useEffect(() => {
+    if (!imagePreview) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setImagePreview(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [imagePreview]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    const params = new URLSearchParams({
+      q: search,
+      status: statusFilter,
+      country,
+      sortBy,
+      page: String(page),
+      pageSize: String(pageSize),
+    });
     try {
-      const res = await fetch("/api/super-admin/deity-catalog", { cache: "no-store" });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        setError(json.error?.message ?? "Failed to load catalog");
-        setEntries([]);
+      const res = await fetch(`/api/super-admin/deities?${params.toString()}`, { cache: "no-store" });
+      const json = (await res.json().catch(() => null)) as {
+        success?: boolean;
+        data?: MasterDeityListPayload;
+        error?: { message?: string };
+      };
+      if (!res.ok || !json.success || !json.data) {
+        setError(json.error?.message ?? "Failed to load deities.");
+        setRows([]);
+        setTotal(0);
+        setTotalPages(1);
         return;
       }
-      const data = json.data as CatalogResponse;
-      setEntries(Array.isArray(data.entries) ? data.entries : []);
+      const d = json.data;
+      setRows(Array.isArray(d.data) ? d.data : []);
+      setTotal(d.total);
+      setTotalAll(d.totalAll);
+      setTotalPages(d.totalPages);
+      if (Array.isArray(d.countries) && d.countries.length > 0) {
+        setCountries(d.countries);
+      }
+      if (page > d.totalPages) {
+        setPage(d.totalPages);
+      }
     } catch {
-      setError("Network error — could not load deity catalog.");
-      setEntries([]);
+      setError("Network error — could not load deities.");
+      setRows([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [search, statusFilter, country, sortBy, page, pageSize]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return entries;
-    return entries.filter((d) => {
-      const hay = `${d.name} ${d.secondaryLabel ?? ""}`.toLowerCase();
-      return hay.includes(q);
-    });
-  }, [entries, search]);
+  const openModal = (mode: DeityModalMode, row: MasterDeityRow | null) => {
+    setActionMenuId(null);
+    setModal({ open: true, mode, row });
+  };
 
-  const totalFiltered = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
-  const pageRows = useMemo(() => {
-    const safePage = Math.min(page, totalPages);
-    const start = (safePage - 1) * pageSize;
-    return filtered.slice(start, start + pageSize);
-  }, [filtered, page, pageSize, totalPages]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- reserved when row action menu is restored
+  const patchActive = async (row: MasterDeityRow, next: boolean) => {
+    setActionBusyId(row.id);
+    setActionMenuId(null);
+    try {
+      const res = await fetch(`/api/super-admin/deities/${encodeURIComponent(row.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ isActive: next }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) {
+        setError(json?.error?.message ?? "Update failed.");
+        return;
+      }
+      await load();
+    } catch {
+      setError("Network error.");
+    } finally {
+      setActionBusyId(null);
+    }
+  };
 
-  const columns: ColumnDef<DeityCatalogEntry>[] = useMemo(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- reserved for action menu
+  const softDelete = async (row: MasterDeityRow) => {
+    if (!window.confirm(`Deactivate “${row.name}”? It will be hidden from temple onboarding.`)) return;
+    setActionBusyId(row.id);
+    setActionMenuId(null);
+    try {
+      const res = await fetch(`/api/super-admin/deities/${encodeURIComponent(row.id)}`, {
+        method: "DELETE",
+        headers: { Accept: "application/json" },
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) {
+        setError(json?.error?.message ?? "Could not deactivate.");
+        return;
+      }
+      await load();
+    } catch {
+      setError("Network error.");
+    } finally {
+      setActionBusyId(null);
+    }
+  };
+
+  const columns: ColumnDef<MasterDeityRow>[] = useMemo(
     () => [
       {
-        key: "id",
-        header: "Catalog ID",
+        key: "displayCode",
+        header: "Deity ID",
         cell: (d) => (
-          <span className="font-mono text-xs font-semibold text-text-tertiary">{d.id}</span>
+          <span className="font-mono text-xs font-semibold text-text-tertiary">{d.displayCode}</span>
         ),
       },
       {
         key: "image",
-        header: "Preview",
-        cell: (d) => (
-          <div
-            className={`flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-gradient-to-br ${d.placeholderHue} text-[10px] font-bold text-white shadow-sm`}
-            aria-hidden
-          >
-            <ImageIcon className="h-4 w-4 text-white/90" />
-          </div>
-        ),
+        header: "Image",
+        cell: (d) =>
+          d.imageDataUrl ? (
+            <button
+              type="button"
+              className="group relative h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-border ring-offset-background transition hover:border-[var(--brand-primary)]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)]"
+              aria-label={`View full image: ${d.name}`}
+              title="View image"
+              onClick={(e) => {
+                e.stopPropagation();
+                setImagePreview({ src: d.imageDataUrl, title: d.name });
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={d.imageDataUrl}
+                alt=""
+                className="h-full w-full object-cover transition group-hover:opacity-90"
+              />
+            </button>
+          ) : (
+            <div
+              className={`flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-gradient-to-br ${d.placeholderHue ?? "from-zinc-400 to-zinc-600"} text-[10px] font-bold text-white shadow-sm`}
+              aria-hidden
+            >
+              <ImageIcon className="h-4 w-4 text-white/90" />
+            </div>
+          ),
       },
       {
         key: "name",
@@ -96,36 +210,106 @@ export default function DeitiesMasterPage() {
         ),
       },
       {
-        key: "usage",
-        header: "Usage",
-        cell: () => (
-          <span className="text-xs text-text-secondary">Temple onboarding primary deity ids</span>
+        key: "status",
+        header: "Status",
+        cell: (d) => <StatusBadge status={d.isActive ? "Active" : "Inactive"} />,
+      },
+      {
+        key: "actions",
+        header: "Actions",
+        align: "right",
+        cell: (d) => (
+          <div className="relative flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+            {actionBusyId === d.id ? (
+              <Loader2 className="h-4 w-4 animate-spin text-text-quaternary" />
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  aria-label="View deity"
+                  title="View"
+                  onClick={() => openModal("view", d)}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  aria-label="Edit deity"
+                  title="Edit"
+                  onClick={() => openModal("edit", d)}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                {/* <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActionMenuId((cur) => (cur === d.id ? null : d.id));
+                  }}
+                  className="rounded-lg p-2 text-text-quaternary hover:bg-subtle hover:text-text-primary"
+                  aria-label="More actions"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </button> */}
+                {/* {actionMenuId === d.id ? (
+                  <div
+                    className="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl border border-border bg-surface py-1 shadow-xl"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {d.isActive ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs font-medium text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/30"
+                        onClick={() => void softDelete(d)}
+                      >
+                        Deactivate
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs font-medium text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/30"
+                        onClick={() => void patchActive(d, true)}
+                      >
+                        Activate
+                      </button>
+                    )}
+                  </div>
+                ) : null} */}
+              </>
+            )}
+          </div>
         ),
       },
     ],
-    [],
+    [actionBusyId],
   );
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-display-xs font-bold tracking-tight text-text-primary">Deities</h1>
-          <p className="mt-1 text-sm text-text-tertiary">
-            Read-only catalog aligned with temple onboarding. Changes are made in code or future registry APIs.
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          leadingIcon={<RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />}
-          onClick={() => void load()}
-          disabled={loading}
-        >
-          Refresh
-        </Button>
-      </div>
+    <div className="space-y-5 animate-in fade-in duration-500">
+      <DashboardPageHeader
+        title="Deities"
+        titleAccessory={
+          <span className="rounded-full border border-border bg-subtle px-2.5 py-0.5 text-xs font-semibold text-text-secondary">
+            {totalAll} deities
+          </span>
+        }
+        description="Manage and monitor deities here."
+        actions={
+          <Button
+            type="button"
+            leadingIcon={<Plus className="h-4 w-4" />}
+            onClick={() => openModal("create", null)}
+          >
+            Add New Deity
+          </Button>
+        }
+      />
 
       {error ? (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
@@ -134,35 +318,45 @@ export default function DeitiesMasterPage() {
       ) : null}
 
       <AdminListCard>
-        <AdminTableToolbar>
-          <AdminTableToolbarStart>
-            <SearchInput
-              value={search}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              onClear={search ? () => setSearch("") : undefined}
-              placeholder="Search by name…"
-            />
-          </AdminTableToolbarStart>
-        </AdminTableToolbar>
+        <DeitiesFiltersBar
+          search={searchInput}
+          onSearchChange={setSearchInput}
+          status={statusFilter}
+          onStatusChange={(s) => {
+            setStatusFilter(s);
+            setPage(1);
+          }}
+          country={country}
+          onCountryChange={(c) => {
+            setCountry(c);
+            setPage(1);
+          }}
+          countries={countries}
+          sortBy={sortBy}
+          onSortByChange={(s) => {
+            setSortBy(s);
+            setPage(1);
+          }}
+        />
 
-        {loading && entries.length === 0 ? (
+        {loading && rows.length === 0 ? (
           <div className="flex items-center justify-center gap-2 py-16 text-text-tertiary">
             <Loader2 className="h-6 w-6 animate-spin" />
-            <span className="text-sm">Loading catalog…</span>
+            <span className="text-sm">Loading deities…</span>
           </div>
         ) : (
-          <DataTable<DeityCatalogEntry>
+          <DataTable<MasterDeityRow>
             columns={columns}
-            data={pageRows}
+            data={rows}
             keyExtractor={(d) => d.id}
+            tableClassName="min-w-[720px]"
+            isLoading={loading}
+            loadingRows={pageSize}
           />
         )}
 
         <AdminPagination
-          page={Math.min(page, totalPages)}
+          page={page}
           pageSize={pageSize}
           totalPages={totalPages}
           onPageChange={setPage}
@@ -172,9 +366,56 @@ export default function DeitiesMasterPage() {
           }}
         />
         <p className="border-t border-border px-4 py-3 text-xs text-text-tertiary">
-          {totalFiltered} {totalFiltered === 1 ? "entry" : "entries"} matching search · {entries.length} in catalog
+          {total} filtered results{sortBy === "last7" ? " (created in the last 7 days)" : ""} · {totalAll} total
         </p>
       </AdminListCard>
+
+      {modal.open ? (
+        <DeityUpsertModal
+          open
+          mode={modal.mode}
+          initial={modal.row}
+          onClose={() => setModal({ open: false })}
+          onSaved={() => void load()}
+        />
+      ) : null}
+
+      {imagePreview ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-8" role="presentation">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setImagePreview(null)}
+            aria-label="Close image preview"
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Image: ${imagePreview.title}`}
+            className="relative z-10 flex max-h-[min(92vh,900px)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-950 shadow-2xl dark:border-zinc-800"
+          >
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-zinc-800 bg-zinc-900 px-4 py-3">
+              <p className="min-w-0 truncate text-sm font-semibold text-zinc-100">{imagePreview.title}</p>
+              <button
+                type="button"
+                onClick={() => setImagePreview(null)}
+                className="shrink-0 rounded-lg p-2 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex min-h-0 flex-1 items-center justify-center bg-zinc-950 p-4 sm:p-6">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imagePreview.src}
+                alt={imagePreview.title}
+                className="max-h-[min(78vh,760px)] w-auto max-w-full object-contain"
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

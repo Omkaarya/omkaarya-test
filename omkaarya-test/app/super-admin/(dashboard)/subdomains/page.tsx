@@ -10,6 +10,7 @@ import AdminListCard from "@/app/components/admin/AdminListCard";
 import AdminFiltersBar from "@/app/components/admin/AdminFiltersBar";
 import AdminPagination from "@/app/components/admin/AdminPagination";
 import StatusBadge from "@/app/components/admin/StatusBadge";
+import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
 
 type StatusFilter = "all" | "Active" | "Trial" | "Suspended";
 
@@ -175,20 +176,20 @@ export default function SubdomainsPage() {
   );
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-display-xs font-bold tracking-tight text-[var(--text-primary)]">Subdomains</h1>
-            <span className="rounded-full border border-border bg-subtle px-2.5 py-0.5 text-xs font-semibold text-text-secondary">
-              {totalAll} temples
-            </span>
-          </div>
-          <p className="mt-1 text-sm text-text-tertiary">
+    <div className="space-y-5 animate-in fade-in duration-500">
+      <DashboardPageHeader
+        title="Subdomains"
+        titleAccessory={
+          <span className="rounded-full border border-border bg-subtle px-2.5 py-0.5 text-xs font-semibold text-text-secondary">
+            {totalAll} temples
+          </span>
+        }
+        description={
+          <>
             Portal host (<span className="font-medium">*.omkaarya.com</span>) for each temple, from the database.
-          </p>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <AdminListCard>
         <AdminFiltersBar

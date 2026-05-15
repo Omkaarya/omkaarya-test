@@ -20,7 +20,12 @@ export class TemplesService {
 
   async createTemple(
     payload: CreateTemplePayload
-  ): Promise<{ templeId: string; temporaryPassword?: string; invoice?: CreateInitialInvoiceResult }> {
+  ): Promise<{
+    templeId: string;
+    operationalDbName: string;
+    temporaryPassword?: string;
+    invoice?: CreateInitialInvoiceResult;
+  }> {
     return this.repo.createTemple(payload);
   }
 

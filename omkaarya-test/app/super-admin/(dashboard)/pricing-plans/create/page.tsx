@@ -3,21 +3,19 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { 
-  ArrowLeft, 
-  Check, 
-  Plus, 
-  X, 
-  Loader2, 
-  Users2, 
-  Shield, 
-  Info, 
-  Box, 
+import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
+import { Button } from "@/app/components/ds/atoms/Button";
+import {
+  Check,
+  Plus,
+  X,
+  Loader2,
+  Users2,
+  Info,
+  Box,
   Save,
-  ChevronRight,
   TrendingUp,
   CreditCard,
-  Settings
 } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -92,8 +90,8 @@ export default function CreatePricingPlanPage() {
     setFormData({ ...formData, selectedFeatures: next });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     setIsSubmitting(true);
     try {
       const payload = {
@@ -132,40 +130,45 @@ export default function CreatePricingPlanPage() {
   if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-[var(--brand-primary)]" /></div>;
 
   return (
-    <div className="max-w-[1200px] mx-auto space-y-8 animate-in fade-in duration-500 pb-20">
-      
-      {/* Top Navigation / Breadcrumbs */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/super-admin/pricing-plans" className="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-white dark:hover:bg-zinc-900 transition-all shadow-sm group">
-            <ArrowLeft className="w-5 h-5 text-zinc-400 group-hover:text-[var(--brand-primary)]" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">Create Pricing Tier</h1>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs font-medium text-zinc-500">Pricing Management</span>
-              <ChevronRight className="w-3 h-3 text-zinc-300" />
-              <span className="text-xs font-bold text-[var(--brand-primary)]">New Plan Configuration</span>
-            </div>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <Link href="/super-admin/pricing-plans" className="h-11 px-6 rounded-xl text-sm font-bold text-zinc-500 hover:text-zinc-900 transition-all">
-            Discard
-          </Link>
-          <button 
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="h-11 px-8 rounded-xl bg-[var(--brand-primary)] text-white text-sm font-bold shadow-xl shadow-orange-500/20 hover:scale-105 transition-all flex items-center gap-2"
-          >
-            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Finalize & Save Tier
-          </button>
-        </div>
-      </div>
+    <div className="mx-auto max-w-[1200px] space-y-5 pb-20 animate-in fade-in duration-500">
+      <DashboardPageHeader
+        breadcrumb={
+          <>
+            <Link
+              href="/super-admin/pricing-plans"
+              className="font-medium text-[var(--brand-primary)] transition-colors hover:text-[var(--brand-primary-hover)]"
+            >
+              Pricing plans
+            </Link>
+            <span className="text-text-quaternary">›</span>
+            <span>New plan configuration</span>
+          </>
+        }
+        title="Create pricing tier"
+        description="Pricing management · Configure seats, roles, and included features for a new subscription tier."
+        actions={
+          <>
+            <Link href="/super-admin/pricing-plans">
+              <Button type="button" variant="outline" size="sm">
+                Discard
+              </Button>
+            </Link>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              className="gap-2"
+              leadingIcon={isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              disabled={isSubmitting}
+              onClick={handleSubmit}
+            >
+              Finalize & Save Tier
+            </Button>
+          </>
+        }
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         
         {/* Left Column: Plan Details & Pricing */}
         <div className="lg:col-span-2 space-y-8">
@@ -280,7 +283,9 @@ export default function CreatePricingPlanPage() {
                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${formData.popular ? 'bg-[var(--brand-primary)] border-[var(--brand-primary)]' : 'border-zinc-300 bg-white'}`}>
                           {formData.popular && <Check className="w-3 h-3 text-white" />}
                        </div>
-                       <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">Set as "Most Popular" Recommendation</span>
+                       <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">
+                         Set as {'"'}Most Popular{'"'} recommendation
+                       </span>
                     </div>
                     <div className="flex items-start gap-3 mt-2">
                        <Info className="w-4 h-4 text-zinc-400 mt-1" />

@@ -9,6 +9,7 @@ import {
 import { Button } from "@/app/components/ds/atoms/Button";
 import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
 import AdminListCard from "@/app/components/admin/AdminListCard";
+import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
 import AdminPagination from "@/app/components/admin/AdminPagination";
 import SelectInput from "@/app/components/admin/SelectInput";
 import { AdminTableToolbar, AdminTableToolbarEnd, AdminTableToolbarStart } from "@/app/components/admin/AdminTableToolbar";
@@ -402,28 +403,26 @@ export default function AdminUsersPage() {
   const activeCount = useMemo(() => users.filter((u) => u.isActive).length, [users]);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-display-xs font-bold tracking-tight text-text-primary">User management</h1>
-          <p className="mt-1 text-sm text-text-tertiary">
-            Manage platform-level users and their access roles
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={load}
-            className="p-2.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-            title="Refresh"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-          <Button variant="primary" size="sm" className="gap-2" onClick={() => setShowModal(true)}>
-            <UserPlus className="h-4 w-4" /> Add User
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-5">
+      <DashboardPageHeader
+        title="User management"
+        description="Manage platform-level users and their access roles"
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={load}
+              className="rounded-lg border border-zinc-200 p-2.5 text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-700 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+              title="Refresh"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+            <Button variant="primary" size="sm" className="gap-2" onClick={() => setShowModal(true)}>
+              <UserPlus className="h-4 w-4" /> Add User
+            </Button>
+          </>
+        }
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

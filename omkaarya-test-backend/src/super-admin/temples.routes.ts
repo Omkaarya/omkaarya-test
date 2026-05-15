@@ -119,7 +119,7 @@ export function createTemplesRouter(temples: TemplesService): Router {
     asyncHandler(async (req, res) => {
       const body = req.body as CreateTemplePayload;
       try {
-        const { templeId, temporaryPassword, invoice } = await temples.createTemple(body);
+        const { templeId, temporaryPassword, invoice, operationalDbName } = await temples.createTemple(body);
         const to = body.admin.email.trim();
         let inviteEmailSent: boolean | undefined = undefined;
         if (to && invoice) {
@@ -176,6 +176,7 @@ export function createTemplesRouter(temples: TemplesService): Router {
           201,
           {
             templeId,
+            operationalDbName,
             ...(invoice
               ? {
                   invoiceId: invoice.invoiceId,

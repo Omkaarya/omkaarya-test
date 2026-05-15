@@ -47,6 +47,41 @@ export async function superAdminBearerFromCookie(): Promise<{ token: string; ema
   return { token, email };
 }
 
+export type SuperAdminSessionProfile = {
+  email: string;
+  fullName: string | null;
+  roles: string[];
+};
+
+/** Current super-admin user row for dashboard UI; null if not signed in or not a super admin. */
+export async function getSuperAdminSessionProfile(): Promise<SuperAdminSessionProfile | null> {
+  const session = await superAdminBearerFromCookie();
+  if (!session) {
+    return null;
+  }
+
+  const result = await getPool().query<{ full_name: string | null; roles: string[] | null }>(
+    `SELECT full_name, roles FROM public.users WHERE lower(trim(email)) = lower(trim($1)) LIMIT 1`,
+    [session.email]
+  );
+  const row = result.rows[0];
+  if (!row) {
+    return null;
+  }
+
+  const roles = Array.isArray(row.roles) ? row.roles : [];
+  const isSuper = roles.some((role) => String(role).trim().toLowerCase() === "super admin");
+  if (!isSuper) {
+    return null;
+  }
+
+  return {
+    email: session.email,
+    fullName: row.full_name?.trim() || null,
+    roles,
+  };
+}
+
 export async function requireSuperAdminHeaders(extra: Record<string, string> = {}) {
   const session = await superAdminBearerFromCookie();
   if (!session) {

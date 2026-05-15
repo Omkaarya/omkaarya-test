@@ -7,7 +7,6 @@ import TextInput from "@/app/components/admin/TextInput";
 import TempleOnboardingStepActions from "@/app/components/temple-admin/TempleOnboardingStepActions";
 import { TEMPLE_ONBOARDING_EMAIL_KEY } from "@/lib/temple-onboarding-signin";
 import {
-  DEITY_CATALOG,
   filterDeitiesByQuery,
   getDeityById,
   type DeityCatalogEntry,
@@ -36,6 +35,14 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
 
 function DeityPlaceholder({ entry }: { entry: DeityCatalogEntry }) {
   const initial = entry.name.slice(0, 2).toUpperCase();
+  if (entry.imageDataUrl) {
+    return (
+      <div className="relative h-16 w-full overflow-hidden rounded-lg shadow-inner sm:h-20">
+        {/* eslint-disable-next-line @next/next/no-img-element -- blob/data URLs from catalog */}
+        <img src={entry.imageDataUrl} alt="" className="h-full w-full object-cover" />
+      </div>
+    );
+  }
   return (
     <div
       className={`flex h-16 w-full items-center justify-center rounded-lg bg-gradient-to-br ${entry.placeholderHue} text-sm font-bold text-white shadow-inner sm:h-20`}
@@ -61,43 +68,75 @@ export default function TempleAdminDeitySelectionPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  const [catalogEntries, setCatalogEntries] = useState<DeityCatalogEntry[]>([]);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+
   const debouncedPrimarySearch = useDebouncedValue(primarySearch, SEARCH_DEBOUNCE_MS);
   const debouncedSubSearch = useDebouncedValue(subSearch, SEARCH_DEBOUNCE_MS);
 
   const primaryList = useMemo(
-    () => filterDeitiesByQuery(debouncedPrimarySearch),
-    [debouncedPrimarySearch],
+    () => filterDeitiesByQuery(catalogEntries, debouncedPrimarySearch),
+    [catalogEntries, debouncedPrimarySearch],
   );
 
   const subList = useMemo(() => {
-    const filtered = filterDeitiesByQuery(debouncedSubSearch);
+    const filtered = filterDeitiesByQuery(catalogEntries, debouncedSubSearch);
     const pid = primaryDeityId;
     return pid ? filtered.filter((d) => d.id !== pid) : filtered;
-  }, [debouncedSubSearch, primaryDeityId]);
+  }, [catalogEntries, debouncedSubSearch, primaryDeityId]);
 
   useEffect(() => {
-    const email = sessionStorage.getItem(TEMPLE_ONBOARDING_EMAIL_KEY);
-    if (!email) {
-      router.replace("/temple-admin/signin");
-      return;
-    }
-    if (!isTempleOnboardingTempleCreated()) {
-      router.replace("/temple-admin/temple-profile");
-      return;
-    }
-    if (isDeitySelectionComplete()) {
-      router.replace("/temple-admin/choose-plan");
-      return;
-    }
+    let cancelled = false;
+    const run = async () => {
+      const email = sessionStorage.getItem(TEMPLE_ONBOARDING_EMAIL_KEY);
+      if (!email) {
+        router.replace("/temple-admin/signin");
+        return;
+      }
+      if (!isTempleOnboardingTempleCreated()) {
+        router.replace("/temple-admin/temple-profile");
+        return;
+      }
+      if (isDeitySelectionComplete()) {
+        router.replace("/temple-admin/choose-plan");
+        return;
+      }
 
-    const loaded = loadTempleOnboardingDeityDraft();
-    if (loaded) {
-      setPrimaryDeityId(loaded.primaryDeityId);
-      setSubDeityIds(loaded.subDeityIds);
-      if (loaded.customDeityNote) setCustomDeityNote(loaded.customDeityNote);
-      if (loaded.preferCustomLater) setShowCustomNote(true);
-    }
-    setIsHydrating(false);
+      setCatalogError(null);
+      try {
+        const res = await fetch("/api/temple-admin/deity-catalog", { cache: "no-store" });
+        const j = (await res.json().catch(() => null)) as {
+          success?: boolean;
+          data?: { entries?: DeityCatalogEntry[] };
+          error?: { message?: string };
+        };
+        if (cancelled) return;
+        if (res.ok && j?.success && Array.isArray(j.data?.entries)) {
+          setCatalogEntries(j.data.entries);
+        } else {
+          setCatalogEntries([]);
+          setCatalogError(j?.error?.message ?? "Could not load deity list.");
+        }
+      } catch {
+        if (!cancelled) {
+          setCatalogEntries([]);
+          setCatalogError("Network error — could not load deity list.");
+        }
+      }
+
+      const loaded = loadTempleOnboardingDeityDraft();
+      if (loaded) {
+        setPrimaryDeityId(loaded.primaryDeityId);
+        setSubDeityIds(loaded.subDeityIds);
+        if (loaded.customDeityNote) setCustomDeityNote(loaded.customDeityNote);
+        if (loaded.preferCustomLater) setShowCustomNote(true);
+      }
+      if (!cancelled) setIsHydrating(false);
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   useEffect(() => {
@@ -172,8 +211,8 @@ export default function TempleAdminDeitySelectionPage() {
   };
 
   const selectedSubEntries = useMemo(
-    () => subDeityIds.map((id) => getDeityById(id)).filter(Boolean) as DeityCatalogEntry[],
-    [subDeityIds],
+    () => subDeityIds.map((id) => getDeityById(catalogEntries, id)).filter(Boolean) as DeityCatalogEntry[],
+    [subDeityIds, catalogEntries],
   );
 
   if (isHydrating) {
@@ -203,6 +242,15 @@ export default function TempleAdminDeitySelectionPage() {
       <p className="mx-auto mt-2 max-w-2xl text-center text-sm leading-relaxed text-[var(--text-muted)]">
         Choose the primary deity of your temple. This will be prominently displayed on your microsite.
       </p>
+
+      {catalogError ? (
+        <div
+          role="alert"
+          className="mx-auto mt-4 max-w-2xl rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100"
+        >
+          {catalogError}
+        </div>
+      ) : null}
 
       <div className="mt-8 space-y-10">
         {/* Primary — desktop order; mobile: primary block first */}

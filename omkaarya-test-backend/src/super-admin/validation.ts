@@ -125,22 +125,15 @@ export const updateTempleBodySchema = z.object({
   logoTempleDataUrl: z.string().nullable().optional(),
 });
 
-/** Matches frontend `DEITY_CATALOG` ids in `lib/deity-catalog.ts`. */
-const deityCatalogIdSchema = z.enum([
-  "pillaiyaar",
-  "murugan",
-  "shivan",
-  "guruvayurappan",
-  "amman",
-  "aanjaneyar",
-]);
+/** Slug stored in `master_deities.slug` (temple onboarding primary/sub ids). */
+const deitySlugSchema = z.string().trim().min(1).max(64);
 
 export const templeDeitySelectionBodySchema = z
   .object({
     sessionEmail: z.string().email(),
     templeId: z.string().trim().pipe(z.string().min(1)),
-    primaryDeityId: deityCatalogIdSchema,
-    subDeityIds: z.array(deityCatalogIdSchema).default([]),
+    primaryDeityId: deitySlugSchema,
+    subDeityIds: z.array(deitySlugSchema).default([]),
     customDeityNote: z.string().max(2000).optional(),
     preferCustomLater: z.boolean().optional(),
   })
@@ -273,3 +266,20 @@ export const platformUserIdParamSchema = z
   .string()
   .trim()
   .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Invalid user id");
+
+/** Path segment: `master_deities.id` (UUID). */
+export const masterDeityIdParamSchema = z.string().uuid("Invalid deity id");
+
+export const createMasterDeityBodySchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  secondaryLabel: z.string().max(200).optional().nullable(),
+  isActive: z.boolean().optional().default(true),
+  countryCode: z.string().trim().max(8).optional().nullable(),
+  placeholderHue: z.string().max(200).optional().nullable(),
+  imageDataUrl: z.string().max(15_000_000).optional().nullable(),
+  slug: z.string().trim().min(1).max(64).optional().nullable(),
+});
+
+export const updateMasterDeityBodySchema = createMasterDeityBodySchema
+  .partial()
+  .refine((d) => Object.keys(d).length > 0, { message: "At least one field is required" });

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { ArrowLeft, Save, Info, AlertTriangle, Loader2, Check, AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
+import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
@@ -146,45 +147,65 @@ function ConfigureContent() {
   const totalGranted = features.filter((f) => permissions[f.key] && permissions[f.key] !== "none").length;
 
   return (
-    <div className="p-2 space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link href="/super-admin/user-management/roles">
-          <button className="p-2 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-        </Link>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Configure Permissions</h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+    <div className="space-y-5 p-2">
+      <DashboardPageHeader
+        breadcrumb={
+          <Link
+            href="/super-admin/user-management/roles"
+            className="inline-flex items-center gap-1.5 font-medium text-[var(--brand-primary)] hover:underline"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Roles & permissions
+          </Link>
+        }
+        title="Configure permissions"
+        description={
+          <>
             Setting access levels for:{" "}
-            <span className="font-bold text-blue-600 dark:text-blue-400">"{roleName}"</span>
-            {totalGranted > 0 && (
-              <span className="ml-2 text-[11px] bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full border border-blue-100 dark:border-blue-800 font-semibold">
+            <span className="font-bold text-blue-600 dark:text-blue-400">
+              {'"'}
+              {roleName}
+              {'"'}
+            </span>
+            {totalGranted > 0 ? (
+              <span className="ml-2 inline-flex items-center rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-600 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400">
                 {totalGranted} granted
               </span>
-            )}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={load}
-            className="p-2.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-            title="Refresh"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-          <Button variant="primary" size="sm" loading={saving} onClick={handleSave} className="gap-2 px-5" disabled={!roleId}>
-            {saved ? <><Check className="w-4 h-4" /> Saved</> : <><Save className="w-4 h-4" /> Save Changes</>}
-          </Button>
-        </div>
-      </div>
+            ) : null}
+          </>
+        }
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={load}
+              className="rounded-lg border border-zinc-200 p-2.5 text-zinc-500 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              title="Refresh"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+            <Button variant="primary" size="sm" loading={saving} onClick={handleSave} className="gap-2 px-5" disabled={!roleId}>
+              {saved ? (
+                <>
+                  <Check className="h-4 w-4" /> Saved
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" /> Save changes
+                </>
+              )}
+            </Button>
+          </>
+        }
+      />
 
       {/* Info Banner */}
       <div className="flex items-start gap-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 rounded-xl p-4">
         <Info className="w-5 h-5 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
         <div className="text-xs text-blue-800 dark:text-blue-300 leading-relaxed">
-          <strong>Permissions Inheritance:</strong> Users assigned to "{roleName}" inherit these settings.
+          <strong>Permissions Inheritance:</strong> Users assigned to {'"'}
+          {roleName}
+          {'"'} inherit these settings.
           A feature set to <strong>None</strong> is hidden from users regardless of their pricing plan.{" "}
           <strong>View Only</strong> gives read access; <strong>Full Access</strong> allows all operations.
         </div>
@@ -279,7 +300,7 @@ function ConfigureContent() {
       {!loading && groups.length > 0 && (
         <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-4 py-3 text-[11px] text-amber-800 dark:text-amber-300">
           <AlertTriangle className="h-4 w-4 shrink-0" />
-          Changes take effect on the user's next login session. Save before navigating away.
+          Changes take effect on the user&apos;s next login session. Save before navigating away.
         </div>
       )}
     </div>

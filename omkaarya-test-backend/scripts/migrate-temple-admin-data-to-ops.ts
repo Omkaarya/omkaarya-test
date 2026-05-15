@@ -5,7 +5,7 @@
  * Run after platform migration 024 and **before** 025 (drop legacy submissions) / 026 (drop temple columns):
  *   npm run migrate:temple-admin-data-to-ops
  *
- * Requires TEMPLE_OPS_DB_HOST, TEMPLE_OPS_DB_USER, etc. (same as temple-ops:bootstrap).
+ * Requires TEMPLE_OPS_DB_* or platform DB_* (same-server temple ops; see getTempleOpsDiscreteEnvFromProcess).
  */
 import "../src/load-env.js";
 import pg from "pg";
