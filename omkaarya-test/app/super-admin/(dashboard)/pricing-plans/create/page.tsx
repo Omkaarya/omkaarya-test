@@ -1,9 +1,19 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
+import GuardedBackLink from "@/app/components/admin/GuardedBackLink";
+import PostSaveSuccessBanner from "@/app/components/admin/PostSaveSuccessBanner";
+import UnsavedChangesDialog from "@/app/components/admin/UnsavedChangesDialog";
+import { formSnapshot } from "@/lib/form-snapshot";
+import { usePostSaveSuccess } from "@/lib/use-post-save-success";
+import { useUnsavedFormGuard } from "@/lib/use-unsaved-form-guard";
+import AffixedInput from "@/app/components/admin/AffixedInput";
+import FormField from "@/app/components/admin/FormField";
 import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
+import SelectInput from "@/app/components/admin/SelectInput";
+import TextareaInput from "@/app/components/admin/TextareaInput";
+import TextInput from "@/app/components/admin/TextInput";
 import { Button } from "@/app/components/ds/atoms/Button";
 import {
   Check,
@@ -38,6 +48,23 @@ const DEFAULT_TEMPLE_ROLES = [
   "Counter Staff / POS"
 ];
 
+const LIST_PATH = "/super-admin/pricing-plans";
+
+const INITIAL_FORM = {
+  name: "",
+  description: "",
+  priceMonthly: "",
+  priceYearly: "",
+  totalSeats: "3",
+  popular: false,
+  selectedRoles: [
+    { roleName: "Temple Admin", count: 1 },
+    { roleName: "Head Priest", count: 1 },
+    { roleName: "Accountant", count: 1 },
+  ],
+  selectedFeatures: [] as string[],
+};
+
 // ── Page Component ──────────────────────────────────────────────────
 
 export default function CreatePricingPlanPage() {
@@ -45,17 +72,13 @@ export default function CreatePricingPlanPage() {
   const [registryFeatures, setRegistryFeatures] = useState<RegistryFeatureRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    priceMonthly: "",
-    priceYearly: "",
-    totalSeats: "3",
-    popular: false,
-    selectedRoles: [{ roleName: "Temple Admin", count: 1 }, { roleName: "Head Priest", count: 1 }, { roleName: "Accountant", count: 1 }],
-    selectedFeatures: [] as string[]
-  });
+
+  const [formData, setFormData] = useState(INITIAL_FORM);
+  const baselineRef = useRef(formSnapshot(INITIAL_FORM));
+
+  const isDirty = useMemo(() => formSnapshot(formData) !== baselineRef.current, [formData]);
+  const postSave = usePostSaveSuccess({ router });
+  const formGuard = useUnsavedFormGuard({ isDirty, enabled: !postSave.isLocked });
 
   const loadRegistryFeatures = useCallback(async () => {
     setLoading(true);
@@ -116,7 +139,12 @@ export default function CreatePricingPlanPage() {
       });
       const data = await res.json();
       if (data.success) {
-        router.push("/super-admin/pricing-plans");
+        baselineRef.current = formSnapshot(formData);
+        formGuard.markClean();
+        postSave.triggerSuccess({
+          message: "Pricing tier created successfully.",
+          redirectTo: LIST_PATH,
+        });
       }
     } catch (e) {
       console.error("Failed to create plan", e);
@@ -138,12 +166,13 @@ export default function CreatePricingPlanPage() {
       <DashboardPageHeader
         breadcrumb={
           <>
-            <Link
-              href="/super-admin/pricing-plans"
+            <GuardedBackLink
+              href={LIST_PATH}
+              onNavigate={formGuard.requestNavigate}
               className="font-medium text-[var(--brand-primary)] transition-colors hover:text-[var(--brand-primary-hover)]"
             >
               Pricing plans
-            </Link>
+            </GuardedBackLink>
             <span className="text-text-quaternary">›</span>
             <span>New plan configuration</span>
           </>
@@ -152,18 +181,22 @@ export default function CreatePricingPlanPage() {
         description="Pricing management · Configure seats, roles, and included features for a new subscription tier."
         actions={
           <>
-            <Link href="/super-admin/pricing-plans">
-              <Button type="button" variant="outline" size="sm">
-                Discard
-              </Button>
-            </Link>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => formGuard.requestNavigate(LIST_PATH)}
+              disabled={postSave.isLocked}
+            >
+              Discard
+            </Button>
             <Button
               type="button"
               variant="primary"
               size="sm"
               className="gap-2"
               leadingIcon={isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              disabled={isSubmitting}
+              disabled={isSubmitting || postSave.isLocked}
               onClick={handleSubmit}
             >
               Finalize & Save Tier
@@ -172,6 +205,9 @@ export default function CreatePricingPlanPage() {
         }
       />
 
+      <PostSaveSuccessBanner text={postSave.bannerText} />
+
+      <fieldset disabled={postSave.isLocked} className="contents min-w-0 border-0 p-0 m-0">
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         
         {/* Left Column: Plan Details & Pricing */}
@@ -187,26 +223,25 @@ export default function CreatePricingPlanPage() {
              </div>
 
              <div className="grid grid-cols-1 gap-6">
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-2 tracking-widest px-1">Plan Name</label>
-                  <input 
-                    required 
-                    value={formData.name} 
-                    onChange={e => setFormData({...formData, name: e.target.value})} 
-                    className="w-full h-14 px-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-base font-bold focus:border-[var(--brand-primary)] outline-none transition-all shadow-sm" 
-                    placeholder="e.g. Prarambha" 
+                <FormField id="plan-name" label="Plan Name" required>
+                  <TextInput
+                    id="plan-name"
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="e.g. Prarambha"
                   />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-2 tracking-widest px-1">Short Description</label>
-                  <textarea 
-                    required 
-                    value={formData.description} 
-                    onChange={e => setFormData({...formData, description: e.target.value})} 
-                    className="w-full p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-medium h-24 focus:border-[var(--brand-primary)] outline-none shadow-sm" 
-                    placeholder="Briefly describe what this plan includes..." 
+                </FormField>
+                <FormField id="plan-description" label="Short Description" required>
+                  <TextareaInput
+                    id="plan-description"
+                    required
+                    rows={4}
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Briefly describe what this plan includes..."
                   />
-                </div>
+                </FormField>
              </div>
            </div>
 
@@ -229,18 +264,21 @@ export default function CreatePricingPlanPage() {
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                    {formData.selectedRoles.map((role, i) => (
                      <div key={i} className="flex items-center gap-3 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 hover:border-zinc-200 transition-all">
-                        <div className="flex-1">
-                           <select 
+                        <div className="min-w-0 flex-1">
+                          <SelectInput
+                            aria-label={`Role ${i + 1}`}
                             value={role.roleName}
                             onChange={(e) => {
                               const next = [...formData.selectedRoles];
                               next[i].roleName = e.target.value;
-                              setFormData({...formData, selectedRoles: next});
+                              setFormData({ ...formData, selectedRoles: next });
                             }}
-                            className="w-full h-8 bg-transparent text-sm font-bold outline-none cursor-pointer"
+                            className="border-0 bg-transparent py-1 text-sm font-bold shadow-none focus:ring-0"
                           >
-                            {DEFAULT_TEMPLE_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                          </select>
+                            {DEFAULT_TEMPLE_ROLES.map((r) => (
+                              <option key={r} value={r}>{r}</option>
+                            ))}
+                          </SelectInput>
                         </div>
                         <div className="flex items-center gap-2 bg-white dark:bg-zinc-800 rounded-xl p-1 border border-zinc-200 dark:border-zinc-700">
                            <button type="button" onClick={() => handleRoleCountChange(i, -1)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-900">-</button>
@@ -272,15 +310,31 @@ export default function CreatePricingPlanPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                 <div className="space-y-6">
-                    <div>
-                      <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-2 tracking-widest">Monthly Collection (₹)</label>
-                      <input type="number" required value={formData.priceMonthly} onChange={e => setFormData({...formData, priceMonthly: e.target.value})} className="w-full h-14 px-5 rounded-2xl border border-zinc-200 bg-zinc-50 text-lg font-bold" placeholder="999" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-2 tracking-widest">Annual Collection (₹)</label>
-                      <input type="number" required value={formData.priceYearly} onChange={e => setFormData({...formData, priceYearly: e.target.value})} className="w-full h-14 px-5 rounded-2xl border border-zinc-200 bg-zinc-50 text-lg font-bold" placeholder="9999" />
-                    </div>
+                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <FormField id="plan-price-monthly" label="Monthly Collection (₹)" required>
+                      <AffixedInput
+                        id="plan-price-monthly"
+                        type="number"
+                        required
+                        min={0}
+                        prefix="₹"
+                        value={formData.priceMonthly}
+                        onChange={(e) => setFormData({ ...formData, priceMonthly: e.target.value })}
+                        placeholder="999"
+                      />
+                    </FormField>
+                    <FormField id="plan-price-yearly" label="Annual Collection (₹)" required>
+                      <AffixedInput
+                        id="plan-price-yearly"
+                        type="number"
+                        required
+                        min={0}
+                        prefix="₹"
+                        value={formData.priceYearly}
+                        onChange={(e) => setFormData({ ...formData, priceYearly: e.target.value })}
+                        placeholder="9999"
+                      />
+                    </FormField>
                  </div>
                  <div className="p-6 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 flex flex-col justify-center gap-4">
                     <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setFormData({...formData, popular: !formData.popular})}>
@@ -360,6 +414,13 @@ export default function CreatePricingPlanPage() {
            </div>
         </div>
       </div>
+      </fieldset>
+
+      <UnsavedChangesDialog
+        dialogRef={formGuard.dialogRef}
+        onStay={formGuard.closeDialog}
+        onLeave={formGuard.confirmLeave}
+      />
     </div>
   );
 }

@@ -355,7 +355,7 @@ export default function DeitiesMasterPage() {
           }}
         />
         <p className="border-t border-border px-4 py-3 text-xs text-text-tertiary">
-          {total} filtered results{sortBy === "last7" ? " (created in the last 7 days)" : ""} · {totalAll} total
+          {total} filtered results{sortBy === "timeline" ? " (sorted by timeline)" : ""} · {totalAll} total
         </p>
       </AdminListCard>
 

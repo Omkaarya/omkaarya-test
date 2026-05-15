@@ -1,6 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import PostSaveSuccessBanner from "@/app/components/admin/PostSaveSuccessBanner";
+import UnsavedChangesDialog from "@/app/components/admin/UnsavedChangesDialog";
+import { formSnapshot } from "@/lib/form-snapshot";
+import { useModalFormSession } from "@/lib/use-modal-form-session";
 import {
   Mail, Shield, MoreHorizontal, UserPlus, Trash2,
   CheckCircle2, XCircle, X, Loader2, RefreshCw, AlertCircle,
@@ -11,7 +15,9 @@ import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
 import AdminListCard from "@/app/components/admin/AdminListCard";
 import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
 import AdminPagination from "@/app/components/admin/AdminPagination";
+import FormField from "@/app/components/admin/FormField";
 import SelectInput from "@/app/components/admin/SelectInput";
+import TextInput from "@/app/components/admin/TextInput";
 import { AdminTableToolbar, AdminTableToolbarEnd, AdminTableToolbarStart } from "@/app/components/admin/AdminTableToolbar";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
 
@@ -65,6 +71,8 @@ function avatarColor(name: string): string {
 
 // ── Modal Component ────────────────────────────────────────────────
 
+const EMPTY_USER_FORM: FormState = { name: "", email: "", roleId: "" };
+
 function AddUserModal({
   roles,
   onClose,
@@ -74,9 +82,13 @@ function AddUserModal({
   onClose: () => void;
   onSaved: (user: SaUser) => void;
 }) {
-  const [form, setForm] = useState<FormState>({ name: "", email: "", roleId: "" });
+  const [form, setForm] = useState<FormState>(EMPTY_USER_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const baselineRef = useRef(formSnapshot(EMPTY_USER_FORM));
+
+  const isDirty = useMemo(() => formSnapshot(form) !== baselineRef.current, [form]);
+  const session = useModalFormSession({ isDirty, onClose });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,7 +109,10 @@ function AddUserModal({
         setError(json.error?.message || "Failed to create user");
         return;
       }
-      onSaved(json.data);
+      session.completeSuccess("User created successfully.", () => {
+        onSaved(json.data);
+        onClose();
+      });
     } catch {
       setError("Network error — please try again.");
     } finally {
@@ -111,7 +126,7 @@ function AddUserModal({
       <button
         type="button"
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={session.requestClose}
         aria-label="Close modal"
       />
 
@@ -125,7 +140,7 @@ function AddUserModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={session.requestClose}
             className="p-2 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
           >
             <X className="w-4 h-4" />
@@ -134,6 +149,7 @@ function AddUserModal({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="px-6 py-6 space-y-5">
+          <PostSaveSuccessBanner text={session.postSave.bannerText} />
           {error && (
             <div className="flex items-center gap-2 text-xs text-red-700 bg-red-50 border border-red-100 dark:bg-red-950/30 dark:border-red-800 dark:text-red-300 rounded-lg px-4 py-3">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -141,58 +157,59 @@ function AddUserModal({
             </div>
           )}
 
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-              Full Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="e.g. Anand Kumar"
-              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3.5 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 ring-[var(--brand-primary)] placeholder:text-zinc-400 transition"
-            />
-          </div>
+          <fieldset disabled={session.postSave.isLocked} className="space-y-5 border-0 p-0 m-0 min-w-0">
+            <FormField id="sa-user-name" label="Full Name" required>
+              <TextInput
+                id="sa-user-name"
+                type="text"
+                required
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="e.g. Anand Kumar"
+              />
+            </FormField>
 
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-              Email Address <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="email"
-              required
-              value={form.email}
-              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-              placeholder="user@pepulux.com"
-              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3.5 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 ring-[var(--brand-primary)] placeholder:text-zinc-400 transition"
-            />
-          </div>
+            <FormField id="sa-user-email" label="Email Address" required>
+              <TextInput
+                id="sa-user-email"
+                type="email"
+                required
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="user@pepulux.com"
+              />
+            </FormField>
 
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">Role</label>
-            <select
-              value={form.roleId}
-              onChange={(e) => setForm((f) => ({ ...f, roleId: e.target.value }))}
-              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3.5 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 ring-[var(--brand-primary)] font-[inherit]"
-            >
-              <option value="">No Role Assigned</option>
-              {roles.map((r) => (
-                <option key={r.id} value={r.id}>{r.name}</option>
-              ))}
-            </select>
-          </div>
+            <FormField id="sa-user-role" label="Role">
+              <SelectInput
+                id="sa-user-role"
+                value={form.roleId}
+                onChange={(e) => setForm((f) => ({ ...f, roleId: e.target.value }))}
+              >
+                <option value="">No Role Assigned</option>
+                {roles.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </SelectInput>
+            </FormField>
+          </fieldset>
 
           <div className="flex items-center gap-3 pt-2">
-            <Button type="button" variant="outline" size="sm" onClick={onClose} className="flex-1">
+            <Button type="button" variant="outline" size="sm" onClick={session.requestClose} className="flex-1" disabled={session.postSave.isLocked}>
               Cancel
             </Button>
-            <Button type="submit" variant="primary" size="sm" loading={saving} className="flex-1">
+            <Button type="submit" variant="primary" size="sm" loading={saving} className="flex-1" disabled={session.postSave.isLocked}>
               {saving ? "Creating…" : "Create User"}
             </Button>
           </div>
         </form>
       </div>
+
+      <UnsavedChangesDialog
+        dialogRef={session.modalGuard.dialogRef}
+        onStay={session.modalGuard.closeDialog}
+        onLeave={session.modalGuard.confirmLeave}
+      />
     </div>
   );
 }

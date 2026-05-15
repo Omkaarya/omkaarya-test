@@ -1,6 +1,6 @@
 import type { MockTemple, TempleStatus } from "@/lib/mock-temples";
 
-export type TemplesSortBy = "last7" | "name" | "devotees";
+export type TemplesSortBy = "timeline" | "name" | "devotees";
 
 export type TemplesQueryInput = {
   q: string;
@@ -21,7 +21,7 @@ export type TemplesListResponse = {
   countries: string[];
 };
 
-const ALLOWED_SORTS: TemplesSortBy[] = ["last7", "name", "devotees"];
+const ALLOWED_SORTS: TemplesSortBy[] = ["timeline", "name", "devotees"];
 const ALLOWED_PAGE_SIZES = [10, 25, 50];
 
 export function parseTemplesQuery(searchParams: URLSearchParams): TemplesQueryInput {
@@ -35,8 +35,10 @@ export function parseTemplesQuery(searchParams: URLSearchParams): TemplesQueryIn
   const rawCountry = (searchParams.get("country") ?? "all").trim();
   const country = rawCountry || "all";
 
-  const rawSort = (searchParams.get("sortBy") ?? "name").trim() as TemplesSortBy;
-  const sortBy = ALLOWED_SORTS.includes(rawSort) ? rawSort : "name";
+  const rawSort = (searchParams.get("sortBy") ?? "name").trim();
+  const normalizedSort =
+    rawSort === "last7" || rawSort === "timeline" ? "timeline" : (rawSort as TemplesSortBy);
+  const sortBy = ALLOWED_SORTS.includes(normalizedSort) ? normalizedSort : "name";
 
   const rawPage = Number(searchParams.get("page") ?? "1");
   const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.floor(rawPage) : 1;
@@ -84,6 +86,11 @@ export function sortTemples(rows: MockTemple[], sortBy: TemplesSortBy): MockTemp
 
   if (sortBy === "devotees") {
     sorted.sort((a, b) => b.devotees - a.devotees);
+    return sorted;
+  }
+
+  if (sortBy === "timeline") {
+    sorted.sort((a, b) => Number(b.tenantId) - Number(a.tenantId));
     return sorted;
   }
 

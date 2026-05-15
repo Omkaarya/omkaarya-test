@@ -9,7 +9,7 @@ import type { SelectHTMLAttributes } from "react";
  * Use everywhere you need a native select that should look like the country/sort controls.
  */
 export const selectInputSelectClassName =
-  "w-full min-w-0 appearance-none rounded-lg border border-zinc-200 bg-white pl-3 pr-8 py-2 text-sm text-zinc-900 outline-none ring-[var(--brand-primary)] focus:ring-2 focus:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100 dark:focus:border-zinc-600";
+  "w-full min-w-0 appearance-none rounded-lg border border-zinc-200 bg-white pl-3 pr-8 py-2 text-sm text-zinc-900 outline-none ring-[var(--brand-primary)] focus:ring-2 focus:border-zinc-300 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100 dark:focus:border-zinc-600";
 
 type SelectInputProps = SelectHTMLAttributes<HTMLSelectElement> & {
   className?: string;

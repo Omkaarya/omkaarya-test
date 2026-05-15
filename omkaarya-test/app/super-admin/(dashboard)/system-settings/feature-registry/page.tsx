@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import PostSaveSuccessBanner from "@/app/components/admin/PostSaveSuccessBanner";
+import UnsavedChangesDialog from "@/app/components/admin/UnsavedChangesDialog";
+import { formSnapshot } from "@/lib/form-snapshot";
+import { useModalFormSession } from "@/lib/use-modal-form-session";
 import {
   Plus,
   Pencil,
@@ -28,7 +32,10 @@ import {
   Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import FormField from "@/app/components/admin/FormField";
 import SelectInput from "@/app/components/admin/SelectInput";
+import TextareaInput from "@/app/components/admin/TextareaInput";
+import TextInput from "@/app/components/admin/TextInput";
 import AdminListCard from "@/app/components/admin/AdminListCard";
 import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
 import { Button } from "@/app/components/ds/atoms/Button";
@@ -110,6 +117,23 @@ function FeatureModal({
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const baselineRef = useRef(formSnapshot(form));
+  const isDirty = useMemo(() => formSnapshot(form) !== baselineRef.current, [form]);
+  const session = useModalFormSession({ isDirty, onClose });
+
+  useEffect(() => {
+    const initial = {
+      name: feature?.name || "",
+      key: feature?.key || "",
+      moduleKey: feature?.moduleKey || MODULE_OPTIONS[0],
+      description: feature?.description || "",
+      hasLimit: feature?.hasLimit || false,
+      limitType: feature?.limitType || "number",
+      isVisibleInPlanConfig: feature?.isVisibleInPlanConfig ?? true,
+    };
+    setForm(initial);
+    baselineRef.current = formSnapshot(initial);
+  }, [feature]);
 
   // Auto-generate key from name (only when creating)
   useEffect(() => {
@@ -128,7 +152,7 @@ function FeatureModal({
     setError("");
     try {
       await onSave(form, feature?.id);
-      onClose();
+      session.completeSuccess(isEdit ? "Feature updated successfully." : "Feature created successfully.", onClose);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
     } finally {
@@ -137,18 +161,20 @@ function FeatureModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button type="button" className="absolute inset-0 bg-black/40" onClick={session.requestClose} aria-label="Close modal" />
       <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-700 dark:bg-zinc-900">
         <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4 dark:border-zinc-800">
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
             {isEdit ? "Edit Feature" : "Add Feature"}
           </h2>
-          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+          <button type="button" onClick={session.requestClose} className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
+          <PostSaveSuccessBanner text={session.postSave.bannerText} />
           {isEdit && (
             <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -162,63 +188,49 @@ function FeatureModal({
             </div>
           )}
 
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-              Feature Name *
-            </label>
-            <input
+          <FormField id="feature-name" label="Feature Name" required>
+            <TextInput
+              id="feature-name"
               type="text"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm outline-none ring-[var(--brand-primary)] focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
               placeholder="e.g. Pooja Management"
             />
-          </div>
+          </FormField>
 
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-              Feature Key * {isEdit && <span className="text-amber-600">(read-only)</span>}
-            </label>
-            <input
+          <FormField id="feature-key" label="Feature Key" required hint={isEdit ? "Immutable after creation." : undefined}>
+            <TextInput
+              id="feature-key"
               type="text"
               value={form.key}
               onChange={(e) => !isEdit && setForm({ ...form, key: e.target.value })}
               readOnly={isEdit}
-              className={`w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 font-mono text-sm outline-none ring-[var(--brand-primary)] focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 ${isEdit ? "cursor-not-allowed opacity-60" : ""}`}
+              className="font-mono"
               placeholder="auto_generated_from_name"
             />
-          </div>
+          </FormField>
 
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-              Module Key *
-            </label>
-            <div className="relative">
-              <select
-                value={form.moduleKey}
-                onChange={(e) => setForm({ ...form, moduleKey: e.target.value })}
-                className="w-full appearance-none rounded-lg border border-zinc-200 bg-white px-3 py-2.5 pr-8 text-sm outline-none ring-[var(--brand-primary)] focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-              >
-                {MODULE_OPTIONS.map((mod) => (
-                  <option key={mod} value={mod}>{MODULE_META[mod]?.label || mod}</option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-            </div>
-          </div>
+          <FormField id="feature-module" label="Module Key" required>
+            <SelectInput
+              id="feature-module"
+              value={form.moduleKey}
+              onChange={(e) => setForm({ ...form, moduleKey: e.target.value })}
+            >
+              {MODULE_OPTIONS.map((mod) => (
+                <option key={mod} value={mod}>{MODULE_META[mod]?.label || mod}</option>
+              ))}
+            </SelectInput>
+          </FormField>
 
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-              Description
-            </label>
-            <textarea
+          <FormField id="feature-description" label="Description">
+            <TextareaInput
+              id="feature-description"
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               rows={2}
-              className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm outline-none ring-[var(--brand-primary)] focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
               placeholder="Brief description of the feature"
             />
-          </div>
+          </FormField>
 
           <div className="grid grid-cols-2 gap-4">
             <label className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-zinc-200 px-3 py-2.5 dark:border-zinc-700">
@@ -243,32 +255,30 @@ function FeatureModal({
           </div>
 
           {form.hasLimit && (
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                Limit Type
-              </label>
+            <FormField id="feature-limit-type" label="Limit Type">
               <SelectInput
+                id="feature-limit-type"
                 value={form.limitType}
                 onChange={(e) => setForm({ ...form, limitType: e.target.value })}
-                className="!py-2.5"
               >
                 <option value="number">Number</option>
                 <option value="boolean">Boolean</option>
               </SelectInput>
-            </div>
+            </FormField>
           )}
 
           <div className="flex items-center justify-end gap-3 pt-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={session.requestClose}
+              disabled={session.postSave.isLocked}
               className="rounded-lg border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || session.postSave.isLocked}
               className="rounded-lg bg-[var(--brand-primary)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)] disabled:opacity-50"
             >
               {saving ? "Saving…" : isEdit ? "Update Feature" : "Create Feature"}
@@ -276,6 +286,12 @@ function FeatureModal({
           </div>
         </form>
       </div>
+
+      <UnsavedChangesDialog
+        dialogRef={session.modalGuard.dialogRef}
+        onStay={session.modalGuard.closeDialog}
+        onLeave={session.modalGuard.confirmLeave}
+      />
     </div>
   );
 }

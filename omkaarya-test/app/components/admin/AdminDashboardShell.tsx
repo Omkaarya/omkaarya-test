@@ -390,13 +390,14 @@ export function AdminDashboardShell({
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         ].join(" ")}
       >
-        <div className="flex h-16 items-center border-b border-white px-6 dark:border-zinc-950">
+        <div className="flex h-[4.5rem] items-center border-b border-white px-2 dark:border-zinc-950">
           <Image
             src="/brand-logo/Omkaarya 9.svg"
             alt="Omkaarya"
-            width={120}
-            height={32}
-            className="h-8 w-auto dark:invert"
+            width={180}
+            height={48}
+            className="h-48 w-auto"
+            priority
           />
         </div>
         <nav className="flex-1 overflow-y-auto px-3 py-4">

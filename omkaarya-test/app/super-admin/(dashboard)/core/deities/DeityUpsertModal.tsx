@@ -2,8 +2,14 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { CloudUpload, Flag, ImageIcon, Maximize2, Minimize2, X } from "lucide-react";
+import FormField from "@/app/components/admin/FormField";
+import PostSaveSuccessBanner from "@/app/components/admin/PostSaveSuccessBanner";
+import TextInput from "@/app/components/admin/TextInput";
+import UnsavedChangesDialog from "@/app/components/admin/UnsavedChangesDialog";
 import { Button } from "@/app/components/ds/atoms/Button";
 import type { MasterDeityRow } from "@/lib/master-deities";
+import { formSnapshot } from "@/lib/form-snapshot";
+import { useModalFormSession } from "@/lib/use-modal-form-session";
 
 export type DeityModalMode = "create" | "edit" | "view";
 
@@ -42,6 +48,14 @@ export default function DeityUpsertModal({ open, mode, initial, onClose, onSaved
   const [error, setError] = useState<string | null>(null);
 
   const isView = mode === "view";
+  const baselineRef = useRef("");
+
+  const formState = useMemo(
+    () => ({ name, isActive, imageDataUrl, persistedImageUrl, hasImageFile: Boolean(imageFile) }),
+    [name, isActive, imageDataUrl, persistedImageUrl, imageFile]
+  );
+  const isDirty = !isView && baselineRef.current !== "" && formSnapshot(formState) !== baselineRef.current;
+  const session = useModalFormSession({ isDirty, onClose });
 
   const reset = useCallback(() => {
     setExpanded(false);
@@ -75,6 +89,13 @@ export default function DeityUpsertModal({ open, mode, initial, onClose, onSaved
     }
     setError(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+    baselineRef.current = formSnapshot({
+      name: initial?.name ?? "",
+      isActive: initial?.isActive ?? true,
+      imageDataUrl: null,
+      persistedImageUrl: initial?.imageDataUrl ?? null,
+      hasImageFile: false,
+    });
   }, [open, initial, reset]);
 
   const previewUrl = useMemo(() => {
@@ -160,8 +181,11 @@ export default function DeityUpsertModal({ open, mode, initial, onClose, onSaved
           return;
         }
       }
-      onSaved();
-      onClose();
+      const msg = mode === "create" ? "Deity created successfully." : "Deity updated successfully.";
+      session.completeSuccess(msg, () => {
+        onSaved();
+        onClose();
+      });
     } catch {
       setError("Network error — please try again.");
     } finally {
@@ -176,7 +200,7 @@ export default function DeityUpsertModal({ open, mode, initial, onClose, onSaved
       <button
         type="button"
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={isView ? onClose : session.requestClose}
         aria-label="Close modal backdrop"
       />
 
@@ -216,7 +240,7 @@ export default function DeityUpsertModal({ open, mode, initial, onClose, onSaved
               </button>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={isView ? onClose : session.requestClose}
                 className="rounded-lg p-2 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                 aria-label="Close"
               >
@@ -227,6 +251,7 @@ export default function DeityUpsertModal({ open, mode, initial, onClose, onSaved
         </div>
 
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <PostSaveSuccessBanner text={session.postSave.bannerText} className="mx-5 mt-4" />
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
             {error ? (
               <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
@@ -303,11 +328,8 @@ export default function DeityUpsertModal({ open, mode, initial, onClose, onSaved
               </div>
             </div>
 
-            <div className="mt-6 space-y-1.5">
-              <label htmlFor={`${dialogId}-name`} className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                Name <span className="text-red-500">*</span>
-              </label>
-              <input
+            <FormField id={`${dialogId}-name`} label="Name" required>
+              <TextInput
                 id={`${dialogId}-name`}
                 type="text"
                 required
@@ -315,9 +337,8 @@ export default function DeityUpsertModal({ open, mode, initial, onClose, onSaved
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Deity name"
-                className="w-full rounded-lg border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-[var(--brand-primary)] focus:ring-2 disabled:cursor-not-allowed disabled:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:disabled:bg-zinc-800/50"
               />
-            </div>
+            </FormField>
 
             <div className="mt-6 space-y-2">
               <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
@@ -348,17 +369,25 @@ export default function DeityUpsertModal({ open, mode, initial, onClose, onSaved
           </div>
 
           <div className="shrink-0 flex gap-3 border-t border-zinc-100 px-5 py-4 dark:border-zinc-800">
-            <Button type="button" variant="outline" size="sm" className="flex-1 rounded-xl" onClick={onClose}>
+            <Button type="button" variant="outline" size="sm" className="flex-1 rounded-xl" onClick={isView ? onClose : session.requestClose} disabled={session.postSave.isLocked}>
               {isView ? "Close" : "Cancel"}
             </Button>
             {!isView ? (
-              <Button type="submit" variant="primary" size="sm" className="flex-1 rounded-xl" loading={saving}>
+              <Button type="submit" variant="primary" size="sm" className="flex-1 rounded-xl" loading={saving} disabled={session.postSave.isLocked}>
                 Save
               </Button>
             ) : null}
           </div>
         </form>
       </div>
+
+      {!isView ? (
+        <UnsavedChangesDialog
+          dialogRef={session.modalGuard.dialogRef}
+          onStay={session.modalGuard.closeDialog}
+          onLeave={session.modalGuard.confirmLeave}
+        />
+      ) : null}
     </div>
   );
 }

@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import GuardedBackLink from "@/app/components/admin/GuardedBackLink";
+import PostSaveSuccessBanner from "@/app/components/admin/PostSaveSuccessBanner";
+import UnsavedChangesDialog from "@/app/components/admin/UnsavedChangesDialog";
+import { usePostSaveSuccess } from "@/lib/use-post-save-success";
+import { useUnsavedFormGuard } from "@/lib/use-unsaved-form-guard";
 import {
   ArrowLeft,
   Save,
@@ -63,9 +68,12 @@ function isUuidString(s: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
 }
 
+const LIST_PATH = "/super-admin/pricing-plans";
+
 // ── Main Page ──────────────────────────────────────────────────────
 
 export default function PlanFeaturesPage() {
+  const router = useRouter();
   const params = useParams();
   const planId = decodeURIComponent(params.planId as string);
   const legacyMeta = PLAN_META[planId];
@@ -78,6 +86,8 @@ export default function PlanFeaturesPage() {
   const [dirty, setDirty] = useState(false);
   const [fetchedPlanName, setFetchedPlanName] = useState<string | null>(null);
   const visGuardRef = useRef<number>(Date.now());
+  const postSave = usePostSaveSuccess({ router });
+  const formGuard = useUnsavedFormGuard({ isDirty: dirty, enabled: !postSave.isLocked });
 
   const displayPlanName = legacyMeta?.label ?? fetchedPlanName ?? planId;
   const meta = legacyMeta ?? {
@@ -202,6 +212,11 @@ export default function PlanFeaturesPage() {
       }
       setSaved(true);
       setDirty(false);
+      formGuard.markClean();
+      postSave.triggerSuccess({
+        message: `Feature configuration saved for ${displayPlanName}.`,
+        redirectTo: LIST_PATH,
+      });
     } catch {
       setError("Failed to save feature configuration");
     } finally {
@@ -220,13 +235,14 @@ export default function PlanFeaturesPage() {
         <div className="border-b border-zinc-100 p-6 dark:border-zinc-800">
           <DashboardPageHeader
             breadcrumb={
-              <Link
-                href="/super-admin/pricing-plans"
+              <GuardedBackLink
+                href={LIST_PATH}
+                onNavigate={formGuard.requestNavigate}
                 className="inline-flex items-center gap-1.5 font-medium text-[var(--brand-primary)] hover:underline"
               >
                 <ArrowLeft className="h-4 w-4" />
                 Back to pricing plans
-              </Link>
+              </GuardedBackLink>
             }
             title="Feature configuration"
             titleAccessory={
@@ -244,7 +260,7 @@ export default function PlanFeaturesPage() {
                   size="sm"
                   className="gap-2"
                   loading={saving}
-                  disabled={!dirty}
+                  disabled={!dirty || postSave.isLocked}
                   onClick={handleSave}
                   leadingIcon={!saving ? <Save className="h-4 w-4" /> : undefined}
                 >
@@ -262,12 +278,7 @@ export default function PlanFeaturesPage() {
             {error}
           </div>
         )}
-        {saved && (
-          <div className="mx-6 mt-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            Feature configuration saved successfully for <strong>{displayPlanName}</strong> plan.
-          </div>
-        )}
+        <PostSaveSuccessBanner text={postSave.bannerText} className="mx-6 mt-4" />
 
         {/* Feature Groups */}
         {loading ? (
@@ -370,6 +381,12 @@ export default function PlanFeaturesPage() {
           </div>
         )}
       </div>
+
+      <UnsavedChangesDialog
+        dialogRef={formGuard.dialogRef}
+        onStay={formGuard.closeDialog}
+        onLeave={formGuard.confirmLeave}
+      />
     </div>
   );
 }

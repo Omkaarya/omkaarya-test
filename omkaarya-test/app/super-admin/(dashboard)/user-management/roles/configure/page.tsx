@@ -1,11 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
-import { ArrowLeft, Save, Info, AlertTriangle, Loader2, Check, AlertCircle, RefreshCw } from "lucide-react";
+import { useState, useEffect, useCallback, Suspense, useMemo, useRef } from "react";
+import { ArrowLeft, Save, Info, AlertTriangle, Loader2, Check, AlertCircle } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
 import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
+import GuardedBackLink from "@/app/components/admin/GuardedBackLink";
+import PostSaveSuccessBanner from "@/app/components/admin/PostSaveSuccessBanner";
+import UnsavedChangesDialog from "@/app/components/admin/UnsavedChangesDialog";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { formSnapshot } from "@/lib/form-snapshot";
+import { usePostSaveSuccess } from "@/lib/use-post-save-success";
+import { useUnsavedFormGuard } from "@/lib/use-unsaved-form-guard";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -57,10 +63,21 @@ const LEVEL_STYLES: Record<AccessLevel, string> = {
 
 // ── Main Configure Page ────────────────────────────────────────────
 
+function permissionsApiPath(roleId: string, roleType: string | null): string {
+  if (roleType === "temple") {
+    return `/api/temple-default-roles/${encodeURIComponent(roleId)}/permissions`;
+  }
+  return `/api/admin-roles/${roleId}/permissions`;
+}
+
+const LIST_PATH = "/super-admin/user-management/roles";
+
 function ConfigureContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const roleId = searchParams.get("role");
   const roleName = searchParams.get("name") ?? "Selected Role";
+  const roleType = searchParams.get("type");
 
   const [features, setFeatures] = useState<Feature[]>([]);
   const [permissions, setPermissions] = useState<Record<string, AccessLevel>>({});
@@ -68,14 +85,24 @@ function ConfigureContent() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const baselineRef = useRef("");
+
+  const isDirty = useMemo(() => {
+    if (!baselineRef.current) return false;
+    return formSnapshot(permissions) !== baselineRef.current;
+  }, [permissions]);
+
+  const postSave = usePostSaveSuccess({ router });
+  const formGuard = useUnsavedFormGuard({ isDirty, enabled: !postSave.isLocked });
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      const permUrl = roleId ? permissionsApiPath(roleId, roleType) : null;
       const [featRes, permRes] = await Promise.all([
         fetch("/api/features"),
-        roleId ? fetch(`/api/admin-roles/${roleId}/permissions`) : Promise.resolve(null),
+        permUrl ? fetch(permUrl) : Promise.resolve(null),
       ]);
 
       const featJson = await featRes.json();
@@ -83,12 +110,15 @@ function ConfigureContent() {
 
       if (permRes) {
         const permJson = await permRes.json();
-        if (permJson.success) {
+        if (!permRes.ok || !permJson.success) {
+          setError(permJson.error?.message ?? "Failed to load permissions");
+        } else if (permJson.success) {
           const map: Record<string, AccessLevel> = {};
           permJson.data.forEach((p: PermissionEntry) => {
             map[p.featureKey] = p.accessLevel;
           });
           setPermissions(map);
+          baselineRef.current = formSnapshot(map);
         }
       }
     } catch {
@@ -96,7 +126,7 @@ function ConfigureContent() {
     } finally {
       setLoading(false);
     }
-  }, [roleId]);
+  }, [roleId, roleType]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -114,7 +144,7 @@ function ConfigureContent() {
         .filter((f) => permissions[f.key] && permissions[f.key] !== "none")
         .map((f) => ({ featureKey: f.key, accessLevel: permissions[f.key] }));
 
-      const res = await fetch(`/api/admin-roles/${roleId}/permissions`, {
+      const res = await fetch(permissionsApiPath(roleId, roleType), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ permissions: permsArray }),
@@ -125,6 +155,12 @@ function ConfigureContent() {
         return;
       }
       setSaved(true);
+      baselineRef.current = formSnapshot(permissions);
+      formGuard.markClean();
+      postSave.triggerSuccess({
+        message: "Permissions saved successfully.",
+        redirectTo: LIST_PATH,
+      });
     } catch {
       setError("Network error — please try again.");
     } finally {
@@ -150,13 +186,14 @@ function ConfigureContent() {
     <div className="space-y-5 p-2">
       <DashboardPageHeader
         breadcrumb={
-          <Link
-            href="/super-admin/user-management/roles"
+          <GuardedBackLink
+            href={LIST_PATH}
+            onNavigate={formGuard.requestNavigate}
             className="inline-flex items-center gap-1.5 font-medium text-[var(--brand-primary)] hover:underline"
           >
             <ArrowLeft className="h-4 w-4" />
             Roles & permissions
-          </Link>
+          </GuardedBackLink>
         }
         title="Configure permissions"
         description={
@@ -184,7 +221,7 @@ function ConfigureContent() {
             >
               <RefreshCw className="h-4 w-4" />
             </button> */}
-            <Button variant="primary" size="sm" loading={saving} onClick={handleSave} className="gap-2 px-5" disabled={!roleId}>
+            <Button variant="primary" size="sm" loading={saving} onClick={handleSave} className="gap-2 px-5" disabled={!roleId || postSave.isLocked}>
               {saved ? (
                 <>
                   <Check className="h-4 w-4" /> Saved
@@ -199,6 +236,9 @@ function ConfigureContent() {
         }
       />
 
+      <PostSaveSuccessBanner text={postSave.bannerText} />
+
+      <fieldset disabled={postSave.isLocked} className="contents min-w-0 border-0 p-0 m-0">
       {/* Info Banner */}
       <div className="flex items-start gap-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 rounded-xl p-4">
         <Info className="w-5 h-5 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
@@ -303,6 +343,13 @@ function ConfigureContent() {
           Changes take effect on the user&apos;s next login session. Save before navigating away.
         </div>
       )}
+      </fieldset>
+
+      <UnsavedChangesDialog
+        dialogRef={formGuard.dialogRef}
+        onStay={formGuard.closeDialog}
+        onLeave={formGuard.confirmLeave}
+      />
     </div>
   );
 }

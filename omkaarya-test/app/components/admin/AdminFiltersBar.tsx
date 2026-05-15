@@ -96,7 +96,7 @@ export default function AdminFiltersBar({
         >
           <option value="name">Sort By: Name</option>
           <option value="devotees">Sort By: Devotees</option>
-          <option value="last7">Sort By: Last 7 Days</option>
+          <option value="timeline">Sort By: Timeline</option>
         </SelectInput>
       </div>
     </div>

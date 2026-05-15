@@ -16,6 +16,7 @@ export const SUPER_ADMIN_PROTECTED_API_PREFIXES: readonly string[] = [
   "/api/plan-features",
   "/api/admin-users",
   "/api/admin-roles",
+  "/api/temple-default-roles",
 ];
 
 export function isSuperAdminProtectedApiPath(pathname: string): boolean {

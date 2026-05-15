@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus } from "lucide-react";
+import { Download, Plus } from "lucide-react";
 import Link from "next/link";
 
+import SelectInput from "@/app/components/admin/SelectInput";
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Badge } from "@/app/components/ds/atoms/Badge";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
 import AdminListCard from "@/app/components/admin/AdminListCard";
 import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
+import { buildGenerateInvoiceHref } from "@/lib/invoice-temple-prefill";
 import {
   HorizontalBarChartSkeleton,
   KpiTileGridSkeleton,
@@ -24,6 +26,7 @@ type TempleSummary = {
   portalUrl: string;
   initials: string;
   plan: string;
+  billingCycle: string;
   billing: string;
   amount: string;
   status: "active" | "pending" | "trial";
@@ -52,6 +55,25 @@ function planBadgeColor(p: string) {
   return "pink" as const;
 }
 
+function formatChartUsd(cents: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(cents / 100);
+}
+
+function chartBarValue(unitAmountCents: number, count: number): string {
+  return `${formatChartUsd(unitAmountCents)}*${count}`;
+}
+
+function periodChartSubtitle(period: string): string {
+  if (period === "this-month") return "this month";
+  if (period === "last-month") return "last month";
+  if (period === "this-year") return "this year";
+  return period;
+}
+
 // ── API Types ──────────────────────────────────────────────────────
 
 type ApiDashboard = {
@@ -66,8 +88,21 @@ type ApiDashboard = {
     activeTemples: number;
     trialTemples: number;
   };
-  revenueByPlan: Array<{ plan: string; amountCents: number; count: number }>;
-  trend: Array<{ month: string; amountCents: number }>;
+  revenueByPlan: Array<{
+    plan: string;
+    billingCycle: string;
+    unitAmountCents: number;
+    count: number;
+    amountCents: number;
+  }>;
+  trend: Array<{
+    monthKey: string;
+    monthLabel: string;
+    isCurrent: boolean;
+    unitAmountCents: number;
+    count: number;
+    amountCents: number;
+  }>;
   subscriptionSummary: Array<{
     tenantId: string;
     templeName: string;
@@ -108,8 +143,8 @@ function HorizontalBarChart({ title, subtitle, bars }: {
             <span className="text-xs text-text-secondary w-[140px] text-right shrink-0 truncate">{bar.label}</span>
             <div className="flex-1 bg-subtle rounded h-[22px] overflow-hidden">
               <div
-                className={`h-full rounded flex items-center px-2 transition-all duration-500 ${bar.color}`}
-                style={{ width: `${bar.percentage}%` }}
+                className={`h-full rounded flex items-center px-2 transition-all duration-500 min-w-[52px] ${bar.color}`}
+                style={{ width: `${Math.max(bar.percentage, bar.percentage > 0 ? 10 : 0)}%` }}
               >
                 <span className="text-[10px] font-bold text-white whitespace-nowrap">{bar.value}</span>
               </div>
@@ -124,6 +159,7 @@ function HorizontalBarChart({ title, subtitle, bars }: {
 // ── Page ────────────────────────────────────────────────────────
 
 export default function RevenueDashboard() {
+  const [periodFilter, setPeriodFilter] = useState("this-month");
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [dash, setDash] = useState<ApiDashboard | null>(null);
@@ -139,7 +175,7 @@ export default function RevenueDashboard() {
         const prof = (await profRes.json().catch(() => null)) as { success?: boolean; data?: BillingProfile } | null;
         if (!cancel && prof && prof.success === true && prof.data) setProfile(prof.data);
 
-        const res = await fetch(`/api/billing/revenue-dashboard?period=this-month`, { cache: "no-store" });
+        const res = await fetch(`/api/billing/revenue-dashboard?period=${encodeURIComponent(periodFilter)}`, { cache: "no-store" });
         const d = (await res.json().catch(() => null)) as { success?: boolean; data?: ApiDashboard } | null;
         if (cancel) return;
         if (!d || d.success !== true || !d.data) {
@@ -153,7 +189,13 @@ export default function RevenueDashboard() {
       }
     })();
     return () => { cancel = true; };
-  }, []);
+  }, [periodFilter]);
+
+  const exportRevenueCsv = () => {
+    const p = new URLSearchParams();
+    if (periodFilter !== "custom") p.set("period", periodFilter);
+    window.open(`/api/billing/revenue-dashboard/export?${p.toString()}`, "_blank", "noopener,noreferrer");
+  };
 
   const temples: TempleSummary[] = (dash?.subscriptionSummary ?? []).map((r) => ({
     id: r.tenantId,
@@ -162,7 +204,8 @@ export default function RevenueDashboard() {
     portalUrl: r.portalUrl,
     initials: (r.templeName.trim().split(/\s+/).filter(Boolean)[0]?.[0] ?? "T") + (r.templeName.trim().split(/\s+/).filter(Boolean)[1]?.[0] ?? ""),
     plan: r.plan,
-    billing: profile?.paymentMethodLabel || "—",
+    billingCycle: r.billingCycle,
+    billing: r.billingCycle === "Annual" ? "Annual" : r.billingCycle === "Monthly" ? "Monthly" : r.billingCycle || "—",
     amount: r.amountCents ? `${formatUsdFromCents(r.amountCents)}${r.billingCycle === "Annual" ? "/yr" : "/mo"}` : "—",
     status: r.status,
     nextRenewal: r.nextRenewal ?? "—",
@@ -205,9 +248,15 @@ export default function RevenueDashboard() {
     },
     {
       key: "actions", header: "Actions", align: "right",
-      cell: () => (
+      cell: (r) => (
         <div className="flex items-center gap-1.5">
-          <Link href="/super-admin/finance/invoices/generate">
+          <Link
+            href={buildGenerateInvoiceHref({
+              tenantId: r.id,
+              plan: r.plan,
+              billingCycle: r.billingCycle,
+            })}
+          >
             <Button variant="outline" size="sm">Invoice</Button>
           </Link>
         </div>
@@ -232,7 +281,26 @@ export default function RevenueDashboard() {
             {dash?.period?.startDate ? ` · ${dash.period.startDate}` : ""}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <SelectInput
+            value={periodFilter}
+            onChange={(e) => setPeriodFilter(e.target.value)}
+            className="text-xs text-text-secondary"
+            wrapperClassName="w-full min-w-[140px] sm:w-auto"
+          >
+            <option value="this-month">This month</option>
+            <option value="last-month">Last month</option>
+            <option value="this-year">This year</option>
+          </SelectInput>
+          <Button
+            variant="outline"
+            size="sm"
+            leadingIcon={<Download className="h-4 w-4" />}
+            onClick={exportRevenueCsv}
+            disabled={loading}
+          >
+            Export CSV
+          </Button>
           <Link href="/super-admin/finance/invoices/generate">
             <Button variant="primary" size="sm" leadingIcon={<Plus className="h-4 w-4" />}>Generate invoice</Button>
           </Link>
@@ -282,27 +350,28 @@ export default function RevenueDashboard() {
         <div className="grid grid-cols-2 gap-3">
           <HorizontalBarChart
             title="Revenue by plan"
-            subtitle="this month"
-            bars={(dash.revenueByPlan ?? []).map((b, i) => {
-              const colors = ["bg-brand", "bg-indigo-500", "bg-purple-500", "bg-green-500", "bg-amber-500"];
+            subtitle={periodChartSubtitle(periodFilter)}
+            bars={(dash.revenueByPlan ?? []).map((b) => {
               const total = (dash.revenueByPlan ?? []).reduce((a, x) => a + x.amountCents, 0) || 1;
+              const unitCents = b.unitAmountCents > 0 ? b.unitAmountCents : b.count > 0 ? Math.round(b.amountCents / b.count) : 0;
               return {
-                label: b.plan,
-                value: `${formatUsdFromCents(b.amountCents)} × ${b.count}`,
+                label: `${b.plan} (${b.billingCycle})`,
+                value: chartBarValue(unitCents, b.count),
                 percentage: Math.max(0, Math.min(100, Math.round((b.amountCents / total) * 100))),
-                color: colors[i % colors.length]!,
+                color: "bg-brand",
               };
             })}
           />
           <HorizontalBarChart
-            title="Monthly revenue trend"
-            bars={(dash.trend ?? []).map((t, i, arr) => {
-              const max = Math.max(1, ...arr.map((x) => x.amountCents));
+            title="Monthly Revenue Trend"
+            bars={(dash.trend ?? []).map((t) => {
+              const max = Math.max(1, ...(dash.trend ?? []).map((x) => x.amountCents));
+              const unitCents = t.unitAmountCents > 0 ? t.unitAmountCents : t.count > 0 ? Math.round(t.amountCents / t.count) : 0;
               return {
-                label: t.month,
-                value: formatUsdFromCents(t.amountCents),
+                label: t.monthLabel,
+                value: chartBarValue(unitCents, t.count),
                 percentage: Math.max(0, Math.min(100, Math.round((t.amountCents / max) * 100))),
-                color: i === arr.length - 1 ? "bg-brand" : "bg-green-500",
+                color: "bg-brand",
               };
             })}
           />

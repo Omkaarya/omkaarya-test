@@ -13,15 +13,18 @@ import SelectInput from "@/app/components/admin/SelectInput";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
 import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
+import { buildGenerateInvoiceHref } from "@/lib/invoice-temple-prefill";
 
 // ── Types ──────────────────────────────────────────────────────────
 
 type RenewalRow = {
   id: string;
+  tenantId: string;
   temple: string;
   templeLocation: string;
   initials: string;
   plan: string;
+  billingCycle: string;
   amountCents: number;
   renewalDate: string; // YYYY-MM-DD
   daysLeft: number;
@@ -63,7 +66,7 @@ export default function UpcomingRenewalsPage() {
         p.set("pageSize", "200");
         const res = await fetch(`/api/subscriptions/upcoming-renewals?${p.toString()}`, { cache: "no-store" });
         const d = (await res.json().catch(() => null)) as
-          | { success?: boolean; data?: { data: Array<{ id: string; templeName: string; location: string; plan: string; billingCycle: string; amountCents: number; renewalDate: string; daysLeft: number; invoiceSent: boolean }> } }
+          | { success?: boolean; data?: { data: Array<{ id: string; tenantId?: string; templeName: string; location: string; plan: string; billingCycle: string; amountCents: number; renewalDate: string; daysLeft: number; invoiceSent: boolean }> } }
           | null;
         if (cancel) return;
         if (!d || d.success !== true || !d.data) {
@@ -74,10 +77,12 @@ export default function UpcomingRenewalsPage() {
         setRows(
           (d.data.data ?? []).map((r) => ({
             id: r.id,
+            tenantId: r.tenantId ?? r.id,
             temple: r.templeName,
             templeLocation: r.location,
             initials: (r.templeName.trim().split(/\s+/).filter(Boolean)[0]?.[0] ?? "T") + (r.templeName.trim().split(/\s+/).filter(Boolean)[1]?.[0] ?? ""),
             plan: r.plan,
+            billingCycle: r.billingCycle,
             amountCents: r.amountCents,
             renewalDate: r.renewalDate,
             daysLeft: r.daysLeft,
@@ -151,9 +156,15 @@ export default function UpcomingRenewalsPage() {
     },
     {
       key: "actions", header: "Actions", align: "right",
-      cell: () => (
+      cell: (r) => (
         <div className="flex items-center gap-1.5">
-          <Link href="/super-admin/finance/invoices/generate">
+          <Link
+            href={buildGenerateInvoiceHref({
+              tenantId: r.tenantId,
+              plan: r.plan,
+              billingCycle: r.billingCycle,
+            })}
+          >
             <Button variant="primary" size="sm">Generate invoice</Button>
           </Link>
         </div>

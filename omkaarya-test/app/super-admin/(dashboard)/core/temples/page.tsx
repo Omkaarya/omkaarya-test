@@ -43,7 +43,7 @@ export default function TemplesAdminPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [country, setCountry] = useState<string>("all");
-  /** Default `name` lists all temples; `last7` intentionally hides rows older than 7 days. */
+  /** Default `name` lists all temples; `timeline` sorts newest first. */
   const [sortBy, setSortBy] = useState<TemplesSortBy>("name");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -273,7 +273,7 @@ export default function TemplesAdminPage() {
           }}
         />
         <p className="border-t border-border px-4 py-3 text-xs text-text-tertiary">
-          {total} filtered results{sortBy === "last7" ? " (created in the last 7 days)" : ""} · {totalAll} total on platform
+          {total} filtered results{sortBy === "timeline" ? " (sorted by timeline)" : ""} · {totalAll} total on platform
         </p>
       </AdminListCard>
     </div>

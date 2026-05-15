@@ -1,10 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import PostSaveSuccessBanner from "@/app/components/admin/PostSaveSuccessBanner";
+import UnsavedChangesDialog from "@/app/components/admin/UnsavedChangesDialog";
+import { formSnapshot } from "@/lib/form-snapshot";
+import { usePostSaveSuccess } from "@/lib/use-post-save-success";
+import { useUnsavedFormGuard } from "@/lib/use-unsaved-form-guard";
 import { Save, Plus, Trash2, LayoutTemplate, Settings, Users, MessageSquare, Loader2 } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
 import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
-import { Input } from "@/app/components/ds/atoms/Input";
+import FormField from "@/app/components/admin/FormField";
+import TextareaInput from "@/app/components/admin/TextareaInput";
+import TextInput from "@/app/components/admin/TextInput";
 import type {
   CmsBundle,
   CmsHomeFeature,
@@ -46,12 +53,21 @@ export default function WebsiteCMS() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saveOk, setSaveOk] = useState(false);
+  const baselineRef = useRef("");
+  const pendingTabRef = useRef<CmsPageKey | null>(null);
+  const tabDialogRef = useRef<HTMLDialogElement>(null);
+
+  const isDirty = useMemo(() => {
+    if (!bundle || !baselineRef.current) return false;
+    return formSnapshot(bundle) !== baselineRef.current;
+  }, [bundle]);
+
+  const postSave = usePostSaveSuccess();
+  const formGuard = useUnsavedFormGuard({ isDirty, enabled: !postSave.isLocked });
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setSaveOk(false);
     try {
       const res = await fetch("/api/super-admin/cms", { cache: "no-store" });
       const json = await res.json();
@@ -60,7 +76,9 @@ export default function WebsiteCMS() {
         setBundle(null);
         return;
       }
-      setBundle(json.data.pages as CmsBundle);
+      const pages = json.data.pages as CmsBundle;
+      setBundle(pages);
+      baselineRef.current = formSnapshot(pages);
     } catch {
       setError("Network error — could not load CMS.");
       setBundle(null);
@@ -77,7 +95,6 @@ export default function WebsiteCMS() {
     if (!bundle) return;
     setSaving(true);
     setError(null);
-    setSaveOk(false);
     const pageKey = activeTab;
     let payload: unknown;
     if (pageKey === "home") payload = bundle.home;
@@ -96,15 +113,42 @@ export default function WebsiteCMS() {
         setError(json.error?.message ?? "Save failed");
         return;
       }
-      setBundle(json.data.pages as CmsBundle);
-      setSaveOk(true);
-      setTimeout(() => setSaveOk(false), 4000);
+      const pages = json.data.pages as CmsBundle;
+      setBundle(pages);
+      baselineRef.current = formSnapshot(pages);
+      formGuard.markClean();
+      postSave.triggerSuccess({ message: "Changes saved for this tab." });
     } catch {
       setError("Network error — save not applied.");
     } finally {
       setSaving(false);
     }
-  }, [activeTab, bundle]);
+  }, [activeTab, bundle, formGuard, postSave]);
+
+  const requestTab = (tab: CmsPageKey) => {
+    if (tab === activeTab) return;
+    if (isDirty && !postSave.isLocked) {
+      pendingTabRef.current = tab;
+      tabDialogRef.current?.showModal();
+      return;
+    }
+    setActiveTab(tab);
+  };
+
+  const confirmDiscardTab = () => {
+    tabDialogRef.current?.close();
+    if (bundle && baselineRef.current) {
+      setBundle(JSON.parse(baselineRef.current) as CmsBundle);
+    }
+    const next = pendingTabRef.current;
+    pendingTabRef.current = null;
+    if (next) setActiveTab(next);
+  };
+
+  const stayOnTab = () => {
+    tabDialogRef.current?.close();
+    pendingTabRef.current = null;
+  };
 
   if (loading && !bundle) {
     return (
@@ -149,27 +193,24 @@ export default function WebsiteCMS() {
           {error}
         </div>
       ) : null}
-      {saveOk ? (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
-          Changes saved for this tab.
-        </div>
-      ) : null}
+      <PostSaveSuccessBanner text={postSave.bannerText} />
 
       <div className="flex flex-wrap items-center gap-2 border-b border-border pb-px">
-        <TabButton active={activeTab === "home"} onClick={() => setActiveTab("home")} icon={<LayoutTemplate className="h-4 w-4" />}>
+        <TabButton active={activeTab === "home"} onClick={() => requestTab("home")} icon={<LayoutTemplate className="h-4 w-4" />}>
           Home Page
         </TabButton>
-        <TabButton active={activeTab === "about"} onClick={() => setActiveTab("about")} icon={<Users className="h-4 w-4" />}>
+        <TabButton active={activeTab === "about"} onClick={() => requestTab("about")} icon={<Users className="h-4 w-4" />}>
           About Page
         </TabButton>
-        <TabButton active={activeTab === "contact"} onClick={() => setActiveTab("contact")} icon={<MessageSquare className="h-4 w-4" />}>
+        <TabButton active={activeTab === "contact"} onClick={() => requestTab("contact")} icon={<MessageSquare className="h-4 w-4" />}>
           Contact Page
         </TabButton>
-        <TabButton active={activeTab === "settings"} onClick={() => setActiveTab("settings")} icon={<Settings className="h-4 w-4" />}>
+        <TabButton active={activeTab === "settings"} onClick={() => requestTab("settings")} icon={<Settings className="h-4 w-4" />}>
           Global SEO & Settings
         </TabButton>
       </div>
 
+      <fieldset disabled={postSave.isLocked} className="min-w-0 border-0 p-0 m-0">
       <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
         {activeTab === "home" && (
           <HomePageEditor
@@ -206,6 +247,31 @@ export default function WebsiteCMS() {
           />
         )}
       </div>
+      </fieldset>
+
+      <UnsavedChangesDialog
+        dialogRef={formGuard.dialogRef}
+        onStay={formGuard.closeDialog}
+        onLeave={formGuard.confirmLeave}
+      />
+
+      <dialog
+        ref={tabDialogRef}
+        className="w-[min(100%-2rem,42rem)] max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 text-zinc-900 shadow-2xl backdrop:bg-black/40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+      >
+        <h3 className="text-lg font-semibold">Unsaved changes</h3>
+        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+          You have unsaved changes on this tab. Switch tabs without saving?
+        </p>
+        <div className="mt-6 flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={stayOnTab}>
+            Stay
+          </Button>
+          <Button type="button" variant="primary" onClick={confirmDiscardTab}>
+            Switch without saving
+          </Button>
+        </div>
+      </dialog>
     </div>
   );
 }
@@ -267,27 +333,36 @@ function HomePageEditor({
           <h3 className="border-b border-border pb-2 font-medium text-text-primary">Hero Section</h3>
 
           <div className="space-y-4 pt-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-text-secondary">Headline</label>
-              <Input value={value.headline} onChange={(e) => setField("headline", e.target.value)} />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-text-secondary">Subheadline</label>
-              <textarea
-                className="min-h-[100px] w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none transition-shadow focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+            <FormField id="cms-headline" label="Headline">
+              <TextInput
+                id="cms-headline"
+                value={value.headline}
+                onChange={(e) => setField("headline", e.target.value)}
+              />
+            </FormField>
+            <FormField id="cms-subheadline" label="Subheadline">
+              <TextareaInput
+                id="cms-subheadline"
+                className="min-h-[100px]"
                 value={value.subheadline}
                 onChange={(e) => setField("subheadline", e.target.value)}
               />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-text-secondary">Primary CTA Text</label>
-                <Input value={value.primaryCtaText} onChange={(e) => setField("primaryCtaText", e.target.value)} />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-text-secondary">Primary CTA Link</label>
-                <Input value={value.primaryCtaLink} onChange={(e) => setField("primaryCtaLink", e.target.value)} />
-              </div>
+            </FormField>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormField id="cms-cta-text" label="Primary CTA Text">
+                <TextInput
+                  id="cms-cta-text"
+                  value={value.primaryCtaText}
+                  onChange={(e) => setField("primaryCtaText", e.target.value)}
+                />
+              </FormField>
+              <FormField id="cms-cta-link" label="Primary CTA Link">
+                <TextInput
+                  id="cms-cta-link"
+                  value={value.primaryCtaLink}
+                  onChange={(e) => setField("primaryCtaLink", e.target.value)}
+                />
+              </FormField>
             </div>
           </div>
         </div>
@@ -303,13 +378,17 @@ function HomePageEditor({
           <div className="space-y-3 pt-2">
             {value.features.map((feature, i) => (
               <div key={i} className="flex items-start gap-3 rounded-lg border border-border bg-subtle p-3">
-                <div className="flex-1 space-y-2">
-                  <Input value={feature.title} onChange={(e) => setFeature(i, { title: e.target.value })} />
-                  <textarea
-                    className="w-full rounded-md border border-border bg-surface px-2 py-1 text-xs text-text-primary outline-none focus:border-brand-500"
+                <div className="min-w-0 flex-1 space-y-2">
+                  <TextInput
+                    aria-label={`Feature ${i + 1} title`}
+                    value={feature.title}
+                    onChange={(e) => setFeature(i, { title: e.target.value })}
+                  />
+                  <TextareaInput
+                    aria-label={`Feature ${i + 1} description`}
+                    rows={2}
                     value={feature.desc}
                     onChange={(e) => setFeature(i, { desc: e.target.value })}
-                    rows={2}
                   />
                 </div>
                 <button
@@ -356,18 +435,21 @@ function SimplePageEditor({
           Publish changes
         </Button>
       </div>
-      <div>
-        <label className="mb-1 block text-xs font-medium text-text-secondary">Page title</label>
-        <Input value={value.title} onChange={(e) => onChange({ ...value, title: e.target.value })} />
-      </div>
-      <div>
-        <label className="mb-1 block text-xs font-medium text-text-secondary">Body (plain text or HTML)</label>
-        <textarea
-          className="min-h-[200px] w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+      <FormField id="cms-page-title" label="Page title">
+        <TextInput
+          id="cms-page-title"
+          value={value.title}
+          onChange={(e) => onChange({ ...value, title: e.target.value })}
+        />
+      </FormField>
+      <FormField id="cms-page-body" label="Body (plain text or HTML)">
+        <TextareaInput
+          id="cms-page-body"
+          className="min-h-[200px]"
           value={value.body}
           onChange={(e) => onChange({ ...value, body: e.target.value })}
         />
-      </div>
+      </FormField>
     </div>
   );
 }
@@ -400,18 +482,21 @@ function SettingsEditor({
           Publish changes
         </Button>
       </div>
-      <div>
-        <label className="mb-1 block text-xs font-medium text-text-secondary">Site title</label>
-        <Input value={value.siteTitle} onChange={(e) => onChange({ ...value, siteTitle: e.target.value })} />
-      </div>
-      <div>
-        <label className="mb-1 block text-xs font-medium text-text-secondary">Meta description</label>
-        <textarea
-          className="min-h-[120px] w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+      <FormField id="cms-site-title" label="Site title">
+        <TextInput
+          id="cms-site-title"
+          value={value.siteTitle}
+          onChange={(e) => onChange({ ...value, siteTitle: e.target.value })}
+        />
+      </FormField>
+      <FormField id="cms-meta-description" label="Meta description">
+        <TextareaInput
+          id="cms-meta-description"
+          className="min-h-[120px]"
           value={value.metaDescription}
           onChange={(e) => onChange({ ...value, metaDescription: e.target.value })}
         />
-      </div>
+      </FormField>
     </div>
   );
 }

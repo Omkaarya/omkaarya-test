@@ -4,6 +4,14 @@ import bcrypt from "bcryptjs";
 import type { MockTemple } from "@/lib/mock-temples";
 import { getPoolConfig } from "@/lib/pg-config";
 import { portalLabelAndHost } from "@/lib/portal-label-host";
+import {
+  normalizeCustomDomainHost,
+  isCustomDomainHostValue,
+} from "@/lib/temple-portal-domain";
+import {
+  normalizeTempleSubdomainLabel,
+  templeSubdomainToSlugColumn,
+} from "@/lib/temple-subdomain";
 
 const ADMIN_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -99,9 +107,70 @@ function normalizePlan(raw: string): (typeof PLANS)[number] {
 }
 
 function buildSlug(subdomain: string): string {
-  const s = subdomain.trim();
-  if (!s) return "temple.omkaarya.com";
-  return s.includes(".") ? s : `${s}.omkaarya.com`;
+  return templeSubdomainToSlugColumn(subdomain);
+}
+
+/** Returns true if another temple already uses this subdomain / portal domain. */
+export async function isTempleSubdomainTaken(
+  subdomainLabel: string,
+  excludeTenantId?: string
+): Promise<boolean> {
+  const label = normalizeTempleSubdomainLabel(subdomainLabel);
+  if (!label) return false;
+
+  const slugForm = templeSubdomainToSlugColumn(label);
+  const p = getPool();
+  const result = await p.query<{ ok: number }>(
+    `SELECT 1 AS ok
+     FROM public.temples
+     WHERE (
+       LOWER(TRIM(COALESCE(domain_subdomain, ''))) = $1
+       OR LOWER(TRIM(slug)) = $1
+       OR LOWER(TRIM(slug)) = $2
+     )
+     AND ($3::text IS NULL OR tenant_id::text <> $3)
+     LIMIT 1`,
+    [label, slugForm.toLowerCase(), excludeTenantId?.trim() || null]
+  );
+  return result.rows.length > 0;
+}
+
+/** Check uniqueness for a full custom hostname (bring-your-own domain). */
+export async function isTempleCustomHostTaken(
+  hostRaw: string,
+  excludeTenantId?: string
+): Promise<boolean> {
+  const host = normalizeCustomDomainHost(hostRaw);
+  if (!host) return false;
+
+  const p = getPool();
+  const result = await p.query<{ ok: number }>(
+    `SELECT 1 AS ok
+     FROM public.temples
+     WHERE (
+       LOWER(TRIM(COALESCE(domain_subdomain, ''))) = $1
+       OR LOWER(TRIM(slug)) = $1
+     )
+     AND ($2::text IS NULL OR tenant_id::text <> $2)
+     LIMIT 1`,
+    [host, excludeTenantId?.trim() || null]
+  );
+  return result.rows.length > 0;
+}
+
+/**
+ * Returns true if another temple already uses this portal host (Omkaarya slug or custom FQDN).
+ */
+export async function isTemplePortalHostTaken(
+  raw: string,
+  excludeTenantId?: string
+): Promise<boolean> {
+  const trimmed = raw.trim();
+  if (!trimmed) return false;
+  if (isCustomDomainHostValue(trimmed)) {
+    return isTempleCustomHostTaken(trimmed, excludeTenantId);
+  }
+  return isTempleSubdomainTaken(trimmed, excludeTenantId);
 }
 
 export async function insertTempleFromPayload(payload: {
@@ -124,6 +193,15 @@ export async function insertTempleFromPayload(payload: {
     const trial = payload.planBilling.trial?.enabled === true;
     const name = payload.temple.name.trim() || "Unnamed temple";
     const slug = buildSlug(payload.temple.subdomain);
+    const subdomainLabel = normalizeTempleSubdomainLabel(payload.temple.subdomain);
+    if (subdomainLabel) {
+      const taken = await isTempleSubdomainTaken(subdomainLabel);
+      if (taken) {
+        throw new Error(
+          `The subdomain "${subdomainLabel}" is already in use. Choose a different portal domain.`
+        );
+      }
+    }
     const city = payload.temple.city.trim() || "—";
     const adminEmail =
       payload.admin.email.trim() || payload.temple.email.trim() || "";

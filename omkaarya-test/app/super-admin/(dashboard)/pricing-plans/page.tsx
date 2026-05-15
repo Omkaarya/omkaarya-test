@@ -6,6 +6,7 @@ import { Check, Plus, Users2, Box } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
 import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
 import { PricingPlanCardSkeletonGrid } from "@/app/components/admin/ApiFetchPlaceholders";
+import { normalizePricingPlanSeats } from "@/lib/pricing-plan-normalize";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -21,31 +22,8 @@ type PricingPlan = {
   features: string[];
 };
 
-const DEFAULT_ROLE_QUOTAS: Array<{ roleName: string; count: number }> = [
-  { roleName: "Temple Admin", count: 1 },
-  { roleName: "Head Priest", count: 1 },
-  { roleName: "Accountant", count: 1 },
-];
-
-/** Normalize API row so "TOTAL SEATS" matches the sum of role rows (avoids includedSeats vs roleQuotas drift). */
 function normalizePricingPlanRow(p: Record<string, unknown>): PricingPlan {
-  const raw = p.roleQuotas;
-  const hasQuotas = Array.isArray(raw) && raw.length > 0;
-  const roleQuotas: Array<{ roleName: string; count: number }> = hasQuotas
-    ? (raw as Array<{ roleName?: string; role?: string; count?: unknown }>).map((rq) => ({
-        roleName: String(rq.roleName ?? rq.role ?? "Unknown"),
-        count: Math.max(0, Number(rq.count) || 0),
-      }))
-    : DEFAULT_ROLE_QUOTAS;
-
-  const seatsFromRoles = roleQuotas.reduce((s, r) => s + r.count, 0);
-  const included =
-    typeof p.includedSeats === "number" && Number.isFinite(p.includedSeats) ? p.includedSeats : undefined;
-  const legacyTotal =
-    typeof p.totalSeats === "number" && Number.isFinite(p.totalSeats) ? p.totalSeats : undefined;
-
-  const totalSeats = hasQuotas ? seatsFromRoles : included ?? legacyTotal ?? (seatsFromRoles || 3);
-
+  const { totalSeats, roleQuotas } = normalizePricingPlanSeats(p);
   const features = Array.isArray(p.features) ? (p.features as string[]).filter((x): x is string => typeof x === "string") : [];
 
   return {
@@ -54,6 +32,51 @@ function normalizePricingPlanRow(p: Record<string, unknown>): PricingPlan {
     roleQuotas,
     features,
   };
+}
+
+const FEATURES_PREVIEW_COUNT = 5;
+
+function PlanFeaturesList({ features }: { features: string[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasMore = features.length > FEATURES_PREVIEW_COUNT;
+  const visible = expanded ? features : features.slice(0, FEATURES_PREVIEW_COUNT);
+  const hiddenCount = features.length - FEATURES_PREVIEW_COUNT;
+
+  return (
+    <div className="space-y-3">
+      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+        <Box className="w-3 h-3" /> Included Features ({features.length})
+      </p>
+      <div className="grid grid-cols-1 gap-2">
+        {visible.map((f, i) => (
+          <div key={`${f}-${i}`} className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded-full bg-emerald-50 dark:bg-emerald-950/20 flex items-center justify-center shrink-0">
+              <Check className="w-2.5 h-2.5 text-emerald-600" />
+            </div>
+            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{f}</span>
+          </div>
+        ))}
+        {hasMore && !expanded && (
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            className="text-left text-[10px] font-bold text-[var(--brand-primary)] hover:underline ml-6"
+          >
+            + {hiddenCount} more
+          </button>
+        )}
+        {hasMore && expanded && (
+          <button
+            type="button"
+            onClick={() => setExpanded(false)}
+            className="text-left text-[10px] font-bold text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:underline ml-6"
+          >
+            Show less
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ── Page Component ──────────────────────────────────────────────────
@@ -178,22 +201,7 @@ export default function PricingPlansPage() {
                   </div>
                </div>
 
-               <div className="space-y-3">
-                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                    <Box className="w-3 h-3" /> Included Features ({plan.features.length})
-                  </p>
-                  <div className="grid grid-cols-1 gap-2">
-                    {plan.features.slice(0, 5).map((f, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <div className="w-4 h-4 rounded-full bg-emerald-50 dark:bg-emerald-950/20 flex items-center justify-center">
-                          <Check className="w-2.5 h-2.5 text-emerald-600" />
-                        </div>
-                        <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate">{f}</span>
-                      </div>
-                    ))}
-                    {plan.features.length > 5 && <span className="text-[10px] text-zinc-400 font-bold ml-6">+ {plan.features.length - 5} more</span>}
-                  </div>
-               </div>
+               <PlanFeaturesList features={plan.features} />
             </div>
 
             <Link href={`/super-admin/pricing-plans/${plan.id}/features`} className="mt-8">

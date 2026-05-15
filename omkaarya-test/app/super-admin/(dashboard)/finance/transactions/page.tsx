@@ -240,6 +240,7 @@ export default function TransactionsPage() {
           variant="outline"
           size="sm"
           leadingIcon={<Download className="h-4 w-4" />}
+          disabled={listLoading}
           onClick={() => {
             const p = new URLSearchParams();
             if (statusFilter !== "all") p.set("status", statusFilter);
@@ -249,7 +250,7 @@ export default function TransactionsPage() {
             window.open(`/api/billing/transactions/export?${p.toString()}`, "_blank", "noopener,noreferrer");
           }}
         >
-          Export
+          Export CSV
         </Button>
       </div>
 

@@ -548,7 +548,7 @@ export default function InvoicesPage() {
       )}
 
       <AdminListCard>
-        <AdminTableToolbar stacked>
+        <AdminTableToolbar>
           <AdminTableToolbarStart>
             <SearchInput
               value={search}
@@ -560,9 +560,9 @@ export default function InvoicesPage() {
               placeholder="Search temple, invoice no., or email…"
             />
           </AdminTableToolbarStart>
-          <AdminTableToolbarEnd className="w-full md:w-full">
+          <AdminTableToolbarEnd>
             <div className="overflow-x-auto pb-0.5 [-webkit-overflow-scrolling:touch]">
-              <div className="flex min-w-max gap-1 rounded-xl border border-border bg-subtle p-1 sm:min-w-0 sm:flex-1">
+              <div className="flex min-w-max gap-1 rounded-xl border border-border bg-subtle p-1">
                 {FILTERS.map(({ id, label }) => (
                   <button
                     key={id}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { redirectToSuperAdminLogin } from "@/lib/super-admin-login";
 import { Loader2, LogOut, Shield, User } from "lucide-react";
 import type { ApiSuccessBody } from "@/lib/api-envelope";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
@@ -36,7 +36,6 @@ function formatRoles(roles: string[]): string {
 }
 
 export function AdminAccountPopover() {
-  const router = useRouter();
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -102,9 +101,9 @@ export function AdminAccountPopover() {
   const handleLogout = async () => {
     setLogoutBusy(true);
     try {
-      await fetch("/api/logout", { method: "POST" });
+      await fetch("/api/logout", { method: "POST", credentials: "same-origin" });
       setOpen(false);
-      router.push("/super-admin/invite");
+      redirectToSuperAdminLogin();
     } catch {
       setLogoutBusy(false);
     }

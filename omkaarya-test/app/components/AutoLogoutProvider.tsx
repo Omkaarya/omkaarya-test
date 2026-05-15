@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { redirectToSuperAdminLogin } from "@/lib/super-admin-login";
 
 export default function AutoLogoutProvider({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
   const pathname = usePathname();
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -14,16 +14,16 @@ export default function AutoLogoutProvider({ children }: { children: React.React
 
   const logout = useCallback(async () => {
     try {
-      await fetch("/api/logout", { method: "POST" });
+      await fetch("/api/logout", { method: "POST", credentials: "same-origin" });
       if (pathname.startsWith("/temple-admin")) {
-        router.push("/temple-admin/signin");
+        window.location.replace("/temple-admin/signin");
       } else {
-        router.push("/login");
+        redirectToSuperAdminLogin();
       }
     } catch (error) {
       console.error("Auto logout failed", error);
     }
-  }, [pathname, router]);
+  }, [pathname]);
 
   const resetTimer = useCallback(() => {
     if (timeoutRef.current) {
@@ -33,7 +33,12 @@ export default function AutoLogoutProvider({ children }: { children: React.React
   }, [logout]);
 
   useEffect(() => {
-    if (!shouldTrackInactivity || pathname === "/super-admin/invite" || pathname === "/temple-admin/signin") {
+    if (
+      !shouldTrackInactivity ||
+      pathname === "/super-admin/login" ||
+      pathname === "/super-admin/invite" ||
+      pathname === "/temple-admin/signin"
+    ) {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       return;
     }

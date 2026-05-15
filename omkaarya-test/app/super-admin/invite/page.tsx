@@ -1,12 +1,11 @@
 "use client";
 
+import FormField from "@/app/components/admin/FormField";
+import TextInput from "@/app/components/admin/TextInput";
 import { Mail, Lock, EyeOff, ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import { SUPER_ADMIN_REMEMBER_ME_STORAGE_KEY } from "@/lib/super-admin-session-prefs";
-
-const inputBase =
-  "w-full rounded-lg border border-[var(--border-default)] bg-[var(--surface-elevated)] py-2 text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]";
 
 export default function InvitationLogin() {
   const [email, setEmail] = useState("");
@@ -90,39 +89,38 @@ export default function InvitationLogin() {
         </div>
 
         <form className="space-y-4 psono-formSubmitCatcher-covered" onSubmit={handleSubmit}>
-          <div>
-            <label className="text-sm font-medium text-[var(--text-primary)]">Email *</label>
-            <div className="relative mt-1">
-              <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
-              <input
-                type="email"
-                placeholder="olivia@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={`${inputBase} pl-10 pr-4`}
-                required
-              />
-            </div>
-          </div>
+          <FormField id="invite-email" label="Email" required>
+            <TextInput
+              id="invite-email"
+              type="email"
+              placeholder="olivia@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              startIcon={<Mail className="h-4 w-4" />}
+              required
+            />
+          </FormField>
 
-          <div>
-            <label className="text-sm font-medium text-[var(--text-primary)]">Temporary Password *</label>
-            <div className="relative mt-1">
-              <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
-              <input
+          <FormField
+            id="invite-password"
+            label="Temporary Password"
+            required
+            hint="This password was sent to you via email when you were invited."
+          >
+            <div className="relative">
+              <TextInput
+                id="invite-password"
                 type="password"
                 placeholder="********"
                 value={tempPassword}
                 onChange={(e) => setTempPassword(e.target.value)}
-                className={`${inputBase} pl-10 pr-10`}
+                startIcon={<Lock className="h-4 w-4" />}
+                className="pr-10"
                 required
               />
-              <EyeOff className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 cursor-pointer text-[var(--text-muted)]" />
+              <EyeOff className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" aria-hidden />
             </div>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              This password was sent to you via email when you were invited.
-            </p>
-          </div>
+          </FormField>
 
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 

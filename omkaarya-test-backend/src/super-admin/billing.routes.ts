@@ -216,6 +216,101 @@ export function createBillingRouter(billing: PostgresBillingRepository): Router 
   );
 
   r.get(
+    "/billing/revenue-dashboard/export",
+    asyncHandler(async (req, res) => {
+      const period = parsePeriod(asString(req.query.period));
+      const payload = await billing.revenueDashboard({ period });
+      const { kpis } = payload;
+      const kpiHeader = [
+        "periodStart",
+        "periodEndExclusive",
+        "paidAmountCents",
+        "paidCount",
+        "pendingAmountCents",
+        "pendingCount",
+        "overdueAmountCents",
+        "overdueCount",
+        "activeTemples",
+        "trialTemples",
+      ];
+      const kpiRow = [
+        payload.period.startDate,
+        payload.period.endDateExclusive,
+        String(kpis.paidAmountCents),
+        String(kpis.paidCount),
+        String(kpis.pendingAmountCents),
+        String(kpis.pendingCount),
+        String(kpis.overdueAmountCents),
+        String(kpis.overdueCount),
+        String(kpis.activeTemples),
+        String(kpis.trialTemples),
+      ]
+        .map(csvCell)
+        .join(",");
+      const byPlanHeader = ["plan", "billingCycle", "unitAmountCents", "count", "amountCents"];
+      const byPlanLines = (payload.revenueByPlan ?? []).map((r) =>
+        [r.plan, r.billingCycle, String(r.unitAmountCents), String(r.count), String(r.amountCents)]
+          .map(csvCell)
+          .join(",")
+      );
+      const trendHeader = ["monthKey", "monthLabel", "unitAmountCents", "count", "amountCents", "isCurrent"];
+      const trendLines = (payload.trend ?? []).map((r) =>
+        [r.monthKey, r.monthLabel, String(r.unitAmountCents), String(r.count), String(r.amountCents), r.isCurrent ? "yes" : "no"]
+          .map(csvCell)
+          .join(",")
+      );
+      const summaryHeader = [
+        "tenantId",
+        "templeName",
+        "location",
+        "portalUrl",
+        "plan",
+        "billingCycle",
+        "amountCents",
+        "status",
+        "nextRenewal",
+      ];
+      const summaryLines = (payload.subscriptionSummary ?? []).map((r) =>
+        [
+          r.tenantId,
+          r.templeName,
+          r.location,
+          r.portalUrl,
+          r.plan,
+          r.billingCycle,
+          String(r.amountCents),
+          r.status,
+          r.nextRenewal ?? "",
+        ]
+          .map(csvCell)
+          .join(",")
+      );
+      const lines = [
+        "# KPIs",
+        kpiHeader.join(","),
+        kpiRow,
+        "",
+        "# Revenue by plan",
+        byPlanHeader.join(","),
+        ...byPlanLines,
+        "",
+        "# Monthly revenue trend",
+        trendHeader.join(","),
+        ...trendLines,
+        "",
+        "# Temple subscription summary",
+        summaryHeader.join(","),
+        ...summaryLines,
+      ];
+      res
+        .status(200)
+        .type("text/csv; charset=utf-8")
+        .setHeader("Content-Disposition", `attachment; filename="revenue-dashboard.csv"`)
+        .send(lines.join("\n"));
+    })
+  );
+
+  r.get(
     "/billing/transactions/kpis",
     asyncHandler(async (req, res) => {
       const period = parsePeriod(asString(req.query.period));
