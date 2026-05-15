@@ -237,7 +237,7 @@ export default function SubdomainsPage() {
           }}
         />
         <p className="border-t border-border px-4 py-3 text-xs text-text-tertiary">
-          {total} filtered results{sortBy === "timeline" ? " (sorted by timeline)" : ""} · {totalAll} total on platform
+          {total} filtered results{sortBy === "timeline" ? " (newest first)" : ""} · {totalAll} total on platform
         </p>
       </AdminListCard>
     </div>
