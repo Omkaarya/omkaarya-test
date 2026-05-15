@@ -54,7 +54,7 @@ export default function AdminPagination({
   const pages = buildPageList(page, totalPages);
 
   return (
-    <div className="flex flex-col items-stretch justify-between gap-4 border-t border-zinc-100 p-4 dark:border-zinc-800 sm:flex-row sm:items-center">
+    <div className="flex flex-col items-stretch justify-between gap-4 border-t border-border p-4 sm:flex-row sm:items-center">
       <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
         <span>Showing Results:</span>
         <label htmlFor="page-size" className="sr-only">

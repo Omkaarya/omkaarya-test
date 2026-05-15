@@ -42,7 +42,7 @@ export class PostgresPricingPlansRepository {
     const planIdList = plans.map((p) => p.id);
 
     const { rows: featureRows } = await pool.query<{
-      id: number;
+      id: string;
       name: string;
       key: string;
       module_key: string;
@@ -58,7 +58,7 @@ export class PostgresPricingPlansRepository {
 
     const { rows: pfRows } = await pool.query<{
       plan_id: string;
-      feature_id: number;
+      feature_id: string;
       is_enabled: boolean;
       limit_value: number | null;
     }>(

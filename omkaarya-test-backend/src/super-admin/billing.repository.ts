@@ -42,6 +42,27 @@ function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+function utcMonthKey(d: Date): string {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+/** UI label for invoice billing_cycle (e.g. Annual → Yearly). */
+export function formatBillingCycleChartLabel(cycle: string | null | undefined): string {
+  const s = (cycle ?? "").trim();
+  if (s === "Annual" || s === "Annually" || s === "Yearly") return "Yearly";
+  if (s === "Monthly") return "Monthly";
+  return s || "—";
+}
+
+function monthKeyToChartLabel(monthKey: string, isCurrent: boolean): string {
+  const m = /^(\d{4})-(\d{2})$/.exec(monthKey);
+  if (!m) return monthKey;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const name = new Date(Date.UTC(y, mo - 1, 1)).toLocaleString("en-US", { month: "long", timeZone: "UTC" });
+  return isCurrent ? `${name} (Current)` : name;
+}
+
 function periodRange(input: { period: RevenueDashboardPeriod }): { start: Date; endExclusive: Date; label: { startDate: string; endDateExclusive: string } } {
   const now = new Date();
   const thisMonthStart = startOfUtcMonth(now);
@@ -376,7 +397,7 @@ export class PostgresBillingRepository {
     const { rows } = await pool.query<{ tenant_id: string; name: string; slug: string; admin_email: string }>(
       `SELECT tenant_id, name, slug, admin_email
        FROM public.temples
-       ORDER BY tenant_id::int DESC`
+       ORDER BY tenant_id::text DESC`
     );
     return rows.map((r) => ({
       tenantId: r.tenant_id,
@@ -532,8 +553,21 @@ export class PostgresBillingRepository {
       activeTemples: number;
       trialTemples: number;
     };
-    revenueByPlan: Array<{ plan: string; amountCents: number; count: number }>;
-    trend: Array<{ month: string; amountCents: number }>;
+    revenueByPlan: Array<{
+      plan: string;
+      billingCycle: string;
+      unitAmountCents: number;
+      count: number;
+      amountCents: number;
+    }>;
+    trend: Array<{
+      monthKey: string;
+      monthLabel: string;
+      isCurrent: boolean;
+      unitAmountCents: number;
+      count: number;
+      amountCents: number;
+    }>;
     subscriptionSummary: Array<{
       tenantId: string;
       templeName: string;
@@ -597,30 +631,45 @@ export class PostgresBillingRepository {
       []
     );
 
-    const byPlanRes = await pool.query<{ plan: string; amount_cents: number; cnt: number }>(
+    const byPlanRes = await pool.query<{
+      plan: string;
+      billing_cycle: string;
+      amount_cents: number;
+      cnt: number;
+      unit_amount_cents: number;
+    }>(
       `SELECT b.plan,
+              b.billing_cycle,
               COALESCE(SUM(tx.amount_cents), 0)::int AS amount_cents,
-              COUNT(*)::int AS cnt
+              COUNT(*)::int AS cnt,
+              COALESCE(ROUND(AVG(tx.amount_cents))::int, 0) AS unit_amount_cents
        FROM public.billing_transactions tx
        JOIN public.billing_invoices b ON b.id = tx.invoice_id
        WHERE tx.status = 'paid'
          AND tx.recorded_at >= $1::timestamptz
          AND tx.recorded_at < $2::timestamptz
-       GROUP BY b.plan
-       ORDER BY amount_cents DESC, b.plan ASC`,
+       GROUP BY b.plan, b.billing_cycle
+       ORDER BY amount_cents DESC, b.plan ASC, b.billing_cycle ASC`,
       [start.toISOString(), endExclusive.toISOString()]
     );
 
-    const trendStart = addUtcMonths(thisMonthStart, -5);
-    const trendRes = await pool.query<{ month: string; amount_cents: number }>(
+    const trendMonthCount = 3;
+    const trendStart = addUtcMonths(thisMonthStart, -(trendMonthCount - 1));
+    const currentMonthKey = utcMonthKey(thisMonthStart);
+    const trendRes = await pool.query<{ month: string; amount_cents: number; cnt: number }>(
       `SELECT to_char(date_trunc('month', tx.recorded_at), 'YYYY-MM') AS month,
-              COALESCE(SUM(tx.amount_cents), 0)::int AS amount_cents
+              COALESCE(SUM(tx.amount_cents), 0)::int AS amount_cents,
+              COUNT(*)::int AS cnt
        FROM public.billing_transactions tx
        WHERE tx.status = 'paid'
          AND tx.recorded_at >= $1::timestamptz
        GROUP BY 1
        ORDER BY 1 ASC`,
       [trendStart.toISOString()]
+    );
+    const trendByMonth = new Map(trendRes.rows.map((r) => [r.month, r]));
+    const trendMonthSlots = Array.from({ length: trendMonthCount }, (_, i) =>
+      addUtcMonths(trendStart, i)
     );
 
     const summaryRes = await pool.query<{
@@ -656,7 +705,7 @@ export class PostgresBillingRepository {
          ORDER BY s.payment_date DESC, s.created_at DESC
          LIMIT 1
        ) s ON true
-       ORDER BY t.tenant_id::int DESC`,
+       ORDER BY t.tenant_id::text DESC`,
       []
     );
 
@@ -690,8 +739,29 @@ export class PostgresBillingRepository {
         activeTemples: templeAgg.rows[0]?.active ?? 0,
         trialTemples: templeAgg.rows[0]?.trial ?? 0,
       },
-      revenueByPlan: byPlanRes.rows.map((r) => ({ plan: r.plan, amountCents: r.amount_cents, count: r.cnt })),
-      trend: trendRes.rows.map((r) => ({ month: r.month, amountCents: r.amount_cents })),
+      revenueByPlan: byPlanRes.rows.map((r) => ({
+        plan: r.plan,
+        billingCycle: formatBillingCycleChartLabel(r.billing_cycle),
+        unitAmountCents: r.unit_amount_cents,
+        count: r.cnt,
+        amountCents: r.amount_cents,
+      })),
+      trend: trendMonthSlots.map((d) => {
+        const monthKey = utcMonthKey(d);
+        const row = trendByMonth.get(monthKey);
+        const count = row?.cnt ?? 0;
+        const amountCents = row?.amount_cents ?? 0;
+        const unitAmountCents = count > 0 ? Math.round(amountCents / count) : 0;
+        const isCurrent = monthKey === currentMonthKey;
+        return {
+          monthKey,
+          monthLabel: monthKeyToChartLabel(monthKey, isCurrent),
+          isCurrent,
+          unitAmountCents,
+          count,
+          amountCents,
+        };
+      }),
       subscriptionSummary,
     };
   }

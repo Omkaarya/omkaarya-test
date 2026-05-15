@@ -7,8 +7,24 @@ import { sendInvoiceOnlyEmail, sendTempleInviteAndInvoiceCombined } from "../ema
 import { sendTempleAdminInviteEmail } from "../email/send-temple-invite.js";
 import type { TemplesService } from "./temples.service.js";
 import type { CreateTemplePayload, UpdateTemplePayload } from "./types.js";
-import { createTempleBodySchema, updateTempleBodySchema } from "./validation.js";
+import { createTempleBodySchema, tenantIdParamSchema, updateTempleBodySchema } from "./validation.js";
 import { TempleEmailAlreadyInUseError } from "./temples.repository.js";
+
+function asSingleParam(v: string | string[] | undefined): string | undefined {
+  if (v === undefined) return undefined;
+  return typeof v === "string" ? v : v[0];
+}
+
+function requireTenantIdParam(raw: string | string[] | undefined): string {
+  const parsed = tenantIdParamSchema.safeParse(asSingleParam(raw) ?? "");
+  if (!parsed.success) {
+    throw new HttpError(400, "Invalid temple id", {
+      code: "INVALID_ID",
+      reason: "The path parameter must be a valid UUID.",
+    });
+  }
+  return parsed.data;
+}
 
 export function createTemplesRouter(temples: TemplesService): Router {
   const r = Router();
@@ -40,7 +56,7 @@ export function createTemplesRouter(temples: TemplesService): Router {
   r.get(
     "/temples/:tenantId",
     asyncHandler(async (req, res) => {
-      const tenantId = typeof req.params.tenantId === "string" ? req.params.tenantId : "";
+      const tenantId = requireTenantIdParam(req.params.tenantId);
       try {
         const detail = await temples.getTempleForEdit(tenantId);
         if (!detail) {
@@ -70,7 +86,7 @@ export function createTemplesRouter(temples: TemplesService): Router {
     "/temples/:tenantId",
     validateBody(updateTempleBodySchema),
     asyncHandler(async (req, res) => {
-      const tenantId = typeof req.params.tenantId === "string" ? req.params.tenantId : "";
+      const tenantId = requireTenantIdParam(req.params.tenantId);
       const body = req.body as UpdateTemplePayload;
       try {
         const out = await temples.updateTemple(tenantId, body);
@@ -103,7 +119,7 @@ export function createTemplesRouter(temples: TemplesService): Router {
     asyncHandler(async (req, res) => {
       const body = req.body as CreateTemplePayload;
       try {
-        const { templeId, temporaryPassword, invoice } = await temples.createTemple(body);
+        const { templeId, temporaryPassword, invoice, operationalDbName } = await temples.createTemple(body);
         const to = body.admin.email.trim();
         let inviteEmailSent: boolean | undefined = undefined;
         if (to && invoice) {
@@ -160,6 +176,7 @@ export function createTemplesRouter(temples: TemplesService): Router {
           201,
           {
             templeId,
+            operationalDbName,
             ...(invoice
               ? {
                   invoiceId: invoice.invoiceId,

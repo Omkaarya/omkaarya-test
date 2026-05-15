@@ -1,12 +1,38 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { ArrowLeft, CheckCircle2, Send, X } from "lucide-react";
-import Link from "next/link";
+import { useEffect, useState, useMemo, useRef } from "react";
+import { ArrowLeft, Send } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import GuardedBackLink from "@/app/components/admin/GuardedBackLink";
+import PostSaveSuccessBanner from "@/app/components/admin/PostSaveSuccessBanner";
+import UnsavedChangesDialog from "@/app/components/admin/UnsavedChangesDialog";
 
+import FormField from "@/app/components/admin/FormField";
+import { adminInputReadonlyClassName } from "@/app/components/admin/inputStyles";
 import SelectInput from "@/app/components/admin/SelectInput";
+import TextareaInput from "@/app/components/admin/TextareaInput";
+import TextInput from "@/app/components/admin/TextInput";
 import { Button } from "@/app/components/ds/atoms/Button";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
+import { formSnapshot } from "@/lib/form-snapshot";
+import {
+  flatPlatformBankDetails,
+  OMKAARYA_PLATFORM_BANK_DETAILS,
+} from "@/lib/omkaarya-platform-bank-details";
+import {
+  billToPreviewLines,
+  buildInvoiceDescription,
+  invoiceBillToFromTempleDetail,
+  mergeTempleOptionFromDetail,
+  normalizeInvoiceBillingCycle,
+  type InvoiceBillTo,
+} from "@/lib/invoice-temple-prefill";
+import { buildTempleInvoicePaymentReference } from "@/lib/payment-reference";
+import type { SuperAdminTempleDetail } from "@/lib/super-admin-temple-detail";
+import { usePostSaveSuccess } from "@/lib/use-post-save-success";
+import { useUnsavedFormGuard } from "@/lib/use-unsaved-form-guard";
+
+const LIST_PATH = "/super-admin/finance/invoices";
 
 // ── Temple Data ──────────────────────────────────────────────────
 
@@ -28,42 +54,27 @@ function formatMoney(currency: string, amountCents: number | null): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: c }).format(amountCents / 100);
 }
 
-// ── Toast ──────────────────────────────────────────────────────────
-
-function Toast({ message, onClose }: { message: string; onClose: () => void }) {
-  return (
-    <div className="fixed bottom-6 right-6 z-[200] flex items-center gap-3 rounded-xl border border-success-500/20 bg-status-success-bg text-status-success-text px-5 py-4 shadow-xl">
-      <CheckCircle2 className="h-5 w-5 shrink-0" /><p className="text-sm font-semibold">{message}</p>
-      <button onClick={onClose} className="ml-2 opacity-60 hover:opacity-100"><X className="h-4 w-4" /></button>
-    </div>
-  );
-}
-
-// ── Form Field ────────────────────────────────────────────────────
-
-function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`flex flex-col gap-1 ${className || ""}`}>
-      <label className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">{label}</label>
-      {children}
-    </div>
-  );
-}
-
-const inputClass = "w-full rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text-primary outline-none focus:border-brand transition-colors";
-const readonlyClass = "w-full rounded-lg border border-border bg-subtle px-3 py-2 text-xs text-text-tertiary outline-none";
-
 // ── Page ────────────────────────────────────────────────────────────
 
 export default function GenerateInvoicePage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlTenantId = searchParams.get("tenantId")?.trim() ?? "";
+  const urlPlan = searchParams.get("plan")?.trim() ?? "";
+  const urlBillingCycle = searchParams.get("billingCycle")?.trim() ?? "";
+
   const [templeId, setTempleId] = useState("");
   const [temples, setTemples] = useState<TempleOption[]>([]);
+  const [billTo, setBillTo] = useState<InvoiceBillTo | null>(null);
+  const [templeDetailLoading, setTempleDetailLoading] = useState(false);
+  const prefillTempleRef = useRef<string | null>(null);
   const [profile, setProfile] = useState<BillingProfile | null>(null);
   const [plans, setPlans] = useState<PricingPlan[]>([]);
   const [planName, setPlanName] = useState<string>("");
   const [billingCycleRaw, setBillingCycleRaw] = useState<"Monthly" | "Annually">("Monthly");
   const [loadErr, setLoadErr] = useState<string | null>(null);
-  const [invoiceNum, setInvoiceNum] = useState("—");
+  const [invoiceNum, setInvoiceNum] = useState("");
+  const [invoiceNumLoading, setInvoiceNumLoading] = useState(true);
   const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [dueDate, setDueDate] = useState(() => {
     const d = new Date();
@@ -73,17 +84,37 @@ export default function GenerateInvoicePage() {
   const [description, setDescription] = useState("");
   const qty = 1;
   const [amountCents, setAmountCents] = useState<number | null>(null);
-  const [bankName, setBankName] = useState("—");
-  const [accountName, setAccountName] = useState("—");
-  const [accountNumber, setAccountNumber] = useState("—");
-  const [swift, setSwift] = useState("—");
-  const [notes, setNotes] = useState("—");
-  const [toast, setToast] = useState<string | null>(null);
+  const platformBank = flatPlatformBankDetails();
+  const [bankName] = useState(platformBank.bankName);
+  const [branchName] = useState(platformBank.branchName);
+  const [accountName] = useState(platformBank.accountName);
+  const [accountNumber] = useState(platformBank.accountNumber);
+  const [swift] = useState(platformBank.swift);
+  const [notes] = useState(platformBank.notes);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const baselineRef = useRef<string | null>(null);
 
-  const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 4000); }, []);
+  const currentSnapshot = useMemo(
+    () => formSnapshot({ templeId, planName, billingCycleRaw, invoiceDate, dueDate, description }),
+    [templeId, planName, billingCycleRaw, invoiceDate, dueDate, description]
+  );
 
-  const selectedTemple = temples.find(t => t.tenantId === templeId);
-  const paymentRef = templeId ? `${templeId}-INV` : "—";
+  useEffect(() => {
+    if (baselineRef.current === null) {
+      baselineRef.current = currentSnapshot;
+    }
+  }, [currentSnapshot]);
+
+  const isDirty = baselineRef.current !== null && currentSnapshot !== baselineRef.current;
+  const postSave = usePostSaveSuccess({ router });
+  const formGuard = useUnsavedFormGuard({ isDirty, enabled: !postSave.isLocked });
+
+  const selectedTemple = temples.find((t) => t.tenantId === templeId);
+  const billToDisplayName = billTo?.templeName || selectedTemple?.name || "Select a temple above";
+  const paymentRef = selectedTemple
+    ? buildTempleInvoicePaymentReference(selectedTemple.name, selectedTemple.tenantId)
+    : "—";
+  const invoiceNumDisplay = invoiceNumLoading ? "Generating…" : invoiceNum || "—";
   const periodFrom = invoiceDate;
   const periodTo = (() => {
     const d = new Date(invoiceDate);
@@ -110,11 +141,24 @@ export default function GenerateInvoicePage() {
       const prof = (await profRes.json().catch(() => null)) as { success?: boolean; data?: BillingProfile } | null;
       if (!cancel && prof && prof.success === true && prof.data) {
         setProfile(prof.data);
-        setBankName(prof.data.bank.bankName || "—");
-        setAccountName(prof.data.bank.accountName || "—");
-        setAccountNumber(prof.data.bank.accountNumber || "—");
-        setSwift(prof.data.bank.swift || "—");
-        setNotes(prof.data.bank.notes || "—");
+      }
+
+      const numRes = await fetch("/api/billing/invoices/next-number", { cache: "no-store" });
+      const numBody = (await numRes.json().catch(() => null)) as {
+        success?: boolean;
+        data?: { invoiceNumber?: string };
+      } | null;
+      if (!cancel) {
+        if (numBody?.success === true && numBody.data?.invoiceNumber) {
+          setInvoiceNum(numBody.data.invoiceNumber);
+        } else {
+          const d = new Date();
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, "0");
+          const seq = String(d.getTime()).slice(-6);
+          setInvoiceNum(`OMK-INV-${y}${m}-${seq}`);
+        }
+        setInvoiceNumLoading(false);
       }
 
       const plansRes = await fetch("/api/pricing-plans", { cache: "no-store" });
@@ -131,12 +175,85 @@ export default function GenerateInvoicePage() {
         setLoadErr(jsonApiErrorMessage(d) || "Failed to load temples");
         return;
       }
-      setTemples(d.data.data ?? []);
+      const list = d.data.data ?? [];
+      setTemples(list);
+      if (urlTenantId && list.some((t) => t.tenantId === urlTenantId)) {
+        setTempleId(urlTenantId);
+      }
     })();
     return () => {
       cancel = true;
     };
-  }, []);
+  }, [urlTenantId]);
+
+  useEffect(() => {
+    if (!urlPlan) return;
+    setPlanName(urlPlan);
+  }, [urlPlan]);
+
+  useEffect(() => {
+    if (!urlBillingCycle) return;
+    setBillingCycleRaw(normalizeInvoiceBillingCycle(urlBillingCycle));
+  }, [urlBillingCycle]);
+
+  useEffect(() => {
+    if (!templeId) {
+      setBillTo(null);
+      prefillTempleRef.current = null;
+      return;
+    }
+
+    let cancel = false;
+    (async () => {
+      setTempleDetailLoading(true);
+      try {
+        const res = await fetch(`/api/temples/${encodeURIComponent(templeId)}`, { cache: "no-store" });
+        const body = (await res.json().catch(() => null)) as {
+          success?: boolean;
+          data?: SuperAdminTempleDetail;
+        } | null;
+        if (cancel || !body?.success || !body.data) return;
+
+        const detail = body.data;
+        const subdomain = detail.temple.subdomain?.trim();
+        let portalUrl = subdomain ? `https://${subdomain}.omkaarya.com` : "";
+
+        setTemples((prev) => {
+          const option = prev.find((t) => t.tenantId === templeId);
+          portalUrl = option?.portalUrl?.trim() || portalUrl;
+          return prev.map((t) =>
+            t.tenantId === templeId ? mergeTempleOptionFromDetail(t, detail, portalUrl) : t
+          );
+        });
+        setBillTo(invoiceBillToFromTempleDetail(detail, portalUrl));
+
+        const shouldApplyPlanFields = prefillTempleRef.current !== templeId;
+        if (shouldApplyPlanFields) {
+          prefillTempleRef.current = templeId;
+          const planFromDetail = detail.planBilling.selectedPlan?.trim();
+          const cycleFromDetail = normalizeInvoiceBillingCycle(detail.planBilling.billingCycle);
+          const resolvedPlan = urlPlan || planFromDetail;
+          const resolvedCycle = urlBillingCycle
+            ? normalizeInvoiceBillingCycle(urlBillingCycle)
+            : cycleFromDetail;
+
+          if (resolvedPlan) setPlanName(resolvedPlan);
+          setBillingCycleRaw(resolvedCycle);
+
+          const templeName = detail.temple.name?.trim();
+          if (resolvedPlan) {
+            setDescription(buildInvoiceDescription(resolvedPlan, resolvedCycle, templeName));
+          }
+        }
+      } finally {
+        if (!cancel) setTempleDetailLoading(false);
+      }
+    })();
+
+    return () => {
+      cancel = true;
+    };
+  }, [templeId, urlPlan, urlBillingCycle]);
 
   useEffect(() => {
     const p = plans.find((x) => x.name === planName);
@@ -144,6 +261,34 @@ export default function GenerateInvoicePage() {
     const cents = billingCycleRaw === "Annually" ? p.priceYearly : p.priceMonthly;
     setAmountCents(typeof cents === "number" ? Math.max(0, Math.trunc(cents)) : null);
   }, [plans, planName, billingCycleRaw]);
+
+  const submitInvoice = async (sendEmail: boolean, successMessage: string) => {
+    setSubmitError(null);
+    const res = await fetch("/api/billing/invoices/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        tenantId: templeId,
+        planName,
+        billingCycleRaw,
+        issueDate: invoiceDate,
+        dueDate,
+        description,
+        sendEmail,
+      }),
+    });
+    const d = await res.json().catch(() => null);
+    if (!res.ok || (d && typeof d === "object" && "success" in d && (d as { success?: boolean }).success === false)) {
+      setSubmitError(jsonApiErrorMessage(d) || (sendEmail ? "Failed to send invoice" : "Failed to save draft"));
+      return;
+    }
+    const inv = (d as { data?: { invoiceNumber?: string; amountCents?: number } }).data;
+    if (inv?.invoiceNumber) setInvoiceNum(inv.invoiceNumber);
+    if (typeof inv?.amountCents === "number") setAmountCents(inv.amountCents);
+    baselineRef.current = currentSnapshot;
+    formGuard.markClean();
+    postSave.triggerSuccess({ message: successMessage, redirectTo: LIST_PATH });
+  };
 
   const formatInvDate = (d: string) => {
     if (!d) return "—";
@@ -156,7 +301,9 @@ export default function GenerateInvoicePage() {
     <div className="space-y-5">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-xs text-text-tertiary">
-        <Link href="/super-admin/finance/invoices" className="text-brand hover:underline">Invoices</Link>
+        <GuardedBackLink href={LIST_PATH} onNavigate={formGuard.requestNavigate} className="text-brand hover:underline">
+          Invoices
+        </GuardedBackLink>
         <span>›</span>
         <span>Generate invoice</span>
       </div>
@@ -167,11 +314,25 @@ export default function GenerateInvoicePage() {
           <h1 className="text-display-xs font-bold tracking-tight text-text-primary">Generate invoice</h1>
           <p className="mt-1 text-sm text-text-tertiary">Create a subscription invoice for a temple — will be emailed automatically</p>
         </div>
-        <Link href="/super-admin/finance/invoices">
-          <Button variant="outline" size="sm" leadingIcon={<ArrowLeft className="h-4 w-4" />}>Back</Button>
-        </Link>
+        <Button
+          variant="outline"
+          size="sm"
+          leadingIcon={<ArrowLeft className="h-4 w-4" />}
+          onClick={() => formGuard.requestNavigate(LIST_PATH)}
+          disabled={postSave.isLocked}
+        >
+          Back
+        </Button>
       </div>
 
+      <PostSaveSuccessBanner text={postSave.bannerText} />
+      {submitError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300">
+          {submitError}
+        </div>
+      )}
+
+      <fieldset disabled={postSave.isLocked} className="contents min-w-0 border-0 p-0 m-0">
       {/* Two Column Layout: Form + Preview */}
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-5">
         {/* LEFT: Form */}
@@ -184,55 +345,114 @@ export default function GenerateInvoicePage() {
           {/* Invoice Details */}
           <div className="bg-surface rounded-xl border border-border p-5">
             <h3 className="text-sm font-bold text-text-primary mb-4 pb-3 border-b border-border">Invoice details</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Temple *">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormField id="invoice-temple" label="Temple" required>
                 <SelectInput
+                  id="invoice-temple"
                   value={templeId}
-                  onChange={e => setTempleId(e.target.value)}
-                  className="!text-xs"
+                  onChange={(e) => {
+                    prefillTempleRef.current = null;
+                    setTempleId(e.target.value);
+                  }}
+                  className="text-xs"
                 >
                   <option value="">Select temple...</option>
-                  {temples.map(t => <option key={t.tenantId} value={t.tenantId}>{t.name}</option>)}
+                  {temples.map((t) => (
+                    <option key={t.tenantId} value={t.tenantId}>{t.name}</option>
+                  ))}
                 </SelectInput>
-              </Field>
-              <Field label="Invoice number (auto)">
-                <input className={readonlyClass} value={invoiceNum} readOnly />
-              </Field>
-              <Field label="Invoice date">
-                <input type="date" className={inputClass} value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} />
-              </Field>
-              <Field label="Due date">
-                <input type="date" className={inputClass} value={dueDate} onChange={e => setDueDate(e.target.value)} />
-              </Field>
-              <Field label="Plan *">
-                <SelectInput
-                  value={planName}
-                  onChange={(e) => setPlanName(e.target.value)}
-                  className="!text-xs"
-                >
+              </FormField>
+              <FormField id="invoice-number" label="Invoice number (auto)">
+                <TextInput id="invoice-number" className={`text-xs ${adminInputReadonlyClassName}`} value={invoiceNumDisplay} readOnly />
+              </FormField>
+              <FormField id="invoice-date" label="Invoice date">
+                <TextInput id="invoice-date" type="date" className="text-xs" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} />
+              </FormField>
+              <FormField id="invoice-due-date" label="Due date">
+                <TextInput id="invoice-due-date" type="date" className="text-xs" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              </FormField>
+              <FormField id="invoice-plan" label="Plan" required>
+                <SelectInput id="invoice-plan" value={planName} onChange={(e) => setPlanName(e.target.value)} className="text-xs">
                   <option value="">Select plan...</option>
                   {plans.map((p) => (
                     <option key={p.id} value={p.name}>{p.name}</option>
                   ))}
                 </SelectInput>
-              </Field>
-              <Field label="Billing cycle">
+              </FormField>
+              <FormField id="invoice-billing-cycle" label="Billing cycle">
                 <SelectInput
+                  id="invoice-billing-cycle"
                   value={billingCycleRaw}
                   onChange={(e) => setBillingCycleRaw(e.target.value as "Monthly" | "Annually")}
-                  className="!text-xs"
+                  className="text-xs"
                 >
                   <option value="Monthly">Monthly</option>
                   <option value="Annually">Annually</option>
                 </SelectInput>
-              </Field>
-              <Field label="Billing period from">
-                <input type="date" className={inputClass} value={periodFrom} readOnly />
-              </Field>
-              <Field label="Billing period to">
-                <input type="date" className={inputClass} value={periodTo} readOnly />
-              </Field>
+              </FormField>
+              <FormField id="invoice-period-from" label="Billing period from">
+                <TextInput id="invoice-period-from" type="date" className={`text-xs ${adminInputReadonlyClassName}`} value={periodFrom} readOnly />
+              </FormField>
+              <FormField id="invoice-period-to" label="Billing period to">
+                <TextInput id="invoice-period-to" type="date" className={`text-xs ${adminInputReadonlyClassName}`} value={periodTo} readOnly />
+              </FormField>
             </div>
+          </div>
+
+          {/* Bill to (from temple profile) */}
+          <div className="bg-surface rounded-xl border border-border p-5">
+            <h3 className="text-sm font-bold text-text-primary mb-4 pb-3 border-b border-border">Bill to</h3>
+            {templeDetailLoading ? (
+              <p className="text-xs text-text-tertiary">Loading temple admin details…</p>
+            ) : !templeId ? (
+              <p className="text-xs text-text-tertiary">Select a temple to load admin and billing contact.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField id="invoice-bill-to-name" label="Temple">
+                  <TextInput
+                    id="invoice-bill-to-name"
+                    className={`text-xs ${adminInputReadonlyClassName}`}
+                    value={billToDisplayName}
+                    readOnly
+                  />
+                </FormField>
+                <FormField id="invoice-bill-to-admin" label="Temple admin">
+                  <TextInput
+                    id="invoice-bill-to-admin"
+                    className={`text-xs ${adminInputReadonlyClassName}`}
+                    value={billTo?.adminName || "—"}
+                    readOnly
+                  />
+                </FormField>
+                <FormField id="invoice-bill-to-email" label="Admin email">
+                  <TextInput
+                    id="invoice-bill-to-email"
+                    className={`text-xs ${adminInputReadonlyClassName}`}
+                    value={billTo?.adminEmail || selectedTemple?.adminEmail || "—"}
+                    readOnly
+                  />
+                </FormField>
+                <FormField id="invoice-bill-to-portal" label="Portal URL">
+                  <TextInput
+                    id="invoice-bill-to-portal"
+                    className={`text-xs ${adminInputReadonlyClassName}`}
+                    value={billTo?.portalUrl || selectedTemple?.portalUrl || "—"}
+                    readOnly
+                  />
+                </FormField>
+                <div className="sm:col-span-2">
+                  <FormField id="invoice-bill-to-address" label="Address">
+                    <TextareaInput
+                      id="invoice-bill-to-address"
+                      className={`min-h-[52px] text-xs ${adminInputReadonlyClassName}`}
+                      rows={2}
+                      value={billTo?.addressLine || "—"}
+                      readOnly
+                    />
+                  </FormField>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Line Items */}
@@ -250,10 +470,18 @@ export default function GenerateInvoicePage() {
               </thead>
               <tbody>
                 <tr className="border-b border-border">
-                  <td className="px-3 py-2"><input className={inputClass} value={description} onChange={e => setDescription(e.target.value)} /></td>
-                  <td className="px-3 py-2"><input className={inputClass + " text-center"} type="number" value={qty} readOnly /></td>
-                  <td className="px-3 py-2"><input className={readonlyClass} value={amountFormatted} readOnly /></td>
-                  <td className="px-3 py-2"><input className={readonlyClass} value={amountFormatted} readOnly /></td>
+                  <td className="px-3 py-2">
+                    <TextInput className="text-xs" value={description} onChange={(e) => setDescription(e.target.value)} aria-label="Line item description" />
+                  </td>
+                  <td className="px-3 py-2">
+                    <TextInput className="text-center text-xs" type="number" value={qty} readOnly aria-label="Quantity" />
+                  </td>
+                  <td className="px-3 py-2">
+                    <TextInput className={`text-xs ${adminInputReadonlyClassName}`} value={amountFormatted} readOnly aria-label="Unit price" />
+                  </td>
+                  <td className="px-3 py-2">
+                    <TextInput className={`text-xs ${adminInputReadonlyClassName}`} value={amountFormatted} readOnly aria-label="Amount" />
+                  </td>
                   <td className="px-3 py-2"></td>
                 </tr>
               </tbody>
@@ -270,78 +498,50 @@ export default function GenerateInvoicePage() {
           {/* Payment Instructions */}
           <div className="bg-surface rounded-xl border border-border p-5">
             <h3 className="text-sm font-bold text-text-primary mb-4 pb-3 border-b border-border">Payment instructions (shown on invoice)</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Bank name"><input className={inputClass} value={bankName} readOnly /></Field>
-              <Field label="Account name"><input className={inputClass} value={accountName} readOnly /></Field>
-              <Field label="Account number"><input className={inputClass} value={accountNumber} readOnly /></Field>
-              <Field label="SWIFT / BIC"><input className={inputClass} value={swift} readOnly /></Field>
-              <Field label="Payment reference (auto-generated)" className="col-span-2">
-                <input className={readonlyClass} value={paymentRef} readOnly />
-              </Field>
+            <p className="mb-4 text-xs font-semibold text-text-secondary">{OMKAARYA_PLATFORM_BANK_DETAILS.header}</p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormField id="invoice-bank-name" label="Bank name">
+                <TextInput id="invoice-bank-name" className={`text-xs ${adminInputReadonlyClassName}`} value={bankName} readOnly />
+              </FormField>
+              <FormField id="invoice-branch-name" label="Branch name">
+                <TextInput id="invoice-branch-name" className={`text-xs ${adminInputReadonlyClassName}`} value={branchName} readOnly />
+              </FormField>
+              <FormField id="invoice-account-name" label="Account name">
+                <TextInput id="invoice-account-name" className={`text-xs ${adminInputReadonlyClassName}`} value={accountName} readOnly />
+              </FormField>
+              <FormField id="invoice-account-number" label="Account number">
+                <TextInput id="invoice-account-number" className={`text-xs ${adminInputReadonlyClassName}`} value={accountNumber} readOnly />
+              </FormField>
+              <FormField id="invoice-swift" label="SWIFT / BIC">
+                <TextInput id="invoice-swift" className={`text-xs ${adminInputReadonlyClassName}`} value={swift} readOnly />
+              </FormField>
+              <div className="sm:col-span-2">
+                <FormField id="invoice-payment-ref" label="Payment reference (auto-generated)">
+                  <TextInput id="invoice-payment-ref" className={`text-xs ${adminInputReadonlyClassName}`} value={paymentRef} readOnly />
+                </FormField>
+              </div>
             </div>
-            <Field label="Notes / payment terms" className="mt-4">
-              <textarea className={inputClass + " min-h-[60px]"} rows={2} value={notes} readOnly />
-            </Field>
+            <FormField id="invoice-notes" label="Notes / payment terms">
+              <TextareaInput id="invoice-notes" className={`min-h-[60px] text-xs ${adminInputReadonlyClassName}`} rows={2} value={notes} readOnly />
+            </FormField>
 
             {/* Footer Buttons */}
             <div className="flex gap-2 justify-end pt-4 mt-4 border-t border-border">
-              <Link href="/super-admin/finance/invoices"><Button variant="outline">Cancel</Button></Link>
+              <Button type="button" variant="outline" onClick={() => formGuard.requestNavigate(LIST_PATH)}>
+                Cancel
+              </Button>
               <Button
+                type="button"
                 variant="outline"
-                onClick={async () => {
-                  const res = await fetch("/api/billing/invoices/generate", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", Accept: "application/json" },
-                    body: JSON.stringify({
-                      tenantId: templeId,
-                      planName,
-                      billingCycleRaw,
-                      issueDate: invoiceDate,
-                      dueDate,
-                      description,
-                      sendEmail: false,
-                    }),
-                  });
-                  const d = await res.json().catch(() => null);
-                  if (!res.ok || (d && typeof d === "object" && "success" in d && (d as { success?: boolean }).success === false)) {
-                    showToast(jsonApiErrorMessage(d) || "Failed to save draft");
-                    return;
-                  }
-                  const inv = (d as { data?: { invoiceNumber?: string; amountCents?: number; currency?: string } }).data;
-                  if (inv?.invoiceNumber) setInvoiceNum(inv.invoiceNumber);
-                  if (typeof inv?.amountCents === "number") setAmountCents(inv.amountCents);
-                  showToast("Saved as draft (created invoice row)");
-                }}
+                onClick={() => void submitInvoice(false, "Invoice saved as draft.")}
               >
                 Save as draft
               </Button>
               <Button
+                type="button"
                 variant="primary"
                 leadingIcon={<Send className="h-4 w-4" />}
-                onClick={async () => {
-                  const res = await fetch("/api/billing/invoices/generate", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", Accept: "application/json" },
-                    body: JSON.stringify({
-                      tenantId: templeId,
-                      planName,
-                      billingCycleRaw,
-                      issueDate: invoiceDate,
-                      dueDate,
-                      description,
-                      sendEmail: true,
-                    }),
-                  });
-                  const d = await res.json().catch(() => null);
-                  if (!res.ok || (d && typeof d === "object" && "success" in d && (d as { success?: boolean }).success === false)) {
-                    showToast(jsonApiErrorMessage(d) || "Failed to send invoice");
-                    return;
-                  }
-                  const inv = (d as { data?: { invoiceNumber?: string; amountCents?: number; currency?: string } }).data;
-                  if (inv?.invoiceNumber) setInvoiceNum(inv.invoiceNumber);
-                  if (typeof inv?.amountCents === "number") setAmountCents(inv.amountCents);
-                  showToast("Invoice generated and emailed to temple!");
-                }}
+                onClick={() => void submitInvoice(true, "Invoice generated and emailed to temple.")}
               >
                 Send to temple
               </Button>
@@ -365,7 +565,7 @@ export default function GenerateInvoicePage() {
               </div>
               <div className="text-right">
                 <p className="text-xl font-bold text-text-primary">INVOICE</p>
-                <p className="text-xs font-mono text-text-tertiary mt-1">{invoiceNum}</p>
+                <p className="text-xs font-mono text-text-tertiary mt-1">{invoiceNumDisplay}</p>
                 <p className="text-[11px] text-text-tertiary mt-1">Issued: {formatInvDate(invoiceDate)}</p>
                 <p className="text-[11px] text-text-tertiary">Due: {formatInvDate(dueDate)}</p>
               </div>
@@ -380,8 +580,8 @@ export default function GenerateInvoicePage() {
               </div>
               <div>
                 <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider mb-1.5">Bill to</p>
-                <p className="text-sm font-bold text-text-primary">{selectedTemple?.name || "Select a temple above"}</p>
-                <p className="text-[11px] text-text-tertiary leading-relaxed">{selectedTemple ? `${selectedTemple.portalUrl}\n${selectedTemple.adminEmail}` : "temple portal · admin email"}</p>
+                <p className="text-sm font-bold text-text-primary">{billToDisplayName}</p>
+                <p className="text-[11px] text-text-tertiary leading-relaxed whitespace-pre-line">{billToPreviewLines(billTo)}</p>
               </div>
             </div>
 
@@ -417,9 +617,11 @@ export default function GenerateInvoicePage() {
 
             {/* Bank Details Preview */}
             <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
-              <p className="text-xs font-bold text-blue-700 dark:text-blue-300 mb-2">🏦 Bank transfer details</p>
+              <p className="text-xs font-bold text-blue-700 dark:text-blue-300 mb-1">Bank transfer details</p>
+              <p className="text-[11px] font-semibold text-text-primary mb-3">{OMKAARYA_PLATFORM_BANK_DETAILS.header}</p>
               <div className="flex flex-wrap gap-4">
                 <div><p className="text-[10px] text-text-tertiary uppercase font-semibold tracking-wider mb-0.5">Bank</p><p className="text-xs font-semibold text-text-primary">{bankName}</p></div>
+                <div><p className="text-[10px] text-text-tertiary uppercase font-semibold tracking-wider mb-0.5">Branch</p><p className="text-xs font-semibold text-text-primary">{branchName}</p></div>
                 <div><p className="text-[10px] text-text-tertiary uppercase font-semibold tracking-wider mb-0.5">Account name</p><p className="text-xs font-semibold text-text-primary">{accountName}</p></div>
                 <div><p className="text-[10px] text-text-tertiary uppercase font-semibold tracking-wider mb-0.5">Account no.</p><p className="text-xs font-semibold text-text-primary">{accountNumber}</p></div>
                 <div><p className="text-[10px] text-text-tertiary uppercase font-semibold tracking-wider mb-0.5">SWIFT</p><p className="text-xs font-semibold text-text-primary">{swift}</p></div>
@@ -439,8 +641,13 @@ export default function GenerateInvoicePage() {
           </div>
         </div>
       </div>
+      </fieldset>
 
-      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+      <UnsavedChangesDialog
+        dialogRef={formGuard.dialogRef}
+        onStay={formGuard.closeDialog}
+        onLeave={formGuard.confirmLeave}
+      />
     </div>
   );
 }

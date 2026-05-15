@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { sendSuccess } from "../middleware/api-envelope.js";
-import { HttpError } from "../middleware/http-error.js";
 import { requirePool } from "../db/pool.js";
 import { getOperationalPoolForTenant } from "../db/temple-operational-pool-registry.js";
 import type { PostgresPricingPlansRepository } from "../super-admin/pricing-plans.repository.js";
@@ -118,7 +117,7 @@ export function createPublicRouter(pricingPlans: PostgresPricingPlansRepository)
                 COALESCE(NULLIF(TRIM(plan), ''), '—') AS plan,
                 COALESCE(NULLIF(TRIM(status), ''), '—') AS status
          FROM public.temples
-         ORDER BY created_at DESC, tenant_id::int DESC
+         ORDER BY created_at DESC, tenant_id::text DESC
          LIMIT $1 OFFSET $2`,
         [limit, offset]
       );
@@ -247,14 +246,8 @@ export function createPublicRouter(pricingPlans: PostgresPricingPlansRepository)
     })
   );
 
-  r.use((_req, _res, next) => {
-    next(
-      new HttpError(404, "Not found", {
-        code: "NOT_FOUND",
-        reason: "No public route matches this method and path.",
-      })
-    );
-  });
+  // Unmatched paths must fall through so sibling routers on `/api` (billing, temples, …) can handle them.
+  r.use((_req, _res, next) => next());
 
   return r;
 }

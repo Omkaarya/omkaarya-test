@@ -1,281 +1,410 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import {
-  Plus,
-  Search,
-  MoreVertical,
-  Pencil,
-  Trash2,
-  Image as ImageIcon,
-  Upload,
-  X,
-  CheckCircle2,
-  Loader2,
-} from "lucide-react";
-import StatusBadge from "@/app/components/admin/StatusBadge";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Eye, Image as ImageIcon, Loader2, Pencil, Plus, X } from "lucide-react";
+import AdminListCard from "@/app/components/admin/AdminListCard";
+import AdminPagination from "@/app/components/admin/AdminPagination";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
+import { Button } from "@/app/components/ds/atoms/Button";
+import type { MasterDeityListPayload, MasterDeityRow } from "@/lib/master-deities";
+import DeitiesFiltersBar, { type DeitiesSortBy, type DeityStatusFilter } from "./DeitiesFiltersBar";
+import DeityUpsertModal, { type DeityModalMode } from "./DeityUpsertModal";
+import StatusBadge from "@/app/components/admin/StatusBadge";
+import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
 
-type Deity = {
-  id: string;
-  name: string;
-  status: "Active" | "Inactive";
-  image: string | null;
-};
-
-// ── Mock Data ──────────────────────────────────────────────────────
-
-const INITIAL_DEITIES: Deity[] = [
-  { id: "0001", name: "Pillayar", status: "Active", image: null },
-  { id: "0002", name: "Murugan", status: "Active", image: null },
-  { id: "0003", name: "Shiva (Sivan)", status: "Active", image: null },
-  { id: "0004", name: "Parvati (Amman)", status: "Active", image: null },
-  { id: "0005", name: "Mariamman", status: "Active", image: null },
-  { id: "0006", name: "Kali (Kaaliamman)", status: "Active", image: null },
-  { id: "0007", name: "Bhadrakali", status: "Inactive", image: null },
-  { id: "0008", name: "Krishna", status: "Active", image: null },
-  { id: "0009", name: "Vinayagar", status: "Active", image: null },
-  { id: "0010", name: "Naga Thambiran", status: "Active", image: null },
-];
-
-// ── Page Component ──────────────────────────────────────────────────
+type ModalState = { open: true; mode: DeityModalMode; row: MasterDeityRow | null } | { open: false };
 
 export default function DeitiesMasterPage() {
-  const [deities, setDeities] = useState(INITIAL_DEITIES);
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<DeityStatusFilter>("all");
+  const [sortBy, setSortBy] = useState<DeitiesSortBy>("name");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [rows, setRows] = useState<MasterDeityRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalAll, setTotalAll] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actionMenuId, setActionMenuId] = useState<string | null>(null);
+  const [modal, setModal] = useState<ModalState>({ open: false });
+  const [imagePreview, setImagePreview] = useState<{ src: string; title: string } | null>(null);
+  const [actionBusyId, setActionBusyId] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState({
-    name: "",
-    status: "Active" as "Active" | "Inactive",
-    image: null as File | null
-  });
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [searchInput]);
 
-  const filteredDeities = useMemo(() => {
-    return deities.filter(d => d.name.toLowerCase().includes(search.toLowerCase()));
-  }, [deities, search]);
+  useEffect(() => {
+    if (!actionMenuId) return;
+    const onDocClick = () => setActionMenuId(null);
+    window.addEventListener("click", onDocClick);
+    return () => window.removeEventListener("click", onDocClick);
+  }, [actionMenuId]);
 
-  const deityColumns: ColumnDef<Deity>[] = useMemo(
+  useEffect(() => {
+    if (!imagePreview) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setImagePreview(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [imagePreview]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const params = new URLSearchParams({
+      q: search,
+      status: statusFilter,
+      country: "all",
+      sortBy,
+      page: String(page),
+      pageSize: String(pageSize),
+    });
+    try {
+      const res = await fetch(`/api/super-admin/deities?${params.toString()}`, { cache: "no-store" });
+      const json = (await res.json().catch(() => null)) as {
+        success?: boolean;
+        data?: MasterDeityListPayload;
+        error?: { message?: string };
+      };
+      if (!res.ok || !json.success || !json.data) {
+        setError(json.error?.message ?? "Failed to load deities.");
+        setRows([]);
+        setTotal(0);
+        setTotalPages(1);
+        return;
+      }
+      const d = json.data;
+      setRows(Array.isArray(d.data) ? d.data : []);
+      setTotal(d.total);
+      setTotalAll(d.totalAll);
+      setTotalPages(d.totalPages);
+      if (page > d.totalPages) {
+        setPage(d.totalPages);
+      }
+    } catch {
+      setError("Network error — could not load deities.");
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [search, statusFilter, sortBy, page, pageSize]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const openModal = (mode: DeityModalMode, row: MasterDeityRow | null) => {
+    setActionMenuId(null);
+    setModal({ open: true, mode, row });
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- reserved when row action menu is restored
+  const patchActive = async (row: MasterDeityRow, next: boolean) => {
+    setActionBusyId(row.id);
+    setActionMenuId(null);
+    try {
+      const res = await fetch(`/api/super-admin/deities/${encodeURIComponent(row.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ isActive: next }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) {
+        setError(json?.error?.message ?? "Update failed.");
+        return;
+      }
+      await load();
+    } catch {
+      setError("Network error.");
+    } finally {
+      setActionBusyId(null);
+    }
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- reserved for action menu
+  const softDelete = async (row: MasterDeityRow) => {
+    if (!window.confirm(`Deactivate “${row.name}”? It will be hidden from temple onboarding.`)) return;
+    setActionBusyId(row.id);
+    setActionMenuId(null);
+    try {
+      const res = await fetch(`/api/super-admin/deities/${encodeURIComponent(row.id)}`, {
+        method: "DELETE",
+        headers: { Accept: "application/json" },
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) {
+        setError(json?.error?.message ?? "Could not deactivate.");
+        return;
+      }
+      await load();
+    } catch {
+      setError("Network error.");
+    } finally {
+      setActionBusyId(null);
+    }
+  };
+
+  const columns: ColumnDef<MasterDeityRow>[] = useMemo(
     () => [
       {
-        key: "id",
+        key: "displayCode",
         header: "Deity ID",
         cell: (d) => (
-          <span className="text-xs font-bold text-text-tertiary tracking-widest">#{d.id}</span>
+          <span className="font-mono text-xs font-semibold text-text-tertiary">{d.displayCode}</span>
         ),
       },
       {
         key: "image",
         header: "Image",
-        cell: () => (
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-subtle">
-            <ImageIcon className="h-5 w-5 text-text-quaternary" />
-          </div>
-        ),
+        cell: (d) =>
+          d.imageDataUrl ? (
+            <button
+              type="button"
+              className="group relative h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-border ring-offset-background transition hover:border-[var(--brand-primary)]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)]"
+              aria-label={`View full image: ${d.name}`}
+              title="View image"
+              onClick={(e) => {
+                e.stopPropagation();
+                setImagePreview({ src: d.imageDataUrl, title: d.name });
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={d.imageDataUrl}
+                alt=""
+                className="h-full w-full object-cover transition group-hover:opacity-90"
+              />
+            </button>
+          ) : (
+            <div
+              className={`flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-gradient-to-br ${d.placeholderHue ?? "from-zinc-400 to-zinc-600"} text-[10px] font-bold text-white shadow-sm`}
+              aria-hidden
+            >
+              <ImageIcon className="h-4 w-4 text-white/90" />
+            </div>
+          ),
       },
       {
         key: "name",
         header: "Name",
-        cell: (d) => <span className="text-sm font-bold text-text-primary">{d.name}</span>,
+        cell: (d) => (
+          <div>
+            <span className="text-sm font-bold text-text-primary">{d.name}</span>
+            {d.secondaryLabel ? (
+              <span className="ml-1.5 text-xs text-text-tertiary">{d.secondaryLabel}</span>
+            ) : null}
+          </div>
+        ),
       },
       {
         key: "status",
         header: "Status",
-        cell: (d) => <StatusBadge status={d.status} />,
+        cell: (d) => <StatusBadge status={d.isActive ? "Active" : "Inactive"} />,
       },
       {
         key: "actions",
         header: "Actions",
         align: "right",
-        cell: () => (
-          <div className="flex items-center justify-end gap-1">
-            <button
-              type="button"
-              className="rounded-lg p-2 text-text-quaternary transition-all hover:bg-orange-50 hover:text-[var(--brand-primary)]"
-            >
-              <Pencil className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              className="rounded-lg p-2 text-text-quaternary transition-all hover:bg-red-50 hover:text-red-500"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-            <button type="button" className="rounded-lg p-2 text-text-quaternary hover:text-text-primary">
-              <MoreVertical className="h-4 w-4" />
-            </button>
+        cell: (d) => (
+          <div className="relative flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+            {actionBusyId === d.id ? (
+              <Loader2 className="h-4 w-4 animate-spin text-text-quaternary" />
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  aria-label="View deity"
+                  title="View"
+                  onClick={() => openModal("view", d)}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  aria-label="Edit deity"
+                  title="Edit"
+                  onClick={() => openModal("edit", d)}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                {/* <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActionMenuId((cur) => (cur === d.id ? null : d.id));
+                  }}
+                  className="rounded-lg p-2 text-text-quaternary hover:bg-subtle hover:text-text-primary"
+                  aria-label="More actions"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </button> */}
+                {/* {actionMenuId === d.id ? (
+                  <div
+                    className="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl border border-border bg-surface py-1 shadow-xl"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {d.isActive ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs font-medium text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/30"
+                        onClick={() => void softDelete(d)}
+                      >
+                        Deactivate
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs font-medium text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/30"
+                        onClick={() => void patchActive(d, true)}
+                      >
+                        Activate
+                      </button>
+                    )}
+                  </div>
+                ) : null} */}
+              </>
+            )}
           </div>
         ),
       },
     ],
-    [],
+    [actionBusyId],
   );
 
-  const handleAddDeity = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    // Simulate API delay
-    setTimeout(() => {
-      const newDeity = {
-        id: String(deities.length + 1).padStart(4, '0'),
-        name: formData.name,
-        status: formData.status,
-        image: null
-      };
-      setDeities([newDeity, ...deities]);
-      setIsModalOpen(false);
-      setFormData({ name: "", status: "Active", image: null });
-      setIsSubmitting(false);
-    }, 600);
-  };
-
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-text-primary">Deities</h1>
-          <p className="mt-1 text-sm font-medium text-text-tertiary">Manage and monitor deities here.</p>
-        </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="h-11 px-6 rounded-xl bg-[var(--brand-primary)] text-white text-sm font-bold shadow-lg shadow-orange-500/20 hover:scale-105 transition-all flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" /> Add New Deity
-        </button>
-      </div>
-
-      {/* Filters & Search */}
-      <div className="flex flex-col gap-4 rounded-2xl border border-border bg-surface p-4 shadow-sm sm:flex-row sm:items-center">
-        <div className="relative w-full flex-1">
-          <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-quaternary" />
-          <input
-            type="text"
-            placeholder="Search by name..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-11 w-full rounded-xl border border-border bg-subtle py-2 pl-11 pr-4 text-sm font-medium text-text-primary outline-none transition-all focus:border-[var(--brand-primary)]"
-          />
-        </div>
-        <div className="flex items-center gap-2 rounded-xl bg-subtle p-1">
-          <button
+    <div className="space-y-5 animate-in fade-in duration-500">
+      <DashboardPageHeader
+        title="Deities"
+        titleAccessory={
+          <span className="rounded-full border border-border bg-subtle px-2.5 py-0.5 text-xs font-semibold text-text-secondary">
+            {totalAll} deities
+          </span>
+        }
+        description="Manage and monitor deities here."
+        actions={
+          <Button
             type="button"
-            className="rounded-lg bg-surface px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-text-primary shadow-sm"
+            leadingIcon={<Plus className="h-4 w-4" />}
+            onClick={() => openModal("create", null)}
           >
-            All
-          </button>
-          <button
-            type="button"
-            className="rounded-lg px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-text-tertiary transition-colors hover:text-text-primary"
-          >
-            Active
-          </button>
-          <button
-            type="button"
-            className="rounded-lg px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-text-tertiary transition-colors hover:text-text-primary"
-          >
-            Inactive
-          </button>
-        </div>
-      </div>
+            Add New Deity
+          </Button>
+        }
+      />
 
-      <div className="overflow-hidden rounded-3xl border border-border bg-surface shadow-sm">
-        <DataTable<Deity>
-          columns={deityColumns}
-          data={filteredDeities}
-          keyExtractor={(d) => d.id}
-          className="min-w-[600px]"
+      {error ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+          {error}
+        </div>
+      ) : null}
+
+      <AdminListCard>
+        <DeitiesFiltersBar
+          search={searchInput}
+          onSearchChange={setSearchInput}
+          status={statusFilter}
+          onStatusChange={(s) => {
+            setStatusFilter(s);
+            setPage(1);
+          }}
+          sortBy={sortBy}
+          onSortByChange={(s) => {
+            setSortBy(s);
+            setPage(1);
+          }}
         />
-      </div>
 
-      {/* Add Deity Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-          <div className="relative z-10 w-full max-w-lg bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+        {loading && rows.length === 0 ? (
+          <div className="flex items-center justify-center gap-2 py-16 text-text-tertiary">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <span className="text-sm">Loading deities…</span>
+          </div>
+        ) : (
+          <DataTable<MasterDeityRow>
+            columns={columns}
+            data={rows}
+            keyExtractor={(d) => d.id}
+            tableClassName="min-w-[720px]"
+            isLoading={loading}
+            loadingRows={pageSize}
+          />
+        )}
 
-            <div className="p-8 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
-              <div>
-                <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Add New Deity</h2>
-                <p className="text-xs text-zinc-500 font-medium mt-1">Create a new deity profile for the master registry.</p>
-              </div>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors">
-                <X className="w-5 h-5 text-zinc-400" />
+        <AdminPagination
+          page={page}
+          pageSize={pageSize}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
+        <p className="border-t border-border px-4 py-3 text-xs text-text-tertiary">
+          {total} filtered results{sortBy === "timeline" ? " (sorted by timeline)" : ""} · {totalAll} total
+        </p>
+      </AdminListCard>
+
+      {modal.open ? (
+        <DeityUpsertModal
+          open
+          mode={modal.mode}
+          initial={modal.row}
+          onClose={() => setModal({ open: false })}
+          onSaved={() => void load()}
+        />
+      ) : null}
+
+      {imagePreview ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-8" role="presentation">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setImagePreview(null)}
+            aria-label="Close image preview"
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Image: ${imagePreview.title}`}
+            className="relative z-10 flex max-h-[min(92vh,900px)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-950 shadow-2xl dark:border-zinc-800"
+          >
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-zinc-800 bg-zinc-900 px-4 py-3">
+              <p className="min-w-0 truncate text-sm font-semibold text-zinc-100">{imagePreview.title}</p>
+              <button
+                type="button"
+                onClick={() => setImagePreview(null)}
+                className="shrink-0 rounded-lg p-2 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
               </button>
             </div>
-
-            <form onSubmit={handleAddDeity} className="p-8 space-y-6">
-
-              {/* Image Upload Area */}
-              <div className="space-y-3">
-                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Deity Image</label>
-                <div className="flex flex-col items-center justify-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl p-8 bg-zinc-50/50 hover:bg-white transition-all group cursor-pointer">
-                  <div className="w-12 h-12 rounded-2xl bg-white dark:bg-zinc-800 flex items-center justify-center shadow-sm mb-3 group-hover:scale-110 transition-transform">
-                    <Upload className="w-5 h-5 text-[var(--brand-primary)]" />
-                  </div>
-                  <p className="text-xs font-bold text-zinc-900 dark:text-zinc-200"><span className="text-[var(--brand-primary)]">Click to upload</span> or drag and drop</p>
-                  <p className="text-[10px] text-zinc-400 font-medium mt-1 uppercase">SVG, PNG, JPG or WEBP (MAX. 800x800px)</p>
-                </div>
-              </div>
-
-              {/* Name Input */}
-              <div>
-                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Deity Name *</label>
-                <input
-                  required
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Enter deity name..."
-                  className="w-full h-12 px-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-bold focus:border-[var(--brand-primary)] outline-none"
-                />
-              </div>
-
-              {/* Status Toggle */}
-              <div className="flex items-center justify-between p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800">
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${formData.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-zinc-200 text-zinc-500'}`}>
-                    <CheckCircle2 className="w-4 h-4" />
-                  </div>
-                  <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">Status: {formData.status}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, status: formData.status === 'Active' ? 'Inactive' : 'Active' })}
-                  className={`relative w-11 h-6 rounded-full transition-colors ${formData.status === 'Active' ? 'bg-[var(--brand-primary)]' : 'bg-zinc-300'}`}
-                >
-                  <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${formData.status === 'Active' ? 'translate-x-5' : 'translate-x-0'}`} />
-                </button>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 h-12 rounded-xl text-sm font-bold text-zinc-400 hover:bg-zinc-50 transition-all">Cancel</button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 h-12 rounded-xl bg-[var(--brand-primary)] text-white text-sm font-bold shadow-xl shadow-orange-500/20 hover:scale-105 transition-all flex items-center justify-center gap-2"
-                >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />}
-                  Save Deity
-                </button>
-              </div>
-            </form>
+            <div className="flex min-h-0 flex-1 items-center justify-center bg-zinc-950 p-4 sm:p-6">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imagePreview.src}
+                alt={imagePreview.title}
+                className="max-h-[min(78vh,760px)] w-auto max-w-full object-contain"
+              />
+            </div>
           </div>
         </div>
-      )}
-
+      ) : null}
     </div>
-  );
-}
-
-function SaveIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-    </svg>
   );
 }

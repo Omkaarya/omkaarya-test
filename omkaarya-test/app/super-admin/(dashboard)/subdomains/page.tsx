@@ -6,9 +6,11 @@ import { Pencil } from "lucide-react";
 import type { MockTemple } from "@/lib/mock-temples";
 import type { TemplesListResponse, TemplesSortBy } from "@/lib/temples-query";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
+import AdminListCard from "@/app/components/admin/AdminListCard";
 import AdminFiltersBar from "@/app/components/admin/AdminFiltersBar";
 import AdminPagination from "@/app/components/admin/AdminPagination";
 import StatusBadge from "@/app/components/admin/StatusBadge";
+import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
 
 type StatusFilter = "all" | "Active" | "Trial" | "Suspended";
 
@@ -20,26 +22,12 @@ function initials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-function TableSkeleton() {
-  return (
-    <div className="space-y-2 px-4 py-4">
-      {Array.from({ length: 10 }).map((_, i) => (
-        <div
-          key={i}
-          className="h-10 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800"
-          aria-hidden
-        />
-      ))}
-    </div>
-  );
-}
-
 export default function SubdomainsPage() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [country, setCountry] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<TemplesSortBy>("last7");
+  const [sortBy, setSortBy] = useState<TemplesSortBy>("name");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [rows, setRows] = useState<MockTemple[]>([]);
@@ -116,14 +104,14 @@ export default function SubdomainsPage() {
         cell: (row) => (
           <div className="flex items-start gap-3">
             <span
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-xs font-semibold text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-subtle text-xs font-semibold text-text-secondary"
               aria-hidden
             >
               {initials(row.name)}
             </span>
             <div className="min-w-0">
-              <p className="font-semibold text-zinc-900 dark:text-zinc-100">{row.name}</p>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">Temp ID {row.tenantId}</p>
+              <p className="font-semibold text-text-primary">{row.name}</p>
+              <p className="text-xs text-text-tertiary">Temp ID {row.tenantId}</p>
             </div>
           </div>
         ),
@@ -132,7 +120,7 @@ export default function SubdomainsPage() {
         key: "subdomain",
         header: "Subdomain",
         cell: (row) => (
-          <span className="text-sm text-zinc-800 dark:text-zinc-200">{row.subdomain || "—"}</span>
+          <span className="text-sm text-text-primary">{row.subdomain || "—"}</span>
         ),
       },
       {
@@ -149,7 +137,7 @@ export default function SubdomainsPage() {
               {row.portalHost}
             </a>
           ) : (
-            <span className="text-sm text-zinc-500">—</span>
+            <span className="text-sm text-text-tertiary">—</span>
           ),
       },
       {
@@ -160,7 +148,7 @@ export default function SubdomainsPage() {
             <span className="text-lg" aria-hidden>
               {row.countryFlag}
             </span>
-            <span className="text-zinc-800 dark:text-zinc-200">{row.city}</span>
+            <span className="text-text-primary">{row.city}</span>
           </div>
         ),
       },
@@ -177,7 +165,7 @@ export default function SubdomainsPage() {
           <Link
             href={`/super-admin/edit-temple/${encodeURIComponent(row.tenantId)}`}
             aria-label={`Edit ${row.name}`}
-            className="inline-flex rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            className="inline-flex rounded-lg p-2 text-text-quaternary hover:bg-subtle hover:text-text-primary"
           >
             <Pencil className="h-4 w-4" />
           </Link>
@@ -188,24 +176,22 @@ export default function SubdomainsPage() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-[min(100rem,calc(100vw-2rem))]">
-      <div className="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex flex-col gap-4 border-b border-zinc-100 p-6 dark:border-zinc-800 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-                Subdomains
-              </h1>
-              <span className="rounded-md bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
-                {totalAll} temples
-              </span>
-            </div>
-            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-              Portal host (<span className="font-medium">*.omkaarya.com</span>) for each temple, from the database.
-            </p>
-          </div>
-        </div>
+    <div className="space-y-5 animate-in fade-in duration-500">
+      <DashboardPageHeader
+        title="Subdomains"
+        titleAccessory={
+          <span className="rounded-full border border-border bg-subtle px-2.5 py-0.5 text-xs font-semibold text-text-secondary">
+            {totalAll} temples
+          </span>
+        }
+        description={
+          <>
+            Portal host (<span className="font-medium">*.omkaarya.com</span>) for each temple, from the database.
+          </>
+        }
+      />
 
+      <AdminListCard>
         <AdminFiltersBar
           search={searchInput}
           onSearchChange={setSearchInput}
@@ -227,16 +213,16 @@ export default function SubdomainsPage() {
           }}
         />
 
-        {loading ? (
-          <TableSkeleton />
-        ) : error ? (
-          <p className="px-4 py-10 text-center text-sm text-red-600 dark:text-red-400">{error}</p>
+        {error ? (
+          <p className="px-6 py-10 text-center text-sm text-red-600 dark:text-red-400">{error}</p>
         ) : (
           <DataTable<MockTemple>
             columns={subdomainColumns}
             data={rows}
             keyExtractor={(row) => row.tenantId}
-            className="min-w-[640px]"
+            tableClassName="min-w-[640px]"
+            isLoading={loading}
+            loadingRows={pageSize}
           />
         )}
 
@@ -250,8 +236,10 @@ export default function SubdomainsPage() {
             setPage(1);
           }}
         />
-        <p className="px-4 pb-4 text-xs text-zinc-500 dark:text-zinc-400">{total} filtered results</p>
-      </div>
+        <p className="border-t border-border px-4 py-3 text-xs text-text-tertiary">
+          {total} filtered results{sortBy === "timeline" ? " (sorted by timeline)" : ""} · {totalAll} total on platform
+        </p>
+      </AdminListCard>
     </div>
   );
 }

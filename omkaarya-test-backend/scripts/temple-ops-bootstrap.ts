@@ -6,7 +6,7 @@
  *
  * Env:
  *   - Platform: DATABASE_URL or DB_* (same as main app)
- *   - TEMPLE_OPS_DB_HOST, TEMPLE_OPS_DB_USER, TEMPLE_OPS_DB_PASS, TEMPLE_OPS_DB_PORT — target server for the new DB
+ *   - TEMPLE_OPS_DB_HOST, TEMPLE_OPS_DB_USER, TEMPLE_OPS_DB_PASS, TEMPLE_OPS_DB_PORT — optional; default to DB_HOST, DB_USER, DB_PASS, DB_PORT (same role on one server; only the database name differs per temple)
  *   - TEMPLE_OPS_DB_NAME_PREFIX (default omkaarya_temple_) — database name = prefix + tenant_id (sanitized)
  *   - TEMPLE_OPS_PG_SUPERUSER_URL — optional; connect to maintenance DB `postgres` to run CREATE DATABASE
  */
@@ -65,7 +65,7 @@ async function main(): Promise<void> {
 
   const platformClient = new pg.Client(platformConfig);
   await platformClient.connect();
-  let adminUserId: number | undefined;
+  let adminUserId: string | undefined;
   try {
     const t = await platformClient.query<{ tenant_id: string; operational_db_name: string | null }>(
       `SELECT tenant_id, operational_db_name FROM public.temples WHERE tenant_id = $1 LIMIT 1`,
@@ -76,10 +76,10 @@ async function main(): Promise<void> {
       process.exit(1);
     }
 
-    const uid = await platformClient.query<{ id: number }>(
+    const uid = await platformClient.query<{ id: string }>(
       `SELECT u.id FROM public.users u
         WHERE u.tenant_id = $1
-        ORDER BY u.id ASC
+        ORDER BY u.email ASC
         LIMIT 1`,
       [tenantId]
     );
@@ -99,7 +99,7 @@ async function main(): Promise<void> {
   });
   if (!bootstrapCfg) {
     console.error(
-      "[temple-ops:bootstrap] Cannot build ops pool config — set TEMPLE_OPS_DB_HOST, TEMPLE_OPS_DB_USER (and PASS/PORT as needed)."
+      "[temple-ops:bootstrap] Cannot build ops pool config — set DB_HOST and DB_USER (or TEMPLE_OPS_DB_HOST / TEMPLE_OPS_DB_USER), and password/port as needed."
     );
     process.exit(1);
   }

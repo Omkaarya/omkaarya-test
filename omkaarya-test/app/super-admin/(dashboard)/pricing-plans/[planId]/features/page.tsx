@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import GuardedBackLink from "@/app/components/admin/GuardedBackLink";
+import PostSaveSuccessBanner from "@/app/components/admin/PostSaveSuccessBanner";
+import UnsavedChangesDialog from "@/app/components/admin/UnsavedChangesDialog";
+import { usePostSaveSuccess } from "@/lib/use-post-save-success";
+import { useUnsavedFormGuard } from "@/lib/use-unsaved-form-guard";
 import {
   ArrowLeft,
   Save,
@@ -10,13 +15,14 @@ import {
   ToggleRight,
   AlertTriangle,
   CheckCircle2,
-  Loader2,
 } from "lucide-react";
+import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
+import { Button } from "@/app/components/ds/atoms/Button";
 
 // ── Types ──────────────────────────────────────────────────────────
 
 type PlanFeatureConfig = {
-  featureId: number;
+  featureId: string;
   featureName: string;
   featureKey: string;
   moduleKey: string;
@@ -62,9 +68,12 @@ function isUuidString(s: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
 }
 
+const LIST_PATH = "/super-admin/pricing-plans";
+
 // ── Main Page ──────────────────────────────────────────────────────
 
 export default function PlanFeaturesPage() {
+  const router = useRouter();
   const params = useParams();
   const planId = decodeURIComponent(params.planId as string);
   const legacyMeta = PLAN_META[planId];
@@ -77,6 +86,8 @@ export default function PlanFeaturesPage() {
   const [dirty, setDirty] = useState(false);
   const [fetchedPlanName, setFetchedPlanName] = useState<string | null>(null);
   const visGuardRef = useRef<number>(Date.now());
+  const postSave = usePostSaveSuccess({ router });
+  const formGuard = useUnsavedFormGuard({ isDirty: dirty, enabled: !postSave.isLocked });
 
   const displayPlanName = legacyMeta?.label ?? fetchedPlanName ?? planId;
   const meta = legacyMeta ?? {
@@ -149,7 +160,7 @@ export default function PlanFeaturesPage() {
 
   // ── Handlers ────────────────────────────────────────────────────
 
-  const toggleFeature = (featureId: number) => {
+  const toggleFeature = (featureId: string) => {
     setFeatures((prev) =>
       prev.map((f) =>
         f.featureId === featureId ? { ...f, isEnabled: !f.isEnabled } : f
@@ -159,7 +170,7 @@ export default function PlanFeaturesPage() {
     setSaved(false);
   };
 
-  const setLimit = (featureId: number, value: string) => {
+  const setLimit = (featureId: string, value: string) => {
     const numValue = value === "" ? null : parseInt(value, 10);
     setFeatures((prev) =>
       prev.map((f) =>
@@ -201,6 +212,11 @@ export default function PlanFeaturesPage() {
       }
       setSaved(true);
       setDirty(false);
+      formGuard.markClean();
+      postSave.triggerSuccess({
+        message: `Feature configuration saved for ${displayPlanName}.`,
+        redirectTo: LIST_PATH,
+      });
     } catch {
       setError("Failed to save feature configuration");
     } finally {
@@ -216,46 +232,43 @@ export default function PlanFeaturesPage() {
   return (
     <div className="mx-auto w-full max-w-[min(100rem,calc(100vw-2rem))]">
       <div className="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        {/* Header */}
-        <div className="flex flex-col gap-4 border-b border-zinc-100 p-6 dark:border-zinc-800 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <Link
-              href="/super-admin/pricing-plans"
-              className="mb-2 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--brand-primary)] hover:underline"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to Pricing Plans
-            </Link>
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-                Feature Configuration
-              </h1>
-              <span className={`rounded-full px-3 py-0.5 text-xs font-semibold ${meta.tierColor}`}>
-                {meta.label}
-              </span>
-            </div>
-            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-              Enable or disable features · Set limits for metered features · {enabledCount}/{features.length} enabled
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={enableAll}
-              className="rounded-lg border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              Enable All
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving || !dirty}
-              className="inline-flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)] disabled:opacity-50"
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {saving ? "Saving…" : "Save Configuration"}
-            </button>
-          </div>
+        <div className="border-b border-zinc-100 p-6 dark:border-zinc-800">
+          <DashboardPageHeader
+            breadcrumb={
+              <GuardedBackLink
+                href={LIST_PATH}
+                onNavigate={formGuard.requestNavigate}
+                className="inline-flex items-center gap-1.5 font-medium text-[var(--brand-primary)] hover:underline"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to pricing plans
+              </GuardedBackLink>
+            }
+            title="Feature configuration"
+            titleAccessory={
+              <span className={`rounded-full px-3 py-0.5 text-xs font-semibold ${meta.tierColor}`}>{meta.label}</span>
+            }
+            description={`Enable or disable features · Set limits for metered features · ${enabledCount}/${features.length} enabled`}
+            actions={
+              <>
+                <Button type="button" variant="outline" size="sm" onClick={enableAll}>
+                  Enable all
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  className="gap-2"
+                  loading={saving}
+                  disabled={!dirty || postSave.isLocked}
+                  onClick={handleSave}
+                  leadingIcon={!saving ? <Save className="h-4 w-4" /> : undefined}
+                >
+                  {saving ? "Saving…" : "Save configuration"}
+                </Button>
+              </>
+            }
+          />
         </div>
 
         {/* Status Messages */}
@@ -265,12 +278,7 @@ export default function PlanFeaturesPage() {
             {error}
           </div>
         )}
-        {saved && (
-          <div className="mx-6 mt-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            Feature configuration saved successfully for <strong>{displayPlanName}</strong> plan.
-          </div>
-        )}
+        <PostSaveSuccessBanner text={postSave.bannerText} className="mx-6 mt-4" />
 
         {/* Feature Groups */}
         {loading ? (
@@ -373,6 +381,12 @@ export default function PlanFeaturesPage() {
           </div>
         )}
       </div>
+
+      <UnsavedChangesDialog
+        dialogRef={formGuard.dialogRef}
+        onStay={formGuard.closeDialog}
+        onLeave={formGuard.confirmLeave}
+      />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { dispatchPendingPaymentSubmissionsChanged } from "@/lib/pending-payment-
 import { CheckCircle2, X, XCircle } from "lucide-react";
 
 import { Button } from "@/app/components/ds/atoms/Button";
+import { LargeDetailCardSkeleton } from "@/app/components/admin/ApiFetchPlaceholders";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -87,6 +88,7 @@ function toUi(r: ApiP): PendingPayment {
 
 export default function ConfirmPaymentsPage() {
   const [payments, setPayments] = useState<PendingPayment[]>([]);
+  const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [toast, setToast] = useState<{
     message: string;
@@ -99,23 +101,29 @@ export default function ConfirmPaymentsPage() {
   }, []);
 
   const load = useCallback(async () => {
+    setLoading(true);
     setLoadErr(null);
-    const res = await fetch("/api/billing/payment-submissions/pending", {
-      cache: "no-store",
-    });
-    const d = (await res.json().catch(() => null)) as {
-      success?: boolean;
-      data?: { data: ApiP[] };
-    } | null;
-    if (!d || d.success !== true || !d.data) {
-      setLoadErr(jsonApiErrorMessage(d) || "Failed to load pending payments");
-      setPayments([]);
-      return;
+    try {
+      const res = await fetch("/api/billing/payment-submissions/pending", {
+        cache: "no-store",
+      });
+      const d = (await res.json().catch(() => null)) as {
+        success?: boolean;
+        data?: { data: ApiP[] };
+      } | null;
+      if (!d || d.success !== true || !d.data) {
+        setLoadErr(jsonApiErrorMessage(d) || "Failed to load pending payments");
+        setPayments([]);
+        return;
+      }
+      setPayments((d.data.data ?? []).map(toUi));
+    } finally {
+      setLoading(false);
     }
-    setPayments((d.data.data ?? []).map(toUi));
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load pending payments on mount
     void load();
   }, [load]);
 
@@ -201,7 +209,9 @@ export default function ConfirmPaymentsPage() {
         <span className="text-lg shrink-0 mt-0.5">⏳</span>
         <div>
           <p className="text-xs font-bold text-amber-800 dark:text-amber-300 mb-1">
-            {payments.length} temples awaiting payment verification
+            {loading
+              ? "Loading pending submissions…"
+              : `${payments.length} temple${payments.length !== 1 ? "s" : ""} awaiting payment verification`}
           </p>
           <p className="text-xs text-text-secondary leading-relaxed">
             When a temple clicks &quot;I&apos;ve completed the transfer&quot;,
@@ -213,7 +223,11 @@ export default function ConfirmPaymentsPage() {
 
       {/* Payment Cards */}
       <div className="space-y-3">
-        {payments.map((payment) => (
+        {loading ? (
+          <LargeDetailCardSkeleton count={2} />
+        ) : null}
+        {!loading &&
+          payments.map((payment) => (
           <div
             key={payment.id}
             className="bg-surface rounded-xl border border-border p-5"
@@ -324,7 +338,7 @@ export default function ConfirmPaymentsPage() {
           </div>
         ))}
 
-        {payments.length === 0 && (
+        {!loading && payments.length === 0 && (
           <div className="bg-surface rounded-xl border border-border p-12 text-center">
             <div className="text-4xl mb-3">✅</div>
             <h3 className="text-sm font-bold text-text-primary mb-1">

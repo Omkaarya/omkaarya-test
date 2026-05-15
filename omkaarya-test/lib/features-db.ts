@@ -13,7 +13,7 @@ import { getPoolConfig } from "@/lib/pg-config";
 export type LimitType = "number" | "boolean" | null;
 
 export type Feature = {
-  id: number;
+  id: string;
   name: string;
   key: string;
   moduleKey: string;
@@ -59,7 +59,7 @@ function getPool(): Pool {
  * each `pricing_plans.features` JSON array so it disappears from plan UIs until re-activated.
  */
 export async function removeFeatureFromAllPricingPlans(
-  featureId: number,
+  featureId: string,
   nameToRemoveFromJson: string
 ): Promise<void> {
   const p = getPool();
@@ -83,7 +83,7 @@ export async function removeFeatureFromAllPricingPlans(
 // ── Row → Feature mapper ──────────────────────────────────────────
 
 function rowToFeature(r: {
-  id: number;
+  id: string;
   name: string;
   key: string;
   module_key: string;
@@ -166,7 +166,7 @@ export async function insertFeature(input: CreateFeatureInput): Promise<Feature>
 }
 
 /** Update an existing feature (key is immutable). */
-export async function updateFeature(id: number, input: UpdateFeatureInput): Promise<Feature | null> {
+export async function updateFeature(id: string, input: UpdateFeatureInput): Promise<Feature | null> {
   const p = getPool();
   const before = await p.query<{ is_active: boolean; name: string }>(
     `SELECT is_active, name FROM public.features WHERE id = $1`,
@@ -204,7 +204,7 @@ export async function updateFeature(id: number, input: UpdateFeatureInput): Prom
 }
 
 /** Toggle is_active flag for a feature. */
-export async function toggleFeatureActive(id: number): Promise<Feature | null> {
+export async function toggleFeatureActive(id: string): Promise<Feature | null> {
   const p = getPool();
   const cur = await p.query<{ is_active: boolean; name: string }>(
     `SELECT is_active, name FROM public.features WHERE id = $1`,

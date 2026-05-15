@@ -6,6 +6,7 @@ import { Badge } from "@/app/components/ds/atoms/Badge";
 import { MetricCard } from "@/app/components/ds/molecules/MetricCard";
 import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
+import { MetricCardGridSkeleton } from "@/app/components/admin/ApiFetchPlaceholders";
 
 // ── Page Component ──────────────────────────────────────────────────
 
@@ -58,22 +59,28 @@ function timeAgo(iso: string | null): string {
 }
 
 export default function SuperAdminDashboard() {
+  const [loading, setLoading] = useState(true);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
 
   useEffect(() => {
     let cancel = false;
     (async () => {
+      setLoading(true);
       setLoadErr(null);
-      const res = await fetch(`/api/super-admin/dashboard/overview?period=this-month`, { cache: "no-store" });
-      const j = (await res.json().catch(() => null)) as { success?: boolean; data?: Overview } | null;
-      if (cancel) return;
-      if (!j || j.success !== true || !j.data) {
-        setOverview(null);
-        setLoadErr(jsonApiErrorMessage(j) || "Failed to load dashboard overview");
-        return;
+      try {
+        const res = await fetch(`/api/super-admin/dashboard/overview?period=this-month`, { cache: "no-store" });
+        const j = (await res.json().catch(() => null)) as { success?: boolean; data?: Overview } | null;
+        if (cancel) return;
+        if (!j || j.success !== true || !j.data) {
+          setOverview(null);
+          setLoadErr(jsonApiErrorMessage(j) || "Failed to load dashboard overview");
+          return;
+        }
+        setOverview(j.data);
+      } finally {
+        if (!cancel) setLoading(false);
       }
-      setOverview(j.data);
     })();
     return () => {
       cancel = true;
@@ -114,8 +121,12 @@ export default function SuperAdminDashboard() {
             monitoring.
           </p>
         </div>
-        <Badge color={overview ? "success" : "warning"} size="sm" className="font-bold py-1 px-3">
-          {overview ? "SYSTEM ONLINE" : "SYSTEM DEGRADED"}
+        <Badge
+          color={loading ? "gray" : overview ? "success" : "warning"}
+          size="sm"
+          className="font-bold py-1 px-3"
+        >
+          {loading ? "LOADING…" : overview ? "SYSTEM ONLINE" : "SYSTEM DEGRADED"}
         </Badge>
       </div>
 
@@ -127,32 +138,40 @@ export default function SuperAdminDashboard() {
             Global Temple Health
           </h2>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard
-            title="Total Temples"
-            value={overview ? String(overview.kpis.totalTemples) : "—"}
-            trendLabel="Total onboarded"
-            chartColor="brand"
-          />
-          <MetricCard
-            title="Plan Breakdown"
-            value={overview && topPlan ? `${topPlan.percent}%` : "—"}
-            trendLabel={overview && topPlan ? `${topPlan.plan} (${topPlan.count})` : "Top plan"}
-            chartColor="brand"
-          />
-          <MetricCard
-            title="Global Devotees"
-            value={overview ? compactNumber(overview.kpis.globalDevotees) : "—"}
-            trendLabel="Sum across temples"
-            chartColor="brand"
-          />
-          <MetricCard
-            title="Avg. Compliance"
-            value={overview?.kpis.avgCompliancePct != null ? `${overview.kpis.avgCompliancePct}%` : "—"}
-            trendLabel="From compliance status"
-            chartColor="success"
-          />
-        </div>
+        {loading ? (
+          <MetricCardGridSkeleton count={4} />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <MetricCard
+              title="Total Temples"
+              value={overview ? String(overview.kpis.totalTemples) : "—"}
+              trendLabel="Total onboarded"
+              chartColor="brand"
+              showMenu={false}
+            />
+            <MetricCard
+              title="Plan Breakdown"
+              value={overview && topPlan ? `${topPlan.percent}%` : "—"}
+              trendLabel={overview && topPlan ? `${topPlan.plan} (${topPlan.count})` : "Top plan"}
+              chartColor="brand"
+              showMenu={false}
+            />
+            <MetricCard
+              title="Global Devotees"
+              value={overview ? compactNumber(overview.kpis.globalDevotees) : "—"}
+              trendLabel="Sum across temples"
+              chartColor="brand"
+              showMenu={false}
+            />
+            <MetricCard
+              title="Avg. Compliance"
+              value={overview?.kpis.avgCompliancePct != null ? `${overview.kpis.avgCompliancePct}%` : "—"}
+              trendLabel="From compliance status"
+              chartColor="success"
+              showMenu={false}
+            />
+          </div>
+        )}
       </div>
 
       {/* ── SECTION 2: Financial & Subscription Analytics ── */}
@@ -163,32 +182,40 @@ export default function SuperAdminDashboard() {
             Financial Performance
           </h2>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard
-            title="Total Revenue"
-            value={overview ? formatUsdFromCents(overview.kpis.financial.kpis.paidAmountCents) : "—"}
-            trendLabel="Confirmed this period"
-            chartColor="success"
-          />
-          <MetricCard
-            title="Pending Subs"
-            value={overview ? String(pendingPaymentAlert?.count ?? 0) : "—"}
-            trendLabel="Awaiting verification"
-            chartColor="warning"
-          />
-          <MetricCard
-            title="Active Subs"
-            value={overview ? String(overview.kpis.financial.kpis.activeTemples) : "—"}
-            trendLabel={overview ? `${overview.kpis.financial.kpis.trialTemples} on trial` : "Verified accounts"}
-            chartColor="brand"
-          />
-          <MetricCard
-            title="Avg. MRR"
-            value={overview ? formatUsdFromCents(overview.kpis.financial.kpis.paidAmountCents) : "—"}
-            trendLabel="Recurring revenue (period)"
-            chartColor="brand"
-          />
-        </div>
+        {loading ? (
+          <MetricCardGridSkeleton count={4} />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <MetricCard
+              title="Total Revenue"
+              value={overview ? formatUsdFromCents(overview.kpis.financial.kpis.paidAmountCents) : "—"}
+              trendLabel="Confirmed this period"
+              chartColor="success"
+              showMenu={false}
+            />
+            <MetricCard
+              title="Pending Subs"
+              value={overview ? String(pendingPaymentAlert?.count ?? 0) : "—"}
+              trendLabel="Awaiting verification"
+              chartColor="warning"
+              showMenu={false}
+            />
+            <MetricCard
+              title="Active Subs"
+              value={overview ? String(overview.kpis.financial.kpis.activeTemples) : "—"}
+              trendLabel={overview ? `${overview.kpis.financial.kpis.trialTemples} on trial` : "Verified accounts"}
+              chartColor="brand"
+              showMenu={false}
+            />
+            <MetricCard
+              title="Avg. MRR"
+              value={overview ? formatUsdFromCents(overview.kpis.financial.kpis.paidAmountCents) : "—"}
+              trendLabel="Recurring revenue (period)"
+              chartColor="brand"
+              showMenu={false}
+            />
+          </div>
+        )}
       </div>
 
       {/* ── SECTION 3: Operations & Reports ── */}
@@ -217,7 +244,14 @@ export default function SuperAdminDashboard() {
             Critical Alerts
           </h3>
           <div className="space-y-3">
-            {(overview?.alerts ?? []).map((alert, i) => (
+            {loading && (
+              <div className="animate-pulse space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-12 rounded-xl bg-subtle border border-border" />
+                ))}
+              </div>
+            )}
+            {!loading && (overview?.alerts ?? []).map((alert, i) => (
               <div
                 key={i}
                 className="flex items-center gap-3 p-3 rounded-xl bg-subtle border border-border"

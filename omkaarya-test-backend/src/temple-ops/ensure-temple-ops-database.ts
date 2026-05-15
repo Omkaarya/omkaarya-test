@@ -12,11 +12,19 @@ function safeOperationalDbName(prefix: string, tenantId: string): string {
   return combined.slice(0, 63);
 }
 
+async function operationalDbExistsOnCluster(platform: pg.Client, dbName: string): Promise<boolean> {
+  const r = await platform.query<{ exists: boolean }>(
+    `SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = $1) AS exists`,
+    [dbName]
+  );
+  return r.rows[0]?.exists === true;
+}
+
 async function ensureDatabaseExists(dbName: string): Promise<void> {
   const superUrl = process.env.TEMPLE_OPS_PG_SUPERUSER_URL?.trim();
   if (!superUrl) {
     console.warn(
-      "[ensure-temple-ops-database] TEMPLE_OPS_PG_SUPERUSER_URL unset — skipping CREATE DATABASE (create manually or run temple-ops:bootstrap)."
+      "[ensure-temple-ops-database] TEMPLE_OPS_PG_SUPERUSER_URL unset — cannot CREATE DATABASE (set it, create the DB manually, or run temple-ops:bootstrap)."
     );
     return;
   }
@@ -41,11 +49,14 @@ async function ensureDatabaseExists(dbName: string): Promise<void> {
 
 export type EnsureTempleOpsDatabaseResult =
   | { ok: true; operationalDbName: string }
-  | { ok: false; reason: "no_platform_db" | "no_ops_config" };
+  | {
+      ok: false;
+      reason: "no_platform_db" | "no_ops_config" | "operational_db_not_created";
+    };
 
 /**
  * Ensures the temple has an operational DB name and migrations applied.
- * Returns `no_ops_config` when TEMPLE_OPS_DB_HOST (etc.) is missing — caller may treat as hard error for new temples.
+ * Returns `no_ops_config` when host/user for ops pools are missing (TEMPLE_OPS_DB_* or DB_*) — caller may treat as hard error for new temples.
  */
 export async function ensureTempleOpsDatabaseMigrated(tenantId: string): Promise<EnsureTempleOpsDatabaseResult> {
   const id = tenantId.trim();
@@ -68,8 +79,17 @@ export async function ensureTempleOpsDatabaseMigrated(tenantId: string): Promise
     if (!operationalDbName) {
       const prefix = (process.env.TEMPLE_OPS_DB_NAME_PREFIX ?? "omkaarya_temple_").trim();
       operationalDbName = safeOperationalDbName(prefix, id);
-      await ensureDatabaseExists(operationalDbName);
     }
+
+    let exists = await operationalDbExistsOnCluster(platform, operationalDbName);
+    if (!exists) {
+      await ensureDatabaseExists(operationalDbName);
+      exists = await operationalDbExistsOnCluster(platform, operationalDbName);
+    }
+    if (!exists) {
+      return { ok: false, reason: "operational_db_not_created" };
+    }
+
     const cfg = poolConfigForTempleOperationalRow({
       operational_db_name: operationalDbName,
       operational_database_url: null,
@@ -78,10 +98,15 @@ export async function ensureTempleOpsDatabaseMigrated(tenantId: string): Promise
       return { ok: false, reason: "no_ops_config" };
     }
     await runPendingTempleOpsMigrations(cfg);
-    await platform.query(`UPDATE public.temples SET operational_db_name = $1 WHERE tenant_id = $2`, [
+    const upd = await platform.query(`UPDATE public.temples SET operational_db_name = $1 WHERE tenant_id = $2`, [
       operationalDbName,
       id,
     ]);
+    if ((upd.rowCount ?? 0) !== 1) {
+      throw new Error(
+        `Could not persist operational_db_name for tenant ${id}: UPDATE affected ${upd.rowCount ?? 0} row(s), expected 1.`
+      );
+    }
     return { ok: true, operationalDbName };
   } finally {
     await platform.end();

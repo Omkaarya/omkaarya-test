@@ -4,14 +4,13 @@ import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import {
-  Bell,
   Calendar,
   CheckCircle2,
   Download,
   Expand,
   Eye,
   FileText,
-  MoreVertical,
+  ChevronDown,
   Plus,
   Send,
   X,
@@ -20,8 +19,11 @@ import {
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Badge } from "@/app/components/ds/atoms/Badge";
 import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
-import { Pagination } from "@/app/components/ds/molecules/Pagination";
+import AdminListCard from "@/app/components/admin/AdminListCard";
+import AdminPagination from "@/app/components/admin/AdminPagination";
+import { AdminTableToolbar, AdminTableToolbarEnd, AdminTableToolbarStart } from "@/app/components/admin/AdminTableToolbar";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
+import { KpiTileGridSkeleton } from "@/app/components/admin/ApiFetchPlaceholders";
 import Link from "next/link";
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -97,8 +99,8 @@ function ActionsDropdown({ children }: { children: React.ReactNode }) {
   }, [open]);
   return (
     <div className="relative" ref={ref}>
-      <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(!open); }} className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors">
-        <MoreVertical className="h-4 w-4" />
+      <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(!open); }} className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors" aria-expanded={open} aria-label="Open actions menu">
+        <ChevronDown className="h-4 w-4" aria-hidden />
       </button>
       {open && <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-xl border border-border bg-surface shadow-xl animate-in fade-in zoom-in-95 duration-150" onClick={() => setOpen(false)}><div className="p-1.5">{children}</div></div>}
     </div>
@@ -296,8 +298,9 @@ export default function InvoicesPage() {
   const [listTotal, setListTotal] = useState(0);
   const [listTotalPages, setListTotalPages] = useState(1);
   const [kpi, setKpi] = useState({ all: 0, paid: 0, pending: 0, overdue: 0, draft: 0, loading: true, error: "" });
+  const [listLoading, setListLoading] = useState(true);
   const [searchDebounced, setSearchDebounced] = useState("");
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 400);
@@ -356,38 +359,47 @@ export default function InvoicesPage() {
     (async () => {
       const profRes = await fetch("/api/billing/profile", { cache: "no-store" });
       const prof = (await profRes.json().catch(() => null)) as { success?: boolean; data?: BillingProfile } | null;
-      if (!cancel && prof && prof.success === true && prof.data) setProfile(prof.data);
+      if (!cancel && prof && prof.success === true && prof.data) {
+        setProfile(prof.data);
+      }
     })();
     return () => { cancel = true; };
   }, []);
 
   const loadList = useCallback(async () => {
-    const p = new URLSearchParams();
-    p.set("status", statusForApi(filter));
-    p.set("page", String(page));
-    p.set("pageSize", String(pageSize));
-    if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
-    const res = await fetch(`/api/billing/invoices?${p.toString()}`, { cache: "no-store" });
-    const d = (await res.json().catch(() => null)) as
-      | { success?: boolean; data?: { data: ApiRow[]; total: number; totalPages: number } }
-      | null;
-    if (!d || d.success !== true || !d.data) {
-      setRows([]);
-      setListTotal(0);
-      setListTotalPages(1);
-      showToast(jsonApiErrorMessage(d) || "Failed to load invoices");
-      return;
+    setListLoading(true);
+    try {
+      const p = new URLSearchParams();
+      p.set("status", statusForApi(filter));
+      p.set("page", String(page));
+      p.set("pageSize", String(pageSize));
+      if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
+      const res = await fetch(`/api/billing/invoices?${p.toString()}`, { cache: "no-store" });
+      const d = (await res.json().catch(() => null)) as
+        | { success?: boolean; data?: { data: ApiRow[]; total: number; totalPages: number } }
+        | null;
+      if (!d || d.success !== true || !d.data) {
+        setRows([]);
+        setListTotal(0);
+        setListTotalPages(1);
+        showToast(jsonApiErrorMessage(d) || "Failed to load invoices");
+        return;
+      }
+      setRows((d.data.data ?? []).map(mapApiRow));
+      setListTotal(d.data.total);
+      setListTotalPages(Math.max(1, d.data.totalPages));
+    } finally {
+      setListLoading(false);
     }
-    setRows((d.data.data ?? []).map(mapApiRow));
-    setListTotal(d.data.total);
-    setListTotalPages(Math.max(1, d.data.totalPages));
   }, [filter, page, pageSize, searchDebounced, showToast]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load invoice KPI counts
     void loadKpi();
   }, [loadKpi]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load paginated invoice list
     void loadList();
   }, [loadList]);
 
@@ -423,7 +435,7 @@ export default function InvoicesPage() {
     { key: "dueDate", header: "Due date", cell: (r) => <span className={`text-xs ${r.status === "overdue" ? "text-red-600 font-semibold" : "text-text-tertiary"}`}>{r.dueDate}</span> },
     { key: "status", header: "Status", cell: (r) => <Badge color={statusColor(r.status)} size="sm" dot>{statusLabel(r.status)}</Badge> },
     {
-      key: "actions", header: "", align: "right",
+      key: "actions", header: "Actions", align: "right",
       cell: (r) => {
         const items: React.ReactNode[] = [];
         if (r.status === "paid") {
@@ -491,7 +503,7 @@ export default function InvoicesPage() {
         return <ActionsDropdown>{items}</ActionsDropdown>;
       },
     },
-  ], [showToast]);
+  ], [showToast, filter, searchDebounced]);
 
   return (
     <div className="space-y-5">
@@ -508,49 +520,91 @@ export default function InvoicesPage() {
       </div>
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-4 gap-3">
-        <div className="bg-surface rounded-xl border border-border p-4">
-          <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Paid invoices</p>
-          <p className="text-2xl font-bold text-green-600">{kpi.loading ? "…" : counts.paid}</p>
-          <p className="text-[10px] text-text-tertiary mt-1">all time (total count)</p>
+      {kpi.loading ? (
+        <KpiTileGridSkeleton columns={4} />
+      ) : (
+        <div className="grid grid-cols-4 gap-3">
+          <div className="bg-surface rounded-xl border border-border p-4">
+            <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Paid invoices</p>
+            <p className="text-2xl font-bold text-green-600">{counts.paid}</p>
+            <p className="text-[10px] text-text-tertiary mt-1">all time (total count)</p>
+          </div>
+          <div className="bg-surface rounded-xl border border-border p-4">
+            <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Awaiting payment</p>
+            <p className="text-2xl font-bold text-amber-600">{counts.pending}</p>
+            <p className="text-[10px] text-text-tertiary mt-1">pending in system</p>
+          </div>
+          <div className="bg-surface rounded-xl border border-border p-4">
+            <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Overdue (&gt;14 days)</p>
+            <p className="text-2xl font-bold text-red-600">{counts.overdue}</p>
+            <p className="text-[10px] text-text-tertiary mt-1">past due date</p>
+          </div>
+          <div className="bg-surface rounded-xl border border-border p-4">
+            <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Draft invoices</p>
+            <p className="text-xl font-bold text-text-primary">{counts.draft}</p>
+            <p className="text-[10px] text-text-tertiary mt-1">pro-forma or draft</p>
+          </div>
         </div>
-        <div className="bg-surface rounded-xl border border-border p-4">
-          <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Awaiting payment</p>
-          <p className="text-2xl font-bold text-amber-600">{kpi.loading ? "…" : counts.pending}</p>
-          <p className="text-[10px] text-text-tertiary mt-1">pending in system</p>
-        </div>
-        <div className="bg-surface rounded-xl border border-border p-4">
-          <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Overdue (&gt;14 days)</p>
-          <p className="text-2xl font-bold text-red-600">{kpi.loading ? "…" : counts.overdue}</p>
-          <p className="text-[10px] text-text-tertiary mt-1">past due date</p>
-        </div>
-        <div className="bg-surface rounded-xl border border-border p-4">
-          <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Draft invoices</p>
-          <p className="text-xl font-bold text-text-primary">{kpi.loading ? "…" : counts.draft}</p>
-          <p className="text-[10px] text-text-tertiary mt-1">pro-forma or draft</p>
-        </div>
-      </div>
+      )}
 
-      {/* Tab Filters */}
-      <div className="flex bg-surface border border-border rounded-xl overflow-hidden">
-        {FILTERS.map(({ id, label }) => (
-          <button
-            key={id}
-            onClick={() => { setFilter(id); setPage(1); }}
-            className={`flex-1 px-4 py-2.5 text-xs font-medium border-r border-border last:border-r-0 transition-colors ${
-              filter === id ? "bg-brand-50 text-brand font-bold" : "text-text-tertiary hover:text-text-primary"
-            }`}
-          >
-            {label} ({counts[id as keyof typeof counts]})
-          </button>
-        ))}
-      </div>
+      <AdminListCard>
+        <AdminTableToolbar>
+          <AdminTableToolbarStart>
+            <SearchInput
+              value={search}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              onClear={search ? () => { setSearch(""); setPage(1); } : undefined}
+              placeholder="Search temple, invoice no., or email…"
+            />
+          </AdminTableToolbarStart>
+          <AdminTableToolbarEnd>
+            <div className="overflow-x-auto pb-0.5 [-webkit-overflow-scrolling:touch]">
+              <div className="flex min-w-max gap-1 rounded-xl border border-border bg-subtle p-1">
+                {FILTERS.map(({ id, label }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => {
+                      setFilter(id);
+                      setPage(1);
+                    }}
+                    className={`shrink-0 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:flex-1 sm:px-4 sm:py-2.5 ${
+                      filter === id ? "bg-brand-50 text-brand font-bold shadow-xs" : "text-text-tertiary hover:text-text-primary"
+                    }`}
+                  >
+                    {label} ({counts[id as keyof typeof counts]})
+                  </button>
+                ))}
+              </div>
+            </div>
+          </AdminTableToolbarEnd>
+        </AdminTableToolbar>
 
-      {/* Table */}
-      <div className="bg-surface rounded-xl border border-border shadow-xs">
-        <DataTable<Invoice> columns={columns} data={pageRows} keyExtractor={(r) => r.id} />
-        <div className="px-6"><Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} showResultsCount /></div>
-      </div>
+        <DataTable<Invoice>
+          columns={columns}
+          data={pageRows}
+          keyExtractor={(r) => r.id}
+          isLoading={listLoading}
+          loadingRows={pageSize}
+        />
+
+        <AdminPagination
+          page={page}
+          pageSize={pageSize}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
+        <p className="border-t border-border px-4 py-3 text-xs text-text-tertiary">
+          {listTotal} result{listTotal !== 1 ? "s" : ""} for this status and search · page {page} of {totalPages}
+        </p>
+      </AdminListCard>
 
       {viewInvoice && <InvoiceModal invoice={viewInvoice} profile={profile} onClose={() => setViewInvoice(null)} />}
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}

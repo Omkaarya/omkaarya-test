@@ -28,8 +28,12 @@ import { createBillingRouter } from "./billing.routes.js";
 import { PostgresBillingRepository } from "./billing.repository.js";
 import { createTempleBillingRouter } from "./temple-billing.routes.js";
 import { createDashboardRouter } from "./dashboard.routes.js";
+import { createTempleDeityCatalogRouter } from "./temple-deity-catalog.routes.js";
+import { createMasterDeitiesRouter } from "./master-deities.routes.js";
+import { PostgresMasterDeitiesRepository } from "./master-deities.repository.js";
 import { createPublicRouter } from "../public/public.routes.js";
 import { requireSuperAdminJwt } from "./middleware/require-super-admin-jwt.js";
+import { SUPER_ADMIN_JWT_PATH_PREFIXES } from "./super-admin-protected-path-prefixes.js";
 
 /**
  * Super-admin HTTP API mounted at `/api`:
@@ -74,13 +78,15 @@ export function createSuperAdminApiRouter(): Router {
   const subscriptions = new PostgresSubscriptionsRepository();
   const pricingPlans = new PostgresPricingPlansRepository();
   const billing = new PostgresBillingRepository();
+  const masterDeities = new PostgresMasterDeitiesRepository();
 
   const api = Router();
   api.use(createAuthRouter(authService));
   api.use(createPasswordResetRouter(passwordResetService));
   api.use(createPublicRouter(pricingPlans));
+  api.use(createTempleDeityCatalogRouter(masterDeities));
 
-  api.use(["/temples", "/billing", "/super-admin", "/subscriptions", "/pricing-plans"], requireSuperAdminJwt);
+  api.use([...SUPER_ADMIN_JWT_PATH_PREFIXES], requireSuperAdminJwt);
   api.use(createTemplesRouter(templesService));
   api.use(createBillingRouter(billing));
   api.use(createDashboardRouter(billing));
@@ -90,7 +96,8 @@ export function createSuperAdminApiRouter(): Router {
   api.use(createTempleBillingRouter());
   api.use(createTempleSessionProfileRouter(templeRepo));
   api.use(createTempleAdminProfileRouter(templeAdminProfiles));
-  api.use(createTempleDeityRouter(templeDeities));
+  api.use(createMasterDeitiesRouter(masterDeities));
+  api.use(createTempleDeityRouter(templeDeities, masterDeities));
   api.use(createTemplePlanRouter(templePlans));
   api.use(createTemplePaymentOnboardingRouter(templePaymentOnboarding));
   api.use(createTemplePaymentSubmissionsRouter(templePaymentSubmissions));

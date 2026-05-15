@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import PostSaveSuccessBanner from "@/app/components/admin/PostSaveSuccessBanner";
+import UnsavedChangesDialog from "@/app/components/admin/UnsavedChangesDialog";
+import { formSnapshot } from "@/lib/form-snapshot";
+import { useModalFormSession } from "@/lib/use-modal-form-session";
 import {
   Plus,
   Pencil,
@@ -10,7 +14,6 @@ import {
   X,
   ChevronDown,
   ChevronRight,
-  Search,
   Layers,
   CheckCircle2,
   Settings2,
@@ -28,12 +31,21 @@ import {
   Settings,
   Zap,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import FormField from "@/app/components/admin/FormField";
 import SelectInput from "@/app/components/admin/SelectInput";
+import TextareaInput from "@/app/components/admin/TextareaInput";
+import TextInput from "@/app/components/admin/TextInput";
+import AdminListCard from "@/app/components/admin/AdminListCard";
+import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
+import { Button } from "@/app/components/ds/atoms/Button";
+import { AdminTableToolbar, AdminTableToolbarEnd, AdminTableToolbarStart } from "@/app/components/admin/AdminTableToolbar";
+import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
 
 // ── Types ──────────────────────────────────────────────────────────
 
 type Feature = {
-  id: number;
+  id: string;
   name: string;
   key: string;
   moduleKey: string;
@@ -55,7 +67,7 @@ type FeatureFormData = {
   isVisibleInPlanConfig: boolean;
 };
 
-const MODULE_META: Record<string, { label: string; icon: any; color: string }> = {
+const MODULE_META: Record<string, { label: string; icon: LucideIcon; color: string }> = {
   pooja: { label: "Pooja Management", icon: LayoutGrid, color: "text-orange-500" },
   donation: { label: "Donations Management", icon: HeartHandshake, color: "text-pink-500" },
   inventory: { label: "Inventory Management", icon: Package, color: "text-blue-500" },
@@ -91,7 +103,7 @@ function FeatureModal({
 }: {
   feature: Feature | null;
   onClose: () => void;
-  onSave: (data: FeatureFormData, id?: number) => Promise<void>;
+  onSave: (data: FeatureFormData, id?: string) => Promise<void>;
 }) {
   const isEdit = feature !== null;
   const [form, setForm] = useState<FeatureFormData>({
@@ -105,6 +117,23 @@ function FeatureModal({
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const baselineRef = useRef(formSnapshot(form));
+  const isDirty = useMemo(() => formSnapshot(form) !== baselineRef.current, [form]);
+  const session = useModalFormSession({ isDirty, onClose });
+
+  useEffect(() => {
+    const initial = {
+      name: feature?.name || "",
+      key: feature?.key || "",
+      moduleKey: feature?.moduleKey || MODULE_OPTIONS[0],
+      description: feature?.description || "",
+      hasLimit: feature?.hasLimit || false,
+      limitType: feature?.limitType || "number",
+      isVisibleInPlanConfig: feature?.isVisibleInPlanConfig ?? true,
+    };
+    setForm(initial);
+    baselineRef.current = formSnapshot(initial);
+  }, [feature]);
 
   // Auto-generate key from name (only when creating)
   useEffect(() => {
@@ -123,7 +152,7 @@ function FeatureModal({
     setError("");
     try {
       await onSave(form, feature?.id);
-      onClose();
+      session.completeSuccess(isEdit ? "Feature updated successfully." : "Feature created successfully.", onClose);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
     } finally {
@@ -132,18 +161,20 @@ function FeatureModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button type="button" className="absolute inset-0 bg-black/40" onClick={session.requestClose} aria-label="Close modal" />
       <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-700 dark:bg-zinc-900">
         <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4 dark:border-zinc-800">
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
             {isEdit ? "Edit Feature" : "Add Feature"}
           </h2>
-          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+          <button type="button" onClick={session.requestClose} className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
+          <PostSaveSuccessBanner text={session.postSave.bannerText} />
           {isEdit && (
             <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -157,63 +188,49 @@ function FeatureModal({
             </div>
           )}
 
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-              Feature Name *
-            </label>
-            <input
+          <FormField id="feature-name" label="Feature Name" required>
+            <TextInput
+              id="feature-name"
               type="text"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm outline-none ring-[var(--brand-primary)] focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
               placeholder="e.g. Pooja Management"
             />
-          </div>
+          </FormField>
 
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-              Feature Key * {isEdit && <span className="text-amber-600">(read-only)</span>}
-            </label>
-            <input
+          <FormField id="feature-key" label="Feature Key" required hint={isEdit ? "Immutable after creation." : undefined}>
+            <TextInput
+              id="feature-key"
               type="text"
               value={form.key}
               onChange={(e) => !isEdit && setForm({ ...form, key: e.target.value })}
               readOnly={isEdit}
-              className={`w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 font-mono text-sm outline-none ring-[var(--brand-primary)] focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 ${isEdit ? "cursor-not-allowed opacity-60" : ""}`}
+              className="font-mono"
               placeholder="auto_generated_from_name"
             />
-          </div>
+          </FormField>
 
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-              Module Key *
-            </label>
-            <div className="relative">
-              <select
-                value={form.moduleKey}
-                onChange={(e) => setForm({ ...form, moduleKey: e.target.value })}
-                className="w-full appearance-none rounded-lg border border-zinc-200 bg-white px-3 py-2.5 pr-8 text-sm outline-none ring-[var(--brand-primary)] focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-              >
-                {MODULE_OPTIONS.map((mod) => (
-                  <option key={mod} value={mod}>{MODULE_META[mod]?.label || mod}</option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-            </div>
-          </div>
+          <FormField id="feature-module" label="Module Key" required>
+            <SelectInput
+              id="feature-module"
+              value={form.moduleKey}
+              onChange={(e) => setForm({ ...form, moduleKey: e.target.value })}
+            >
+              {MODULE_OPTIONS.map((mod) => (
+                <option key={mod} value={mod}>{MODULE_META[mod]?.label || mod}</option>
+              ))}
+            </SelectInput>
+          </FormField>
 
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-              Description
-            </label>
-            <textarea
+          <FormField id="feature-description" label="Description">
+            <TextareaInput
+              id="feature-description"
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               rows={2}
-              className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm outline-none ring-[var(--brand-primary)] focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
               placeholder="Brief description of the feature"
             />
-          </div>
+          </FormField>
 
           <div className="grid grid-cols-2 gap-4">
             <label className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-zinc-200 px-3 py-2.5 dark:border-zinc-700">
@@ -238,32 +255,30 @@ function FeatureModal({
           </div>
 
           {form.hasLimit && (
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                Limit Type
-              </label>
+            <FormField id="feature-limit-type" label="Limit Type">
               <SelectInput
+                id="feature-limit-type"
                 value={form.limitType}
                 onChange={(e) => setForm({ ...form, limitType: e.target.value })}
-                className="!py-2.5"
               >
                 <option value="number">Number</option>
                 <option value="boolean">Boolean</option>
               </SelectInput>
-            </div>
+            </FormField>
           )}
 
           <div className="flex items-center justify-end gap-3 pt-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={session.requestClose}
+              disabled={session.postSave.isLocked}
               className="rounded-lg border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || session.postSave.isLocked}
               className="rounded-lg bg-[var(--brand-primary)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)] disabled:opacity-50"
             >
               {saving ? "Saving…" : isEdit ? "Update Feature" : "Create Feature"}
@@ -271,6 +286,12 @@ function FeatureModal({
           </div>
         </form>
       </div>
+
+      <UnsavedChangesDialog
+        dialogRef={session.modalGuard.dialogRef}
+        onStay={session.modalGuard.closeDialog}
+        onLeave={session.modalGuard.confirmLeave}
+      />
     </div>
   );
 }
@@ -284,7 +305,7 @@ export default function FeatureRegistryPage() {
   const [moduleFilter, setModuleFilter] = useState("all");
   const [modalOpen, setModalOpen] = useState(false);
   const [editFeature, setEditFeature] = useState<Feature | null>(null);
-  const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState("");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
@@ -309,7 +330,7 @@ export default function FeatureRegistryPage() {
 
   useEffect(() => { loadFeatures(); }, [loadFeatures]);
 
-  const handleSave = async (data: FeatureFormData, id?: number) => {
+  const handleSave = async (data: FeatureFormData, id?: string) => {
     const url = id ? `/api/features/${id}` : "/api/features";
     const method = id ? "PUT" : "POST";
     const res = await fetch(url, {
@@ -321,7 +342,7 @@ export default function FeatureRegistryPage() {
     await loadFeatures();
   };
 
-  const handleToggle = async (id: number) => {
+  const handleToggle = async (id: string) => {
     setTogglingId(id);
     try {
       const res = await fetch(`/api/features/${id}`, { method: "PATCH" });
@@ -350,24 +371,31 @@ export default function FeatureRegistryPage() {
   }, {});
 
   return (
-    <div className="mx-auto w-full max-w-[min(100rem,calc(100vw-2rem))] space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between bg-white dark:bg-zinc-900 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Feature Registry</h1>
-            <span className="rounded-md bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800 dark:bg-blue-950/50 dark:text-blue-300">{features.length} total</span>
-          </div>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">System-level feature definitions · Controls what appears in Pricing Plan configuration</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => { setEditFeature(null); setModalOpen(true); }}
-          className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)]"
-        >
-          <Plus className="h-4 w-4" /> Add Feature
-        </button>
-      </div>
+    <div className="w-full space-y-5">
+      <DashboardPageHeader
+        title="Feature registry"
+        titleAccessory={
+          <span className="rounded-md bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800 dark:bg-blue-950/50 dark:text-blue-300">
+            {features.length} total
+          </span>
+        }
+        description="System-level feature definitions · Controls what appears in pricing plan configuration"
+        actions={
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            className="gap-2"
+            leadingIcon={<Plus className="h-4 w-4" />}
+            onClick={() => {
+              setEditFeature(null);
+              setModalOpen(true);
+            }}
+          >
+            Add Feature
+          </Button>
+        }
+      />
 
       {/* Stats */}
       {!loading && (
@@ -392,27 +420,36 @@ export default function FeatureRegistryPage() {
       )}
 
       {/* Main Container */}
-      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3 border-b border-zinc-100 dark:border-zinc-800 px-6 py-4">
-          <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-            <input
-              placeholder="Search features..."
+      <AdminListCard>
+        <AdminTableToolbar>
+          <AdminTableToolbarStart>
+            <SearchInput
               value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 bg-zinc-50 py-2.5 pl-10 pr-4 text-sm outline-none focus:ring-2 ring-[var(--brand-primary)] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+              onClear={search ? () => setSearch("") : undefined}
+              placeholder="Search features…"
             />
-          </div>
-          <select
-            value={moduleFilter}
-            onChange={e => setModuleFilter(e.target.value)}
-            className="rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 ring-[var(--brand-primary)] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-          >
-            <option value="all">All Modules</option>
-            {modulesFound.map(m => <option key={m} value={m}>{MODULE_META[m]?.label || m}</option>)}
-          </select>
-        </div>
+          </AdminTableToolbarStart>
+          <AdminTableToolbarEnd>
+            <label htmlFor="feature-module-filter" className="sr-only">
+              Module
+            </label>
+            <SelectInput
+              id="feature-module-filter"
+              value={moduleFilter}
+              onChange={(e) => setModuleFilter(e.target.value)}
+              className="text-sm text-text-secondary"
+              wrapperClassName="w-full min-w-[12rem] sm:w-auto"
+            >
+              <option value="all">All Modules</option>
+              {modulesFound.map((m) => (
+                <option key={m} value={m}>
+                  {MODULE_META[m]?.label || m}
+                </option>
+              ))}
+            </SelectInput>
+          </AdminTableToolbarEnd>
+        </AdminTableToolbar>
 
         {/* Content */}
         {loading ? (
@@ -518,7 +555,7 @@ export default function FeatureRegistryPage() {
             })}
           </div>
         )}
-      </div>
+      </AdminListCard>
 
       {modalOpen && (
         <FeatureModal

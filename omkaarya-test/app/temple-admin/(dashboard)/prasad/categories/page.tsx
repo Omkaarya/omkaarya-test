@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import {
   Search,
   Plus,
-  MoreVertical,
   Edit,
   Trash2,
   CheckCircle2,
@@ -92,7 +91,7 @@ export default function PrasadCategoriesPage() {
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400 text-center">Total Items</th>
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Status</th>
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Created Date</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400"></th>
+                <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-zinc-400">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800">
@@ -124,9 +123,22 @@ export default function PrasadCategoriesPage() {
                     {cat.created}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800">
-                      <MoreVertical className="h-5 w-5" />
-                    </button>
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        type="button"
+                        className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800"
+                        aria-label="Edit category"
+                      >
+                        <Edit className="h-5 w-5" />
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-lg p-2 text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
+                        aria-label="Delete category"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -137,7 +149,7 @@ export default function PrasadCategoriesPage() {
 
       {/* Footer */}
       <footer className="text-center text-[10px] text-[var(--text-muted)] py-4">
-        2024–2026 © Om Kaaryaa All Rights Reserved • Powered By Pepulux
+        2024–2026 © Omkaarya All Rights Reserved • Powered By Pepulux
       </footer>
 
       {/* Add Category Modal */}

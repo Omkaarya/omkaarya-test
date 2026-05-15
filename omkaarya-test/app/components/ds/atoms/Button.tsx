@@ -113,9 +113,12 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {loading ? (
           <ButtonSpinner size={size} />
         ) : (
-          leadingIcon && <span className="shrink-0">{leadingIcon}</span>
+          <>
+            {leadingIcon && <span className="shrink-0">{leadingIcon}</span>}
+            {iconOnly && children}
+            {!iconOnly && children}
+          </>
         )}
-        {!iconOnly && children}
         {!loading && trailingIcon && (
           <span className="shrink-0">{trailingIcon}</span>
         )}

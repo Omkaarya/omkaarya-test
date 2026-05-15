@@ -8,7 +8,11 @@ export async function GET(request: NextRequest) {
     const auth = await requireSuperAdminHeaders({ Accept: "application/json" });
     if (!auth.ok) return auth.response;
 
-    const target = `${apiUrl("/api/temples")}${request.nextUrl.search}`;
+    const upstreamSearch = new URLSearchParams(request.nextUrl.searchParams);
+    if (upstreamSearch.get("sortBy") === "timeline") {
+      upstreamSearch.set("sortBy", "last7");
+    }
+    const target = `${apiUrl("/api/temples")}?${upstreamSearch.toString()}`;
     const res = await fetch(target, {
       method: "GET",
       headers: auth.headers,

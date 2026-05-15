@@ -5,6 +5,7 @@ import { asyncHandler } from "../middleware/async-handler.js";
 import { HttpError } from "../middleware/http-error.js";
 import { validateBody } from "../middleware/validate.js";
 import type { PostgresTempleDeityRepository } from "./temple-deity.repository.js";
+import type { PostgresMasterDeitiesRepository } from "./master-deities.repository.js";
 import { templeDeitySelectionBodySchema } from "./validation.js";
 
 const deitySelectionLimiter = rateLimit({
@@ -14,7 +15,10 @@ const deitySelectionLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-export function createTempleDeityRouter(deities: PostgresTempleDeityRepository): Router {
+export function createTempleDeityRouter(
+  deities: PostgresTempleDeityRepository,
+  masterDeities: PostgresMasterDeitiesRepository
+): Router {
   const r = Router();
 
   r.post(
@@ -41,6 +45,17 @@ export function createTempleDeityRouter(deities: PostgresTempleDeityRepository):
 
       const prefer =
         body.preferCustomLater === undefined ? null : Boolean(body.preferCustomLater);
+
+      const slugCheck = await masterDeities.assertAllSlugsActiveAndExist([
+        body.primaryDeityId,
+        ...body.subDeityIds,
+      ]);
+      if (!slugCheck.ok) {
+        throw new HttpError(400, "Invalid or inactive deity id(s).", {
+          code: "INVALID_DEITY_IDS",
+          reason: `Unknown or inactive slugs: ${slugCheck.invalid.join(", ")}`,
+        });
+      }
 
       const result = await deities.saveDeitySelection({
         sessionEmail: body.sessionEmail,

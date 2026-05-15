@@ -5,7 +5,7 @@ import { hashPasswordCredential, passwordCredentialMatches } from "./password-cr
 
 export type LoginResult =
   | { ok: false }
-  | { ok: true; firstLogin: boolean; userId: number; tenantId: string | null };
+  | { ok: true; firstLogin: boolean; userId: string; tenantId: string | null };
 
 export interface AuthRepository {
   login(email: string, password: string): Promise<LoginResult>;
@@ -22,7 +22,7 @@ export class PostgresAuthRepository implements AuthRepository {
     try {
       const normalized = email.trim();
       const result = await client.query<{
-        id: number;
+        id: string;
         tenant_id: string | null;
         temp_password: string | null;
         password_hash: string | null;
@@ -71,7 +71,7 @@ export class PostgresAuthRepository implements AuthRepository {
     const client = await pool.connect();
     let updated = false;
     try {
-      const existing = await client.query<{ id: number; temp_password: string | null }>(
+      const existing = await client.query<{ id: string; temp_password: string | null }>(
         `SELECT id, temp_password
            FROM public.users
           WHERE lower(trim(email)) = lower(trim($1))

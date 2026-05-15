@@ -1,15 +1,26 @@
 "use client";
 
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { useParams, useSearchParams } from "next/navigation";
 import TempleWizard from "../../_components/TempleWizard";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import type { SuperAdminTempleDetail } from "@/lib/super-admin-temple-detail";
 
-export default function EditTemplePage() {
+function EditTempleLoading() {
+  return (
+    <div className="mx-auto flex max-w-5xl flex-col items-center justify-center gap-3 py-24 text-zinc-600 dark:text-zinc-400">
+      <Loader2 className="h-8 w-8 animate-spin text-[var(--brand-primary)]" aria-hidden />
+      <p className="text-sm">Loading temple…</p>
+    </div>
+  );
+}
+
+function EditTemplePageInner() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const tenantId = typeof params.tenantId === "string" ? params.tenantId : "";
+  const readOnly = searchParams.get("view") === "1";
   const [detail, setDetail] = useState<SuperAdminTempleDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -47,12 +58,7 @@ export default function EditTemplePage() {
   }, [tenantId]);
 
   if (loading) {
-    return (
-      <div className="mx-auto flex max-w-5xl flex-col items-center justify-center gap-3 py-24 text-zinc-600 dark:text-zinc-400">
-        <Loader2 className="h-8 w-8 animate-spin text-[var(--brand-primary)]" aria-hidden />
-        <p className="text-sm">Loading temple…</p>
-      </div>
-    );
+    return <EditTempleLoading />;
   }
 
   if (error || !detail) {
@@ -63,5 +69,15 @@ export default function EditTemplePage() {
     );
   }
 
-  return <TempleWizard mode="edit" tenantId={tenantId} initialDetail={detail} />;
+  return (
+    <TempleWizard mode="edit" tenantId={tenantId} initialDetail={detail} readOnly={readOnly} />
+  );
+}
+
+export default function EditTemplePage() {
+  return (
+    <Suspense fallback={<EditTempleLoading />}>
+      <EditTemplePageInner />
+    </Suspense>
+  );
 }

@@ -9,7 +9,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "backfill:plan-features": "node scripts/backfill-plan-features-from-pricing-plans.mjs"
   },
   "dependencies": {
     "@azure/cosmos": "^4.9.0",

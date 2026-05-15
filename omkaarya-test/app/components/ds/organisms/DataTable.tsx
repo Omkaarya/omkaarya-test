@@ -27,7 +27,10 @@ export interface DataTableProps<T> {
   isSelectable?: boolean;
   selectedIds?: string[];
   onSelectChange?: (ids: string[]) => void;
+  /** Classes on the horizontal scrollport (`w-full min-w-0 overflow-x-auto`). Use for borders, etc. */
   className?: string;
+  /** Classes merged onto `<table>` (e.g. `min-w-[960px]`). Min-width here avoids breaking the scrollport. */
+  tableClassName?: string;
   isLoading?: boolean;
   loadingRows?: number;
 }
@@ -46,6 +49,7 @@ export function DataTable<T>({
   selectedIds = [],
   onSelectChange,
   className = "",
+  tableClassName = "",
   isLoading = false,
   loadingRows = 5,
 }: DataTableProps<T>) {
@@ -66,8 +70,10 @@ export function DataTable<T>({
   const someSelected = selectedIds.length > 0 && selectedIds.length < data.length;
 
   return (
-    <div className={`w-full overflow-x-auto ${className}`}>
-      <table className="w-full text-left border-collapse whitespace-nowrap min-w-[600px]">
+    <div className={`w-full min-w-0 overflow-x-auto ${className}`.trim()}>
+      <table
+        className={`w-full min-w-[600px] border-collapse text-left whitespace-nowrap ${tableClassName}`.trim()}
+      >
         
         {/* Table Header */}
         <thead>
@@ -131,7 +137,7 @@ export function DataTable<T>({
               </td>
             </tr>
           ) : (
-            data.map((row, rIdx) => {
+            data.map((row) => {
               const id = keyExtractor(row);
               const isSelected = selectedIds.includes(id);
 
@@ -164,8 +170,14 @@ export function DataTable<T>({
                         ${col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"}
                       `}
                     >
-                      {col.cell ? col.cell(row) : (
-                        <TextCell text={(row as any)[col.key] as string} />
+                      {col.cell ? (
+                        col.cell(row)
+                      ) : (
+                        <TextCell
+                          text={String(
+                            (row as Record<string, unknown>)[String(col.key)] ?? "",
+                          )}
+                        />
                       )}
                     </td>
                   ))}

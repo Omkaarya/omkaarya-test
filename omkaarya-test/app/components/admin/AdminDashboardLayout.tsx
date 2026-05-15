@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { AdminDashboardMainPanel } from "@/app/components/admin/AdminDashboardMainPanel";
 import { AdminDashboardShell } from "@/app/components/admin/AdminDashboardShell";
+import { SuperAdminSessionGuard } from "@/app/components/admin/SuperAdminSessionGuard";
 import { useTheme } from "@/app/components/ThemeProvider";
 
 export default function AdminDashboardLayout({
@@ -20,6 +21,7 @@ export default function AdminDashboardLayout({
     pathname.startsWith("/super-admin/edit-temple");
 
   return (
+    <SuperAdminSessionGuard>
     <AdminDashboardShell
       pathname={pathname}
       sidebarOpen={sidebarOpen}
@@ -30,5 +32,6 @@ export default function AdminDashboardLayout({
     >
       <AdminDashboardMainPanel>{children}</AdminDashboardMainPanel>
     </AdminDashboardShell>
+    </SuperAdminSessionGuard>
   );
 }

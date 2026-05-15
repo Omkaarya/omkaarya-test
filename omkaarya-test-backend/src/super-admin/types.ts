@@ -185,7 +185,7 @@ export type PricingPlanComparisonCell = {
 };
 
 export type PricingPlanComparisonRow = {
-  featureId: number;
+  featureId: string;
   name: string;
   key: string;
   moduleKey: string;

@@ -11,7 +11,9 @@ export default function ThemeToggle() {
   const toggle = () => setTheme(theme === "dark" ? "light" : "dark");
 
   const hideFloating =
-    (pathname?.startsWith("/super-admin") && pathname !== "/super-admin/invite") ||
+    (pathname?.startsWith("/super-admin") &&
+      pathname !== "/super-admin/invite" &&
+      pathname !== "/super-admin/login") ||
     pathname?.startsWith("/temple-admin");
   if (hideFloating) {
     return null;

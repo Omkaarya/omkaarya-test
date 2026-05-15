@@ -1,23 +1,30 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
-import { Bell, CheckCircle2, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Badge } from "@/app/components/ds/atoms/Badge";
+import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
+import AdminListCard from "@/app/components/admin/AdminListCard";
+import AdminPagination from "@/app/components/admin/AdminPagination";
+import { AdminTableToolbar, AdminTableToolbarEnd, AdminTableToolbarStart } from "@/app/components/admin/AdminTableToolbar";
+import SelectInput from "@/app/components/admin/SelectInput";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
 import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
+import { buildGenerateInvoiceHref } from "@/lib/invoice-temple-prefill";
 
 // ── Types ──────────────────────────────────────────────────────────
 
 type RenewalRow = {
   id: string;
+  tenantId: string;
   temple: string;
   templeLocation: string;
   initials: string;
   plan: string;
+  billingCycle: string;
   amountCents: number;
   renewalDate: string; // YYYY-MM-DD
   daysLeft: number;
@@ -38,57 +45,78 @@ function formatIsoToUi(d: string): string {
   return dt.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function Toast({ message, onClose }: { message: string; onClose: () => void }) {
-  return (
-    <div className="fixed bottom-6 right-6 z-[200] flex items-center gap-3 rounded-xl border border-success-500/20 bg-status-success-bg text-status-success-text px-5 py-4 shadow-xl">
-      <CheckCircle2 className="h-5 w-5 shrink-0" /><p className="text-sm font-semibold">{message}</p>
-      <button onClick={onClose} className="ml-2 opacity-60 hover:opacity-100"><X className="h-4 w-4" /></button>
-    </div>
-  );
-}
-
 export default function UpcomingRenewalsPage() {
-  const [toast, setToast] = useState<string | null>(null);
   const [rows, setRows] = useState<RenewalRow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<string | null>(null);
-  const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 4000); }, []);
+  const [search, setSearch] = useState("");
+  const [invoiceFilter, setInvoiceFilter] = useState<"all" | "sent" | "unsent">("all");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     let cancel = false;
     (async () => {
+      setLoading(true);
       setLoadErr(null);
-      const p = new URLSearchParams();
-      p.set("days", "30");
-      p.set("page", "1");
-      p.set("pageSize", "200");
-      const res = await fetch(`/api/subscriptions/upcoming-renewals?${p.toString()}`, { cache: "no-store" });
-      const d = (await res.json().catch(() => null)) as
-        | { success?: boolean; data?: { data: Array<{ id: string; templeName: string; location: string; plan: string; billingCycle: string; amountCents: number; renewalDate: string; daysLeft: number; invoiceSent: boolean }> } }
-        | null;
-      if (cancel) return;
-      if (!d || d.success !== true || !d.data) {
-        setRows([]);
-        setLoadErr(jsonApiErrorMessage(d) || "Failed to load upcoming renewals");
-        return;
+      try {
+        const p = new URLSearchParams();
+        p.set("days", "30");
+        p.set("page", "1");
+        p.set("pageSize", "200");
+        const res = await fetch(`/api/subscriptions/upcoming-renewals?${p.toString()}`, { cache: "no-store" });
+        const d = (await res.json().catch(() => null)) as
+          | { success?: boolean; data?: { data: Array<{ id: string; tenantId?: string; templeName: string; location: string; plan: string; billingCycle: string; amountCents: number; renewalDate: string; daysLeft: number; invoiceSent: boolean }> } }
+          | null;
+        if (cancel) return;
+        if (!d || d.success !== true || !d.data) {
+          setRows([]);
+          setLoadErr(jsonApiErrorMessage(d) || "Failed to load upcoming renewals");
+          return;
+        }
+        setRows(
+          (d.data.data ?? []).map((r) => ({
+            id: r.id,
+            tenantId: r.tenantId ?? r.id,
+            temple: r.templeName,
+            templeLocation: r.location,
+            initials: (r.templeName.trim().split(/\s+/).filter(Boolean)[0]?.[0] ?? "T") + (r.templeName.trim().split(/\s+/).filter(Boolean)[1]?.[0] ?? ""),
+            plan: r.plan,
+            billingCycle: r.billingCycle,
+            amountCents: r.amountCents,
+            renewalDate: r.renewalDate,
+            daysLeft: r.daysLeft,
+            invoiceSent: r.invoiceSent,
+            status: "active",
+          }))
+        );
+      } finally {
+        if (!cancel) setLoading(false);
       }
-      setRows(
-        (d.data.data ?? []).map((r) => ({
-          id: r.id,
-          temple: r.templeName,
-          templeLocation: r.location,
-          initials: (r.templeName.trim().split(/\s+/).filter(Boolean)[0]?.[0] ?? "T") + (r.templeName.trim().split(/\s+/).filter(Boolean)[1]?.[0] ?? ""),
-          plan: r.plan,
-          amountCents: r.amountCents,
-          renewalDate: r.renewalDate,
-          daysLeft: r.daysLeft,
-          invoiceSent: r.invoiceSent,
-          status: "active",
-        }))
-      );
     })();
     return () => { cancel = true; };
   }, []);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return rows.filter((r) => {
+      const text = `${r.temple} ${r.templeLocation} ${r.plan}`.toLowerCase();
+      const matchQ = !q || text.includes(q);
+      const matchInv =
+        invoiceFilter === "all" ||
+        (invoiceFilter === "sent" && r.invoiceSent) ||
+        (invoiceFilter === "unsent" && !r.invoiceSent);
+      return matchQ && matchInv;
+    });
+  }, [rows, search, invoiceFilter]);
+
+  const totalFiltered = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+  const pageRows = useMemo(() => {
+    const safe = Math.min(page, totalPages);
+    const start = (safe - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize, totalPages]);
 
   const columns = useMemo<ColumnDef<RenewalRow>[]>(() => [
     {
@@ -128,15 +156,21 @@ export default function UpcomingRenewalsPage() {
     },
     {
       key: "actions", header: "Actions", align: "right",
-      cell: () => (
+      cell: (r) => (
         <div className="flex items-center gap-1.5">
-          <Link href="/super-admin/finance/invoices/generate">
+          <Link
+            href={buildGenerateInvoiceHref({
+              tenantId: r.tenantId,
+              plan: r.plan,
+              billingCycle: r.billingCycle,
+            })}
+          >
             <Button variant="primary" size="sm">Generate invoice</Button>
           </Link>
         </div>
       ),
     },
-  ], [showToast]);
+  ], []);
 
   return (
     <div className="space-y-5">
@@ -145,7 +179,6 @@ export default function UpcomingRenewalsPage() {
           {loadErr}
         </div>
       )}
-      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-display-xs font-bold tracking-tight text-text-primary">Upcoming renewals</h1>
@@ -153,7 +186,6 @@ export default function UpcomingRenewalsPage() {
         </div>
       </div>
 
-      {/* Info Alert Banner */}
       <div className="rounded-xl border-[1.5px] border-blue-300 bg-blue-50 dark:bg-blue-950/20 p-4 flex gap-3 items-start">
         <span className="text-lg shrink-0 mt-0.5">💡</span>
         <div>
@@ -164,12 +196,58 @@ export default function UpcomingRenewalsPage() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-surface rounded-xl border border-border shadow-xs">
-        <DataTable<RenewalRow> columns={columns} data={rows} keyExtractor={(r) => r.id} />
-      </div>
+      <AdminListCard>
+        <AdminTableToolbar>
+          <AdminTableToolbarStart>
+            <SearchInput
+              value={search}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              onClear={search ? () => setSearch("") : undefined}
+              placeholder="Search temple, location, or plan…"
+            />
+          </AdminTableToolbarStart>
+          <AdminTableToolbarEnd>
+            <SelectInput
+              value={invoiceFilter}
+              onChange={(e) => {
+                setInvoiceFilter(e.target.value as "all" | "sent" | "unsent");
+                setPage(1);
+              }}
+              className="text-xs text-text-secondary"
+              wrapperClassName="w-full min-w-[140px] sm:w-auto"
+            >
+              <option value="all">All invoices</option>
+              <option value="sent">Invoice sent</option>
+              <option value="unsent">Invoice not sent</option>
+            </SelectInput>
+          </AdminTableToolbarEnd>
+        </AdminTableToolbar>
 
-      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+        <DataTable<RenewalRow>
+          columns={columns}
+          data={pageRows}
+          keyExtractor={(r) => r.id}
+          isLoading={loading}
+          loadingRows={pageSize}
+        />
+
+        <AdminPagination
+          page={Math.min(page, totalPages)}
+          pageSize={pageSize}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
+        <p className="border-t border-border px-4 py-3 text-xs text-text-tertiary">
+          {totalFiltered} renewal{totalFiltered !== 1 ? "s" : ""} in the next 30 days · {rows.length} loaded
+        </p>
+      </AdminListCard>
     </div>
   );
 }

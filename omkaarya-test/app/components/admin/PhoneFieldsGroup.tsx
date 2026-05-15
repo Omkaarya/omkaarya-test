@@ -18,6 +18,7 @@ type PhoneFieldsGroupProps = {
     whatsapp: string;
     fax: string;
   }>;
+  disabled?: boolean;
 };
 
 export function PhoneRowField({
@@ -29,6 +30,7 @@ export function PhoneRowField({
   required,
   onBlur,
   layout = "vertical",
+  disabled = false,
 }: {
   idPrefix: string;
   label: string;
@@ -38,6 +40,7 @@ export function PhoneRowField({
   required?: boolean;
   onBlur?: () => void;
   layout?: "vertical" | "horizontal";
+  disabled?: boolean;
 }) {
   return (
     <FormField id={`${idPrefix}-num`} label={label} required={required} layout={layout}>
@@ -49,6 +52,7 @@ export function PhoneRowField({
               value={value.countryCode}
               onChange={(e) => onChange({ ...value, countryCode: e.target.value })}
               onBlur={onBlur}
+              disabled={disabled}
               aria-label={`${label} country code`}
             >
               {PHONE_COUNTRY_OPTIONS.map((o) => (
@@ -67,6 +71,7 @@ export function PhoneRowField({
               value={value.nationalNumber}
               onChange={(e) => onChange({ ...value, nationalNumber: e.target.value })}
               onBlur={onBlur}
+              disabled={disabled}
             />
           </div>
         </div>
@@ -82,6 +87,7 @@ export default function PhoneFieldsGroup({
   fax,
   onChange,
   errors,
+  disabled = false,
 }: PhoneFieldsGroupProps) {
   return (
     <div className="space-y-4">
@@ -91,6 +97,7 @@ export default function PhoneFieldsGroup({
         value={telephone}
         onChange={(next) => onChange("telephone", next)}
         error={errors?.telephone}
+        disabled={disabled}
       />
       <PhoneRowField
         idPrefix="phone-wa"
@@ -98,6 +105,7 @@ export default function PhoneFieldsGroup({
         value={whatsapp}
         onChange={(next) => onChange("whatsapp", next)}
         error={errors?.whatsapp}
+        disabled={disabled}
       />
       <PhoneRowField
         idPrefix="phone-fax"
@@ -105,6 +113,7 @@ export default function PhoneFieldsGroup({
         value={fax}
         onChange={(next) => onChange("fax", next)}
         error={errors?.fax}
+        disabled={disabled}
       />
     </div>
   );

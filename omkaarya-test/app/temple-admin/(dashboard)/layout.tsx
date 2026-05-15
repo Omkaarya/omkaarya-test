@@ -3,7 +3,6 @@
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { TempleDashboardShell } from "@/app/components/temple-admin/TempleDashboardShell";
-import { AdminDashboardMainPanel } from "@/app/components/admin/AdminDashboardMainPanel";
 import { useTheme } from "@/app/components/ThemeProvider";
 
 export default function TempleDashboardLayout({
@@ -23,9 +22,9 @@ export default function TempleDashboardLayout({
       theme={theme}
       onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
     >
-      <main className="flex-1 flex flex-col min-h-0 min-w-0">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {children}
-      </main>
+      </div>
     </TempleDashboardShell>
   );
 }

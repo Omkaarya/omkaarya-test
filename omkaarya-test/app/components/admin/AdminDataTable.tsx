@@ -16,7 +16,7 @@ export default function AdminDataTable({
   isEmpty,
 }: AdminDataTableProps) {
   return (
-    <div className="overflow-x-auto">
+    <div className="w-full min-w-0 overflow-x-auto">
       <table className={`w-full text-left text-sm ${minWidthClassName}`}>
         <thead className="border-b border-zinc-100 bg-zinc-50/80 dark:border-zinc-800 dark:bg-zinc-800/40">
           <tr>

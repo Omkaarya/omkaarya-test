@@ -34,7 +34,7 @@ export default function AdminFiltersBar({
   onSortByChange,
 }: AdminFiltersBarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-3 border-b border-zinc-100 p-4 dark:border-zinc-800 lg:flex-nowrap lg:gap-4">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-3 border-b border-border p-4 lg:flex-nowrap lg:gap-4">
       <div className="relative min-w-[min(100%,280px)] w-full flex-1 lg:min-w-[320px] lg:max-w-2xl">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
         <input
@@ -44,9 +44,6 @@ export default function AdminFiltersBar({
           onChange={(e) => onSearchChange(e.target.value)}
           className="w-full rounded-lg border border-zinc-200 py-2.5 pl-10 pr-14 text-sm outline-none ring-[var(--brand-primary)] focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800/50"
         />
-        <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 sm:inline-block dark:border-zinc-600 dark:bg-zinc-800">
-          ⌘K
-        </kbd>
       </div>
 
       <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -97,9 +94,9 @@ export default function AdminFiltersBar({
           onChange={(e) => onSortByChange(e.target.value)}
           className="min-w-[12rem] w-full sm:w-[13rem]"
         >
-          <option value="last7">Sort By: Last 7 Days</option>
           <option value="name">Sort By: Name</option>
           <option value="devotees">Sort By: Devotees</option>
+          <option value="timeline">Sort By: Timeline</option>
         </SelectInput>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { nextJsonError, nextJsonSuccess } from "@/lib/api-envelope";
+import { isUuidString } from "@/lib/is-uuid";
 import { fetchRolePermissions, saveRolePermissions } from "@/lib/sa-users-db";
 import type { AccessLevel } from "@/lib/sa-users-db";
 import { requireSuperAdminHeaders } from "@/lib/super-admin-auth";
@@ -11,8 +12,8 @@ export async function GET(_req: Request, { params }: Params) {
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const rid = parseInt(id, 10);
-  if (isNaN(rid)) return nextJsonError(400, "INVALID_ID", "Invalid role ID", "ID must be a number.");
+  const rid = id.trim();
+  if (!isUuidString(rid)) return nextJsonError(400, "INVALID_ID", "Invalid role ID", "ID must be a UUID.");
   try {
     const permissions = await fetchRolePermissions(rid);
     return nextJsonSuccess(200, permissions, "Role permissions loaded", `Permissions for role ${rid} returned.`);
@@ -27,8 +28,8 @@ export async function PUT(request: Request, { params }: Params) {
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const rid = parseInt(id, 10);
-  if (isNaN(rid)) return nextJsonError(400, "INVALID_ID", "Invalid role ID", "ID must be a number.");
+  const rid = id.trim();
+  if (!isUuidString(rid)) return nextJsonError(400, "INVALID_ID", "Invalid role ID", "ID must be a UUID.");
   try {
     const body = await request.json();
     const { permissions } = body as {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bell,
   Building2,
@@ -14,18 +14,15 @@ import {
   Globe,
   LayoutDashboard,
   LayoutTemplate,
-  Mail,
   Maximize2,
+  Minimize2,
   Menu,
   Receipt,
-  Search,
-  Settings,
   Shield,
   Sparkles,
   Sun,
   Moon,
   Tag,
-  User,
   Users,
   UserX,
   Wallet,
@@ -34,6 +31,7 @@ import {
   DollarSign,
 } from "lucide-react";
 import { AdminBreadcrumbs } from "@/app/components/admin/adminBreadcrumbs";
+import { AdminAccountPopover } from "@/app/components/admin/AdminAccountPopover";
 import { PENDING_PAYMENT_SUBMISSIONS_CHANGED_EVENT } from "@/lib/pending-payment-submissions-events";
 
 // ── Navigation Config ──────────────────────────────────────────────
@@ -209,6 +207,51 @@ function NavSection({
   );
 }
 
+type DocumentWithWebkitFs = Document & {
+  webkitFullscreenElement?: Element | null;
+  webkitExitFullscreen?: () => Promise<void> | void;
+};
+
+type ElementWithWebkitFs = HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+};
+
+function getFullscreenElement(): Element | null {
+  const d = document as DocumentWithWebkitFs;
+  return document.fullscreenElement ?? d.webkitFullscreenElement ?? null;
+}
+
+function isShellFullscreen(shell: HTMLDivElement | null): boolean {
+  if (!shell) return false;
+  return getFullscreenElement() === shell;
+}
+
+async function requestElFullscreen(el: HTMLElement): Promise<void> {
+  const anyEl = el as ElementWithWebkitFs;
+  if (typeof el.requestFullscreen === "function") {
+    await el.requestFullscreen();
+    return;
+  }
+  if (typeof anyEl.webkitRequestFullscreen === "function") {
+    await Promise.resolve(anyEl.webkitRequestFullscreen());
+    return;
+  }
+  throw new Error("Fullscreen API is not supported.");
+}
+
+async function exitDocFullscreen(): Promise<void> {
+  const d = document as DocumentWithWebkitFs;
+  if (typeof document.exitFullscreen === "function") {
+    await document.exitFullscreen();
+    return;
+  }
+  if (typeof d.webkitExitFullscreen === "function") {
+    await Promise.resolve(d.webkitExitFullscreen());
+    return;
+  }
+  throw new Error("Fullscreen API is not supported.");
+}
+
 // ── Shell Props ────────────────────────────────────────────────────
 
 export type AdminDashboardShellProps = {
@@ -236,6 +279,41 @@ export function AdminDashboardShell({
   onToggleTheme,
   children,
 }: AdminDashboardShellProps) {
+  const shellRef = useRef<HTMLDivElement>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  const syncFullscreen = useCallback(() => {
+    setFullscreen(isShellFullscreen(shellRef.current));
+  }, []);
+
+  useEffect(() => {
+    syncFullscreen();
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    document.addEventListener("webkitfullscreenchange", syncFullscreen);
+    return () => {
+      document.removeEventListener("fullscreenchange", syncFullscreen);
+      document.removeEventListener("webkitfullscreenchange", syncFullscreen);
+    };
+  }, [syncFullscreen]);
+
+  useEffect(() => {
+    return () => {
+      if (isShellFullscreen(shellRef.current)) {
+        void exitDocFullscreen().catch(() => {});
+      }
+    };
+  }, []);
+
+  const toggleFullscreen = useCallback(async () => {
+    const shell = shellRef.current;
+    if (isShellFullscreen(shell)) {
+      await exitDocFullscreen().catch(() => {});
+    } else if (shell) {
+      await requestElFullscreen(shell).catch(() => {});
+    }
+    syncFullscreen();
+  }, [syncFullscreen]);
+
   const closeSidebar = () => onSidebarOpenChange(false);
 
   const [openAccordion, setOpenAccordion] = useState<SidebarAccordionId | null>(
@@ -293,7 +371,10 @@ export function AdminDashboardShell({
   }, [loadPendingCount]);
 
   return (
-    <div className="flex h-screen min-h-0 overflow-hidden bg-white font-sans text-[var(--text-primary)] dark:bg-zinc-950">
+    <div
+      ref={shellRef}
+      className="flex h-screen min-h-0 overflow-hidden bg-white font-sans text-[var(--text-primary)] dark:bg-zinc-950"
+    >
       {sidebarOpen && (
         <button
           type="button"
@@ -309,13 +390,14 @@ export function AdminDashboardShell({
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         ].join(" ")}
       >
-        <div className="flex h-16 items-center border-b border-white px-6 dark:border-zinc-950">
-          <Image 
-            src="/brand-logo/Omkaarya 9.svg" 
-            alt="Omkaarya" 
-            width={120} 
-            height={32} 
-            className="h-8 w-auto dark:invert" 
+        <div className="flex h-[4.5rem] items-center border-b border-white px-2 dark:border-zinc-950">
+          <Image
+            src="/brand-logo/Omkaarya 9.svg"
+            alt="Omkaarya"
+            width={180}
+            height={48}
+            className="h-48 w-auto"
+            priority
           />
         </div>
         <nav className="flex-1 overflow-y-auto px-3 py-4">
@@ -430,7 +512,7 @@ export function AdminDashboardShell({
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:pl-64">
-        <header className="flex h-16 shrink-0 items-center gap-4 border-b border-white bg-white px-4 pr-20 dark:border-zinc-950 dark:bg-zinc-950 lg:pr-24">
+        <header className="flex h-16 shrink-0 items-center gap-4 border-b border-white bg-white px-4 dark:border-zinc-950 dark:bg-zinc-950">
           <button
             type="button"
             aria-label="Open menu"
@@ -442,7 +524,7 @@ export function AdminDashboardShell({
 
           <AdminBreadcrumbs pathname={pathname} />
 
-          <div className="mx-auto hidden max-w-xl flex-1 px-4 md:block">
+          {/* <div className="mx-auto hidden max-w-xl flex-1 px-4 md:block">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
               <input
@@ -454,10 +536,10 @@ export function AdminDashboardShell({
                 ⌘K
               </kbd>
             </div>
-          </div>
+          </div> */}
 
-          <div className="ml-auto flex items-center gap-1 sm:gap-2">
-            <button
+          <div className="ml-auto flex items-center gap-1">
+            {/* <button
               type="button"
               aria-label="Language"
               className="hidden rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60 sm:block"
@@ -465,21 +547,28 @@ export function AdminDashboardShell({
               <span className="text-lg" title="English (US)">
                 🇺🇸
               </span>
-            </button>
+            </button> */}
+
             <button
               type="button"
-              aria-label="Fullscreen"
+              aria-label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+              title={fullscreen ? "Exit fullscreen" : "Enter fullscreen"}
               className="hidden rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60 md:block"
+              onClick={() => void toggleFullscreen()}
             >
-              <Maximize2 className="h-5 w-5" />
+              {fullscreen ? (
+                <Minimize2 className="h-5 w-5" aria-hidden />
+              ) : (
+                <Maximize2 className="h-5 w-5" aria-hidden />
+              )}
             </button>
-            <button
+            {/* <button
               type="button"
               aria-label="Messages"
               className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
             >
               <Mail className="h-5 w-5" />
-            </button>
+            </button> */}
             <Link
               href="/super-admin/finance/confirm-payments"
               className="relative inline-flex rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
@@ -499,13 +588,13 @@ export function AdminDashboardShell({
                 </span>
               )}
             </Link>
-            <button
+            {/* <button
               type="button"
               aria-label="Settings"
               className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
             >
               <Settings className="h-5 w-5" />
-            </button>
+            </button> */}
             <button
               type="button"
               aria-label="Toggle theme"
@@ -518,13 +607,7 @@ export function AdminDashboardShell({
                 <Moon className="h-5 w-5" />
               )}
             </button>
-            <button
-              type="button"
-              aria-label="Account"
-              className="ml-1 flex h-9 w-9 items-center justify-center rounded-full bg-zinc-200 text-[var(--text-muted)] dark:bg-zinc-700 dark:text-zinc-300"
-            >
-              <User className="h-5 w-5" />
-            </button>
+            <AdminAccountPopover />
           </div>
         </header>
 
@@ -535,7 +618,7 @@ export function AdminDashboardShell({
             <p className="text-center text-[var(--text-muted)] sm:text-left">
               2024 - 2026 ©{" "}
               <span className="font-medium text-[var(--brand-primary)]">
-                Om Kaaryaa
+                Omkaarya
               </span>{" "}
               All Rights Reserved
             </p>

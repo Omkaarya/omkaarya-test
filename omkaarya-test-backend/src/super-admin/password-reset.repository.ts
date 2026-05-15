@@ -19,11 +19,11 @@ export function generateResetToken(): string {
 /**
  * User may use forgot-password if they are linked to a temple (same cases as temple-admin access).
  */
-export async function findTempleLinkedUserIdByEmail(email: string): Promise<number | null> {
+export async function findTempleLinkedUserIdByEmail(email: string): Promise<string | null> {
   const pool = getPool();
   if (!pool) return null;
   const normalized = email.trim().toLowerCase();
-  const result = await pool.query<{ id: number }>(
+  const result = await pool.query<{ id: string }>(
     `SELECT u.id
      FROM public.users u
      WHERE lower(trim(u.email)) = $1
@@ -45,7 +45,7 @@ export async function findTempleLinkedUserIdByEmail(email: string): Promise<numb
 }
 
 export async function upsertOtpChallenge(
-  userId: number,
+  userId: string,
   otpPlain: string,
   otpExpiresAt: Date
 ): Promise<void> {
@@ -77,7 +77,7 @@ type ChallengeRow = {
   reset_expires_at: Date | null;
 };
 
-export async function getChallenge(userId: number): Promise<ChallengeRow | null> {
+export async function getChallenge(userId: string): Promise<ChallengeRow | null> {
   const pool = getPool();
   if (!pool) return null;
   const result = await pool.query<ChallengeRow>(
@@ -89,7 +89,7 @@ export async function getChallenge(userId: number): Promise<ChallengeRow | null>
   return result.rows[0] ?? null;
 }
 
-export async function incrementOtpAttempts(userId: number): Promise<number> {
+export async function incrementOtpAttempts(userId: string): Promise<number> {
   const pool = getPool();
   if (!pool) return MAX_OTP_ATTEMPTS;
   const result = await pool.query<{ otp_attempts: number }>(
@@ -102,14 +102,14 @@ export async function incrementOtpAttempts(userId: number): Promise<number> {
   return result.rows[0]?.otp_attempts ?? MAX_OTP_ATTEMPTS;
 }
 
-export async function clearChallenge(userId: number): Promise<void> {
+export async function clearChallenge(userId: string): Promise<void> {
   const pool = getPool();
   if (!pool) return;
   await pool.query(`DELETE FROM public.password_reset_challenges WHERE user_id = $1`, [userId]);
 }
 
 export async function verifyOtpAndSetResetToken(
-  userId: number,
+  userId: string,
   otpPlain: string,
   resetExpiresAt: Date
 ): Promise<{ ok: true; resetToken: string } | { ok: false; reason: "bad_otp" | "expired" | "locked" | "no_challenge" }> {
@@ -158,7 +158,7 @@ export async function verifyOtpAndSetResetToken(
 }
 
 export async function applyPasswordFromResetToken(
-  userId: number,
+  userId: string,
   resetTokenPlain: string,
   passwordBcryptHash: string
 ): Promise<boolean> {

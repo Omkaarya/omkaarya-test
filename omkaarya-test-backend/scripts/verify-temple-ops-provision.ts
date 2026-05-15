@@ -7,6 +7,11 @@
  */
 import "../src/load-env.js";
 import pg from "pg";
+import {
+  getTempleOpsDiscreteEnvFromProcess,
+  hasTempleOpsConnectionBasis,
+  poolConfigFromPlatformWithOperationalDatabase,
+} from "../src/db/temple-ops-config.js";
 
 function must(name: string): string | null {
   const v = process.env[name]?.trim();
@@ -28,12 +33,14 @@ async function main(): Promise<void> {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  const host = must("TEMPLE_OPS_DB_HOST");
-  const user = must("TEMPLE_OPS_DB_USER");
+  const discrete = getTempleOpsDiscreteEnvFromProcess();
   const superUrl = must("TEMPLE_OPS_PG_SUPERUSER_URL");
 
-  if (!host) errors.push("TEMPLE_OPS_DB_HOST is required for temple ops pools after CREATE DATABASE.");
-  if (!user) errors.push("TEMPLE_OPS_DB_USER is required for temple ops pools.");
+  if (!hasTempleOpsConnectionBasis()) {
+    errors.push(
+      "Temple ops needs a way to connect to each per-temple database: set DATABASE_URL, or DB_HOST and DB_USER (and DB_NAME), or set TEMPLE_OPS_DB_HOST and TEMPLE_OPS_DB_USER."
+    );
+  }
 
   if (!superUrl) {
     warnings.push(
@@ -59,29 +66,36 @@ async function main(): Promise<void> {
     }
   }
 
-  const port = must("TEMPLE_OPS_DB_PORT") ?? "5432";
-  const pass = process.env.TEMPLE_OPS_DB_PASS ?? "";
   const prefix = (process.env.TEMPLE_OPS_DB_NAME_PREFIX ?? "omkaarya_temple_").trim();
   console.log(`[verify] TEMPLE_OPS_DB_NAME_PREFIX effective: ${prefix}`);
-  console.log(`[verify] TEMPLE_OPS_DB_PORT: ${port}`);
+  const portLog = discrete?.port ?? "from DATABASE_URL or DB_PORT";
+  console.log(`[verify] ops connection port: ${portLog}`);
 
   const probeDb = must("TEMPLE_OPS_VERIFY_PROBE_DATABASE");
   if (probeDb) {
-    const portNum = Number.parseInt(port, 10);
-    const c = new pg.Client({
-      host: host!,
-      user: user!,
-      password: pass,
-      port: Number.isFinite(portNum) && portNum > 0 ? portNum : 5432,
-      database: probeDb,
-    });
+    const cfg = discrete
+      ? {
+          host: discrete.host,
+          user: discrete.user,
+          password: discrete.password,
+          port: discrete.port,
+          database: probeDb,
+        }
+      : poolConfigFromPlatformWithOperationalDatabase(probeDb);
+    if (!cfg) {
+      console.error(
+        `[verify] ERROR: could not build connection config for probe database "${probeDb}" (check DATABASE_URL / DB_*).`
+      );
+      process.exit(1);
+    }
+    const c = new pg.Client(cfg);
     try {
       await c.connect();
       await c.query("SELECT 1");
       console.log(`[verify] ops host probe (${probeDb}): connection OK`);
     } catch (e) {
       console.error(
-        `[verify] ERROR: could not connect to existing database "${probeDb}" on TEMPLE_OPS host as TEMPLE_OPS_DB_USER:`,
+        `[verify] ERROR: could not connect to existing database "${probeDb}" on ops host as configured user:`,
         e
       );
       process.exit(1);

@@ -1,25 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
-import {
-  ArrowUpRight,
-  CheckCircle2,
-  Clock,
-  DollarSign,
-  Download,
-  FileText,
-  Landmark,
-  Plus,
-  TrendingUp,
-  X,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Download, Plus } from "lucide-react";
 import Link from "next/link";
 
+import SelectInput from "@/app/components/admin/SelectInput";
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Badge } from "@/app/components/ds/atoms/Badge";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
+import AdminListCard from "@/app/components/admin/AdminListCard";
 import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
+import { buildGenerateInvoiceHref } from "@/lib/invoice-temple-prefill";
+import {
+  HorizontalBarChartSkeleton,
+  KpiTileGridSkeleton,
+} from "@/app/components/admin/ApiFetchPlaceholders";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -30,6 +26,7 @@ type TempleSummary = {
   portalUrl: string;
   initials: string;
   plan: string;
+  billingCycle: string;
   billing: string;
   amount: string;
   status: "active" | "pending" | "trial";
@@ -58,6 +55,25 @@ function planBadgeColor(p: string) {
   return "pink" as const;
 }
 
+function formatChartUsd(cents: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(cents / 100);
+}
+
+function chartBarValue(unitAmountCents: number, count: number): string {
+  return `${formatChartUsd(unitAmountCents)}*${count}`;
+}
+
+function periodChartSubtitle(period: string): string {
+  if (period === "this-month") return "this month";
+  if (period === "last-month") return "last month";
+  if (period === "this-year") return "this year";
+  return period;
+}
+
 // ── API Types ──────────────────────────────────────────────────────
 
 type ApiDashboard = {
@@ -72,8 +88,21 @@ type ApiDashboard = {
     activeTemples: number;
     trialTemples: number;
   };
-  revenueByPlan: Array<{ plan: string; amountCents: number; count: number }>;
-  trend: Array<{ month: string; amountCents: number }>;
+  revenueByPlan: Array<{
+    plan: string;
+    billingCycle: string;
+    unitAmountCents: number;
+    count: number;
+    amountCents: number;
+  }>;
+  trend: Array<{
+    monthKey: string;
+    monthLabel: string;
+    isCurrent: boolean;
+    unitAmountCents: number;
+    count: number;
+    amountCents: number;
+  }>;
   subscriptionSummary: Array<{
     tenantId: string;
     templeName: string;
@@ -114,8 +143,8 @@ function HorizontalBarChart({ title, subtitle, bars }: {
             <span className="text-xs text-text-secondary w-[140px] text-right shrink-0 truncate">{bar.label}</span>
             <div className="flex-1 bg-subtle rounded h-[22px] overflow-hidden">
               <div
-                className={`h-full rounded flex items-center px-2 transition-all duration-500 ${bar.color}`}
-                style={{ width: `${bar.percentage}%` }}
+                className={`h-full rounded flex items-center px-2 transition-all duration-500 min-w-[52px] ${bar.color}`}
+                style={{ width: `${Math.max(bar.percentage, bar.percentage > 0 ? 10 : 0)}%` }}
               >
                 <span className="text-[10px] font-bold text-white whitespace-nowrap">{bar.value}</span>
               </div>
@@ -127,47 +156,46 @@ function HorizontalBarChart({ title, subtitle, bars }: {
   );
 }
 
-// ── Toast ────────────────────────────────────────────────────────
-
-function Toast({ message, onClose }: { message: string; onClose: () => void }) {
-  return (
-    <div className="fixed bottom-6 right-6 z-[200] flex items-center gap-3 rounded-xl border border-success-500/20 bg-status-success-bg text-status-success-text px-5 py-4 shadow-xl">
-      <CheckCircle2 className="h-5 w-5 shrink-0" />
-      <p className="text-sm font-semibold">{message}</p>
-      <button onClick={onClose} className="ml-2 opacity-60 hover:opacity-100"><X className="h-4 w-4" /></button>
-    </div>
-  );
-}
-
 // ── Page ────────────────────────────────────────────────────────
 
 export default function RevenueDashboard() {
-  const [toast, setToast] = useState<string | null>(null);
+  const [periodFilter, setPeriodFilter] = useState("this-month");
+  const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [dash, setDash] = useState<ApiDashboard | null>(null);
   const [profile, setProfile] = useState<BillingProfile | null>(null);
-  const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 4000); }, []);
 
   useEffect(() => {
     let cancel = false;
     (async () => {
+      setLoading(true);
       setLoadErr(null);
-      const profRes = await fetch("/api/billing/profile", { cache: "no-store" });
-      const prof = (await profRes.json().catch(() => null)) as { success?: boolean; data?: BillingProfile } | null;
-      if (!cancel && prof && prof.success === true && prof.data) setProfile(prof.data);
+      try {
+        const profRes = await fetch("/api/billing/profile", { cache: "no-store" });
+        const prof = (await profRes.json().catch(() => null)) as { success?: boolean; data?: BillingProfile } | null;
+        if (!cancel && prof && prof.success === true && prof.data) setProfile(prof.data);
 
-      const res = await fetch(`/api/billing/revenue-dashboard?period=this-month`, { cache: "no-store" });
-      const d = (await res.json().catch(() => null)) as { success?: boolean; data?: ApiDashboard } | null;
-      if (cancel) return;
-      if (!d || d.success !== true || !d.data) {
-        setDash(null);
-        setLoadErr(jsonApiErrorMessage(d) || "Failed to load revenue dashboard");
-        return;
+        const res = await fetch(`/api/billing/revenue-dashboard?period=${encodeURIComponent(periodFilter)}`, { cache: "no-store" });
+        const d = (await res.json().catch(() => null)) as { success?: boolean; data?: ApiDashboard } | null;
+        if (cancel) return;
+        if (!d || d.success !== true || !d.data) {
+          setDash(null);
+          setLoadErr(jsonApiErrorMessage(d) || "Failed to load revenue dashboard");
+          return;
+        }
+        setDash(d.data);
+      } finally {
+        if (!cancel) setLoading(false);
       }
-      setDash(d.data);
     })();
     return () => { cancel = true; };
-  }, []);
+  }, [periodFilter]);
+
+  const exportRevenueCsv = () => {
+    const p = new URLSearchParams();
+    if (periodFilter !== "custom") p.set("period", periodFilter);
+    window.open(`/api/billing/revenue-dashboard/export?${p.toString()}`, "_blank", "noopener,noreferrer");
+  };
 
   const temples: TempleSummary[] = (dash?.subscriptionSummary ?? []).map((r) => ({
     id: r.tenantId,
@@ -176,22 +204,14 @@ export default function RevenueDashboard() {
     portalUrl: r.portalUrl,
     initials: (r.templeName.trim().split(/\s+/).filter(Boolean)[0]?.[0] ?? "T") + (r.templeName.trim().split(/\s+/).filter(Boolean)[1]?.[0] ?? ""),
     plan: r.plan,
-    billing: profile?.paymentMethodLabel || "—",
+    billingCycle: r.billingCycle,
+    billing: r.billingCycle === "Annual" ? "Annual" : r.billingCycle === "Monthly" ? "Monthly" : r.billingCycle || "—",
     amount: r.amountCents ? `${formatUsdFromCents(r.amountCents)}${r.billingCycle === "Annual" ? "/yr" : "/mo"}` : "—",
     status: r.status,
     nextRenewal: r.nextRenewal ?? "—",
   }));
 
-  const kpis = dash?.kpis ?? {
-    paidAmountCents: 0,
-    paidCount: 0,
-    pendingAmountCents: 0,
-    pendingCount: 0,
-    overdueAmountCents: 0,
-    overdueCount: 0,
-    activeTemples: 0,
-    trialTemples: 0,
-  };
+  const kpis = dash?.kpis;
 
   const columns = useMemo<ColumnDef<TempleSummary>[]>(() => [
     {
@@ -228,15 +248,21 @@ export default function RevenueDashboard() {
     },
     {
       key: "actions", header: "Actions", align: "right",
-      cell: () => (
+      cell: (r) => (
         <div className="flex items-center gap-1.5">
-          <Link href="/super-admin/finance/invoices/generate">
+          <Link
+            href={buildGenerateInvoiceHref({
+              tenantId: r.id,
+              plan: r.plan,
+              billingCycle: r.billingCycle,
+            })}
+          >
             <Button variant="outline" size="sm">Invoice</Button>
           </Link>
         </div>
       ),
     },
-  ], [showToast]);
+  ], []);
 
   return (
     <div className="space-y-5">
@@ -255,7 +281,26 @@ export default function RevenueDashboard() {
             {dash?.period?.startDate ? ` · ${dash.period.startDate}` : ""}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <SelectInput
+            value={periodFilter}
+            onChange={(e) => setPeriodFilter(e.target.value)}
+            className="text-xs text-text-secondary"
+            wrapperClassName="w-full min-w-[140px] sm:w-auto"
+          >
+            <option value="this-month">This month</option>
+            <option value="last-month">Last month</option>
+            <option value="this-year">This year</option>
+          </SelectInput>
+          <Button
+            variant="outline"
+            size="sm"
+            leadingIcon={<Download className="h-4 w-4" />}
+            onClick={exportRevenueCsv}
+            disabled={loading}
+          >
+            Export CSV
+          </Button>
           <Link href="/super-admin/finance/invoices/generate">
             <Button variant="primary" size="sm" leadingIcon={<Plus className="h-4 w-4" />}>Generate invoice</Button>
           </Link>
@@ -263,78 +308,95 @@ export default function RevenueDashboard() {
       </div>
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-4 gap-3">
-        <div className="bg-surface rounded-xl border border-border p-4">
-          <div className="text-lg mb-2">💰</div>
-          <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">MRR (Monthly Recurring)</p>
-          <p className="text-2xl font-bold text-green-600">{formatUsdFromCents(kpis.paidAmountCents)}</p>
-          <p className="text-[10px] text-text-tertiary mt-1">from {kpis.paidCount} payment(s) confirmed</p>
+      {loading ? (
+        <KpiTileGridSkeleton columns={4} />
+      ) : kpis ? (
+        <div className="grid grid-cols-4 gap-3">
+          <div className="bg-surface rounded-xl border border-border p-4">
+            <div className="text-lg mb-2">💰</div>
+            <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">MRR (Monthly Recurring)</p>
+            <p className="text-2xl font-bold text-green-600">{formatUsdFromCents(kpis.paidAmountCents)}</p>
+            <p className="text-[10px] text-text-tertiary mt-1">from {kpis.paidCount} payment(s) confirmed</p>
+          </div>
+          <div className="bg-surface rounded-xl border border-border p-4">
+            <div className="text-lg mb-2">📈</div>
+            <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">ARR (Annual Recurring)</p>
+            <p className="text-2xl font-bold text-brand">{formatUsdFromCents(kpis.paidAmountCents * 12)}</p>
+            <p className="text-[10px] text-text-tertiary mt-1">simple annualized from this period</p>
+          </div>
+          <div className="bg-surface rounded-xl border border-border p-4">
+            <div className="text-lg mb-2">⏳</div>
+            <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Pending payments</p>
+            <p className="text-2xl font-bold text-amber-600">{formatUsdFromCents(kpis.pendingAmountCents)}</p>
+            <p className="text-[10px] text-text-tertiary mt-1">{kpis.pendingCount} invoice(s) awaiting bank transfer</p>
+            <p className="text-[10px] font-semibold text-amber-600 mt-1">{kpis.overdueCount} overdue</p>
+          </div>
+          <div className="bg-surface rounded-xl border border-border p-4">
+            <div className="text-lg mb-2">🛕</div>
+            <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Active temples</p>
+            <p className="text-2xl font-bold text-indigo-600">{kpis.activeTemples}</p>
+            <p className="text-[10px] text-text-tertiary mt-1">{kpis.trialTemples} on trial</p>
+          </div>
         </div>
-        <div className="bg-surface rounded-xl border border-border p-4">
-          <div className="text-lg mb-2">📈</div>
-          <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">ARR (Annual Recurring)</p>
-          <p className="text-2xl font-bold text-brand">{formatUsdFromCents(kpis.paidAmountCents * 12)}</p>
-          <p className="text-[10px] text-text-tertiary mt-1">simple annualized from this period</p>
-        </div>
-        <div className="bg-surface rounded-xl border border-border p-4">
-          <div className="text-lg mb-2">⏳</div>
-          <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Pending payments</p>
-          <p className="text-2xl font-bold text-amber-600">{formatUsdFromCents(kpis.pendingAmountCents)}</p>
-          <p className="text-[10px] text-text-tertiary mt-1">{kpis.pendingCount} invoice(s) awaiting bank transfer</p>
-          <p className="text-[10px] font-semibold text-amber-600 mt-1">{kpis.overdueCount} overdue</p>
-        </div>
-        <div className="bg-surface rounded-xl border border-border p-4">
-          <div className="text-lg mb-2">🛕</div>
-          <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Active temples</p>
-          <p className="text-2xl font-bold text-indigo-600">{kpis.activeTemples}</p>
-          <p className="text-[10px] text-text-tertiary mt-1">{kpis.trialTemples} on trial</p>
-        </div>
-      </div>
+      ) : null}
 
       {/* Two Charts Side by Side */}
-      <div className="grid grid-cols-2 gap-3">
-        <HorizontalBarChart
-          title="Revenue by plan"
-          subtitle="this month"
-          bars={(dash?.revenueByPlan ?? []).map((b, i) => {
-            const colors = ["bg-brand", "bg-indigo-500", "bg-purple-500", "bg-green-500", "bg-amber-500"];
-            const total = (dash?.revenueByPlan ?? []).reduce((a, x) => a + x.amountCents, 0) || 1;
-            return {
-              label: b.plan,
-              value: `${formatUsdFromCents(b.amountCents)} × ${b.count}`,
-              percentage: Math.max(0, Math.min(100, Math.round((b.amountCents / total) * 100))),
-              color: colors[i % colors.length]!,
-            };
-          })}
-        />
-        <HorizontalBarChart
-          title="Monthly revenue trend"
-          bars={(dash?.trend ?? []).map((t, i, arr) => {
-            const max = Math.max(1, ...arr.map((x) => x.amountCents));
-            return {
-              label: t.month,
-              value: formatUsdFromCents(t.amountCents),
-              percentage: Math.max(0, Math.min(100, Math.round((t.amountCents / max) * 100))),
-              color: i === arr.length - 1 ? "bg-brand" : "bg-green-500",
-            };
-          })}
-        />
-      </div>
+      {loading ? (
+        <div className="grid grid-cols-2 gap-3">
+          <HorizontalBarChartSkeleton />
+          <HorizontalBarChartSkeleton />
+        </div>
+      ) : dash ? (
+        <div className="grid grid-cols-2 gap-3">
+          <HorizontalBarChart
+            title="Revenue by plan"
+            subtitle={periodChartSubtitle(periodFilter)}
+            bars={(dash.revenueByPlan ?? []).map((b) => {
+              const total = (dash.revenueByPlan ?? []).reduce((a, x) => a + x.amountCents, 0) || 1;
+              const unitCents = b.unitAmountCents > 0 ? b.unitAmountCents : b.count > 0 ? Math.round(b.amountCents / b.count) : 0;
+              return {
+                label: `${b.plan} (${b.billingCycle})`,
+                value: chartBarValue(unitCents, b.count),
+                percentage: Math.max(0, Math.min(100, Math.round((b.amountCents / total) * 100))),
+                color: "bg-brand",
+              };
+            })}
+          />
+          <HorizontalBarChart
+            title="Monthly Revenue Trend"
+            bars={(dash.trend ?? []).map((t) => {
+              const max = Math.max(1, ...(dash.trend ?? []).map((x) => x.amountCents));
+              const unitCents = t.unitAmountCents > 0 ? t.unitAmountCents : t.count > 0 ? Math.round(t.amountCents / t.count) : 0;
+              return {
+                label: t.monthLabel,
+                value: chartBarValue(unitCents, t.count),
+                percentage: Math.max(0, Math.min(100, Math.round((t.amountCents / max) * 100))),
+                color: "bg-brand",
+              };
+            })}
+          />
+        </div>
+      ) : null}
 
       {/* Temple Subscription Summary Table */}
       <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-bold text-text-primary">Temple subscription summary</h2>
-          <Link href="/super-admin/finance/subscriptions">
-            <Button variant="outline" size="sm">View all →</Button>
-          </Link>
-        </div>
-        <div className="bg-surface rounded-xl border border-border shadow-xs">
-          <DataTable<TempleSummary> columns={columns} data={temples} keyExtractor={(r) => r.id} />
-        </div>
+        <AdminListCard>
+          <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-sm font-bold text-text-primary">Temple subscription summary</h2>
+            <Link href="/super-admin/finance/subscriptions" className="shrink-0">
+              <Button variant="outline" size="sm">View all →</Button>
+            </Link>
+          </div>
+          <DataTable<TempleSummary>
+            columns={columns}
+            data={temples}
+            keyExtractor={(r) => r.id}
+            isLoading={loading}
+            loadingRows={5}
+          />
+        </AdminListCard>
       </div>
 
-      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
     </div>
   );
 }

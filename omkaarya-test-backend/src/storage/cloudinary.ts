@@ -52,12 +52,13 @@ const BRANDING_IMAGE_MIMES = new Set([
   "image/svg+xml",
 ]);
 
-export type BrandingImageKind = "temple-logo" | "admin-profile";
+export type BrandingImageKind = "temple-logo" | "admin-profile" | "master-deity";
 
 /**
  * If `data:` base64, uploads to Cloudinary and returns `secureUrl`.
  * If `http(s)`, returns the string unchanged.
  * Empty/null → null.
+ * Used for temple logo, admin profile, and super-admin master deity catalog images.
  */
 export async function storeBrandingImageIfNeeded(
   raw: string | null | undefined,
@@ -78,6 +79,9 @@ export async function storeBrandingImageIfNeeded(
 function brandingFolderForKind(kind: BrandingImageKind): string {
   if (kind === "temple-logo") {
     return env("CLOUDINARY_BRANDING_TEMPLE_LOGO_FOLDER") || "omkaarya/branding/temple-logo";
+  }
+  if (kind === "master-deity") {
+    return env("CLOUDINARY_BRANDING_MASTER_DEITY_FOLDER") || "omkaarya/branding/master-deity";
   }
   return env("CLOUDINARY_BRANDING_ADMIN_PROFILE_FOLDER") || "omkaarya/branding/admin-profile";
 }

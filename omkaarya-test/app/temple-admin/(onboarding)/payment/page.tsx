@@ -34,16 +34,8 @@ import {
   clearTempleOnboardingTempleProfileDraft,
 } from "@/lib/temple-onboarding-temple-profile";
 
-const BANK_DETAILS = {
-  header: "Peopleux Pvt Ltd — Receiving Account",
-  fields: [
-    { label: "Bank Name", value: "Commercial Bank of Ceylon PLC" },
-    { label: "Branch Name", value: "Jaffna Main Branch" },
-    { label: "Account Name", value: "Peopleux Pvt Ltd" },
-    { label: "Account Number", value: "8010567890012" },
-    { label: "SWIFT / BIC Code", value: "CCEYLKLX" },
-  ],
-} as const;
+import { OMKAARYA_PLATFORM_BANK_DETAILS as BANK_DETAILS } from "@/lib/omkaarya-platform-bank-details";
+import { normalizePaymentReference } from "@/lib/payment-reference";
 
 const ALLOWED_UPLOAD_MIME = new Set([
   "application/pdf",
@@ -62,15 +54,6 @@ function todayIsoDate(): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function normalizeReference(raw: string): string {
-  return raw
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 40);
-}
 
 function CopyButton({ value, ariaLabel }: { value: string; ariaLabel: string }) {
   const [copied, setCopied] = useState(false);
@@ -276,7 +259,7 @@ export default function TempleAdminPaymentPage() {
     const draft = loadTempleOnboardingTempleProfileDraft();
     const name = (draft?.templeName ?? "").trim() || "TEMPLE";
     const id = created?.templeId ? String(created.templeId) : "0000";
-    return normalizeReference(`${name}-INV-${id}`);
+    return normalizePaymentReference(`${name}-INV-${id}`);
   }, []);
 
   const openModal = () => {

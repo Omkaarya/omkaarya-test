@@ -3,6 +3,44 @@ import { jwtVerify } from "jose";
 import { getPool } from "../../db/pool.js";
 import { HttpError } from "../../middleware/http-error.js";
 
+/** Same rules as Next.js `lib/super-admin-auth.ts` — DB may store roles as text[], JSON text, or comma-separated string. */
+function normalizeRolesFromDb(raw: unknown): string[] {
+  if (raw == null) return [];
+  if (Array.isArray(raw)) {
+    return raw.map((r) => String(r).trim()).filter(Boolean);
+  }
+  if (typeof raw === "string") {
+    const s = raw.trim();
+    if (!s) return [];
+    if (s.startsWith("[") || s.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(s) as unknown;
+        if (Array.isArray(parsed)) {
+          return parsed.map((r) => String(r).trim()).filter(Boolean);
+        }
+      } catch {
+        /* fall through */
+      }
+    }
+    if (s.includes(",")) {
+      return s.split(",").map((x) => x.trim()).filter(Boolean);
+    }
+    return [s];
+  }
+  return [];
+}
+
+function hasSuperAdminRole(roles: string[]): boolean {
+  return roles.some((role) => {
+    const n = String(role)
+      .trim()
+      .toLowerCase()
+      .replace(/_/g, " ")
+      .replace(/\s+/g, " ");
+    return n === "super admin" || n.replace(/\s/g, "") === "superadmin";
+  });
+}
+
 function jwtSecretKey(): Uint8Array {
   const secret = process.env.JWT_SECRET?.trim();
   if (!secret) {
@@ -30,17 +68,13 @@ export const requireSuperAdminJwt: RequestHandler = async (req, res, next) => {
 
     const { payload } = await jwtVerify(token, jwtSecretKey(), { algorithms: ["HS256"] });
     const email = typeof payload.email === "string" ? payload.email.trim() : "";
-    const tenantId =
-      typeof payload.tenantId === "string"
-        ? payload.tenantId.trim()
-        : typeof payload.tenant_id === "string"
-          ? payload.tenant_id.trim()
-          : "";
 
-    if (!email || tenantId) {
+    // Do not require absence of tenantId: Next.js login may attach a default tenant for
+    // platform users; super-admin access is enforced via `public.users.roles` below.
+    if (!email) {
       throw new HttpError(403, "Super-admin session required.", {
         code: "FORBIDDEN",
-        reason: "This endpoint requires a platform super-admin session.",
+        reason: "This endpoint requires an authenticated platform user with a Super Admin role.",
       });
     }
 
@@ -52,19 +86,19 @@ export const requireSuperAdminJwt: RequestHandler = async (req, res, next) => {
       });
     }
 
-    const { rows } = await pool.query<{ id: number; roles: string[] | null }>(
+    const { rows } = await pool.query<{ id: string; roles: unknown }>(
       `SELECT id, roles FROM public.users WHERE lower(trim(email)) = lower(trim($1)) LIMIT 1`,
       [email]
     );
-    const roles = rows[0]?.roles ?? [];
-    if (!Array.isArray(roles) || !roles.some((r) => r.trim().toLowerCase() === "super admin")) {
+    const roles = normalizeRolesFromDb(rows[0]?.roles);
+    if (!hasSuperAdminRole(roles)) {
       throw new HttpError(403, "Super-admin role required.", {
         code: "FORBIDDEN",
         reason: "The authenticated user does not have the Super Admin role.",
       });
     }
 
-    (res.locals as { superAdminSession?: { email: string; platformUserId: number } }).superAdminSession = {
+    (res.locals as { superAdminSession?: { email: string; platformUserId: string } }).superAdminSession = {
       email,
       platformUserId: rows[0]!.id,
     };
