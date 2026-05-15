@@ -28,6 +28,7 @@ import { createBillingRouter } from "./billing.routes.js";
 import { PostgresBillingRepository } from "./billing.repository.js";
 import { createTempleBillingRouter } from "./temple-billing.routes.js";
 import { createDashboardRouter } from "./dashboard.routes.js";
+import { createSuperAdminSessionRouter } from "./super-admin-session.routes.js";
 import { createTempleDeityCatalogRouter } from "./temple-deity-catalog.routes.js";
 import { createMasterDeitiesRouter } from "./master-deities.routes.js";
 import { PostgresMasterDeitiesRepository } from "./master-deities.repository.js";
@@ -87,6 +88,7 @@ export function createSuperAdminApiRouter(): Router {
   api.use(createTempleDeityCatalogRouter(masterDeities));
 
   api.use([...SUPER_ADMIN_JWT_PATH_PREFIXES], requireSuperAdminJwt);
+  api.use(createSuperAdminSessionRouter());
   api.use(createTemplesRouter(templesService));
   api.use(createBillingRouter(billing));
   api.use(createDashboardRouter(billing));

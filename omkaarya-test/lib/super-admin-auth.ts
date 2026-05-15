@@ -125,16 +125,19 @@ export async function requireSuperAdminHeaders(extra: Record<string, string> = {
     };
   }
 
-  if (!(await isPlatformSuperAdminEmail(session.email))) {
-    return {
-      ok: false as const,
-      response: nextJsonError(
-        403,
-        "FORBIDDEN",
-        "Super-admin role required",
-        "The authenticated user does not have access to this admin API."
-      ),
-    };
+  // When Next has no DATABASE_URL (typical on Vercel), role checks run on the Express API.
+  if (getPoolConfig()) {
+    if (!(await isPlatformSuperAdminEmail(session.email))) {
+      return {
+        ok: false as const,
+        response: nextJsonError(
+          403,
+          "FORBIDDEN",
+          "Super-admin role required",
+          "The authenticated user does not have access to this admin API."
+        ),
+      };
+    }
   }
 
   return {
