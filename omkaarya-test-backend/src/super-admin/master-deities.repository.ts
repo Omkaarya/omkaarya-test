@@ -146,7 +146,7 @@ export class PostgresMasterDeitiesRepository {
     q: string;
     status: "all" | "active" | "inactive";
     country: string;
-    sortBy: "name" | "last7";
+    sortBy: "name" | "last7" | "timeline";
     page: number;
     pageSize: number;
   }): Promise<MasterDeityListResponse> {
@@ -184,10 +184,6 @@ export class PostgresMasterDeitiesRepository {
       i += 1;
     }
 
-    if (input.sortBy === "last7") {
-      conditions.push(`created_at >= NOW() - INTERVAL '7 days'`);
-    }
-
     const whereSql = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
     const countAllRes = await pool.query<{ c: string }>(`SELECT COUNT(*)::text AS c FROM public.master_deities`);
@@ -201,7 +197,7 @@ export class PostgresMasterDeitiesRepository {
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
     const orderSql =
-      input.sortBy === "last7"
+      input.sortBy === "last7" || input.sortBy === "timeline"
         ? `ORDER BY created_at DESC, display_serial ASC`
         : `ORDER BY name ASC NULLS LAST, display_serial ASC`;
 

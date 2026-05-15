@@ -328,9 +328,6 @@ export class PostgresTempleRepository implements TempleRepository {
       params.push(country);
       where.push(`t.country_code = $${params.length}`);
     }
-    if (query.sortBy === "last7") {
-      where.push(`t.created_at >= NOW() - INTERVAL '7 days'`);
-    }
 
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
@@ -358,7 +355,7 @@ export class PostgresTempleRepository implements TempleRepository {
     const safeOffset = (safePage - 1) * pageSize;
 
     const orderBy =
-      query.sortBy === "last7"
+      query.sortBy === "last7" || query.sortBy === "timeline"
         ? `t.created_at DESC, t.tenant_id::text DESC`
         : query.sortBy === "name"
           ? `t.name ASC, t.tenant_id::text DESC`

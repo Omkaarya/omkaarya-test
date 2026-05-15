@@ -76,7 +76,7 @@ export default function DeitiesFiltersBar({
           className="min-w-[12rem] w-full sm:w-[13rem]"
         >
           <option value="name">Sort By: Name</option>
-          <option value="timeline">Sort By: Timeline</option>
+          <option value="timeline">Sort By: Newest first</option>
         </SelectInput>
       </div>
     </div>

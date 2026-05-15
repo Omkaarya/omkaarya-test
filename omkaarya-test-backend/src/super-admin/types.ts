@@ -21,7 +21,7 @@ export type TempleRecord = {
   adminEmail: string;
 };
 
-export type TemplesSortBy = "last7" | "name" | "devotees";
+export type TemplesSortBy = "last7" | "timeline" | "name" | "devotees";
 
 export type TemplesQueryInput = {
   q: string;

@@ -40,8 +40,10 @@ function parseStatus(raw: string): "all" | "active" | "inactive" {
   return "all";
 }
 
-function parseSortBy(raw: string): "name" | "last7" {
-  return raw.trim().toLowerCase() === "last7" ? "last7" : "name";
+function parseSortBy(raw: string): "name" | "last7" | "timeline" {
+  const s = raw.trim().toLowerCase();
+  if (s === "last7" || s === "timeline") return "timeline";
+  return "name";
 }
 
 export function createMasterDeitiesRouter(repo: PostgresMasterDeitiesRepository): Router {
