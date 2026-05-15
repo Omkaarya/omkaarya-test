@@ -117,6 +117,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
 
   // Keep `/health` for local + also expose `${apiMountPath}/health` for serverless setups (e.g. Vercel).
   app.get("/health", healthHandler);
+  app.get(`${apiMountPath}/health`, healthHandler);
 
   /** Platform + onboarding + billing routes. */
   app.use(apiMountPath, createSuperAdminApiRouter());

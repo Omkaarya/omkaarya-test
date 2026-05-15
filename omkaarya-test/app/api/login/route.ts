@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { apiUrl } from "@/lib/api-base";
+import { apiUrl, getApiBaseUrl, isApiBaseMisconfigured } from "@/lib/api-base";
 import { getUserByEmail } from "@/lib/mock-db";
 import { applyAuthCookieToResponse, signToken } from "@/lib/auth-utils";
 import { nextJsonError, nextJsonSuccess, type ApiErrorBody, type ApiSuccessBody } from "@/lib/api-envelope";
@@ -72,9 +72,23 @@ export async function POST(request: NextRequest) {
       return nextJsonError(400, "VALIDATION_ERROR", "Validation failed", "Email and password are required.");
     }
 
+    if (isApiBaseMisconfigured()) {
+      console.error(
+        "[login] API base is localhost in production. Set API_BASE_URL or NEXT_PUBLIC_API_BASE_URL on Vercel."
+      );
+      return nextJsonError(
+        503,
+        "API_NOT_CONFIGURED",
+        "Authentication service unavailable",
+        "NEXT_PUBLIC_API_BASE_URL (or API_BASE_URL) must point to the deployed Express backend, not localhost."
+      );
+    }
+
     let backendFailed = false;
+    let upstreamError: string | undefined;
     try {
-      const res = await fetch(apiUrl("/api/login"), {
+      const loginUrl = apiUrl("/api/login");
+      const res = await fetch(loginUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({
@@ -117,8 +131,10 @@ export async function POST(request: NextRequest) {
       if (!res.ok && data && typeof data === "object" && "success" in data && data.success === false) {
         return NextResponse.json(data, { status: res.status });
       }
-    } catch {
+    } catch (err) {
       backendFailed = true;
+      upstreamError = err instanceof Error ? err.message : String(err);
+      console.error("[login] Backend fetch failed:", { base: getApiBaseUrl(), upstreamError });
     }
 
     if (!mockLoginEnabled()) {
@@ -126,7 +142,9 @@ export async function POST(request: NextRequest) {
         backendFailed ? 503 : 502,
         backendFailed ? "UPSTREAM_UNREACHABLE" : "UPSTREAM_INVALID_RESPONSE",
         "Authentication service unavailable",
-        "The application database login service could not complete the request."
+        backendFailed
+          ? `Could not reach the backend at ${getApiBaseUrl()}. ${upstreamError ?? "Check API_BASE_URL / NEXT_PUBLIC_API_BASE_URL and that the API is deployed."}`
+          : "The application database login service returned an unexpected response."
       );
     }
 
