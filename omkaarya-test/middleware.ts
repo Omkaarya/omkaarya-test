@@ -45,6 +45,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Legacy URL: read-only temple details used `?view=1` on the edit route; canonical path lives under `/view-temple`.
+  const legacyViewTemple = pathname.match(/^\/super-admin\/edit-temple\/([^/]+)\/?$/);
+  if (legacyViewTemple && request.nextUrl.searchParams.get('view') === '1') {
+    const tenantId = legacyViewTemple[1];
+    const target = new URL(`/super-admin/view-temple/${encodeURIComponent(tenantId)}`, request.url);
+    return applyNoStoreHeaders(NextResponse.redirect(target));
+  }
+
   // Super-admin API proxies require a session cookie; handlers still enforce role + Bearer upstream.
   if (isApiRoute && isSuperAdminProtectedApiPath(pathname) && !token?.trim()) {
     return nextJsonError(

@@ -18,7 +18,8 @@ export default function AdminDashboardLayout({
   const templesActive =
     pathname === "/super-admin/core/temples" ||
     pathname.startsWith("/super-admin/create-temple") ||
-    pathname.startsWith("/super-admin/edit-temple");
+    pathname.startsWith("/super-admin/edit-temple") ||
+    pathname.startsWith("/super-admin/view-temple");
 
   return (
     <SuperAdminSessionGuard>
