@@ -37,6 +37,7 @@ import { useUnsavedFormGuard } from "@/lib/use-unsaved-form-guard";
 import AffixedInput from "@/app/components/admin/AffixedInput";
 import FormField from "@/app/components/admin/FormField";
 import LogoUpload from "@/app/components/admin/LogoUpload";
+import { fileToDataUrl } from "@/lib/file-to-data-url";
 import PhoneFieldsGroup, {
   PhoneRowField,
   type PhoneRowValue,
@@ -232,15 +233,6 @@ function parseAdminWhatsappToRow(s: string, countryIso: string): PhoneRowValue {
 }
 
 const TEMPLES_LIST_PATH = "/super-admin/core/temples";
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result));
-    r.onerror = () => reject(new Error("Failed to read file"));
-    r.readAsDataURL(file);
-  });
-}
 
 export default function TempleWizard({ mode, tenantId, initialDetail, readOnly = false }: TempleWizardProps) {
   const router = useRouter();
@@ -988,7 +980,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
 
     if (logoFile) {
       try {
-        payload.logoTempleDataUrl = await readFileAsDataUrl(logoFile);
+        payload.logoTempleDataUrl = await fileToDataUrl(logoFile);
       } catch {
         setSubmitError("Could not read the temple logo image.");
         setIsSubmitting(false);
@@ -997,7 +989,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
     }
     if (adminProfileFile) {
       try {
-        payload.adminProfileDataUrl = await readFileAsDataUrl(adminProfileFile);
+        payload.adminProfileDataUrl = await fileToDataUrl(adminProfileFile);
       } catch {
         setSubmitError("Could not read the admin profile image.");
         setIsSubmitting(false);
@@ -1129,7 +1121,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
 
     if (logoFile) {
       try {
-        body.logoTempleDataUrl = await readFileAsDataUrl(logoFile);
+        body.logoTempleDataUrl = await fileToDataUrl(logoFile);
       } catch {
         setSubmitError("Could not read the logo image.");
         setIsSubmitting(false);

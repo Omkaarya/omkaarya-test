@@ -1,13 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { CloudUpload, Flag, ImageIcon, Maximize2, Minimize2, X } from "lucide-react";
+import { Flag, Maximize2, Minimize2, X } from "lucide-react";
 import FormField from "@/app/components/admin/FormField";
+import LogoUpload from "@/app/components/admin/LogoUpload";
 import PostSaveSuccessBanner from "@/app/components/admin/PostSaveSuccessBanner";
 import TextInput from "@/app/components/admin/TextInput";
 import UnsavedChangesDialog from "@/app/components/admin/UnsavedChangesDialog";
 import { Button } from "@/app/components/ds/atoms/Button";
 import type { MasterDeityRow } from "@/lib/master-deities";
+import { fileToDataUrl } from "@/lib/file-to-data-url";
 import { formSnapshot } from "@/lib/form-snapshot";
 import { useModalFormSession } from "@/lib/use-modal-form-session";
 
@@ -21,28 +23,15 @@ type DeityUpsertModalProps = {
   onSaved: () => void;
 };
 
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result));
-    r.onerror = () => reject(new Error("Failed to read file"));
-    r.readAsDataURL(file);
-  });
-}
-
-/** Match `LogoUpload` / temple wizard: any raster or SVG the browser treats as `image/*`. */
-const ACCEPT = "image/*";
 /** Align with Express `JSON_BODY_LIMIT` default (`10mb`) used for temple create payloads. */
 const MAX_BYTES = 10 * 1024 * 1024;
 
 export default function DeityUpsertModal({ open, mode, initial, onClose, onSaved }: DeityUpsertModalProps) {
   const dialogId = useId();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [name, setName] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const [persistedImageUrl, setPersistedImageUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,8 +40,8 @@ export default function DeityUpsertModal({ open, mode, initial, onClose, onSaved
   const baselineRef = useRef("");
 
   const formState = useMemo(
-    () => ({ name, isActive, imageDataUrl, persistedImageUrl, hasImageFile: Boolean(imageFile) }),
-    [name, isActive, imageDataUrl, persistedImageUrl, imageFile]
+    () => ({ name, isActive, persistedImageUrl, hasImageFile: Boolean(imageFile) }),
+    [name, isActive, persistedImageUrl, imageFile],
   );
   const isDirty = !isView && baselineRef.current !== "" && formSnapshot(formState) !== baselineRef.current;
   const session = useModalFormSession({ isDirty, onClose });
@@ -62,11 +51,9 @@ export default function DeityUpsertModal({ open, mode, initial, onClose, onSaved
     setName("");
     setIsActive(true);
     setImageFile(null);
-    setImageDataUrl(null);
     setPersistedImageUrl(null);
     setError(null);
     setSaving(false);
-    if (fileInputRef.current) fileInputRef.current.value = "";
   }, []);
 
   useEffect(() => {
@@ -78,54 +65,34 @@ export default function DeityUpsertModal({ open, mode, initial, onClose, onSaved
       setName(initial.name);
       setIsActive(initial.isActive);
       setPersistedImageUrl(initial.imageDataUrl);
-      setImageDataUrl(null);
       setImageFile(null);
     } else {
       setName("");
       setIsActive(true);
       setPersistedImageUrl(null);
-      setImageDataUrl(null);
       setImageFile(null);
     }
     setError(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
     baselineRef.current = formSnapshot({
       name: initial?.name ?? "",
       isActive: initial?.isActive ?? true,
-      imageDataUrl: null,
       persistedImageUrl: initial?.imageDataUrl ?? null,
       hasImageFile: false,
     });
   }, [open, initial, reset]);
 
-  const previewUrl = useMemo(() => {
-    if (imageFile) return URL.createObjectURL(imageFile);
-    if (imageDataUrl) return imageDataUrl;
-    if (persistedImageUrl) return persistedImageUrl;
-    return null;
-  }, [imageFile, imageDataUrl, persistedImageUrl]);
-
-  useEffect(() => {
-    return () => {
-      if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
-    };
-  }, [previewUrl]);
-
-  const applyFile = async (file: File | null) => {
-    if (!file) return;
+  const onDeityImageChange = useCallback((file: File | null) => {
+    setError(null);
+    if (!file) {
+      setImageFile(null);
+      return;
+    }
     if (file.size > MAX_BYTES) {
       setError(`Image must be under ${Math.round(MAX_BYTES / (1024 * 1024))}MB.`);
       return;
     }
-    setError(null);
     setImageFile(file);
-    try {
-      const url = await readFileAsDataUrl(file);
-      setImageDataUrl(url);
-    } catch {
-      setError("Could not read the image file.");
-    }
-  };
+  }, []);
 
   const title =
     mode === "create" ? "Add New Deity" : mode === "edit" ? "Edit Deity" : "View Deity";
@@ -143,8 +110,13 @@ export default function DeityUpsertModal({ open, mode, initial, onClose, onSaved
     setSaving(true);
     try {
       let imagePayload: string | null = persistedImageUrl;
-      if (imageFile && imageDataUrl) {
-        imagePayload = imageDataUrl;
+      if (imageFile) {
+        try {
+          imagePayload = await fileToDataUrl(imageFile);
+        } catch {
+          setError("Could not read the image file.");
+          return;
+        }
       }
 
       if (mode === "create") {
@@ -261,71 +233,18 @@ export default function DeityUpsertModal({ open, mode, initial, onClose, onSaved
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Image</label>
-              <div className="flex flex-wrap items-stretch gap-3">
-                <div
-                  className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-zinc-200 bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800/50"
-                  aria-hidden
-                >
-                  {previewUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={previewUrl} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center gap-0.5 text-zinc-400">
-                      <ImageIcon className="h-6 w-6" />
-                      <span className="text-[10px] font-medium">+</span>
-                    </div>
-                  )}
-                </div>
-
-                <div
-                  className={[
-                    "flex min-h-[6.5rem] min-w-[12rem] flex-1 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-200 bg-zinc-50/80 px-4 py-6 text-center transition-colors dark:border-zinc-600 dark:bg-zinc-800/40",
-                    isView ? "pointer-events-none opacity-70" : "hover:border-[var(--brand-primary)]/50",
-                  ].join(" ")}
-                  onDragOver={(e) => {
-                    if (isView) return;
-                    e.preventDefault();
-                  }}
-                  onDrop={(e) => {
-                    if (isView) return;
-                    e.preventDefault();
-                    const f = e.dataTransfer.files?.[0];
-                    void applyFile(f ?? null);
-                  }}
-                  onClick={() => !isView && fileInputRef.current?.click()}
-                  onKeyDown={(e) => {
-                    if (isView) return;
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      fileInputRef.current?.click();
-                    }
-                  }}
-                  role={isView ? undefined : "button"}
-                  tabIndex={isView ? -1 : 0}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept={ACCEPT}
-                    className="sr-only"
-                    disabled={isView}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      void applyFile(f ?? null);
-                    }}
-                  />
-                  <CloudUpload className="mx-auto mb-2 h-8 w-8 text-zinc-400" aria-hidden />
-                  <p className="text-sm text-zinc-600 dark:text-zinc-300">
-                    <span className="font-semibold text-[var(--brand-primary)]">Click to upload</span> or drag and
-                    drop
-                  </p>
-                  <p className="mt-1 text-xs text-zinc-400">
-                    Same as temple logo: any image type (e.g. JPEG, PNG, WebP, GIF, SVG), max{" "}
-                    {Math.round(MAX_BYTES / (1024 * 1024))}MB. Files are stored on Cloudinary; the catalog
-                    keeps the hosted URL.
-                  </p>
-                </div>
-              </div>
+              <LogoUpload
+                file={imageFile}
+                onFileChange={onDeityImageChange}
+                initialDataUrl={persistedImageUrl}
+                placeholderLabel="Deity"
+                disabled={isView}
+              />
+              <p className="max-w-lg text-xs text-zinc-400 dark:text-zinc-500">
+                Same as temple logo: any raster or SVG the browser accepts as an image, max{" "}
+                {Math.round(MAX_BYTES / (1024 * 1024))} MB. Sent as JSON (data URL); the catalog stores the
+                hosted URL after upload.
+              </p>
             </div>
 
             <FormField id={`${dialogId}-name`} label="Name" required>

@@ -190,7 +190,7 @@ export default function TemplesAdminPage() {
         cell: (row) => (
           <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
             <Link
-              href={`/super-admin/edit-temple/${encodeURIComponent(row.tenantId)}?view=1`}
+              href={`/super-admin/view-temple/${encodeURIComponent(row.tenantId)}`}
               aria-label="View temple"
               title="View temple"
             >

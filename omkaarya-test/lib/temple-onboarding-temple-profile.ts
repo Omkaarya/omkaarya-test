@@ -133,15 +133,5 @@ export function markTempleOnboardingTempleCreated(result: TempleCreateResult): v
   sessionStorage.setItem(TEMPLE_ONBOARDING_TEMPLE_CREATED_RESPONSE_KEY, JSON.stringify(result));
 }
 
-export function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Failed to read file"));
-    reader.onload = () => {
-      if (typeof reader.result !== "string") return reject(new Error("Invalid file reader result"));
-      resolve(reader.result);
-    };
-    reader.readAsDataURL(file);
-  });
-}
+export { fileToDataUrl } from "./file-to-data-url";
 
