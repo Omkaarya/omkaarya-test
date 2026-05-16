@@ -12,9 +12,43 @@ const plusJakartaSans = Plus_Jakarta_Sans({
   display: "swap",
 });
 
+const defaultTitle = "OmKaarya Platform";
+const defaultDescription = "Hindu temple culture and administration platform by Pepulux.";
+
+const brandMarkPath = "/brand-logo/omkaarya-mark.svg";
+
+function metadataOrigin(): URL {
+  const raw = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (!raw) return new URL("http://localhost:3000");
+  return new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+}
+
 export const metadata: Metadata = {
-  title: "OmKaarya Platform",
-  description: "Hindu temple culture and administration platform by Pepulux.",
+  metadataBase: metadataOrigin(),
+  title: defaultTitle,
+  description: defaultDescription,
+  icons: {
+    icon: [{ url: brandMarkPath, type: "image/svg+xml" }],
+  },
+  openGraph: {
+    title: defaultTitle,
+    description: defaultDescription,
+    type: "website",
+    images: [
+      {
+        url: brandMarkPath,
+        width: 720,
+        height: 720,
+        alt: defaultTitle,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary",
+    title: defaultTitle,
+    description: defaultDescription,
+    images: [brandMarkPath],
+  },
 };
 
 const themeInitScript = `!function(){try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);else if(window.matchMedia("(prefers-color-scheme: dark)").matches)document.documentElement.setAttribute("data-theme","dark")}catch(e){}}();`;
