@@ -46,7 +46,10 @@ import { PostgresTempleDefaultRolePermissionsRepository } from "./temple-default
 import { createTempleDefaultRolesAdminRouter } from "./temple-default-roles-admin.routes.js";
 import { createPublicRouter } from "../public/public.routes.js";
 import { requireSuperAdminJwt } from "./middleware/require-super-admin-jwt.js";
+import { enforceTempleSessionEmail } from "./middleware/enforce-temple-session-email.js";
 import { SUPER_ADMIN_JWT_PATH_PREFIXES } from "./super-admin-protected-path-prefixes.js";
+import { TEMPLE_ONBOARDING_JWT_PATH_PREFIXES } from "./temple-onboarding-protected-path-prefixes.js";
+import { requireTempleJwtSession } from "../temple-ops/middleware/require-temple-jwt.js";
 
 /**
  * Super-admin HTTP API mounted at `/api`:
@@ -105,6 +108,11 @@ export function createSuperAdminApiRouter(): Router {
   api.use(createTempleDeityCatalogRouter(masterDeities));
 
   api.use([...SUPER_ADMIN_JWT_PATH_PREFIXES], requireSuperAdminJwt);
+  api.use(
+    [...TEMPLE_ONBOARDING_JWT_PATH_PREFIXES],
+    requireTempleJwtSession,
+    enforceTempleSessionEmail
+  );
   api.use(createSuperAdminSessionRouter());
   api.use(createTempleSubdomainCheckRouter());
   api.use(createTemplesRouter(templesService));

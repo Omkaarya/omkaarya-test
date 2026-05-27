@@ -90,7 +90,7 @@ export default function PhoneFieldsGroup({
   disabled = false,
 }: PhoneFieldsGroupProps) {
   return (
-    <div className="space-y-4">
+    <div className="contents">
       <PhoneRowField
         idPrefix="phone-tel"
         label="Telephone Number"
@@ -99,22 +99,24 @@ export default function PhoneFieldsGroup({
         error={errors?.telephone}
         disabled={disabled}
       />
-      <PhoneRowField
-        idPrefix="phone-wa"
-        label="WhatsApp"
-        value={whatsapp}
-        onChange={(next) => onChange("whatsapp", next)}
-        error={errors?.whatsapp}
-        disabled={disabled}
-      />
-      <PhoneRowField
-        idPrefix="phone-fax"
-        label="Fax"
-        value={fax}
-        onChange={(next) => onChange("fax", next)}
-        error={errors?.fax}
-        disabled={disabled}
-      />
+      <div className="col-span-full grid gap-4 md:grid-cols-2">
+        <PhoneRowField
+          idPrefix="phone-wa"
+          label="WhatsApp"
+          value={whatsapp}
+          onChange={(next) => onChange("whatsapp", next)}
+          error={errors?.whatsapp}
+          disabled={disabled}
+        />
+        <PhoneRowField
+          idPrefix="phone-fax"
+          label="Fax"
+          value={fax}
+          onChange={(next) => onChange("fax", next)}
+          error={errors?.fax}
+          disabled={disabled}
+        />
+      </div>
     </div>
   );
 }

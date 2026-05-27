@@ -233,6 +233,7 @@ function parseAdminWhatsappToRow(s: string, countryIso: string): PhoneRowValue {
 }
 
 const TEMPLES_LIST_PATH = "/super-admin/core/temples";
+const LAST_WIZARD_STEP = STEP_LABELS.length - 1;
 
 export default function TempleWizard({ mode, tenantId, initialDetail, readOnly = false }: TempleWizardProps) {
   const router = useRouter();
@@ -241,7 +242,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
     tenantId != null && tenantId.trim() !== ""
       ? `/super-admin/edit-temple/${encodeURIComponent(tenantId.trim())}`
       : "/super-admin/core/temples";
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(() => (mode === "edit" && readOnly ? LAST_WIZARD_STEP : 0));
   const validationToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const snapshotRef = useRef<string>("");
   const [noChangesOpen, setNoChangesOpen] = useState(false);
@@ -518,6 +519,12 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isViewOnly, mode, hydrated]);
+
+  useEffect(() => {
+    if (isViewOnly && hydrated) {
+      setStep(LAST_WIZARD_STEP);
+    }
+  }, [isViewOnly, hydrated]);
 
   const cityOptions = useMemo(() => {
     const base = CITIES_BY_COUNTRY[country] ?? [];
@@ -1254,13 +1261,15 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
         </div>
       ) : null}
       <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-8">
-        <WizardStepper
-          currentStep={step}
-          onStepClick={handleWizardStepClick}
-          isStepReachable={isStepReachable}
-        />
+        {!isViewOnly ? (
+          <WizardStepper
+            currentStep={step}
+            onStepClick={handleWizardStepClick}
+            isStepReachable={isStepReachable}
+          />
+        ) : null}
 
-        <div className="mt-10">
+        <div className={isViewOnly ? "mt-0" : "mt-10"}>
           {step === 0 && (
             <>
               <div className="mb-8 flex gap-3 border-b border-zinc-100 pb-6 dark:border-zinc-800">
@@ -1425,24 +1434,22 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                   </div>
                 </FormField>
 
-                <div className="md:col-span-2">
-                  <PhoneFieldsGroup
-                    telephone={telephone}
-                    whatsapp={whatsapp}
-                    fax={fax}
-                    onChange={handlePhoneChange}
-                    disabled={isViewOnly}
-                    errors={
-                      step1ShowErrors
-                        ? {
-                            telephone: step1Errors.telephone,
-                            whatsapp: step1Errors.whatsapp,
-                            fax: step1Errors.fax,
-                          }
-                        : undefined
-                    }
-                  />
-                </div>
+                <PhoneFieldsGroup
+                  telephone={telephone}
+                  whatsapp={whatsapp}
+                  fax={fax}
+                  onChange={handlePhoneChange}
+                  disabled={isViewOnly}
+                  errors={
+                    step1ShowErrors
+                      ? {
+                          telephone: step1Errors.telephone,
+                          whatsapp: step1Errors.whatsapp,
+                          fax: step1Errors.fax,
+                        }
+                      : undefined
+                  }
+                />
 
                 <FormField id="website" label="Website">
                   <AffixedInput
@@ -1462,7 +1469,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                       ? "Domain"
                       : allowCustomDomain
                         ? "Custom domain"
-                        : "Sub Domain URL"
+                        : "Account URL"
                   }
                   hint={
                     planFeaturesLoading && selectedPlanId
@@ -1629,6 +1636,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                   file={adminProfileFile}
                   onFileChange={setAdminProfileFile}
                   placeholderLabel="Profile"
+                  previewFit="cover"
                   disabled={isViewOnly}
                 />
               </div>
@@ -2028,12 +2036,14 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-                    {mode === "edit" ? "Review & save" : "Review & create"}
+                    {isViewOnly ? "Temple overview" : mode === "edit" ? "Review & save" : "Review & create"}
                   </h2>
                   <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                    {mode === "edit"
-                      ? "Final confirmation before saving your changes."
-                      : "Final confirmation before creating the temple and sending the invite."}
+                    {isViewOnly
+                      ? "Summary of temple, admin, and subscription details."
+                      : mode === "edit"
+                        ? "Final confirmation before saving your changes."
+                        : "Final confirmation before creating the temple and sending the invite."}
                   </p>
                 </div>
               </div>
@@ -2208,17 +2218,11 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
         </div>
 
         <div className="mt-10 flex flex-wrap items-center justify-end gap-3 border-t border-zinc-100 pt-6 dark:border-zinc-800">
-          {step === 4 ? (
-            isViewOnly ? (
-              <>
-                <AdminButton variant="outline" onClick={() => setStep(3)}>
-                  Back
-                </AdminButton>
-                <AdminButton variant="primary" onClick={() => formGuard.requestNavigate(TEMPLES_LIST_PATH)}>
-                  Back to list
-                </AdminButton>
-              </>
-            ) : (
+          {isViewOnly ? (
+            <AdminButton variant="primary" onClick={requestExit}>
+              Back to list
+            </AdminButton>
+          ) : step === 4 ? (
               <>
                 <AdminButton variant="outline" onClick={() => setStep(3)}>
                   Back
@@ -2245,7 +2249,6 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                   </AdminButton>
                 </div>
               </>
-            )
           ) : (
             <>
               <AdminButton variant="outline" onClick={requestExit} disabled={postSave.isLocked}>

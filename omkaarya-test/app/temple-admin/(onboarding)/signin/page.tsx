@@ -157,18 +157,18 @@ function TempleAdminSignInForm() {
   }
 
   return (
-    <div className="w-full max-w-md rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-6 shadow-xl sm:p-8">
-      <div className="mb-8 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)]">
+    <div className="w-full max-w-sm rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] p-5 shadow-lg sm:p-6">
+      <div className="mb-5 text-center">
+        <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
           Welcome to Omkaarya
         </h1>
-        <p className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">
+        <p className="mt-1.5 text-sm leading-snug text-[var(--text-muted)]">
           Your temple dashboard is ready. Use the temporary password from your invite, or your own
           password if you already created one.
         </p>
       </div>
 
-      <form className="space-y-5" onSubmit={handleSubmit} noValidate>
+      <form className="space-y-4" onSubmit={handleSubmit} noValidate>
         <div>
           <label htmlFor={emailFieldId} className="text-sm font-medium text-[var(--text-primary)]">
             Email <span className="text-red-600 dark:text-red-400">*</span>
@@ -271,7 +271,7 @@ function TempleAdminSignInForm() {
         <button
           type="submit"
           disabled={loading}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--brand-primary)] py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)] disabled:pointer-events-none disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--brand-primary)] py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)] disabled:pointer-events-none disabled:opacity-50"
         >
           {loading ? "Signing in…" : "Sign in"}
           <ArrowRight className="h-4 w-4" aria-hidden />

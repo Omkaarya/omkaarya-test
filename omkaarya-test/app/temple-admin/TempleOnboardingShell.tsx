@@ -79,19 +79,19 @@ export default function TempleOnboardingShell({ children }: { children: React.Re
         <div className="absolute h-[min(300px,70vw)] w-[min(300px,70vw)] rounded-full border border-orange-200/35 dark:border-[var(--brand-primary)]/15" />
       </div>
 
-      <header className="relative z-10 border-b border-orange-100/60 bg-white/70 px-4 py-5 backdrop-blur-sm dark:border-[var(--border-default)] dark:bg-[var(--surface-card)]/80 sm:px-6 lg:px-10">
+      <header className="relative z-10 border-b border-orange-100/60 bg-white/70 px-4 py-3 backdrop-blur-sm dark:border-[var(--border-default)] dark:bg-[var(--surface-card)]/80 sm:px-6 lg:px-10">
         <div
           className={[
-            "mx-auto flex max-w-6xl items-center gap-4",
+            "mx-auto flex max-w-6xl items-center gap-3",
             isCompletePage
               ? "flex-row justify-between"
-              : "flex-col gap-6 self-stretch lg:flex-row lg:justify-between lg:gap-8",
+              : "flex-col self-stretch lg:flex-row lg:justify-between lg:gap-6",
           ].join(" ")}
         >
           <Link
             href="/temple-admin/signin"
             className={[
-              "flex shrink-0 items-center gap-2",
+              "flex shrink-0 items-center",
               isCompletePage ? "" : "self-start lg:self-center",
             ].join(" ")}
           >
@@ -100,7 +100,8 @@ export default function TempleOnboardingShell({ children }: { children: React.Re
               alt="Omkaarya"
               width={140}
               height={32}
-              className="h-8 w-auto dark:invert"
+              priority
+              className="h-8 w-auto sm:h-9"
             />
           </Link>
 
@@ -129,12 +130,12 @@ export default function TempleOnboardingShell({ children }: { children: React.Re
               isCompletePage ? "" : "justify-end self-end lg:self-center",
             ].join(" ")}
           >
-            <a
+            {/* <a
               href="mailto:support@omkaarya.com?subject=Temple%20admin%20onboarding"
               className="rounded-lg bg-[var(--brand-primary)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)]"
             >
               Contact Us
-            </a>
+            </a> */}
             {isCompletePage ? (
               <div
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-gradient-to-br from-orange-100 to-amber-50 text-xs font-bold text-[var(--brand-primary)] dark:border-zinc-600 dark:from-zinc-800 dark:to-zinc-700 dark:text-orange-300"
@@ -149,7 +150,7 @@ export default function TempleOnboardingShell({ children }: { children: React.Re
         </div>
       </header>
 
-      <main className="relative z-10 flex flex-1 flex-col items-center px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+      <main className="relative z-10 flex flex-col items-center px-4 pt-4 pb-6 sm:px-6 sm:pt-5 sm:pb-8 lg:px-8">
         {children}
       </main>
 
