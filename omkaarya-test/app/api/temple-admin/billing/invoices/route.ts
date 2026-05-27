@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiUrl } from "@/lib/api-base";
 import { nextJsonError } from "@/lib/api-envelope";
+import { requireTempleAdminHeaders } from "@/lib/temple-admin-auth";
 
 export async function GET(request: NextRequest) {
   try {
-    const target = `${apiUrl("/api/temple-admin/billing/invoices")}${request.nextUrl.search}`;
-    const res = await fetch(target, { method: "GET", headers: { Accept: "application/json" }, cache: "no-store" });
+    const auth = await requireTempleAdminHeaders({ Accept: "application/json" });
+    if (!auth.ok) return auth.response;
+
+    const search = new URLSearchParams(request.nextUrl.search);
+    search.set("sessionEmail", auth.session.email);
+    const target = `${apiUrl("/api/temple-admin/billing/invoices")}?${search.toString()}`;
+    const res = await fetch(target, {
+      method: "GET",
+      headers: auth.headers,
+      cache: "no-store",
+    });
     const data = await res.json().catch(() => null);
     return NextResponse.json(data, { status: res.status });
   } catch (e) {

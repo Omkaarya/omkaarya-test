@@ -1,20 +1,12 @@
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { apiUrl } from "@/lib/api-base";
-import { verifyToken } from "@/lib/auth-utils";
 import { nextJsonError } from "@/lib/api-envelope";
+import { requireTempleAdminHeaders } from "@/lib/temple-admin-auth";
 
-/** Reads the `auth_token` cookie and returns it after lightweight verification. */
+/** @deprecated Use {@link requireTempleAdminHeaders} — requires tenant-scoped temple session. */
 export async function bearerFromCookie(): Promise<string | null> {
-  const token = (await cookies()).get("auth_token")?.value;
-  if (!token?.trim()) {
-    return null;
-  }
-  const payload = await verifyToken(token);
-  if (!payload?.email || typeof payload.email !== "string") {
-    return null;
-  }
-  return token;
+  const auth = await requireTempleAdminHeaders();
+  return auth.ok ? auth.session.token : null;
 }
 
 /**
@@ -30,15 +22,14 @@ export async function proxyTempleAdmin(
   const method = options.method ?? "GET";
   const forwardSearch = options.forwardSearch ?? true;
   try {
-    const token = await bearerFromCookie();
-    if (!token) {
-      return nextJsonError(401, "UNAUTHORIZED", "Not authenticated", "Sign in again to continue.");
+    const auth = await requireTempleAdminHeaders();
+    if (!auth.ok) {
+      return auth.response;
     }
 
     const target = `${apiUrl(backendPath)}${forwardSearch ? request.nextUrl.search : ""}`;
     const headers: Record<string, string> = {
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
+      ...auth.headers,
     };
 
     let body: BodyInit | undefined;
@@ -49,6 +40,39 @@ export async function proxyTempleAdmin(
     }
 
     const res = await fetch(target, { method, headers, body, cache: "no-store" });
+    const data = await res.json().catch(() => null);
+    return NextResponse.json(data, { status: res.status });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Upstream request failed.";
+    return nextJsonError(503, "UPSTREAM_UNREACHABLE", "Could not reach the API server", message);
+  }
+}
+
+/** Proxies a JSON mutation and binds `sessionEmail` to the authenticated temple-admin user. */
+export async function proxyTempleAdminJsonMutation(
+  request: NextRequest,
+  backendPath: string,
+  method: "POST" | "PATCH" | "PUT" = "POST"
+): Promise<NextResponse> {
+  try {
+    const auth = await requireTempleAdminHeaders({
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    });
+    if (!auth.ok) return auth.response;
+
+    const raw = await request.json().catch(() => null);
+    const body = {
+      ...(typeof raw === "object" && raw !== null ? raw : {}),
+      sessionEmail: auth.session.email,
+    };
+
+    const res = await fetch(apiUrl(backendPath), {
+      method,
+      headers: auth.headers,
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
     const data = await res.json().catch(() => null);
     return NextResponse.json(data, { status: res.status });
   } catch (e) {

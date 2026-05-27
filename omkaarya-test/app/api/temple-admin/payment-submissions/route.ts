@@ -1,16 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiUrl } from "@/lib/api-base";
 import { nextJsonError } from "@/lib/api-envelope";
+import { requireTempleAdminHeaders } from "@/lib/temple-admin-auth";
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireTempleAdminHeaders({ Accept: "application/json" });
+    if (!auth.ok) return auth.response;
+
     const form = await request.formData();
+    form.set("sessionEmail", auth.session.email);
 
     const res = await fetch(apiUrl("/api/temple-admin/payment-submissions"), {
       method: "POST",
       body: form,
-      // Let fetch set multipart boundary automatically.
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        Authorization: auth.headers.Authorization,
+      },
     });
 
     const data = await res.json().catch(() => null);
@@ -21,4 +28,3 @@ export async function POST(request: NextRequest) {
     return nextJsonError(500, "PROXY_ERROR", "Internal server error", r);
   }
 }
-

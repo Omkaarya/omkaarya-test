@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { nextJsonError } from "@/lib/api-envelope";
+import { verifyToken } from "@/lib/auth-utils";
+import {
+  isTempleAdminProtectedApiPath,
+  isTempleAdminPublicApiPath,
+} from "@/lib/temple-admin-api-paths";
+import { isTempleAdminPublicPath } from "@/lib/temple-admin-login";
+import { isTempleScopedAuthPayload } from "@/lib/temple-admin-session";
 import { isSuperAdminProtectedApiPath } from "@/lib/super-admin-api-paths";
 
 function applyNoStoreHeaders(response: NextResponse): NextResponse {
@@ -18,42 +25,51 @@ function isSuperAdminProtectedPage(pathname: string): boolean {
   );
 }
 
-export function middleware(request: NextRequest) {
+function isTempleAdminProtectedPage(pathname: string): boolean {
+  return pathname.startsWith("/temple-admin") && !isTempleAdminPublicPath(pathname);
+}
+
+async function tokenPayload(request: NextRequest) {
+  const token = request.cookies.get("auth_token")?.value;
+  if (!token?.trim()) return null;
+  const payload = await verifyToken(token);
+  return payload as Record<string, unknown> | null;
+}
+
+export async function middleware(request: NextRequest) {
   const token = request.cookies.get("auth_token")?.value;
   const { pathname } = request.nextUrl;
 
   const publicRoutes = new Set([
-    '/',
-    '/pricing',
-    '/login',
-    '/super-admin/login',
-    '/super-admin/invite',
-    '/temple-admin/signin',
+    "/",
+    "/pricing",
+    "/login",
+    "/super-admin/login",
+    "/super-admin/invite",
+    "/temple-admin/signin",
+    "/temple-admin/forgot-password",
   ]);
 
   const isLoginPage =
-    pathname === '/login' ||
-    pathname === '/super-admin/login' ||
-    pathname === '/super-admin/invite' ||
-    pathname === '/temple-admin/signin';
+    pathname === "/login" ||
+    pathname === "/super-admin/login" ||
+    pathname === "/super-admin/invite" ||
+    pathname === "/temple-admin/signin";
   const isPublicRoute = publicRoutes.has(pathname);
-  const isApiRoute = pathname.startsWith('/api/');
-  const isPublicAsset = pathname.match(/\.(.*)$/); // Match files like favicon.ico, images, etc.
+  const isApiRoute = pathname.startsWith("/api/");
+  const isPublicAsset = pathname.match(/\.(.*)$/);
 
-  // Bypass next internal files and static assets
-  if (pathname.startsWith('/_next') || isPublicAsset) {
+  if (pathname.startsWith("/_next") || isPublicAsset) {
     return NextResponse.next();
   }
 
-  // Legacy URL: read-only temple details used `?view=1` on the edit route; canonical path lives under `/view-temple`.
   const legacyViewTemple = pathname.match(/^\/super-admin\/edit-temple\/([^/]+)\/?$/);
-  if (legacyViewTemple && request.nextUrl.searchParams.get('view') === '1') {
+  if (legacyViewTemple && request.nextUrl.searchParams.get("view") === "1") {
     const tenantId = legacyViewTemple[1];
     const target = new URL(`/super-admin/view-temple/${encodeURIComponent(tenantId)}`, request.url);
     return applyNoStoreHeaders(NextResponse.redirect(target));
   }
 
-  // Super-admin API proxies require a session cookie; handlers still enforce role + Bearer upstream.
   if (isApiRoute && isSuperAdminProtectedApiPath(pathname) && !token?.trim()) {
     return nextJsonError(
       401,
@@ -63,51 +79,76 @@ export function middleware(request: NextRequest) {
     );
   }
 
-  // Other API routes use their own auth (e.g. temple-admin, public marketing).
+  if (isApiRoute && isTempleAdminProtectedApiPath(pathname) && !isTempleAdminPublicApiPath(pathname)) {
+    if (!token?.trim()) {
+      return nextJsonError(
+        401,
+        "UNAUTHORIZED",
+        "Authentication required.",
+        "Sign in with a temple administrator account to use this API."
+      );
+    }
+    const payload = await tokenPayload(request);
+    if (!isTempleScopedAuthPayload(payload)) {
+      return nextJsonError(
+        403,
+        "FORBIDDEN",
+        "Temple-admin session required",
+        "Sign in with a temple administrator account to use this API."
+      );
+    }
+  }
+
   if (isApiRoute) {
     return NextResponse.next();
   }
 
-  // If user is logged in and tries to access the login page, redirect to dashboard
+  const payload = token ? await tokenPayload(request) : null;
+  const hasTempleSession = isTempleScopedAuthPayload(payload);
+
   if (token && isLoginPage) {
-    if (pathname === '/temple-admin/signin') {
-      return NextResponse.redirect(new URL('/temple-admin', request.url));
-    }
-    if (pathname === '/login') {
-      return NextResponse.redirect(new URL('/super-admin/login', request.url));
-    }
-    // Super-admin login validates session via /api/super-admin/me (role + upstream API).
-    if (pathname === '/super-admin/login' || pathname === '/super-admin/invite') {
+    if (pathname === "/temple-admin/signin") {
+      if (hasTempleSession) {
+        return NextResponse.redirect(new URL("/temple-admin", request.url));
+      }
       return NextResponse.next();
     }
-    return NextResponse.redirect(new URL('/super-admin/dashboard', request.url));
+    if (pathname === "/login") {
+      return NextResponse.redirect(new URL("/super-admin/login", request.url));
+    }
+    if (pathname === "/super-admin/login" || pathname === "/super-admin/invite") {
+      return NextResponse.next();
+    }
+    return NextResponse.redirect(new URL("/super-admin/dashboard", request.url));
   }
 
-  // If user is NOT logged in and tries to access a protected page, redirect to login
   if (!token && !isPublicRoute) {
-    if (pathname.startsWith('/temple-admin')) {
-      return NextResponse.redirect(new URL('/temple-admin/signin', request.url));
+    if (pathname.startsWith("/temple-admin")) {
+      return NextResponse.redirect(new URL("/temple-admin/signin", request.url));
     }
-    if (pathname.startsWith('/super-admin')) {
+    if (pathname.startsWith("/super-admin")) {
       return applyNoStoreHeaders(
-        NextResponse.redirect(new URL('/super-admin/login', request.url))
+        NextResponse.redirect(new URL("/super-admin/login", request.url))
       );
     }
     return applyNoStoreHeaders(
-      NextResponse.redirect(new URL('/super-admin/login', request.url))
+      NextResponse.redirect(new URL("/super-admin/login", request.url))
+    );
+  }
+
+  if (isTempleAdminProtectedPage(pathname) && !hasTempleSession) {
+    return applyNoStoreHeaders(
+      NextResponse.redirect(new URL("/temple-admin/signin", request.url))
     );
   }
 
   const response = NextResponse.next();
-  if (isSuperAdminProtectedPage(pathname)) {
+  if (isSuperAdminProtectedPage(pathname) || isTempleAdminProtectedPage(pathname)) {
     return applyNoStoreHeaders(response);
   }
   return response;
 }
 
 export const config = {
-  matcher: [
-    // Match all paths except those starting with `_next/static`, `_next/image`, `favicon.ico`, etc.
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

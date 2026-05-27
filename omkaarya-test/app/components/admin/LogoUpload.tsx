@@ -12,6 +12,10 @@ type LogoUploadProps = {
   uploadLabel?: string;
   replaceLabel?: string;
   disabled?: boolean;
+  /** Tailwind size classes for the circular preview. */
+  previewClassName?: string;
+  /** `contain` shows the full image (best for logos); `cover` fills the circle (best for profile photos). */
+  previewFit?: "contain" | "cover";
 };
 
 export default function LogoUpload({
@@ -22,6 +26,8 @@ export default function LogoUpload({
   uploadLabel = "Upload",
   replaceLabel = "Replace",
   disabled = false,
+  previewClassName = "h-32 w-32",
+  previewFit = "contain",
 }: LogoUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const id = useId();
@@ -39,11 +45,18 @@ export default function LogoUpload({
   return (
     <div className="flex flex-wrap items-center gap-4">
       <div
-        className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/50"
+        className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/50 ${previewClassName}`}
         aria-hidden={!previewUrl}
       >
         {previewUrl ? (
-          <img src={previewUrl} alt="" className="h-full w-full object-cover" />
+          <img
+            src={previewUrl}
+            alt=""
+            className={[
+              "h-full w-full",
+              previewFit === "contain" ? "object-contain p-2.5" : "object-cover",
+            ].join(" ")}
+          />
         ) : (
           <span className="text-xs text-zinc-400">{placeholderLabel}</span>
         )}
