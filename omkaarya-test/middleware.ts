@@ -7,7 +7,7 @@ import {
   isTempleAdminPublicApiPath,
 } from "@/lib/temple-admin-api-paths";
 import { isTempleAdminPublicPath } from "@/lib/temple-admin-login";
-import { isTempleScopedAuthPayload } from "@/lib/temple-admin-auth";
+import { isTempleScopedAuthPayload } from "@/lib/temple-admin-session";
 import { isSuperAdminProtectedApiPath } from "@/lib/super-admin-api-paths";
 
 function applyNoStoreHeaders(response: NextResponse): NextResponse {

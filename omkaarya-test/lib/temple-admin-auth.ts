@@ -4,6 +4,9 @@ import { nextJsonError } from "@/lib/api-envelope";
 import { verifyToken } from "@/lib/auth-utils";
 import { getPoolConfig } from "@/lib/pg-config";
 import { isPlatformSuperAdminEmail } from "@/lib/super-admin-auth";
+import { tenantIdFromPayload, type TempleAdminSession } from "@/lib/temple-admin-session";
+
+export { isTempleScopedAuthPayload, type TempleAdminSession } from "@/lib/temple-admin-session";
 
 let pool: Pool | null = null;
 
@@ -17,20 +20,6 @@ function getPool(): Pool {
   }
   return pool;
 }
-
-function tenantIdFromPayload(payload: Record<string, unknown> | null): string {
-  if (!payload) return "";
-  if (typeof payload.tenantId === "string") return payload.tenantId.trim();
-  if (payload.tenant_id != null) return String(payload.tenant_id).trim();
-  return "";
-}
-
-export type TempleAdminSession = {
-  token: string;
-  email: string;
-  tenantId: string;
-  userId?: string;
-};
 
 /** Reads `auth_token`, requires email + tenantId, and rejects platform-only super-admin sessions. */
 export async function templeAdminBearerFromCookie(): Promise<TempleAdminSession | null> {
@@ -139,11 +128,4 @@ export async function requireTempleAdminHeaders(extra: Record<string, string> = 
       Authorization: `Bearer ${session.token}`,
     },
   };
-}
-
-/** Whether the JWT cookie looks like a temple-admin session (used by edge middleware). */
-export function isTempleScopedAuthPayload(payload: Record<string, unknown> | null): boolean {
-  const email = typeof payload?.email === "string" ? payload.email.trim() : "";
-  const tenantId = tenantIdFromPayload(payload);
-  return Boolean(email && tenantId);
 }
