@@ -94,10 +94,70 @@ function normalizePlan(raw: string): TemplePlan {
   return "Sankalpa";
 }
 
+/** Resolves catalog plan name + UUID for temple create/update (supports custom tier names). */
+async function resolvePlanForSave(
+  client: Pick<PoolClient, "query">,
+  planBilling: { selectedPlan: string; selectedPricingPlanId?: string | null }
+): Promise<{ planName: string; pricingPlanId: string | null }> {
+  const catalogId = (planBilling.selectedPricingPlanId ?? "").trim();
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(catalogId)) {
+    const byId = await client.query<{ id: string; name: string }>(
+      `SELECT id::text AS id, name FROM public.pricing_plans WHERE id = $1::uuid LIMIT 1`,
+      [catalogId]
+    );
+    if (byId.rows[0]?.name?.trim()) {
+      return { planName: byId.rows[0].name.trim(), pricingPlanId: byId.rows[0].id };
+    }
+  }
+
+  const requestedName = planBilling.selectedPlan.trim();
+  const normalized = normalizePlan(requestedName);
+  const pricingPlanId = await resolveTemplePricingPlanId(client, {
+    catalogPlanId: catalogId || null,
+    planName: normalized,
+  });
+
+  if (pricingPlanId) {
+    const byResolved = await client.query<{ name: string }>(
+      `SELECT name FROM public.pricing_plans WHERE id = $1::uuid LIMIT 1`,
+      [pricingPlanId]
+    );
+    if (byResolved.rows[0]?.name?.trim()) {
+      return { planName: byResolved.rows[0].name.trim(), pricingPlanId };
+    }
+  }
+
+  return { planName: requestedName || normalized, pricingPlanId };
+}
+
+async function resolveMasterDeitySlug(
+  client: Pick<PoolClient, "query">,
+  raw: string | null | undefined
+): Promise<string | null> {
+  const t = (raw ?? "").trim();
+  if (!t) return null;
+  const r = await client.query<{ slug: string }>(
+    `SELECT slug FROM public.master_deities
+     WHERE id::text = $1 OR slug = $1 OR lower(trim(name)) = lower(trim($1))
+     LIMIT 1`,
+    [t]
+  );
+  return r.rows[0]?.slug?.trim() ?? t;
+}
+
+/** Resolves stored deity ref to canonical slug for the wizard select value. */
+async function resolveMasterDeitySlugForForm(
+  client: Pick<PoolClient, "query">,
+  raw: string | null | undefined
+): Promise<string> {
+  const slug = await resolveMasterDeitySlug(client, raw);
+  return slug ?? "";
+}
+
 /** Resolves a row in `pricing_plans` for inserts/updates. Prefer the catalog UUID from the client. */
 async function resolveTemplePricingPlanId(
   client: Pick<PoolClient, "query">,
-  input: { catalogPlanId: string | null | undefined; planName: TemplePlan }
+  input: { catalogPlanId: string | null | undefined; planName: string }
 ): Promise<string | null> {
   const uuid = (input.catalogPlanId ?? "").trim();
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid)) {
@@ -589,7 +649,10 @@ export class PostgresTempleRepository implements TempleRepository {
     try {
       const tenantId = randomUUID();
       const countryCode = payload.temple.country.trim() || "GB";
-      const plan = normalizePlan(payload.planBilling.selectedPlan);
+      const { planName: plan, pricingPlanId: pricingPlanIdResolved } = await resolvePlanForSave(client, {
+        selectedPlan: payload.planBilling.selectedPlan,
+        selectedPricingPlanId: payload.planBilling.selectedPricingPlanId,
+      });
       const trial = payload.planBilling.trial?.enabled === true;
       const slug = buildSlug(payload.temple.subdomain);
       const domainSubEarly = payload.temple.subdomain.trim() || null;
@@ -619,7 +682,7 @@ export class PostgresTempleRepository implements TempleRepository {
       const establishedYear = payload.temple.establishedYear.trim() || null;
       const domainSub = domainSubEarly;
       const tradition = payload.temple.tradition.trim() || null;
-      const primaryDeity = payload.temple.deity.trim() || null;
+      const primaryDeity = await resolveMasterDeitySlug(client, payload.temple.deity);
       const billingCycle = payload.planBilling.billingCycle.trim() || null;
       const charityReg = payload.temple.charityRegistered === true;
       const charityNumber = charityReg ? payload.temple.charityRegistrationNumber.trim() : null;
@@ -677,11 +740,6 @@ export class PostgresTempleRepository implements TempleRepository {
           );
           adminUserId = idRes.rows[0]?.id ?? null;
         }
-
-        const pricingPlanIdResolved = await resolveTemplePricingPlanId(client, {
-          catalogPlanId: payload.planBilling.selectedPricingPlanId,
-          planName: row.plan,
-        });
 
         await client.query(
           `INSERT INTO public.temples (
@@ -829,6 +887,7 @@ export class PostgresTempleRepository implements TempleRepository {
       contact_email: string | null;
       domain_subdomain: string | null;
       billing_cycle: string | null;
+      pricing_plan_id: string | null;
       u_full_name: string | null;
       u_whatsapp: string | null;
       u_roles: string[] | null;
@@ -848,6 +907,7 @@ export class PostgresTempleRepository implements TempleRepository {
          t.contact_email,
          t.domain_subdomain,
          t.billing_cycle,
+         t.pricing_plan_id::text AS pricing_plan_id,
          u1.full_name AS u_full_name,
          u1.whatsapp AS u_whatsapp,
          u1.roles AS u_roles,
@@ -929,12 +989,14 @@ export class PostgresTempleRepository implements TempleRepository {
     const est = (established_year ?? "").trim();
     const establishedYear = est && /^\d{4}$/.test(est) ? est : "2000";
 
+    const deitySlug = await resolveMasterDeitySlugForForm(pool, primary_deity_id);
+
     const response: SuperAdminTempleDetailResponse = {
       tenantId: r.tenant_id,
       temple: {
         tradition: (tradition ?? "Hindu").trim() || "Hindu",
         name: r.name.trim(),
-        deity: (primary_deity_id ?? "").trim(),
+        deity: deitySlug,
         country,
         city,
         address: addressLine,
@@ -955,7 +1017,8 @@ export class PostgresTempleRepository implements TempleRepository {
         role: adminRole,
       },
       planBilling: {
-        selectedPlan: r.plan,
+        selectedPlan: r.plan.trim(),
+        selectedPricingPlanId: r.pricing_plan_id?.trim() || null,
         billingCycle: (r.billing_cycle ?? "Annually").trim() || "Annually",
         trial: {
           enabled: trialEnabled,
@@ -997,7 +1060,10 @@ export class PostgresTempleRepository implements TempleRepository {
           : prevLogo;
 
       const countryCode = payload.temple.country.trim() || "GB";
-      const plan = normalizePlan(payload.planBilling.selectedPlan);
+      const { planName: plan, pricingPlanId: pricingPlanIdResolved } = await resolvePlanForSave(client, {
+        selectedPlan: payload.planBilling.selectedPlan,
+        selectedPricingPlanId: payload.planBilling.selectedPricingPlanId,
+      });
       const trial = payload.planBilling.trial?.enabled === true;
       const status: TempleStatus = trial ? "Trial" : "Active";
       const name = payload.temple.name.trim() || "Unnamed temple";
@@ -1012,15 +1078,10 @@ export class PostgresTempleRepository implements TempleRepository {
       const establishedYear = payload.temple.establishedYear.trim() || null;
       const domainSub = payload.temple.subdomain.trim() || null;
       const tradition = payload.temple.tradition.trim() || null;
-      const primaryDeity = payload.temple.deity.trim() || null;
+      const primaryDeity = await resolveMasterDeitySlug(client, payload.temple.deity);
       const billingCycle = payload.planBilling.billingCycle.trim() || null;
       const charityReg = payload.temple.charityRegistered === true;
       const charityNumber = charityReg ? payload.temple.charityRegistrationNumber.trim() : null;
-
-      const pricingPlanIdResolved = await resolveTemplePricingPlanId(client, {
-        catalogPlanId: payload.planBilling.selectedPricingPlanId,
-        planName: plan,
-      });
 
       await client.query("BEGIN");
       try {

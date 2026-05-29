@@ -26,6 +26,7 @@ export type SuperAdminTempleDetail = {
   };
   planBilling: {
     selectedPlan: string;
+    selectedPricingPlanId?: string | null;
     billingCycle: string;
     trial: {
       enabled: boolean;

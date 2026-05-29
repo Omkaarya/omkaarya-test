@@ -1,134 +1,85 @@
 "use client";
 
-import { Calendar, Download, Expand, FileText, X } from "lucide-react";
+import { Calendar, Download, FileText, X } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
+import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
 import { Badge } from "@/app/components/ds/atoms/Badge";
+import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
 import { SubscriptionRow } from "./types";
 import { formatDate } from "./utils";
 
 export function InvoiceModal({
   subscription,
   onClose,
+  onDownload,
 }: {
   subscription: SubscriptionRow;
   onClose: () => void;
+  onDownload?: () => void;
 }) {
   const invoiceStatus = subscription.status === "Active" || subscription.verifiedBy ? "Paid" : "Unpaid";
+  const invoiceLabel = subscription.invoiceId ? `#${subscription.invoiceId}` : "—";
+  const amount = formatUsdFromCents(subscription.amountCents);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
-      <div
-        className="absolute inset-0 bg-gray-950/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-gray-950/60 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-surface shadow-2xl">
-        {/* Header — icon top-left, expand + close top-right */}
+      <div className="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-surface shadow-2xl">
         <div className="px-6 pt-6 pb-0">
           <div className="flex items-start justify-between">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-surface shadow-xs">
               <FileText className="h-5 w-5 text-text-tertiary" />
             </div>
-            <div className="flex items-center gap-2">
-              <button className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors">
-                <Expand className="h-4 w-4" />
-              </button>
-              <button
-                onClick={onClose}
-                className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg p-2 text-fg-quaternary transition-colors hover:bg-subtle hover:text-text-primary"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
-
-          {/* Title */}
-          <h3 className="mt-4 text-lg font-bold text-text-primary">
-            Invoice #{subscription.invoiceId} Details
-          </h3>
-          <p className="text-sm text-text-tertiary">
-            Manage your invoice details here.
-          </p>
+          <h3 className="mt-4 text-lg font-bold text-text-primary">Invoice {invoiceLabel}</h3>
+          <p className="text-sm text-text-tertiary">{subscription.templeName}</p>
         </div>
 
-        {/* Body */}
         <div className="space-y-6 p-6">
-          {/* Temple Avatar */}
-          <div>
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-600 text-white font-bold text-xl shadow-lg">
-              {subscription.templeInitials}
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-600 text-xl font-bold text-white shadow-lg">
+            {subscription.templeInitials}
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2 text-sm text-text-secondary">
+              <FileText className="h-4 w-4 text-text-tertiary" />
+              <span>{subscription.receiptId ?? "No receipt on file"}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-text-secondary">
+              <Calendar className="h-4 w-4 text-text-tertiary" />
+              <span>Payment: {formatDate(subscription.paymentDate)}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-text-secondary">
+              <Calendar className="h-4 w-4 text-text-tertiary" />
+              <span>Expires: {formatDate(subscription.expiresOn)}</span>
             </div>
           </div>
 
-          {/* Invoice Meta */}
-          <div>
-            <p className="text-sm font-semibold text-text-primary mb-2">Invoice</p>
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2 text-sm text-text-secondary">
-                <FileText className="h-4 w-4 text-text-tertiary" />
-                <span>{subscription.invoiceId}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-text-secondary">
-                <Calendar className="h-4 w-4 text-text-tertiary" />
-                <span>Issued On: {formatDate(subscription.paymentDate)}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-text-secondary">
-                <Calendar className="h-4 w-4 text-text-tertiary" />
-                <span>Due On: {formatDate(subscription.expiresOn)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Invoice From / To */}
-          <div className="grid grid-cols-2 gap-8">
-            <div>
-              <p className="text-sm font-bold text-text-primary mb-2">Invoice From:</p>
-              <p className="text-sm font-medium text-text-primary">Pepulux</p>
-              <p className="text-sm text-text-secondary">
-                2972 Westheimer Rd, Santa Ana, Illinois 85486
-              </p>
-              <p className="text-sm text-text-tertiary">user@example.com</p>
-            </div>
-            <div>
-              <p className="text-sm font-bold text-text-primary mb-2">Invoice To:</p>
-              <p className="text-sm font-medium text-text-primary">{subscription.templeName}</p>
-              <p className="text-sm text-text-secondary">
-                {subscription.templeAddress}
-              </p>
-              <p className="text-sm text-text-tertiary">{subscription.adminEmail}</p>
-            </div>
-          </div>
-
-          {/* Line Items Table */}
           <div className="overflow-hidden rounded-lg border border-border">
-            <table className="w-full text-left">
+            <table className="w-full table-fixed text-left">
               <thead>
                 <tr className="border-b border-border bg-subtle">
-                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Plan</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Billing Cycle</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Created On</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Expiring On</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Amount(USD)</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Invoice Status</th>
+                  <th className="w-[30%] px-4 py-3 text-xs font-semibold text-text-tertiary">Plan</th>
+                  <th className="w-[22%] px-4 py-3 text-xs font-semibold text-text-tertiary">Billing</th>
+                  <th className="w-[22%] px-4 py-3 text-xs font-semibold text-text-tertiary">Amount</th>
+                  <th className="w-[26%] px-4 py-3 text-xs font-semibold text-text-tertiary">Status</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td className="px-4 py-3 text-sm text-text-primary">
-                    {subscription.plan}
+                  <td className="min-w-0 overflow-hidden px-4 py-3 text-sm text-text-primary">
+                    <TruncateText title={subscription.plan}>{subscription.plan}</TruncateText>
                   </td>
-                  <td className="px-4 py-3 text-sm text-text-secondary">
-                    {subscription.billingCycle}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-text-secondary">
-                    {formatDate(subscription.activatedOn ?? subscription.paymentDate)}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-text-secondary">
-                    {formatDate(subscription.expiresOn)}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-text-primary tabular-nums">
-                    ₹{subscription.amount.toLocaleString()}
-                  </td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">{subscription.billingCycle}</td>
+                  <td className="px-4 py-3 text-sm font-semibold tabular-nums text-text-primary">{amount}</td>
                   <td className="px-4 py-3">
                     <Badge color={invoiceStatus === "Paid" ? "success" : "warning"} size="sm" dot>
                       {invoiceStatus}
@@ -139,51 +90,19 @@ export function InvoiceModal({
             </table>
           </div>
 
-          {/* Payment Info + Totals — side by side */}
-          <div className="flex items-start justify-between gap-8">
-            <div>
-              <p className="text-sm font-bold text-text-primary mb-2">Payment Info</p>
-              <p className="text-sm text-text-secondary">
-                Credit Card: {subscription.cardLast4 ? `4216 **** **** ${subscription.cardLast4}` : "—"}
-              </p>
-              <p className="text-sm text-text-secondary">
-                Amount: ₹{subscription.amount.toLocaleString()}
-              </p>
-            </div>
-            <div className="text-right space-y-1 min-w-[200px]">
-              <div className="flex justify-between text-sm">
-                <span className="text-text-secondary">Sub Total</span>
-                <span className="text-text-primary tabular-nums">₹{subscription.amount.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-text-secondary">Tax</span>
-                <span className="text-text-primary tabular-nums">₹0.00</span>
-              </div>
-              <div className="flex justify-between text-sm font-bold pt-1 border-t border-border">
-                <span className="text-text-primary">Total</span>
-                <span className="text-text-primary tabular-nums">₹{subscription.amount.toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Terms and Conditions — light pink/rose bg like Figma */}
-          <div className="rounded-xl bg-rose-50 dark:bg-rose-950/20 p-5">
-            <p className="text-sm font-bold text-text-primary mb-2">
-              Terms and Conditions
-            </p>
-            <ul className="text-sm text-text-secondary space-y-1.5 list-disc pl-4">
-              <li>All payments must be made according to the agreed schedule. Late payments may incur additional fees.</li>
-              <li>We are not liable for any indirect, incidental, or consequential damages, including loss of profits, revenue, or data.</li>
-            </ul>
-          </div>
+          <p className="text-xs text-text-tertiary">{subscription.adminEmail}</p>
         </div>
 
-        {/* Bottom Action Buttons */}
         <div className="flex justify-end gap-3 border-t border-border px-6 py-4">
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
-          <Button variant="primary" leadingIcon={<Download className="h-4 w-4" />}>
+          <Button
+            variant="primary"
+            leadingIcon={<Download className="h-4 w-4" />}
+            disabled={!subscription.invoiceId}
+            onClick={onDownload}
+          >
             Download Invoice
           </Button>
         </div>

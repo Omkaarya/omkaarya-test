@@ -5,6 +5,7 @@ import { Eye, Image as ImageIcon, Loader2, Pencil, Plus, X } from "lucide-react"
 import AdminListCard from "@/app/components/admin/AdminListCard";
 import AdminPagination from "@/app/components/admin/AdminPagination";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
+import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
 import { Button } from "@/app/components/ds/atoms/Button";
 import type { MasterDeityListPayload, MasterDeityRow } from "@/lib/master-deities";
 import DeitiesFiltersBar, { type DeitiesSortBy, type DeityStatusFilter } from "./DeitiesFiltersBar";
@@ -195,11 +196,16 @@ export default function DeitiesMasterPage() {
       {
         key: "name",
         header: "Name",
+        className: "max-w-[16rem]",
         cell: (d) => (
-          <div>
-            <span className="text-sm font-bold text-text-primary">{d.name}</span>
+          <div className="min-w-0">
+            <TruncateText className="text-sm font-bold text-text-primary" title={d.name}>
+              {d.name}
+            </TruncateText>
             {d.secondaryLabel ? (
-              <span className="ml-1.5 text-xs text-text-tertiary">{d.secondaryLabel}</span>
+              <TruncateText className="text-xs text-text-tertiary" title={d.secondaryLabel}>
+                {d.secondaryLabel}
+              </TruncateText>
             ) : null}
           </div>
         ),

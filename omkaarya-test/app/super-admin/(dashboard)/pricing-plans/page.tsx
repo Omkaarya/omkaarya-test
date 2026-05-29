@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { Check, Plus, Users2, Box } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
+import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
 import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
 import { PricingPlanCardSkeletonGrid } from "@/app/components/admin/ApiFetchPlaceholders";
 import { normalizePricingPlanSeats } from "@/lib/pricing-plan-normalize";
@@ -53,7 +54,7 @@ function PlanFeaturesList({ features }: { features: string[] }) {
             <div className="w-4 h-4 rounded-full bg-emerald-50 dark:bg-emerald-950/20 flex items-center justify-center shrink-0">
               <Check className="w-2.5 h-2.5 text-emerald-600" />
             </div>
-            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{f}</span>
+            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 line-clamp-2">{f}</span>
           </div>
         ))}
         {hasMore && !expanded && (
@@ -174,7 +175,9 @@ export default function PricingPlansPage() {
             {plan.popular && <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-[var(--brand-primary)] text-white px-4 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase shadow-lg">Most Popular</div>}
             
             <div className="mb-6">
-               <h3 className="text-xl font-bold text-zinc-900 dark:text-white">{plan.name}</h3>
+               <TruncateText className="text-xl font-bold text-zinc-900 dark:text-white" title={plan.name}>
+                 {plan.name}
+               </TruncateText>
                <p className="text-sm text-zinc-500 font-medium mt-1 leading-relaxed">{plan.description}</p>
             </div>
 
@@ -205,8 +208,11 @@ export default function PricingPlansPage() {
             </div>
 
             <Link href={`/super-admin/pricing-plans/${plan.id}/features`} className="mt-8">
-               <button className="w-full py-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-bold text-zinc-600 dark:text-zinc-300 hover:bg-[var(--brand-primary)] hover:text-white hover:border-[var(--brand-primary)] transition-all">
-                 Configure Tier
+               <button className="w-full rounded-xl border border-zinc-200 py-3.5 text-sm font-bold text-zinc-600 transition-all hover:border-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white dark:border-zinc-800 dark:text-zinc-300">
+                 Configure tier
+                 <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide opacity-80">
+                   Details & features
+                 </span>
                </button>
             </Link>
           </div>

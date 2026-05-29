@@ -6,6 +6,7 @@ import { Pencil } from "lucide-react";
 import type { MockTemple } from "@/lib/mock-temples";
 import type { TemplesListResponse, TemplesSortBy } from "@/lib/temples-query";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
+import { EntityNameCell } from "@/app/components/ds/molecules/TableCells";
 import AdminListCard from "@/app/components/admin/AdminListCard";
 import AdminFiltersBar from "@/app/components/admin/AdminFiltersBar";
 import AdminPagination from "@/app/components/admin/AdminPagination";
@@ -101,19 +102,13 @@ export default function SubdomainsPage() {
       {
         key: "temple",
         header: "Temple",
+        className: "max-w-[16rem]",
         cell: (row) => (
-          <div className="flex items-start gap-3">
-            <span
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-subtle text-xs font-semibold text-text-secondary"
-              aria-hidden
-            >
-              {initials(row.name)}
-            </span>
-            <div className="min-w-0">
-              <p className="font-semibold text-text-primary">{row.name}</p>
-              <p className="text-xs text-text-tertiary">Temp ID {row.tenantId}</p>
-            </div>
-          </div>
+          <EntityNameCell
+            initials={initials(row.name)}
+            title={row.name}
+            subtitle={row.subdomain || row.portalHost || "—"}
+          />
         ),
       },
       {

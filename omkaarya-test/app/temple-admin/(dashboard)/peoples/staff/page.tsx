@@ -13,6 +13,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
+import { EntityNameCell } from "@/app/components/ds/molecules/TableCells";
 import StatusBadge from "@/app/components/admin/StatusBadge";
 import { fetchTempleAdminJson, type StaffMember } from "@/lib/temple-admin-api";
 
@@ -133,7 +134,7 @@ export default function StaffManagementPage() {
               <Loader2 className="w-4 h-4 animate-spin" /> Loading staff…
             </div>
           ) : (
-            <table className="w-full text-left">
+            <table className="w-full table-fixed text-left">
               <thead className="bg-zinc-50/50 dark:bg-zinc-950 border-y border-zinc-50 dark:border-zinc-800">
                 <tr>
                   <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Staff</th>
@@ -146,18 +147,16 @@ export default function StaffManagementPage() {
               <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800">
                 {filtered.map((s) => (
                   <tr key={s.id} className="hover:bg-zinc-50/30 dark:hover:bg-zinc-800/20 transition-colors group">
-                    <td className="px-8 py-5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-orange-50 dark:bg-orange-950/30 flex items-center justify-center text-[10px] font-black text-orange-600 border border-orange-100">
-                          {s.first_name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <div className="text-xs font-black text-zinc-900 dark:text-white leading-tight">
-                            {s.first_name} {s.last_name}
+                    <td className="min-w-0 overflow-hidden px-8 py-5">
+                      <EntityNameCell
+                        icon={
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-orange-100 bg-orange-50 text-[10px] font-black text-orange-600 dark:bg-orange-950/30">
+                            {s.first_name.charAt(0).toUpperCase()}
                           </div>
-                          <div className="text-[10px] font-medium text-zinc-400 mt-0.5">{s.email}</div>
-                        </div>
-                      </div>
+                        }
+                        title={`${s.first_name} ${s.last_name}`}
+                        subtitle={s.email}
+                      />
                     </td>
                     <td className="px-8 py-5">
                       <span className="px-2.5 py-1 rounded-md bg-purple-50 dark:bg-purple-950/30 text-[10px] font-bold text-purple-600 border border-purple-100 dark:border-purple-900">

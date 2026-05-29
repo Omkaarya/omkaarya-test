@@ -6,6 +6,7 @@ import {
   Package, X, Info, Users, MapPin, Check, Loader2, AlertCircle,
 } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
+import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
 import { Badge } from "@/app/components/ds/atoms/Badge";
 import { Input } from "@/app/components/ds/atoms/Input";
 import { Switch } from "@/app/components/ds/atoms/Switch";
@@ -148,8 +149,10 @@ function UnitRow({
 
         {/* Name + code */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-[13px] font-black uppercase tracking-tight text-zinc-900 dark:text-white">{unit.name}</span>
+          <div className="flex items-center gap-3 flex-wrap min-w-0">
+            <TruncateText className="text-[13px] font-black uppercase tracking-tight text-zinc-900 dark:text-white" title={unit.name}>
+              {unit.name}
+            </TruncateText>
             <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">#{unit.code}</span>
             <Badge color={TYPE_COLOR[unit.type]} size="sm" variant="subtle">{unit.type}</Badge>
             {unit.managesInventory && (
@@ -361,7 +364,9 @@ function UnitDetailsPanel({ unit }: { unit: TempleUnit | null }) {
       <div className="space-y-6">
         <div>
           <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2">Unit Name</p>
-          <p className="text-xl font-black text-zinc-900 dark:text-white uppercase tracking-tight">{unit.name}</p>
+          <TruncateText className="text-xl font-black uppercase tracking-tight text-zinc-900 dark:text-white" title={unit.name}>
+            {unit.name}
+          </TruncateText>
         </div>
         
         <div className="grid grid-cols-2 gap-6">

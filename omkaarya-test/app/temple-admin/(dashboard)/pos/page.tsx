@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Breadcrumb } from "@/app/components/ds/molecules/Breadcrumb";
 import { MetricCard } from "@/app/components/ds/molecules/MetricCard";
 import { Button } from "@/app/components/ds/atoms/Button";
+import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
 import { Monitor, Clock, Settings, ArrowRight, MonitorCheck, Loader2, AlertCircle } from "lucide-react";
 import {
   fetchTempleAdminJson,
@@ -125,7 +126,7 @@ export default function PosDashboardPage() {
           </Link>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full table-fixed text-left">
             <thead className="bg-subtle">
               <tr>
                 <th className="px-6 py-3 text-xs font-semibold text-text-tertiary uppercase tracking-wider">Register</th>
@@ -156,7 +157,9 @@ export default function PosDashboardPage() {
               ) : (
                 openSessions.map((s) => (
                   <tr key={s.id} className="hover:bg-subtle/30">
-                    <td className="px-6 py-4 text-sm font-semibold text-text-primary">{s.register_name}</td>
+                    <td className="min-w-0 overflow-hidden px-6 py-4 text-sm font-semibold text-text-primary">
+                      <TruncateText title={s.register_name}>{s.register_name}</TruncateText>
+                    </td>
                     <td className="px-6 py-4 text-sm text-text-secondary">{s.opened_by ?? "—"}</td>
                     <td className="px-6 py-4 text-sm text-text-secondary">{new Date(s.opened_at).toLocaleString()}</td>
                     <td className="px-6 py-4 text-sm text-text-secondary">{fmtCurrency(s.opening_float)}</td>
@@ -175,7 +178,7 @@ export default function PosDashboardPage() {
           <span className="text-xs text-text-tertiary">{orders.length} orders</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full table-fixed text-left">
             <thead className="bg-subtle">
               <tr>
                 <th className="px-6 py-3 text-xs font-semibold text-text-tertiary uppercase tracking-wider">Reference</th>

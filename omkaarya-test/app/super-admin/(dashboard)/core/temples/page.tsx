@@ -7,6 +7,8 @@ import { Eye, Pencil, Plus } from "lucide-react";
 import type { MockTemple, TemplePlan } from "@/lib/mock-temples";
 import type { TemplesListResponse, TemplesSortBy } from "@/lib/temples-query";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
+import { EntityNameCell } from "@/app/components/ds/molecules/TableCells";
+import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
 import AdminListCard from "@/app/components/admin/AdminListCard";
 import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
 import AdminFiltersBar from "@/app/components/admin/AdminFiltersBar";
@@ -15,6 +17,7 @@ import { Button } from "@/app/components/ds/atoms/Button";
 import { Badge, type BadgeColor } from "@/app/components/ds/atoms/Badge";
 import StatusBadge from "@/app/components/admin/StatusBadge";
 import ComplianceBadge from "@/app/components/admin/ComplianceBadge";
+import { countryLabelFromCode } from "@/lib/country-labels";
 
 type StatusFilter = "all" | "Active" | "Trial" | "Suspended";
 
@@ -24,7 +27,7 @@ function initials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-function planBadgeColor(plan: TemplePlan): BadgeColor {
+function planBadgeColor(plan: string): BadgeColor {
   switch (plan) {
     case "Aaradhana":
       return "purple";
@@ -33,6 +36,7 @@ function planBadgeColor(plan: TemplePlan): BadgeColor {
     case "Prarambha":
       return "indigo";
     case "Free":
+      return "gray";
     default:
       return "gray";
   }
@@ -115,44 +119,37 @@ export default function TemplesAdminPage() {
   const columns: ColumnDef<MockTemple>[] = useMemo(
     () => [
       {
-        key: "tenantId",
-        header: "Tenant ID",
-        cell: (row) => (
-          <span className="font-mono text-xs font-semibold text-text-tertiary">Temp ID {row.tenantId}</span>
-        ),
-      },
-      {
         key: "name",
         header: "Temple",
+        className: "max-w-[18rem]",
         cell: (row) => (
-          <div className="flex min-w-0 max-w-[18rem] items-start gap-3 whitespace-normal">
-            <span
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-subtle text-xs font-semibold text-text-secondary"
-              aria-hidden
-            >
-              {initials(row.name)}
-            </span>
-            <div className="min-w-0">
-              <p className="font-semibold text-text-primary">{row.name}</p>
-              {row.portalHost ? (
-                <p className="truncate text-xs text-text-tertiary">{row.portalHost}</p>
-              ) : (
-                <p className="text-xs text-text-tertiary">—</p>
-              )}
-            </div>
-          </div>
+          <EntityNameCell
+            initials={initials(row.name)}
+            title={row.name}
+            subtitle={row.portalHost || "—"}
+          />
         ),
       },
       {
-        key: "city",
+        key: "country",
         header: "Country",
         cell: (row) => (
           <div className="flex items-center gap-2 whitespace-nowrap">
             <span className="text-lg leading-none" aria-hidden>
               {row.countryFlag || "🌐"}
             </span>
-            <span className="text-sm text-text-primary">{row.city}</span>
+            <span className="text-sm text-text-primary">{countryLabelFromCode(row.countryCode)}</span>
           </div>
+        ),
+      },
+      {
+        key: "city",
+        header: "City",
+        className: "max-w-[10rem]",
+        cell: (row) => (
+          <TruncateText className="text-sm text-text-primary" title={row.city || undefined}>
+            {row.city || "—"}
+          </TruncateText>
         ),
       },
       {

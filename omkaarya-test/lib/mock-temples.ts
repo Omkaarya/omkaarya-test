@@ -1,6 +1,6 @@
 export type TempleStatus = "Active" | "Trial" | "Suspended";
 export type TempleCompliance = "Verified" | "Pending" | "Not set up";
-export type TemplePlan = "Prarambha" | "Sankalpa" | "Aaradhana" | "Free";
+export type TemplePlan = string;
 
 /** Temple row shape returned by GET /api/temples (loaded from PostgreSQL). */
 export type MockTemple = {

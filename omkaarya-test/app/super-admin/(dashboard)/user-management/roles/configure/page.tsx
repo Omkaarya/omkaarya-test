@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense, useMemo, useRef } from "react";
 import { ArrowLeft, Save, Info, AlertTriangle, Loader2, Check, AlertCircle } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
+import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
 import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
 import GuardedBackLink from "@/app/components/admin/GuardedBackLink";
 import PostSaveSuccessBanner from "@/app/components/admin/PostSaveSuccessBanner";
@@ -308,7 +309,9 @@ function ConfigureContent() {
                   return (
                     <div key={feat.key} className="flex items-center gap-4 px-6 py-4">
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{feat.name}</div>
+                        <TruncateText className="text-sm font-semibold text-zinc-800 dark:text-zinc-200" title={feat.name}>
+                          {feat.name}
+                        </TruncateText>
                         <div className="text-[11px] font-mono text-zinc-400 mt-0.5 truncate">{feat.key}</div>
                       </div>
                       {/* Toggle Pills */}

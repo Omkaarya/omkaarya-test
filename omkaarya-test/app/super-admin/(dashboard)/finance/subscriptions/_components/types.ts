@@ -1,22 +1,27 @@
 export type SubscriptionStatus = "Pending" | "Active" | "Expired" | "Rejected";
-export type PlanName = "Prarambha" | "Sankalpa" | "Aaradhana";
 export type BillingCycle = "Monthly" | "Annual";
 
 export type SubscriptionRow = {
   id: string;
-  invoiceId: string;
+  tenantId: string;
+  invoiceId: string | null;
   templeName: string;
   templeInitials: string;
-  templeAddress: string;
-  plan: PlanName;
-  billingCycle: BillingCycle;
-  amount: number;
+  plan: string;
+  billingCycle: BillingCycle | string;
+  amountCents: number;
   paymentDate: string;
-  receiptId: string;
+  receiptId: string | null;
   status: SubscriptionStatus;
   verifiedBy: string | null;
   activatedOn: string | null;
   expiresOn: string;
   adminEmail: string;
-  cardLast4: string;
+};
+
+export type PricingPlanOption = {
+  id: string;
+  name: string;
+  priceMonthlyCents: number;
+  priceYearlyCents: number;
 };

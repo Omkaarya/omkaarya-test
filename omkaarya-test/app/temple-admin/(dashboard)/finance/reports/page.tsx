@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { PieChart, Sparkles, Loader2, AlertCircle } from "lucide-react";
+import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
 
 import {
   fetchTempleAdminJson,
@@ -206,7 +207,7 @@ export default function TempleReportsPage() {
           </h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full table-fixed text-left">
             <thead>
               <tr className="bg-zinc-50/50 dark:bg-zinc-900/50 border-b border-zinc-100 dark:border-zinc-800">
                 {["Pooja type", "Bookings", "Total collection", "Avg per booking"].map((h) => (
@@ -232,7 +233,9 @@ export default function TempleReportsPage() {
               ) : (
                 poojaReport.map((r) => (
                   <tr key={r.name} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors">
-                    <td className="px-6 py-4 text-sm font-bold text-[var(--text-primary)]">{r.name}</td>
+                    <td className="min-w-0 overflow-hidden px-6 py-4 text-sm font-bold text-[var(--text-primary)]">
+                      <TruncateText title={r.name}>{r.name}</TruncateText>
+                    </td>
                     <td className="px-6 py-4 text-xs text-[var(--text-muted)]">{r.bookings}</td>
                     <td className="px-6 py-4 text-sm font-bold text-green-600">{fmtCurrency(r.total)}</td>
                     <td className="px-6 py-4 text-xs font-bold text-[var(--text-muted)]">{fmtCurrency(r.avg)}</td>

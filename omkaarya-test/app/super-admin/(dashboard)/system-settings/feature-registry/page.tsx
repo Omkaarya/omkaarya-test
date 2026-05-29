@@ -41,6 +41,7 @@ import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader"
 import { Button } from "@/app/components/ds/atoms/Button";
 import { AdminTableToolbar, AdminTableToolbarEnd, AdminTableToolbarStart } from "@/app/components/admin/AdminTableToolbar";
 import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
+import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -83,7 +84,15 @@ const MODULE_META: Record<string, { label: string; icon: LucideIcon; color: stri
   pricing_tier: { label: "Pricing Tiers", icon: Settings, color: "text-slate-500" },
 };
 
-const MODULE_OPTIONS = Object.keys(MODULE_META);
+function mergeModuleKeys(features: Feature[]): string[] {
+  const fromDb = new Set(features.map((f) => f.moduleKey).filter(Boolean));
+  Object.keys(MODULE_META).forEach((k) => fromDb.add(k));
+  return Array.from(fromDb).sort((a, b) => {
+    const la = MODULE_META[a]?.label ?? a;
+    const lb = MODULE_META[b]?.label ?? b;
+    return la.localeCompare(lb);
+  });
+}
 
 function slugify(name: string): string {
   return name
@@ -98,18 +107,21 @@ function slugify(name: string): string {
 
 function FeatureModal({
   feature,
+  moduleOptions,
   onClose,
   onSave,
 }: {
   feature: Feature | null;
+  moduleOptions: string[];
   onClose: () => void;
   onSave: (data: FeatureFormData, id?: string) => Promise<void>;
 }) {
   const isEdit = feature !== null;
+  const defaultModule = moduleOptions[0] ?? "system";
   const [form, setForm] = useState<FeatureFormData>({
     name: feature?.name || "",
     key: feature?.key || "",
-    moduleKey: feature?.moduleKey || MODULE_OPTIONS[0],
+    moduleKey: feature?.moduleKey || defaultModule,
     description: feature?.description || "",
     hasLimit: feature?.hasLimit || false,
     limitType: feature?.limitType || "number",
@@ -125,7 +137,7 @@ function FeatureModal({
     const initial = {
       name: feature?.name || "",
       key: feature?.key || "",
-      moduleKey: feature?.moduleKey || MODULE_OPTIONS[0],
+      moduleKey: feature?.moduleKey || defaultModule,
       description: feature?.description || "",
       hasLimit: feature?.hasLimit || false,
       limitType: feature?.limitType || "number",
@@ -133,7 +145,7 @@ function FeatureModal({
     };
     setForm(initial);
     baselineRef.current = formSnapshot(initial);
-  }, [feature]);
+  }, [feature, defaultModule]);
 
   // Auto-generate key from name (only when creating)
   useEffect(() => {
@@ -216,7 +228,7 @@ function FeatureModal({
               value={form.moduleKey}
               onChange={(e) => setForm({ ...form, moduleKey: e.target.value })}
             >
-              {MODULE_OPTIONS.map((mod) => (
+              {moduleOptions.map((mod) => (
                 <option key={mod} value={mod}>{MODULE_META[mod]?.label || mod}</option>
               ))}
             </SelectInput>
@@ -329,6 +341,8 @@ export default function FeatureRegistryPage() {
   }, []);
 
   useEffect(() => { loadFeatures(); }, [loadFeatures]);
+
+  const moduleOptions = useMemo(() => mergeModuleKeys(features), [features]);
 
   const handleSave = async (data: FeatureFormData, id?: string) => {
     const url = id ? `/api/features/${id}` : "/api/features";
@@ -488,8 +502,10 @@ export default function FeatureRegistryPage() {
                     <div className={`w-8 h-8 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center shrink-0 mx-2 shadow-sm ${meta.color}`}>
                       <Icon className="w-4 h-4" />
                     </div>
-                    <div className="flex-1">
-                      <div className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{meta.label}</div>
+                    <div className="min-w-0 flex-1">
+                      <TruncateText className="text-sm font-bold text-zinc-900 dark:text-zinc-100" title={meta.label}>
+                        {meta.label}
+                      </TruncateText>
                       <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">{mKey} · {grouped[mKey].length} features</div>
                     </div>
                   </div>
@@ -497,22 +513,36 @@ export default function FeatureRegistryPage() {
                   {/* Features List */}
                   {isOpen && (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left">
+                      <table className="w-full min-w-[720px] table-fixed text-left">
                         <thead>
                           <tr className="bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800">
-                            {["Feature", "Key", "Visible", "Limit", "Status", "Actions"].map(h => (
-                              <th key={h} className="px-6 py-2.5 text-[10px] font-bold text-zinc-400 uppercase tracking-wider first:pl-[72px]">{h}</th>
-                            ))}
+                            <th className="w-[38%] min-w-0 overflow-hidden px-6 py-2.5 pl-[72px] text-left text-[10px] font-bold uppercase tracking-wider text-zinc-400">Feature</th>
+                            <th className="w-[24%] min-w-0 overflow-hidden px-6 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-zinc-400">Key</th>
+                            <th className="w-[12%] px-6 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-zinc-400">Visible</th>
+                            <th className="w-[12%] px-6 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-zinc-400">Limit</th>
+                            <th className="w-[8%] px-6 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-zinc-400">Status</th>
+                            <th className="w-[6%] px-6 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-zinc-400">Actions</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
                           {grouped[mKey].map(f => (
                             <tr key={f.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20 transition-colors group/row">
-                              <td className="px-6 py-3.5 pl-[72px]">
-                                <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{f.name}</div>
-                                <div className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-1">{f.description || "No description provided."}</div>
+                              <td className="min-w-0 overflow-hidden px-6 py-3.5 pl-[72px]">
+                                <TruncateText className="text-sm font-semibold text-zinc-900 dark:text-zinc-100" title={f.name}>
+                                  {f.name}
+                                </TruncateText>
+                                <TruncateText
+                                  className="text-xs text-zinc-500 line-clamp-1 dark:text-zinc-400"
+                                  title={f.description || undefined}
+                                >
+                                  {f.description || "No description provided."}
+                                </TruncateText>
                               </td>
-                              <td className="px-6 py-3.5"><code className="text-[11px] font-mono bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-600 dark:text-zinc-400">{f.key}</code></td>
+                              <td className="min-w-0 overflow-hidden px-6 py-3.5">
+                                <code className="block max-w-full rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] font-mono text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                                  <TruncateText title={f.key}>{f.key}</TruncateText>
+                                </code>
+                              </td>
                               <td className="px-6 py-3.5">
                                 {f.isVisibleInPlanConfig ? (
                                   <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 uppercase tracking-wide bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded-full border border-emerald-100 dark:border-emerald-800">Enabled</span>
@@ -560,6 +590,7 @@ export default function FeatureRegistryPage() {
       {modalOpen && (
         <FeatureModal
           feature={editFeature}
+          moduleOptions={moduleOptions}
           onClose={() => { setModalOpen(false); setEditFeature(null); }}
           onSave={handleSave}
         />

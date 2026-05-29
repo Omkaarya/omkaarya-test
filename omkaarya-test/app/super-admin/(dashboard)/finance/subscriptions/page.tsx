@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import {
-  Bell,
   Calendar,
   CheckCircle2,
   CreditCard,
@@ -24,8 +23,15 @@ import AdminListCard from "@/app/components/admin/AdminListCard";
 import AdminPagination from "@/app/components/admin/AdminPagination";
 import { AdminTableToolbar, AdminTableToolbarEnd, AdminTableToolbarStart } from "@/app/components/admin/AdminTableToolbar";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
+import { EntityNameCell } from "@/app/components/ds/molecules/TableCells";
+import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
 import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
+import { downloadSubscriptionsCsv } from "@/lib/subscriptions-csv";
+import { ChangePlanModal } from "./_components/ChangePlanModal";
+import { ExtendModal } from "./_components/ExtendModal";
+import { ConvertToPaidModal } from "./_components/ConvertToPaidModal";
+import type { PricingPlanOption } from "./_components/types";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -33,6 +39,7 @@ type SubscriptionStatus = "Pending" | "Active" | "Expired" | "Rejected";
 
 type SubscriptionRow = {
   id: string;
+  tenantId: string;
   invoiceId: string | null;
   templeName: string;
   templeInitials: string;
@@ -163,10 +170,12 @@ function InvoiceModal({
   subscription,
   profile,
   onClose,
+  onDownload,
 }: {
   subscription: SubscriptionRow;
   profile: BillingProfile | null;
   onClose: () => void;
+  onDownload?: () => void;
 }) {
   const invoiceStatus = subscription.status === "Active" || subscription.verifiedBy ? "Paid" : "Unpaid";
   const currency = profile?.money?.currency || "USD";
@@ -248,30 +257,34 @@ function InvoiceModal({
               <p className="text-sm text-text-secondary">{profile?.issuer?.address ?? "—"}</p>
               <p className="text-sm text-text-tertiary">{profile?.issuer?.email ?? "—"}</p>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-bold text-text-primary mb-2">Invoice To:</p>
-              <p className="text-sm font-medium text-text-primary">{subscription.templeName}</p>
-              <p className="text-sm text-text-tertiary">{subscription.adminEmail}</p>
+              <TruncateText className="text-sm font-medium text-text-primary" title={subscription.templeName}>
+                {subscription.templeName}
+              </TruncateText>
+              <TruncateText className="text-sm text-text-tertiary" title={subscription.adminEmail}>
+                {subscription.adminEmail}
+              </TruncateText>
             </div>
           </div>
 
           {/* Line Items Table */}
           <div className="overflow-hidden rounded-lg border border-border">
-            <table className="w-full text-left">
+            <table className="w-full table-fixed text-left">
               <thead>
                 <tr className="border-b border-border bg-subtle">
-                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Plan</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Billing Cycle</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Created On</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Expiring On</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Amount(USD)</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Invoice Status</th>
+                  <th className="w-[22%] px-4 py-3 text-xs font-semibold text-text-tertiary">Plan</th>
+                  <th className="w-[16%] px-4 py-3 text-xs font-semibold text-text-tertiary">Billing Cycle</th>
+                  <th className="w-[16%] px-4 py-3 text-xs font-semibold text-text-tertiary">Created On</th>
+                  <th className="w-[16%] px-4 py-3 text-xs font-semibold text-text-tertiary">Expiring On</th>
+                  <th className="w-[14%] px-4 py-3 text-xs font-semibold text-text-tertiary">Amount(USD)</th>
+                  <th className="w-[16%] px-4 py-3 text-xs font-semibold text-text-tertiary">Invoice Status</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td className="px-4 py-3 text-sm text-text-primary">
-                    {subscription.plan}
+                  <td className="min-w-0 overflow-hidden px-4 py-3 text-sm text-text-primary">
+                    <TruncateText title={subscription.plan}>{subscription.plan}</TruncateText>
                   </td>
                   <td className="px-4 py-3 text-sm text-text-secondary">
                     {subscription.billingCycle}
@@ -339,7 +352,12 @@ function InvoiceModal({
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
-          <Button variant="primary" leadingIcon={<Download className="h-4 w-4" />}>
+          <Button
+            variant="primary"
+            leadingIcon={<Download className="h-4 w-4" />}
+            disabled={!subscription.invoiceId}
+            onClick={onDownload}
+          >
             Download Invoice
           </Button>
         </div>
@@ -397,13 +415,17 @@ function VerifyModal({
         </div>
 
         <div className="space-y-4 p-6">
-          <div className="flex items-center gap-4 rounded-xl bg-subtle p-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-100 text-brand font-bold text-sm">
+          <div className="flex items-center gap-4 rounded-xl bg-subtle p-4 min-w-0">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand font-bold text-sm">
               {subscription.templeInitials}
             </div>
-            <div>
-              <p className="font-semibold text-text-primary">{subscription.templeName}</p>
-              <p className="text-sm text-text-tertiary">{subscription.adminEmail}</p>
+            <div className="min-w-0 flex-1">
+              <TruncateText className="font-semibold text-text-primary" title={subscription.templeName}>
+                {subscription.templeName}
+              </TruncateText>
+              <TruncateText className="text-sm text-text-tertiary" title={subscription.adminEmail}>
+                {subscription.adminEmail}
+              </TruncateText>
             </div>
           </div>
 
@@ -498,6 +520,11 @@ export default function SubscriptionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [verifyingRow, setVerifyingRow] = useState<SubscriptionRow | null>(null);
   const [invoiceRow, setInvoiceRow] = useState<SubscriptionRow | null>(null);
+  const [changePlanRow, setChangePlanRow] = useState<SubscriptionRow | null>(null);
+  const [extendRow, setExtendRow] = useState<SubscriptionRow | null>(null);
+  const [convertRow, setConvertRow] = useState<SubscriptionRow | null>(null);
+  const [pricingPlans, setPricingPlans] = useState<PricingPlanOption[]>([]);
+  const [exporting, setExporting] = useState(false);
   const [rows, setRows] = useState<SubscriptionRow[]>([]);
   const [profile, setProfile] = useState<BillingProfile | null>(null);
   const [totalPages, setTotalPages] = useState(1);
@@ -509,11 +536,6 @@ export default function SubscriptionsPage() {
     type: "success" | "error";
   } | null>(null);
 
-  // ── Simulate Loading ─────────────────────────────────────────────
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 800);
-    return () => clearTimeout(timer);
-  }, []);
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(searchInput), 400);
     return () => clearTimeout(t);
@@ -522,9 +544,27 @@ export default function SubscriptionsPage() {
   useEffect(() => {
     let cancel = false;
     (async () => {
-      const profRes = await fetch("/api/billing/profile", { cache: "no-store" });
+      const [profRes, plansRes] = await Promise.all([
+        fetch("/api/billing/profile", { cache: "no-store" }),
+        fetch("/api/pricing-plans", { cache: "no-store" }),
+      ]);
       const prof = (await profRes.json().catch(() => null)) as { success?: boolean; data?: BillingProfile } | null;
       if (!cancel && prof && prof.success === true && prof.data) setProfile(prof.data);
+
+      const plansJson = (await plansRes.json().catch(() => null)) as {
+        success?: boolean;
+        data?: Array<{ id: string; name: string; priceMonthly?: number; priceYearly?: number }>;
+      } | null;
+      if (!cancel && plansJson?.success && Array.isArray(plansJson.data)) {
+        setPricingPlans(
+          plansJson.data.map((p) => ({
+            id: p.id,
+            name: p.name,
+            priceMonthlyCents: Math.max(0, Math.trunc(p.priceMonthly ?? 0)),
+            priceYearlyCents: Math.max(0, Math.trunc(p.priceYearly ?? 0)),
+          }))
+        );
+      }
     })();
     return () => { cancel = true; };
   }, []);
@@ -537,6 +577,7 @@ export default function SubscriptionsPage() {
     plan: string;
     billingCycle: string;
     amount: number;
+    amountCents?: number;
     paymentDate: string;
     receiptId: string | null;
     status: SubscriptionStatus;
@@ -554,6 +595,7 @@ export default function SubscriptionsPage() {
   }
 
   const loadList = useCallback(async () => {
+    setIsLoading(true);
     setLoadErr(null);
     const p = new URLSearchParams();
     p.set("page", String(page));
@@ -569,17 +611,22 @@ export default function SubscriptionsPage() {
       setTotalPages(1);
       setListTotal(0);
       setLoadErr(jsonApiErrorMessage(d) || "Failed to load subscriptions");
+      setIsLoading(false);
       return;
     }
     setRows(
       (d.data.data ?? []).map((r) => ({
         id: r.id,
+        tenantId: r.tenantId,
         invoiceId: r.invoiceId,
         templeName: r.templeName,
         templeInitials: initials(r.templeName),
         plan: r.plan,
         billingCycle: r.billingCycle,
-        amountCents: Math.max(0, Math.trunc((r.amount ?? 0) * 100)),
+        amountCents:
+          typeof r.amountCents === "number"
+            ? Math.max(0, Math.trunc(r.amountCents))
+            : Math.max(0, Math.trunc((r.amount ?? 0) * 100)),
         paymentDate: r.paymentDate,
         receiptId: r.receiptId,
         status: r.status,
@@ -591,6 +638,7 @@ export default function SubscriptionsPage() {
     );
     setTotalPages(Math.max(1, d.data.totalPages ?? 1));
     setListTotal(typeof d.data.total === "number" ? d.data.total : (d.data.data ?? []).length);
+    setIsLoading(false);
   }, [filter, page, pageSize, searchDebounced]);
 
   const loadCounts = useCallback(async () => {
@@ -669,103 +717,205 @@ export default function SubscriptionsPage() {
     })();
   }, [verifyingRow, showToast, loadList, loadCounts]);
 
+  const downloadInvoice = useCallback((row: SubscriptionRow) => {
+    if (!row.invoiceId) {
+      showToast("No invoice linked to this subscription.", "error");
+      return;
+    }
+    window.open(
+      `/api/billing/invoices/${encodeURIComponent(row.invoiceId)}/receipt`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  }, [showToast]);
+
+  const handleChangePlan = useCallback(
+    (pricingPlanId: string) => {
+      if (!changePlanRow) return;
+      const row = changePlanRow;
+      (async () => {
+        const res = await fetch(`/api/subscriptions/${encodeURIComponent(row.id)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ action: "changePlan", pricingPlanId }),
+        });
+        const d = await res.json().catch(() => null);
+        if (!res.ok || (d && typeof d === "object" && "success" in d && (d as { success?: boolean }).success === false)) {
+          showToast(jsonApiErrorMessage(d) || "Plan change failed", "error");
+          return;
+        }
+        setChangePlanRow(null);
+        showToast(`Plan updated for ${row.templeName}`, "success");
+        await loadList();
+        await loadCounts();
+      })();
+    },
+    [changePlanRow, showToast, loadList, loadCounts]
+  );
+
+  const handleExtend = useCallback(
+    (months: number) => {
+      if (!extendRow) return;
+      const row = extendRow;
+      (async () => {
+        const res = await fetch(`/api/subscriptions/${encodeURIComponent(row.id)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ action: "extend", months }),
+        });
+        const d = await res.json().catch(() => null);
+        if (!res.ok || (d && typeof d === "object" && "success" in d && (d as { success?: boolean }).success === false)) {
+          showToast(jsonApiErrorMessage(d) || "Extension failed", "error");
+          return;
+        }
+        setExtendRow(null);
+        showToast(`Subscription extended for ${row.templeName}`, "success");
+        await loadList();
+        await loadCounts();
+      })();
+    },
+    [extendRow, showToast, loadList, loadCounts]
+  );
+
+  const handleConvertToPaid = useCallback(() => {
+    if (!convertRow) return;
+    const row = convertRow;
+    (async () => {
+      const res = await fetch(`/api/subscriptions/${encodeURIComponent(row.id)}/verify`, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok || (d && typeof d === "object" && "success" in d && (d as { success?: boolean }).success === false)) {
+        showToast(jsonApiErrorMessage(d) || "Activation failed", "error");
+        return;
+      }
+      setConvertRow(null);
+      showToast(`${row.templeName} is now on a paid active subscription`, "success");
+      await loadList();
+      await loadCounts();
+    })();
+  }, [convertRow, showToast, loadList, loadCounts]);
+
+  const handleExport = useCallback(async () => {
+    setExporting(true);
+    try {
+      const p = new URLSearchParams();
+      p.set("page", "1");
+      p.set("pageSize", "5000");
+      p.set("status", filter);
+      if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
+      const res = await fetch(`/api/subscriptions?${p.toString()}`, { cache: "no-store" });
+      const d = (await res.json().catch(() => null)) as
+        | { success?: boolean; data?: { data: ApiRow[] } }
+        | null;
+      if (!d || d.success !== true || !d.data?.data) {
+        showToast(jsonApiErrorMessage(d) || "Export failed", "error");
+        return;
+      }
+      downloadSubscriptionsCsv(
+        d.data.data.map((r) => ({
+          templeName: r.templeName,
+          plan: r.plan,
+          billingCycle: r.billingCycle,
+          amountCents:
+            typeof r.amountCents === "number"
+              ? Math.max(0, Math.trunc(r.amountCents))
+              : Math.max(0, Math.trunc((r.amount ?? 0) * 100)),
+          paymentDate: r.paymentDate,
+          expiresOn: r.expiresOn,
+          status: r.status,
+          adminEmail: r.adminEmail,
+          receiptId: r.receiptId,
+        }))
+      );
+      showToast("Subscriptions exported", "success");
+    } catch {
+      showToast("Export failed", "error");
+    } finally {
+      setExporting(false);
+    }
+  }, [filter, searchDebounced, showToast]);
+
   // ── Row Actions Builder ──────────────────────────────────────────
 
-  function getRowActions(row: SubscriptionRow): ActionItem[] {
-    const base: ActionItem[] = [
-      {
-        label: "View",
-        icon: <Eye className="h-4 w-4" />,
-        onClick: () => setInvoiceRow(row),
-      },
-      {
-        label: "Download Invoice",
-        icon: <Download className="h-4 w-4" />,
-        onClick: () =>
-          showToast(`Downloading invoice ${row.invoiceId}…`, "success"),
-      },
-      {
-        label: "Change Plan",
-        icon: <Repeat className="h-4 w-4" />,
-        onClick: () =>
-          showToast(`Change plan for ${row.templeName} — coming soon.`, "success"),
-      },
-      {
-        label: "Reminder",
-        icon: <Bell className="h-4 w-4" />,
-        onClick: () =>
-          showToast(`Payment reminder sent to ${row.adminEmail}.`, "success"),
-      },
-    ];
+  const getRowActions = useCallback(
+    (row: SubscriptionRow): ActionItem[] => {
+      const base: ActionItem[] = [
+        {
+          label: "View",
+          icon: <Eye className="h-4 w-4" />,
+          onClick: () => setInvoiceRow(row),
+        },
+        {
+          label: "Download Invoice",
+          icon: <Download className="h-4 w-4" />,
+          onClick: () => downloadInvoice(row),
+        },
+        {
+          label: "Change Plan",
+          icon: <Repeat className="h-4 w-4" />,
+          onClick: () => setChangePlanRow(row),
+        },
+      ];
 
-    if (row.status === "Expired") {
-      base.push({
-        label: "Extend",
-        icon: <RefreshCw className="h-4 w-4" />,
-        onClick: () =>
-          showToast(`Extend subscription for ${row.templeName} — coming soon.`, "success"),
-      });
-    }
+      if (row.status === "Expired") {
+        base.push({
+          label: "Extend",
+          icon: <RefreshCw className="h-4 w-4" />,
+          onClick: () => setExtendRow(row),
+        });
+      }
 
-    if (row.status === "Pending" || row.status === "Expired") {
-      base.push({
-        label: "Convert to Paid",
-        icon: <CreditCard className="h-4 w-4" />,
-        onClick: () =>
-          showToast(`Convert to Paid for ${row.templeName} — coming soon.`, "success"),
-      });
-    }
+      if (row.status === "Pending" || row.status === "Expired") {
+        base.push({
+          label: "Convert to Paid",
+          icon: <CreditCard className="h-4 w-4" />,
+          onClick: () => setConvertRow(row),
+        });
+      }
 
-    return base;
-  }
+      return base;
+    },
+    [downloadInvoice]
+  );
 
   // ── Columns ──────────────────────────────────────────────────────
 
   const columns = useMemo<ColumnDef<SubscriptionRow>[]>(
     () => [
       {
-        key: "id",
-        header: "Subscription ID",
-        cell: (row) => (
-          <span className="text-sm font-medium text-text-secondary">
-            {row.id}
-          </span>
-        ),
-      },
-      {
         key: "templeName",
-        header: "Temple Name",
+        header: "Temple",
         sortable: true,
+        className: "max-w-[16rem]",
         cell: (row) => (
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand text-xs font-bold">
-              {row.templeInitials}
-            </div>
-            <div className="min-w-0">
-              <p className="font-semibold text-text-primary truncate text-sm">
-                {row.templeName}
-              </p>
-              <p className="text-xs text-text-tertiary truncate">
-                {row.adminEmail}
-              </p>
-            </div>
-          </div>
+          <EntityNameCell
+            icon={
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand text-xs font-bold">
+                {row.templeInitials}
+              </div>
+            }
+            title={row.templeName}
+            subtitle={row.adminEmail}
+          />
         ),
       },
       {
         key: "plan",
         header: "Plan",
+        className: "max-w-[10rem]",
         cell: (row) => (
-          <Badge color={planBadgeColor(row.plan)} size="sm">
-            {row.plan}
-          </Badge>
-        ),
-      },
-      {
-        key: "billingCycle",
-        header: "Billing Cycle",
-        cell: (row) => (
-          <span className="text-sm text-text-secondary">{row.billingCycle}</span>
+          <div className="min-w-0 space-y-1">
+            <Badge color={planBadgeColor(row.plan)} size="sm" className="max-w-full min-w-0">
+              <span className="block min-w-0 truncate" title={row.plan}>
+                {row.plan}
+              </span>
+            </Badge>
+            <TruncateText className="text-[11px] text-text-tertiary" title={row.billingCycle}>
+              {row.billingCycle}
+            </TruncateText>
+          </div>
         ),
       },
       {
@@ -814,8 +964,7 @@ export default function SubscriptionsPage() {
         ),
       },
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [getRowActions]
   );
 
   // ── Render ───────────────────────────────────────────────────────
@@ -842,7 +991,12 @@ export default function SubscriptionsPage() {
             Manage and filter all subscriptions & payments
           </p>
         </div>
-        <Button variant="outline" leadingIcon={<Download className="h-4 w-4" />}>
+        <Button
+          variant="outline"
+          leadingIcon={<Download className="h-4 w-4" />}
+          onClick={() => void handleExport()}
+          loading={exporting}
+        >
           Export
         </Button>
       </div>
@@ -865,7 +1019,7 @@ export default function SubscriptionsPage() {
                     }
                   : undefined
               }
-              placeholder="Search by name, city, or admin email"
+              placeholder="Search temple, plan, receipt, or admin email"
             />
           </AdminTableToolbarStart>
 
@@ -947,6 +1101,32 @@ export default function SubscriptionsPage() {
           subscription={invoiceRow}
           profile={profile}
           onClose={() => setInvoiceRow(null)}
+          onDownload={() => downloadInvoice(invoiceRow)}
+        />
+      )}
+
+      {changePlanRow && (
+        <ChangePlanModal
+          subscription={changePlanRow}
+          plans={pricingPlans}
+          onClose={() => setChangePlanRow(null)}
+          onSave={handleChangePlan}
+        />
+      )}
+
+      {extendRow && (
+        <ExtendModal
+          subscription={extendRow}
+          onClose={() => setExtendRow(null)}
+          onSave={handleExtend}
+        />
+      )}
+
+      {convertRow && (
+        <ConvertToPaidModal
+          subscription={convertRow}
+          onClose={() => setConvertRow(null)}
+          onConfirm={handleConvertToPaid}
         />
       )}
 

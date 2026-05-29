@@ -6,7 +6,7 @@ import UnsavedChangesDialog from "@/app/components/admin/UnsavedChangesDialog";
 import { formSnapshot } from "@/lib/form-snapshot";
 import { useModalFormSession } from "@/lib/use-modal-form-session";
 import {
-  Mail, Shield, MoreHorizontal, UserPlus, Trash2,
+  Shield, MoreHorizontal, UserPlus, Trash2, Pencil,
   CheckCircle2, XCircle, X, Loader2, RefreshCw, AlertCircle,
   UserCheck, UserX,
 } from "lucide-react";
@@ -20,6 +20,7 @@ import SelectInput from "@/app/components/admin/SelectInput";
 import TextInput from "@/app/components/admin/TextInput";
 import { AdminTableToolbar, AdminTableToolbarEnd, AdminTableToolbarStart } from "@/app/components/admin/AdminTableToolbar";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
+import { EntityNameCell, TextCell } from "@/app/components/ds/molecules/TableCells";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -214,6 +215,175 @@ function AddUserModal({
   );
 }
 
+function EditUserModal({
+  userId,
+  roles,
+  onClose,
+  onSaved,
+}: {
+  userId: string;
+  roles: SaRole[];
+  onClose: () => void;
+  onSaved: (user: SaUser) => void;
+}) {
+  const [form, setForm] = useState<FormState>(EMPTY_USER_FORM);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const baselineRef = useRef(formSnapshot(EMPTY_USER_FORM));
+
+  const isDirty = useMemo(() => formSnapshot(form) !== baselineRef.current, [form]);
+  const session = useModalFormSession({ isDirty, onClose });
+
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/admin-users/${encodeURIComponent(userId)}`, { cache: "no-store" });
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          if (!cancel) setError(json.error?.message || "Failed to load user");
+          return;
+        }
+        const u = json.data as SaUser;
+        const next = {
+          name: u.name ?? "",
+          email: u.email ?? "",
+          roleId: u.roleId ?? "",
+        };
+        if (!cancel) {
+          setForm(next);
+          baselineRef.current = formSnapshot(next);
+        }
+      } catch {
+        if (!cancel) setError("Network error — please try again.");
+      } finally {
+        if (!cancel) setLoading(false);
+      }
+    })();
+    return () => { cancel = true; };
+  }, [userId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin-users/${encodeURIComponent(userId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          email: form.email.trim(),
+          roleId: form.roleId.trim() || null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setError(json.error?.message || "Failed to update user");
+        return;
+      }
+      session.completeSuccess("User updated successfully.", () => {
+        onSaved(json.data);
+        onClose();
+      });
+    } catch {
+      setError("Network error — please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={session.requestClose}
+        aria-label="Close modal"
+      />
+      <div className="relative z-10 w-full max-w-md rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-5 dark:border-zinc-800">
+          <div>
+            <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-50">Edit Platform User</h2>
+            <p className="mt-0.5 text-xs text-zinc-500">Update name, email, or role</p>
+          </div>
+          <button
+            type="button"
+            onClick={session.requestClose}
+            className="rounded-lg p-2 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        {loading ? (
+          <div className="flex flex-col items-center gap-3 py-16 text-zinc-400">
+            <Loader2 className="h-8 w-8 animate-spin text-[var(--brand-primary)]" />
+            <span className="text-sm">Loading user…</span>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-5 px-6 py-6">
+            <PostSaveSuccessBanner text={session.postSave.bannerText} />
+            {error && (
+              <div className="flex items-center gap-2 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-xs text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {error}
+              </div>
+            )}
+            <fieldset disabled={session.postSave.isLocked} className="m-0 min-w-0 space-y-5 border-0 p-0">
+              <FormField id="sa-edit-user-name" label="Full Name" required>
+                <TextInput
+                  id="sa-edit-user-name"
+                  type="text"
+                  required
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                />
+              </FormField>
+              <FormField id="sa-edit-user-email" label="Email Address" required>
+                <TextInput
+                  id="sa-edit-user-email"
+                  type="email"
+                  required
+                  value={form.email}
+                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                />
+              </FormField>
+              <FormField id="sa-edit-user-role" label="Role">
+                <SelectInput
+                  id="sa-edit-user-role"
+                  value={form.roleId}
+                  onChange={(e) => setForm((f) => ({ ...f, roleId: e.target.value }))}
+                >
+                  <option value="">No Role Assigned</option>
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </SelectInput>
+              </FormField>
+            </fieldset>
+            <div className="flex items-center gap-3 pt-2">
+              <Button type="button" variant="outline" size="sm" onClick={session.requestClose} className="flex-1" disabled={session.postSave.isLocked}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary" size="sm" loading={saving} className="flex-1" disabled={session.postSave.isLocked}>
+                {saving ? "Saving…" : "Save Changes"}
+              </Button>
+            </div>
+          </form>
+        )}
+      </div>
+      <UnsavedChangesDialog
+        dialogRef={session.modalGuard.dialogRef}
+        onStay={session.modalGuard.closeDialog}
+        onLeave={session.modalGuard.confirmLeave}
+      />
+    </div>
+  );
+}
+
 // ── Main Page ──────────────────────────────────────────────────────
 
 export default function AdminUsersPage() {
@@ -224,6 +394,7 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [showModal, setShowModal] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [actionMenu, setActionMenu] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -311,28 +482,28 @@ export default function AdminUsersPage() {
       {
         key: "user",
         header: "User",
+        className: "max-w-[16rem]",
         cell: (user) => (
-          <div className="flex items-center gap-3">
-            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${avatarColor(user.name)}`}>
-              {user.name.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-text-primary">{user.name}</div>
-              <div className="mt-0.5 flex items-center gap-1 text-xs text-text-tertiary">
-                <Mail className="h-3 w-3" /> {user.email}
+          <EntityNameCell
+            icon={
+              <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${avatarColor(user.name)}`}>
+                {user.name.charAt(0).toUpperCase()}
               </div>
-            </div>
-          </div>
+            }
+            title={user.name}
+            subtitle={user.email}
+          />
         ),
       },
       {
         key: "role",
         header: "Role",
+        className: "max-w-[10rem]",
         cell: (user) =>
           user.roleName ? (
-            <div className="flex items-center gap-1.5 text-xs font-medium text-text-secondary">
-              <Shield className="h-3.5 w-3.5 text-blue-500" />
-              {user.roleName}
+            <div className="flex min-w-0 items-center gap-1.5">
+              <Shield className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+              <TextCell text={user.roleName} title={user.roleName} />
             </div>
           ) : (
             <span className="text-xs italic text-text-tertiary">No role</span>
@@ -383,6 +554,16 @@ export default function AdminUsersPage() {
                     className="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl border border-border bg-surface py-1 shadow-xl"
                     onClick={(e) => e.stopPropagation()}
                   >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActionMenu(null);
+                        setEditingUserId(user.id);
+                      }}
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-xs font-medium text-text-secondary transition-colors hover:bg-subtle hover:text-text-primary"
+                    >
+                      <Pencil className="h-3.5 w-3.5 text-blue-500" /> Edit user
+                    </button>
                     <button
                       type="button"
                       onClick={() => handleToggle(user.id)}
@@ -556,6 +737,18 @@ export default function AdminUsersPage() {
           onSaved={(user) => {
             setUsers((prev) => [user, ...prev]);
             setShowModal(false);
+          }}
+        />
+      )}
+
+      {editingUserId && (
+        <EditUserModal
+          userId={editingUserId}
+          roles={roles}
+          onClose={() => setEditingUserId(null)}
+          onSaved={(user) => {
+            setUsers((prev) => prev.map((u) => (u.id === user.id ? user : u)));
+            setEditingUserId(null);
           }}
         />
       )}

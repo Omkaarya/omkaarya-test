@@ -19,6 +19,8 @@ type PhoneFieldsGroupProps = {
     fax: string;
   }>;
   disabled?: boolean;
+  /** When true, renders as a block (for wizard grids) instead of CSS `contents`. */
+  embedded?: boolean;
 };
 
 export function PhoneRowField({
@@ -88,9 +90,11 @@ export default function PhoneFieldsGroup({
   onChange,
   errors,
   disabled = false,
+  embedded = false,
 }: PhoneFieldsGroupProps) {
+  const wrapperClass = embedded ? "col-span-full space-y-4" : "contents";
   return (
-    <div className="contents">
+    <div className={wrapperClass}>
       <PhoneRowField
         idPrefix="phone-tel"
         label="Telephone Number"
