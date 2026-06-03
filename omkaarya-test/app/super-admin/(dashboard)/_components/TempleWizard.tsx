@@ -949,7 +949,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
         selectedPlan: string;
         selectedPricingPlanId: string | null;
         billingCycle: BillingCycle | "";
-        trial: { enabled: boolean; days: number | null };
+        trial: { enabled: boolean; days: number | null; endsAt: string | null };
       };
       logoTempleDataUrl?: string;
       adminProfileDataUrl?: string;
@@ -1946,7 +1946,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                         </FormField>
                         <AdminButton
                           type="button"
-                          variant="secondary"
+                          variant="outline"
                           disabled={extendTrialBusy}
                           onClick={() => {
                             void (async () => {

@@ -4,6 +4,7 @@ import { HelpCircle, Mail, User } from "lucide-react";
 import { useEffect, useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  markTempleOnboardingAdminProfileSeen,
   TEMPLE_ONBOARDING_EMAIL_KEY,
   type TempleAdminRole,
 } from "@/lib/temple-onboarding-signin";
@@ -167,7 +168,10 @@ export default function TempleAdminAdminProfilePage() {
             primary={
               <button
                 type="button"
-                onClick={() => router.push("/temple-admin/temple-profile")}
+                onClick={() => {
+                  markTempleOnboardingAdminProfileSeen();
+                  router.push("/temple-admin/temple-profile");
+                }}
                 disabled={loading}
                 className="flex w-full min-w-0 flex-[1.25] items-center justify-center gap-2 rounded-lg bg-[var(--brand-primary)] py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)] disabled:pointer-events-none disabled:opacity-50"
               >

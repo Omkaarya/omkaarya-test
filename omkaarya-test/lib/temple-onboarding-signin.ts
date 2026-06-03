@@ -22,6 +22,9 @@ export const TEMPLE_ONBOARDING_INVITE_FULL_NAME_KEY = "temple_onboarding_invite_
 /** Non-secret step-3 draft payload (JSON). */
 export const TEMPLE_ONBOARDING_ADMIN_PROFILE_DRAFT_KEY = "temple_onboarding_admin_profile_draft";
 
+/** Set when the user has viewed the read-only admin profile step and continued. */
+export const TEMPLE_ONBOARDING_ADMIN_PROFILE_SEEN_KEY = "temple_onboarding_admin_profile_seen";
+
 export type TempleAdminRole =
   | "Temple Admin"
   | "Head Priest"
@@ -54,4 +57,14 @@ export function saveTempleAdminProfileDraft(next: Partial<TempleAdminProfileDraf
   const prev = loadTempleAdminProfileDraft() ?? {};
   const merged = { ...prev, ...next };
   sessionStorage.setItem(TEMPLE_ONBOARDING_ADMIN_PROFILE_DRAFT_KEY, JSON.stringify(merged));
+}
+
+export function isTempleOnboardingAdminProfileSeen(): boolean {
+  if (typeof window === "undefined") return false;
+  return sessionStorage.getItem(TEMPLE_ONBOARDING_ADMIN_PROFILE_SEEN_KEY) === "1";
+}
+
+export function markTempleOnboardingAdminProfileSeen(): void {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(TEMPLE_ONBOARDING_ADMIN_PROFILE_SEEN_KEY, "1");
 }

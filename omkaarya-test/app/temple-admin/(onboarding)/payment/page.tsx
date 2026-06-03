@@ -350,7 +350,7 @@ export default function TempleAdminPaymentPage() {
         templeId: created.templeId,
         saveCardPreferred: false,
       });
-      if (!out.ok) {
+      if (out.ok === false) {
         setSubmitError(out.message);
         return;
       }

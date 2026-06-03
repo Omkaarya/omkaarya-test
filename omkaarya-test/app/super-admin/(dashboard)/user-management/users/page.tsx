@@ -10,7 +10,7 @@ import { ValidationToast } from "@/app/components/ValidationToast";
 import {
   Shield, MoreHorizontal, UserPlus, Trash2, Pencil,
   CheckCircle2, XCircle, X, Loader2, RefreshCw,
-  UserCheck, UserX,
+  UserCheck, UserX, AlertCircle,
 } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
 import { SearchInput } from "@/app/components/ds/molecules/SearchInput";

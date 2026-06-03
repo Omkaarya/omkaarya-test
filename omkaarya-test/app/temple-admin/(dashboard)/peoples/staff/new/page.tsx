@@ -25,7 +25,9 @@ export default function NewStaffPage() {
   useEffect(() => {
     (async () => {
       try {
-        const data = await fetchTempleAdminJson<{ items: Role[] }>("/api/temple-admin/peoples/roles");
+        const data = await fetchTempleAdminJson<{ items: Role[] }>(
+          "/api/temple-admin/peoples/roles",
+        );
         setRoles(data.items);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Could not load roles.");
@@ -55,7 +57,9 @@ export default function NewStaffPage() {
       });
       router.push("/temple-admin/peoples/staff");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not create staff member.");
+      setError(
+        e instanceof Error ? e.message : "Could not create staff member.",
+      );
     } finally {
       setSaving(false);
     }
@@ -63,7 +67,10 @@ export default function NewStaffPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-500 max-w-4xl mx-auto">
-      <ValidationToast isOpen={validationToast.isOpen} onDismiss={validationToast.dismiss} />
+      <ValidationToast
+        isOpen={validationToast.isOpen}
+        onDismiss={validationToast.dismiss}
+      />
 
       <div className="flex items-center gap-4 border-b border-zinc-100 pb-5 dark:border-zinc-800">
         <Link
@@ -77,7 +84,8 @@ export default function NewStaffPage() {
             Invite Staff Member
           </h1>
           <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Create an internal account for temple management, assigned to a specific role.
+            Create an internal account for temple management, assigned to a
+            specific role.
           </p>
         </div>
       </div>
@@ -88,59 +96,133 @@ export default function NewStaffPage() {
             <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]">
               <UserPlus className="w-5 h-5" />
             </div>
-            <h4 className="text-sm font-bold text-[var(--text-primary)]">Personal Details</h4>
+            <h4 className="text-sm font-bold text-[var(--text-primary)]">
+              Personal Details
+            </h4>
           </div>
 
           <div className="grid grid-cols-2 gap-5">
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">First Name *</label>
-              <input value={firstName} onChange={(e) => setFirstName(e.target.value)} type="text" placeholder="e.g. Arun" className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-bold outline-none focus:border-[var(--brand-primary)] transition-colors" />
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">
+                First Name *
+              </label>
+              <input
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                type="text"
+                placeholder="e.g. Arun"
+                className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-bold outline-none focus:border-[var(--brand-primary)] transition-colors"
+              />
             </div>
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Last Name</label>
-              <input value={lastName} onChange={(e) => setLastName(e.target.value)} type="text" placeholder="e.g. Prasad" className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-bold outline-none focus:border-[var(--brand-primary)] transition-colors" />
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">
+                Last Name
+              </label>
+              <input
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                type="text"
+                placeholder="e.g. Prasad"
+                className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-bold outline-none focus:border-[var(--brand-primary)] transition-colors"
+              />
             </div>
 
             <div className="col-span-2">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Email Address *</label>
-              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="Required for platform login" className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-semibold outline-none focus:border-[var(--brand-primary)] transition-colors" />
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">
+                Email Address *
+              </label>
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                type="email"
+                placeholder="Required for platform login"
+                className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-semibold outline-none focus:border-[var(--brand-primary)] transition-colors"
+              />
             </div>
 
             <div className="col-span-2">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Phone Number</label>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">
+                Phone Number
+              </label>
               <div className="flex">
-                <span className="flex items-center justify-center px-3 bg-zinc-100 dark:bg-zinc-800 border border-r-0 border-zinc-200 dark:border-zinc-700 rounded-l-xl text-sm font-bold text-zinc-500">+94</span>
-                <input value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))} type="tel" inputMode="numeric" pattern="[0-9]*" placeholder="77 123 4567" className="w-full px-4 py-2.5 rounded-r-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-bold outline-none focus:border-[var(--brand-primary)] transition-colors" />
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Assign Role *</label>
-              <SelectInput value={roleSlug} onChange={(e) => setRoleSlug(e.target.value)} className="!rounded-xl !py-3 !pl-4 !text-sm !font-bold">
+                <span className="flex items-center justify-center px-3 bg-zinc-100 dark:bg-zinc-800 border border-r-0 border-zinc-200 dark:border-zinc-700 rounded-l-xl text-sm font-bold text-zinc-500">
+                  +94
+                </span>
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                  type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="77 123 4567"
+                  className="w-full px-4 py-2.5 rounded-r-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-bold outline-none focus:border-[var(--brand-primary)] transition-colors"
+                />
+              </div>
+            </div>
+
+            <div className="col-span-2">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">
+                Assign Role *
+              </label>
+              <SelectInput
+                value={roleSlug}
+                onChange={(e) => setRoleSlug(e.target.value)}
+                className="!rounded-xl !py-3 !pl-4 !text-sm !font-bold"
+              >
                 <option value="">Select role…</option>
                 {roles.map((r) => (
-                  <option key={r.id} value={r.slug}>{r.name}</option>
+                  <option key={r.id} value={r.slug}>
+                    {r.name}
+                  </option>
                 ))}
               </SelectInput>
             </div>
           </div>
 
-          <div className="pt-6 flex justify-end gap-3 mt-4 border-t border-zinc-100 dark:border-zinc-800 pt-5">
-            <Link href="/temple-admin/peoples/staff" className="px-5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors">Cancel</Link>
-            <button onClick={handleSubmit} disabled={saving} className="flex items-center justify-center gap-2 rounded-xl bg-[var(--brand-primary)] px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-orange-500/20 hover:bg-[var(--brand-primary-hover)] transition-all disabled:opacity-50">
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save Staff
-            </button>
+          <div className="flex justify-end gap-3 mt-4 border-t border-zinc-100 dark:border-zinc-800 pt-5">
+              <Link
+                href="/temple-admin/peoples/staff"
+                className="px-5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors"
+              >
+                Cancel
+              </Link>
+              <button
+                onClick={handleSubmit}
+                disabled={saving}
+                className="flex items-center justify-center gap-2 rounded-xl bg-[var(--brand-primary)] px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-orange-500/20 hover:bg-[var(--brand-primary-hover)] transition-all disabled:opacity-50"
+              >
+                {saving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}{" "}
+                Save Staff
+              </button>
           </div>
         </div>
 
         <div className="space-y-4">
-          <div className="bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-bold text-[var(--text-primary)]">Account Status</h4>
-              <button type="button" onClick={() => setIsActive(!isActive)} className={`w-11 h-6 rounded-full transition-colors ${isActive ? "bg-emerald-500" : "bg-zinc-300 dark:bg-zinc-600"} relative`}>
-                <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${isActive ? "translate-x-5" : "translate-x-0.5"}`} />
-              </button>
+            <div className="bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-bold text-[var(--text-primary)]">
+                  Account Status
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => setIsActive(!isActive)}
+                  className={`w-11 h-6 rounded-full transition-colors ${isActive ? "bg-emerald-500" : "bg-zinc-300 dark:bg-zinc-600"} relative`}
+                >
+                  <span
+                    className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${isActive ? "translate-x-5" : "translate-x-0.5"}`}
+                  />
+                </button>
+              </div>
+              <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                {isActive
+                  ? "Member will be marked active immediately."
+                  : "Member will be created in inactive state."}
+              </p>
             </div>
-            <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-              {isActive ? "Member will be marked active immediately." : "Member will be created in inactive state."}
-            </p>
-          </div>
         </div>
       </div>
     </div>
