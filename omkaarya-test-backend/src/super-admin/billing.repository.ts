@@ -176,6 +176,40 @@ export async function createInitialInvoiceForNewTemple(
     };
   }
 
+  return createPostTrialPendingInvoice(client, {
+    tenantId: input.tenantId,
+    planName,
+    templeName: input.templeName,
+    billingCycleRaw: input.billingCycleRaw,
+  });
+}
+
+export type CreatePostTrialInvoiceInput = {
+  tenantId: string;
+  planName: string;
+  templeName: string;
+  billingCycleRaw: string;
+};
+
+/** Pending invoice + Pending subscription (full plan price). Used after trial expiry and non-trial create. */
+export async function createPostTrialPendingInvoice(
+  client: PoolClient,
+  input: CreatePostTrialInvoiceInput
+): Promise<CreateInitialInvoiceResult> {
+  const planName = input.planName.trim() || "Sankalpa";
+  const bcStore = toBillingCycleStore(input.billingCycleRaw);
+
+  const pr = await client.query<{
+    price_monthly: number;
+    price_yearly: number;
+  }>(`SELECT price_monthly, price_yearly FROM public.pricing_plans WHERE name = $1 LIMIT 1`, [planName]);
+  if (pr.rows.length === 0) {
+    throw new Error(`Pricing plan not found for name: ${planName}`);
+  }
+  const { price_monthly, price_yearly } = pr.rows[0]!;
+
+  const invoiceId = randomUUID();
+  const invoiceNumber = await nextInvoiceNumber(client);
   const amountCents = bcStore === "Annual" ? price_yearly : price_monthly;
   const issued = new Date();
   const due = new Date(issued);
@@ -193,7 +227,7 @@ export async function createInitialInvoiceForNewTemple(
       bcStore,
       amountCents,
       due.toISOString().slice(0, 10),
-      JSON.stringify({ templeName: input.templeName }),
+      JSON.stringify({ templeName: input.templeName, source: "post_trial" }),
     ]
   );
 
@@ -1628,6 +1662,11 @@ export async function confirmPaymentSubmission(
            amount = $6
        WHERE invoice_id = $1::uuid`,
       [inv.id, receiptNumber, actor, payDate, expDate, amtDollars]
+    );
+
+    await client.query(
+      `UPDATE public.temples SET status = 'Active' WHERE tenant_id = $1`,
+      [sub.tenant_id]
     );
 
     await client.query("COMMIT");

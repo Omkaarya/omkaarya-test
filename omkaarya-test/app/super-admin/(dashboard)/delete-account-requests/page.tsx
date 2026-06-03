@@ -8,6 +8,8 @@ import AdminListCard from "@/app/components/admin/AdminListCard";
 import AdminPagination from "@/app/components/admin/AdminPagination";
 import { AdminTableToolbar, AdminTableToolbarEnd, AdminTableToolbarStart } from "@/app/components/admin/AdminTableToolbar";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
+import { EntityNameCell } from "@/app/components/ds/molecules/TableCells";
+import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
 
 type DeleteRequest = {
   id: string;
@@ -158,14 +160,23 @@ export default function DeleteAccountRequestsPage() {
       {
         key: "temple",
         header: "Temple",
+        className: "max-w-[16rem]",
         cell: (req) => (
-          <div>
-            <div className="text-sm font-semibold text-text-primary">{req.temple}</div>
-            <div className="mt-0.5 font-mono text-[11px] text-text-tertiary">{req.id}</div>
+          <div title={`Request ID: ${req.id}`}>
+            <EntityNameCell title={req.temple} subtitle={formatDate(req.requestedAt)} />
           </div>
         ),
       },
-      { key: "email", header: "Contact email", cell: (req) => <span className="text-xs text-text-secondary">{req.email}</span> },
+      {
+        key: "email",
+        header: "Contact email",
+        className: "max-w-[14rem]",
+        cell: (req) => (
+          <TruncateText className="text-xs text-text-secondary" title={req.email}>
+            {req.email}
+          </TruncateText>
+        ),
+      },
       {
         key: "requestedAt",
         header: "Requested",

@@ -13,6 +13,7 @@ import SelectInput from "@/app/components/admin/SelectInput";
 import TextareaInput from "@/app/components/admin/TextareaInput";
 import TextInput from "@/app/components/admin/TextInput";
 import { Button } from "@/app/components/ds/atoms/Button";
+import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import { formSnapshot } from "@/lib/form-snapshot";
 import {
@@ -458,7 +459,7 @@ export default function GenerateInvoicePage() {
           {/* Line Items */}
           <div className="bg-surface rounded-xl border border-border p-5">
             <h3 className="text-sm font-bold text-text-primary mb-4 pb-3 border-b border-border">Line items</h3>
-            <table className="w-full mb-3">
+            <table className="w-full table-fixed mb-3">
               <thead>
                 <tr className="border-b border-border bg-subtle">
                   <th className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider text-left px-3 py-2" style={{ width: "40%" }}>Description</th>
@@ -578,28 +579,32 @@ export default function GenerateInvoicePage() {
                 <p className="text-sm font-bold text-text-primary">{profile?.issuer?.name ?? "—"}</p>
                 <p className="text-[11px] text-text-tertiary leading-relaxed">{profile?.issuer?.address ?? "—"}<br/>{profile?.issuer?.email ?? "—"}<br/>{profile?.issuer?.website ?? "—"}</p>
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider mb-1.5">Bill to</p>
-                <p className="text-sm font-bold text-text-primary">{billToDisplayName}</p>
+                <TruncateText className="text-sm font-bold text-text-primary" title={billToDisplayName}>
+                  {billToDisplayName}
+                </TruncateText>
                 <p className="text-[11px] text-text-tertiary leading-relaxed whitespace-pre-line">{billToPreviewLines(billTo)}</p>
               </div>
             </div>
 
             {/* Line Items Preview */}
-            <table className="w-full mb-4">
+            <table className="w-full table-fixed mb-4">
               <thead>
                 <tr className="border-b-2 border-border bg-subtle">
-                  <th className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider text-left px-3 py-2">Description</th>
-                  <th className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider text-left px-3 py-2">Qty</th>
-                  <th className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider text-left px-3 py-2">Unit price</th>
-                  <th className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider text-right px-3 py-2">Amount</th>
+                  <th className="w-[46%] px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Description</th>
+                  <th className="w-[12%] px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Qty</th>
+                  <th className="w-[21%] px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Unit price</th>
+                  <th className="w-[21%] px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Amount</th>
                 </tr>
               </thead>
               <tbody>
                 <tr className="border-b border-border">
-                  <td className="px-3 py-2.5 text-xs text-text-primary">
-                    {description}
-                    <br/><span className="text-[10px] text-text-tertiary">Billing period: {formatInvDate(periodFrom)} – {formatInvDate(periodTo)}</span>
+                  <td className="min-w-0 overflow-hidden px-3 py-2.5 text-xs text-text-primary">
+                    <TruncateText title={description}>{description}</TruncateText>
+                    <TruncateText className="text-[10px] text-text-tertiary">
+                      Billing period: {formatInvDate(periodFrom)} – {formatInvDate(periodTo)}
+                    </TruncateText>
                   </td>
                   <td className="px-3 py-2.5 text-xs text-text-secondary">{qty}</td>
                   <td className="px-3 py-2.5 text-xs text-text-secondary">{amountFormatted}</td>

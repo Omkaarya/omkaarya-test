@@ -2,6 +2,8 @@
 
 import { Eye, Expand, FileText, ShieldCheck, X, XCircle } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
+import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
+import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
 import { SubscriptionRow } from "./types";
 
 export function VerifyModal({
@@ -51,13 +53,17 @@ export function VerifyModal({
         </div>
 
         <div className="space-y-4 p-6">
-          <div className="flex items-center gap-4 rounded-xl bg-subtle p-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-100 text-brand font-bold text-sm">
+          <div className="flex items-center gap-4 rounded-xl bg-subtle p-4 min-w-0">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand font-bold text-sm">
               {subscription.templeInitials}
             </div>
-            <div>
-              <p className="font-semibold text-text-primary">{subscription.templeName}</p>
-              <p className="text-sm text-text-tertiary">{subscription.adminEmail}</p>
+            <div className="min-w-0 flex-1">
+              <TruncateText className="font-semibold text-text-primary" title={subscription.templeName}>
+                {subscription.templeName}
+              </TruncateText>
+              <TruncateText className="text-sm text-text-tertiary" title={subscription.adminEmail}>
+                {subscription.adminEmail}
+              </TruncateText>
             </div>
           </div>
 
@@ -72,7 +78,7 @@ export function VerifyModal({
             </div>
             <div className="rounded-lg border border-border p-3">
               <p className="text-xs font-medium text-text-tertiary">Amount</p>
-              <p className="mt-1 font-semibold text-text-primary">₹{subscription.amount.toLocaleString()}</p>
+              <p className="mt-1 font-semibold text-text-primary">{formatUsdFromCents(subscription.amountCents)}</p>
             </div>
             <div className="rounded-lg border border-border p-3">
               <p className="text-xs font-medium text-text-tertiary">Payment Date</p>
@@ -86,7 +92,7 @@ export function VerifyModal({
                 <FileText className="h-5 w-5 text-fg-tertiary" />
                 <div>
                   <p className="text-sm font-medium text-text-primary">Payment Receipt</p>
-                  <p className="text-xs text-text-tertiary">{subscription.receiptId}.pdf</p>
+                  <p className="text-xs text-text-tertiary">{subscription.receiptId ? `${subscription.receiptId}.pdf` : "—"}</p>
                 </div>
               </div>
               <Button variant="ghost" size="sm">

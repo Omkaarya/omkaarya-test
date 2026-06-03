@@ -3,6 +3,7 @@ import { sendSuccess } from "../middleware/api-envelope.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { HttpError } from "../middleware/http-error.js";
 import { PostgresTempleDefaultRolePermissionsRepository } from "./temple-default-role-permissions.repository.js";
+import { TEMPLE_DEFAULT_ROLES } from "./temple-default-role-templates.js";
 
 function asSingleParam(v: string | string[] | undefined): string | undefined {
   if (v === undefined) return undefined;
@@ -11,6 +12,34 @@ function asSingleParam(v: string | string[] | undefined): string | undefined {
 
 export function createTempleDefaultRolesAdminRouter(repo: PostgresTempleDefaultRolePermissionsRepository): Router {
   const r = Router();
+
+  r.get(
+    "/temple-default-roles",
+    asyncHandler(async (_req, res) => {
+      const roles = await Promise.all(
+        TEMPLE_DEFAULT_ROLES.map(async (role) => {
+          const entries = await repo.fetch(role.id);
+          const permissionTags = entries.map((e) => `${e.featureKey}.${e.accessLevel}`);
+          return {
+            id: role.id,
+            name: role.name,
+            description: role.description,
+            isSystem: role.isSystem,
+            color: role.color,
+            permissions: permissionTags,
+            grantedCount: entries.length,
+          };
+        })
+      );
+      sendSuccess(
+        res,
+        200,
+        roles,
+        "Temple default roles loaded",
+        "All default temple role templates with live permission tags from the database."
+      );
+    })
+  );
 
   r.get(
     "/temple-default-roles/:slug/permissions",

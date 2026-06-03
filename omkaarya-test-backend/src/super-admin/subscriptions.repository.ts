@@ -9,7 +9,10 @@ export type SubscriptionRow = {
   templeName: string;
   plan: string;
   billingCycle: string;
+  /** Display amount in dollars (legacy rows without pricing plan join). */
   amount: number;
+  /** Canonical cents for UI formatting (matches upcoming-renewals logic). */
+  amountCents: number;
   paymentDate: string; // YYYY-MM-DD
   receiptId: string | null;
   status: SubscriptionStatus;
@@ -125,6 +128,7 @@ export class PostgresSubscriptionsRepository {
       plan_display: string;
       billing_cycle: string;
       amount_display: string;
+      amount_cents_out: string;
       payment_date: string;
       receipt_id: string | null;
       status: SubscriptionStatus;
@@ -147,6 +151,13 @@ export class PostgresSubscriptionsRepository {
                     ELSE pp.price_monthly::numeric
                   END) / 100.0
           END)::text AS amount_display,
+         (CASE
+            WHEN pp.id IS NULL THEN (s.amount * 100)::int
+            ELSE CASE
+                    WHEN s.billing_cycle = 'Annual' THEN pp.price_yearly
+                    ELSE pp.price_monthly
+                  END
+          END)::text AS amount_cents_out,
          s.payment_date::text AS payment_date,
          s.receipt_id,
          s.status,
@@ -172,6 +183,7 @@ export class PostgresSubscriptionsRepository {
         plan: r.plan_display,
         billingCycle: r.billing_cycle,
         amount: Number.parseFloat(r.amount_display) || 0,
+        amountCents: Math.max(0, Math.trunc(Number(r.amount_cents_out) || 0)),
         paymentDate: r.payment_date,
         receiptId: r.receipt_id,
         status: r.status,
@@ -303,6 +315,13 @@ export class PostgresSubscriptionsRepository {
     const subId = id.trim();
     const actor = verifiedBy.trim() || "Super Admin";
 
+    const subRow = await pool.query<{ tenant_id: string }>(
+      `SELECT tenant_id FROM public.subscriptions WHERE id = $1 LIMIT 1`,
+      [subId]
+    );
+    const tenantId = subRow.rows[0]?.tenant_id;
+    if (!tenantId) return { ok: false, reason: "not_found" };
+
     const res = await pool.query(
       `UPDATE public.subscriptions
        SET status = 'Active',
@@ -312,6 +331,8 @@ export class PostgresSubscriptionsRepository {
       [subId, actor]
     );
     if (res.rowCount === 0) return { ok: false, reason: "not_found" };
+
+    await pool.query(`UPDATE public.temples SET status = 'Active' WHERE tenant_id = $1`, [tenantId]);
     return { ok: true };
   }
 
@@ -331,5 +352,65 @@ export class PostgresSubscriptionsRepository {
     );
     if (res.rowCount === 0) return { ok: false, reason: "not_found" };
     return { ok: true };
+  }
+
+  async extend(
+    id: string,
+    months: number
+  ): Promise<{ ok: true; expiresOn: string } | { ok: false; reason: "not_found" }> {
+    const pool = getPool();
+    if (!pool) throw new Error("Database pool is not available");
+
+    const subId = id.trim();
+    const m = clampInt(months, 1, 60);
+
+    const res = await pool.query<{ expires_on: string }>(
+      `UPDATE public.subscriptions
+       SET expires_on = (GREATEST(expires_on, CURRENT_DATE) + ($2::int * INTERVAL '1 month'))::date,
+           status = CASE WHEN status = 'Expired' THEN 'Active' ELSE status END
+       WHERE id = $1
+       RETURNING expires_on::text AS expires_on`,
+      [subId, m]
+    );
+    if (res.rowCount === 0) return { ok: false, reason: "not_found" };
+    return { ok: true, expiresOn: res.rows[0]?.expires_on ?? "" };
+  }
+
+  async changePlan(
+    id: string,
+    pricingPlanId: string
+  ): Promise<{ ok: true; plan: string } | { ok: false; reason: "not_found" | "invalid_plan" }> {
+    const pool = getPool();
+    if (!pool) throw new Error("Database pool is not available");
+
+    const subId = id.trim();
+    const planId = pricingPlanId.trim();
+    if (!planId) return { ok: false, reason: "invalid_plan" };
+
+    const subRes = await pool.query<{ tenant_id: string }>(
+      `SELECT tenant_id FROM public.subscriptions WHERE id = $1 LIMIT 1`,
+      [subId]
+    );
+    const tenantId = subRes.rows[0]?.tenant_id;
+    if (!tenantId) return { ok: false, reason: "not_found" };
+
+    const planRes = await pool.query<{ id: string; name: string }>(
+      `SELECT id::text AS id, name FROM public.pricing_plans WHERE id = $1::uuid LIMIT 1`,
+      [planId]
+    );
+    const planRow = planRes.rows[0];
+    if (!planRow) return { ok: false, reason: "invalid_plan" };
+
+    const planName = planRow.name.trim();
+    await pool.query(
+      `UPDATE public.subscriptions SET plan = $2 WHERE id = $1`,
+      [subId, planName]
+    );
+    await pool.query(
+      `UPDATE public.temples SET plan = $2, pricing_plan_id = $3::uuid WHERE tenant_id = $1`,
+      [tenantId, planName, planRow.id]
+    );
+
+    return { ok: true, plan: planName };
   }
 }

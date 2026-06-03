@@ -31,11 +31,16 @@ type Overview = {
       };
       revenueByPlan: Array<{ plan: string; amountCents: number; count: number }>;
       trend: Array<{ month: string; amountCents: number }>;
+      subscriptionSummary: Array<{
+        amountCents: number;
+        billingCycle: string;
+        status: "active" | "pending" | "trial";
+      }>;
     };
   };
   alerts: Array<
     | { type: "pending_payment"; title: string; count: number; createdAt: string | null }
-    | { type: "trial_temples"; title: string; count: number; oldestTrialCreatedAt: string | null }
+    | { type: "trial_temples"; title: string; count: number; oldestTrialEndsAt: string | null }
     | { type: "new_temple"; title: string; tenantId: string; templeName: string; createdAt: string }
   >;
 };
@@ -58,10 +63,13 @@ function timeAgo(iso: string | null): string {
   return "just now";
 }
 
+type DashboardPeriod = "this-month" | "last-month";
+
 export default function SuperAdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [period, setPeriod] = useState<DashboardPeriod>("this-month");
 
   useEffect(() => {
     let cancel = false;
@@ -69,7 +77,7 @@ export default function SuperAdminDashboard() {
       setLoading(true);
       setLoadErr(null);
       try {
-        const res = await fetch(`/api/super-admin/dashboard/overview?period=this-month`, { cache: "no-store" });
+        const res = await fetch(`/api/super-admin/dashboard/overview?period=${period}`, { cache: "no-store" });
         const j = (await res.json().catch(() => null)) as { success?: boolean; data?: Overview } | null;
         if (cancel) return;
         if (!j || j.success !== true || !j.data) {
@@ -85,12 +93,23 @@ export default function SuperAdminDashboard() {
     return () => {
       cancel = true;
     };
-  }, []);
+  }, [period]);
 
   const topPlan = overview?.kpis.planBreakdownPct?.[0];
   const pendingPaymentAlert = overview?.alerts.find((a) => a.type === "pending_payment") as
     | { type: "pending_payment"; title: string; count: number; createdAt: string | null }
     | undefined;
+
+  const estimatedMrrCents = useMemo(() => {
+    const subs = overview?.kpis.financial.subscriptionSummary ?? [];
+    return subs
+      .filter((s) => s.status === "active")
+      .reduce((sum, s) => {
+        const cycle = (s.billingCycle ?? "").toLowerCase();
+        const monthly = cycle.includes("annual") ? Math.round(s.amountCents / 12) : s.amountCents;
+        return sum + monthly;
+      }, 0);
+  }, [overview]);
 
   const chartLine = useMemo(() => {
     const src = overview?.kpis.financial.revenueByPlan ?? [];
@@ -208,9 +227,9 @@ export default function SuperAdminDashboard() {
               showMenu={false}
             />
             <MetricCard
-              title="Avg. MRR"
-              value={overview ? formatUsdFromCents(overview.kpis.financial.kpis.paidAmountCents) : "—"}
-              trendLabel="Recurring revenue (period)"
+              title="Est. MRR"
+              value={overview ? formatUsdFromCents(estimatedMrrCents) : "—"}
+              trendLabel="Active subs (monthly normalized)"
               chartColor="brand"
               showMenu={false}
             />
@@ -229,8 +248,12 @@ export default function SuperAdminDashboard() {
                 Revenue Breakdown by Plan
               </h3>
             </div>
-            <button className="text-xs font-bold text-text-tertiary hover:text-brand transition-colors">
-              7 DAYS
+            <button
+              type="button"
+              onClick={() => setPeriod((p) => (p === "this-month" ? "last-month" : "this-month"))}
+              className="text-xs font-bold text-text-tertiary transition-colors hover:text-brand"
+            >
+              {period === "this-month" ? "LAST MONTH" : "THIS MONTH"}
             </button>
           </div>
           <div className="flex-1 flex items-center justify-center border-2 border-dashed border-border rounded-xl text-text-disabled text-xs font-medium">
@@ -277,7 +300,7 @@ export default function SuperAdminDashboard() {
                     {alert.type === "pending_payment"
                       ? timeAgo(alert.createdAt)
                       : alert.type === "trial_temples"
-                        ? timeAgo(alert.oldestTrialCreatedAt)
+                        ? timeAgo(alert.oldestTrialEndsAt)
                         : timeAgo(alert.createdAt)}
                   </p>
                 </div>

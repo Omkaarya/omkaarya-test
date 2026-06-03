@@ -63,6 +63,9 @@ function rowToTemple(r: {
     status: r.status as MockTemple["status"],
     compliance: r.compliance as MockTemple["compliance"],
     adminEmail: r.admin_email,
+    trialEndsAt: "trial_ends_at" in r && typeof (r as { trial_ends_at?: string }).trial_ends_at === "string"
+      ? (r as { trial_ends_at: string }).trial_ends_at
+      : null,
   };
 }
 

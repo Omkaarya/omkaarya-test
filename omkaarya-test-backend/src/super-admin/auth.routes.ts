@@ -41,15 +41,24 @@ export function createAuthRouter(auth: AuthService): Router {
       const token = (req.header("x-super-admin-register-token") ?? "").trim();
       const expected = (process.env.SUPER_ADMIN_REGISTER_TOKEN ?? "").trim();
 
-      // if (!expected || !token || token !== expected) {
-      //   return sendError(
-      //     res,
-      //     403,
-      //     "FORBIDDEN",
-      //     "Forbidden",
-      //     "Missing or invalid super-admin registration token."
-      //   );
-      // }
+      if (!expected) {
+        return sendError(
+          res,
+          503,
+          "NOT_CONFIGURED",
+          "Registration unavailable",
+          "SUPER_ADMIN_REGISTER_TOKEN is not configured on the server."
+        );
+      }
+      if (!token || token !== expected) {
+        return sendError(
+          res,
+          403,
+          "FORBIDDEN",
+          "Forbidden",
+          "Missing or invalid super-admin registration token."
+        );
+      }
 
       const pool = getPool();
       if (!pool) {
@@ -122,6 +131,12 @@ export function createAuthRouter(auth: AuthService): Router {
       const password = (body.password ?? body.tempPassword ?? "").trim();
       const result = await auth.login(body.email, password);
       if (!result.ok) {
+        if ("billingDenied" in result && result.billingDenied) {
+          throw new HttpError(403, result.billingDenied.message, {
+            code: result.billingDenied.code,
+            reason: result.billingDenied.message,
+          });
+        }
         throw new HttpError(401, "Invalid credentials", {
           code: "INVALID_CREDENTIALS",
           reason: "The email and password did not match a user, or the account cannot log in in this way.",

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, PackageOpen, Check, Loader2, AlertCircle, X } from "lucide-react";
 
 import { Button } from "@/app/components/ds/atoms/Button";
+import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
 import {
   fetchTempleAdminJson,
   type InventoryPurchaseOrder,
@@ -116,7 +117,7 @@ export default function PurchaseOrdersPage() {
 
       <div className="bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 rounded-[24px] overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full table-fixed text-left">
             <thead>
               <tr className="bg-zinc-50/50 dark:bg-zinc-900/50 border-b border-zinc-100 dark:border-zinc-800">
                 {["PO number", "Supplier", "Created", "Expected", "Amount", "Status", "Actions"].map((h) => (
@@ -147,7 +148,11 @@ export default function PurchaseOrdersPage() {
                     <td className="px-6 py-4 text-xs font-mono uppercase tracking-wider text-[var(--text-muted)]">
                       {po.po_number}
                     </td>
-                    <td className="px-6 py-4 text-sm font-bold text-[var(--text-primary)]">{po.supplier_name ?? "—"}</td>
+                    <td className="min-w-0 overflow-hidden px-6 py-4 text-sm font-bold text-[var(--text-primary)]">
+                      <TruncateText title={po.supplier_name ?? undefined}>
+                        {po.supplier_name ?? "—"}
+                      </TruncateText>
+                    </td>
                     <td className="px-6 py-4 text-xs text-[var(--text-muted)]">
                       {new Date(po.created_at).toLocaleDateString()}
                     </td>

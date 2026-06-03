@@ -146,6 +146,11 @@ function TempleAdminSignInForm() {
 
       if (response.status === 401) {
         setError("Invalid email or password. Check with your administrator.");
+      } else if (response.status === 403) {
+        setError(
+          jsonApiErrorMessage(data) ||
+            "Your trial has ended. Complete payment using the invoice emailed to you, then contact Omkaarya support to restore access.",
+        );
       } else {
         setError(jsonApiErrorMessage(data) || "Something went wrong. Please try again.");
       }

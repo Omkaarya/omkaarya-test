@@ -2,23 +2,116 @@
 import React from "react";
 import { Avatar } from "@/app/components/ds/atoms/Avatar";
 import { Badge } from "@/app/components/ds/atoms/Badge";
+import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
 
 // ─── Table Cells ─────────────────────────────────────────────────
 
-export const AvatarCell = ({ src, initials, title, subtitle }: { src?: string; initials?: string; title: string; subtitle?: string }) => (
-  <div className="flex items-center gap-3">
-    <Avatar src={src} initials={initials} size="sm" />
-    <div className="flex flex-col min-w-0">
-      <span className="text-sm font-medium text-text-primary truncate">{title}</span>
-      {subtitle && <span className="text-sm text-text-tertiary truncate">{subtitle}</span>}
+export const AvatarCell = ({
+  src,
+  initials,
+  title,
+  subtitle,
+  titleTooltip,
+  subtitleTooltip,
+}: {
+  src?: string;
+  initials?: string;
+  title: string;
+  subtitle?: string;
+  titleTooltip?: string;
+  subtitleTooltip?: string;
+}) => (
+  <div className="flex min-w-0 items-center gap-3">
+    <Avatar src={src} initials={initials} size="sm" className="shrink-0" />
+    <div className="flex min-w-0 flex-1 flex-col">
+      <TruncateText
+        className="text-sm font-medium text-text-primary"
+        title={titleTooltip ?? title}
+      >
+        {title}
+      </TruncateText>
+      {subtitle ? (
+        <TruncateText
+          className="text-sm text-text-tertiary"
+          title={subtitleTooltip ?? subtitle}
+        >
+          {subtitle}
+        </TruncateText>
+      ) : null}
     </div>
   </div>
 );
 
-export const TextCell = ({ text, subtext }: { text: React.ReactNode; subtext?: React.ReactNode }) => (
-  <div className="flex flex-col min-w-0">
-     <span className="text-sm text-text-secondary truncate">{text}</span>
-     {subtext && <span className="text-sm text-text-tertiary truncate">{subtext}</span>}
+export const TextCell = ({
+  text,
+  subtext,
+  title,
+  subtextTitle,
+}: {
+  text: React.ReactNode;
+  subtext?: React.ReactNode;
+  title?: string;
+  subtextTitle?: string;
+}) => (
+  <div className="flex min-w-0 flex-col">
+    <TruncateText
+      className="text-sm text-text-secondary"
+      title={title ?? (typeof text === "string" ? text : undefined)}
+    >
+      {text}
+    </TruncateText>
+    {subtext ? (
+      <TruncateText
+        className="text-sm text-text-tertiary"
+        title={
+          subtextTitle ?? (typeof subtext === "string" ? subtext : undefined)
+        }
+      >
+        {subtext}
+      </TruncateText>
+    ) : null}
+  </div>
+);
+
+export const EntityNameCell = ({
+  title,
+  subtitle,
+  titleTooltip,
+  subtitleTooltip,
+  initials,
+  icon,
+  avatarSrc,
+}: {
+  title: string;
+  subtitle?: string;
+  titleTooltip?: string;
+  subtitleTooltip?: string;
+  initials?: string;
+  icon?: React.ReactNode;
+  avatarSrc?: string;
+}) => (
+  <div className="flex min-w-0 items-center gap-3">
+    {avatarSrc || initials ? (
+      <Avatar src={avatarSrc} initials={initials} size="sm" className="shrink-0" />
+    ) : icon ? (
+      <div className="shrink-0">{icon}</div>
+    ) : null}
+    <div className="min-w-0 flex-1">
+      <TruncateText
+        className="text-sm font-semibold text-text-primary"
+        title={titleTooltip ?? title}
+      >
+        {title}
+      </TruncateText>
+      {subtitle ? (
+        <TruncateText
+          className="text-xs text-text-tertiary"
+          title={subtitleTooltip ?? subtitle}
+        >
+          {subtitle}
+        </TruncateText>
+      ) : null}
+    </div>
   </div>
 );
 

@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
+import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -83,7 +84,7 @@ export default function PrasadCategoriesPage() {
       {/* Table Area */}
       <div className="overflow-hidden rounded-[24px] border border-zinc-100 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full table-fixed text-left">
             <thead>
               <tr className="border-b border-zinc-50 bg-zinc-50/50 dark:border-zinc-800 dark:bg-zinc-900/50">
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Category Name</th>
@@ -97,8 +98,10 @@ export default function PrasadCategoriesPage() {
             <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800">
               {CATS_DATA.map((cat) => (
                 <tr key={cat.id} className="group transition-colors hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50">
-                  <td className="px-6 py-4">
-                    <p className="font-bold text-[var(--text-primary)]">{cat.name}</p>
+                  <td className="min-w-0 overflow-hidden px-6 py-4">
+                    <TruncateText className="font-bold text-[var(--text-primary)]" title={cat.name}>
+                      {cat.name}
+                    </TruncateText>
                   </td>
                   <td className="px-6 py-4">
                     <p className="text-sm text-[var(--text-muted)] max-w-xs truncate">{cat.description}</p>

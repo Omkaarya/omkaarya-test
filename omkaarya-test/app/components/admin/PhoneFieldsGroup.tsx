@@ -19,6 +19,8 @@ type PhoneFieldsGroupProps = {
     fax: string;
   }>;
   disabled?: boolean;
+  /** When true, renders as a block (for wizard grids) instead of CSS `contents`. */
+  embedded?: boolean;
 };
 
 export function PhoneRowField({
@@ -66,10 +68,12 @@ export function PhoneRowField({
             <TextInput
               id={`${idPrefix}-num`}
               type="tel"
+              inputMode="numeric"
+              pattern="[0-9]*"
               placeholder="Number"
               className="w-full min-w-0"
               value={value.nationalNumber}
-              onChange={(e) => onChange({ ...value, nationalNumber: e.target.value })}
+              onChange={(e) => onChange({ ...value, nationalNumber: e.target.value.replace(/\D/g, "") })}
               onBlur={onBlur}
               disabled={disabled}
             />
@@ -88,9 +92,11 @@ export default function PhoneFieldsGroup({
   onChange,
   errors,
   disabled = false,
+  embedded = false,
 }: PhoneFieldsGroupProps) {
+  const wrapperClass = embedded ? "col-span-full space-y-4" : "contents";
   return (
-    <div className="contents">
+    <div className={wrapperClass}>
       <PhoneRowField
         idPrefix="phone-tel"
         label="Telephone Number"

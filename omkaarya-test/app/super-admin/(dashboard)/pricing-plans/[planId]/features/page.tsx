@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import GuardedBackLink from "@/app/components/admin/GuardedBackLink";
@@ -8,6 +8,7 @@ import PostSaveSuccessBanner from "@/app/components/admin/PostSaveSuccessBanner"
 import UnsavedChangesDialog from "@/app/components/admin/UnsavedChangesDialog";
 import { usePostSaveSuccess } from "@/lib/use-post-save-success";
 import { useUnsavedFormGuard } from "@/lib/use-unsaved-form-guard";
+import { formSnapshot } from "@/lib/form-snapshot";
 import {
   ArrowLeft,
   Save,
@@ -15,11 +16,17 @@ import {
   ToggleRight,
   AlertTriangle,
   CheckCircle2,
+  Loader2,
 } from "lucide-react";
 import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
 import { Button } from "@/app/components/ds/atoms/Button";
-
-// ── Types ──────────────────────────────────────────────────────────
+import PlanFeatureRow from "@/app/super-admin/_components/PlanFeatureRow";
+import PricingTierForm, {
+  PRICING_TIER_INITIAL_FORM,
+  type PricingTierFormData,
+  pricingTierFormFromApiPlan,
+  pricingTierFormToPayload,
+} from "@/app/super-admin/_components/PricingTierForm";
 
 type PlanFeatureConfig = {
   featureId: string;
@@ -32,8 +39,6 @@ type PlanFeatureConfig = {
   isEnabled: boolean;
   limitValue: number | null;
 };
-
-// ── Helpers ────────────────────────────────────────────────────────
 
 function groupByModule(features: PlanFeatureConfig[]): Record<string, PlanFeatureConfig[]> {
   return features.reduce<Record<string, PlanFeatureConfig[]>>((acc, f) => {
@@ -58,50 +63,39 @@ const MODULE_LABELS: Record<string, string> = {
   pricing_tier: "Subscription plans",
 };
 
-const PLAN_META: Record<string, { label: string; tierColor: string }> = {
-  Prarambha: { label: "Prarambha (Starter)", tierColor: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300" },
-  Sankalpa: { label: "Sankalpa (Premium)", tierColor: "bg-violet-100 text-violet-800 dark:bg-violet-950/50 dark:text-violet-300" },
-  Aaradhana: { label: "Aaradhana (Advanced)", tierColor: "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-300" },
-};
-
 function isUuidString(s: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
 }
 
 const LIST_PATH = "/super-admin/pricing-plans";
 
-// ── Main Page ──────────────────────────────────────────────────────
-
 export default function PlanFeaturesPage() {
   const router = useRouter();
   const params = useParams();
   const planId = decodeURIComponent(params.planId as string);
-  const legacyMeta = PLAN_META[planId];
 
   const [features, setFeatures] = useState<PlanFeatureConfig[]>([]);
+  const [tierForm, setTierForm] = useState<PricingTierFormData>(PRICING_TIER_INITIAL_FORM);
+  const [tierBaseline, setTierBaseline] = useState(formSnapshot(PRICING_TIER_INITIAL_FORM));
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [savingFeatures, setSavingFeatures] = useState(false);
+  const [savingTier, setSavingTier] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
-  const [dirty, setDirty] = useState(false);
-  const [fetchedPlanName, setFetchedPlanName] = useState<string | null>(null);
+  const [featuresDirty, setFeaturesDirty] = useState(false);
   const visGuardRef = useRef<number>(Date.now());
   const postSave = usePostSaveSuccess({ router });
+
+  const tierDirty = useMemo(() => formSnapshot(tierForm) !== tierBaseline, [tierForm, tierBaseline]);
+  const dirty = featuresDirty || tierDirty;
   const formGuard = useUnsavedFormGuard({ isDirty: dirty, enabled: !postSave.isLocked });
 
-  const displayPlanName = legacyMeta?.label ?? fetchedPlanName ?? planId;
-  const meta = legacyMeta ?? {
-    label: displayPlanName,
-    tierColor: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200",
-  };
-
   const loadFeatures = useCallback(async () => {
-    setLoading(true);
     setError("");
     try {
       const res = await fetch(`/api/plan-features?planId=${encodeURIComponent(planId)}`, { cache: "no-store" });
       const body = (await res.json().catch(() => ({}))) as
-        | { success?: boolean; data?: PlanFeatureConfig[]; error?: { message?: string; reason?: string } }
+        | { success?: boolean; data?: PlanFeatureConfig[]; error?: { message?: string } }
         | PlanFeatureConfig[];
       if (res.ok) {
         const rows = Array.isArray(body)
@@ -120,53 +114,51 @@ export default function PlanFeaturesPage() {
       }
     } catch {
       setError("Failed to load features");
-    } finally {
-      setLoading(false);
     }
   }, [planId]);
 
+  const loadPlanDetails = useCallback(async () => {
+    if (!isUuidString(planId)) return;
+    try {
+      const res = await fetch(`/api/pricing-plans/${encodeURIComponent(planId)}`, { cache: "no-store" });
+      if (!res.ok) return;
+      const json: { success?: boolean; data?: Record<string, unknown> } = await res.json().catch(() => ({}));
+      if (json.success && json.data) {
+        const next = pricingTierFormFromApiPlan(json.data);
+        setTierForm(next);
+        setTierBaseline(formSnapshot(next));
+      }
+    } catch {
+      /* tier metadata optional for legacy ids */
+    }
+  }, [planId]);
+
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    await Promise.all([loadFeatures(), loadPlanDetails()]);
+    setLoading(false);
+  }, [loadFeatures, loadPlanDetails]);
+
   useEffect(() => {
-    loadFeatures();
-  }, [loadFeatures]);
+    void loadAll();
+  }, [loadAll]);
 
   useEffect(() => {
     const onVis = () => {
-      // Avoid an immediate duplicate refetch right after mount.
       if (Date.now() - visGuardRef.current < 750) return;
       if (document.visibilityState === "visible" && !dirty) {
-        void loadFeatures();
+        void loadAll();
       }
     };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
-  }, [loadFeatures, dirty]);
-
-  useEffect(() => {
-    setFetchedPlanName(null);
-    if (legacyMeta || !isUuidString(planId)) return;
-    let cancelled = false;
-    void (async () => {
-      const res = await fetch(`/api/pricing-plans/${encodeURIComponent(planId)}`);
-      if (cancelled || !res.ok) return;
-      const json: { success?: boolean; data?: { name?: string } } = await res.json().catch(() => ({}));
-      if (json.success && json.data?.name) {
-        setFetchedPlanName(json.data.name);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [planId, legacyMeta]);
-
-  // ── Handlers ────────────────────────────────────────────────────
+  }, [loadAll, dirty]);
 
   const toggleFeature = (featureId: string) => {
     setFeatures((prev) =>
-      prev.map((f) =>
-        f.featureId === featureId ? { ...f, isEnabled: !f.isEnabled } : f
-      )
+      prev.map((f) => (f.featureId === featureId ? { ...f, isEnabled: !f.isEnabled } : f))
     );
-    setDirty(true);
+    setFeaturesDirty(true);
     setSaved(false);
   };
 
@@ -174,21 +166,46 @@ export default function PlanFeaturesPage() {
     const numValue = value === "" ? null : parseInt(value, 10);
     setFeatures((prev) =>
       prev.map((f) =>
-        f.featureId === featureId ? { ...f, limitValue: isNaN(numValue as number) ? null : numValue } : f
+        f.featureId === featureId ? { ...f, limitValue: Number.isNaN(numValue as number) ? null : numValue } : f
       )
     );
-    setDirty(true);
+    setFeaturesDirty(true);
     setSaved(false);
   };
 
   const enableAll = () => {
     setFeatures((prev) => prev.map((f) => ({ ...f, isEnabled: true })));
-    setDirty(true);
+    setFeaturesDirty(true);
     setSaved(false);
   };
 
-  const handleSave = async () => {
-    setSaving(true);
+  const handleSaveTierDetails = async () => {
+    if (!isUuidString(planId)) return;
+    setSavingTier(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/pricing-plans/${encodeURIComponent(planId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(pricingTierFormToPayload(tierForm)),
+      });
+      const j = (await res.json().catch(() => ({}))) as { success?: boolean; error?: { message?: string } };
+      if (!res.ok || j.success === false) {
+        throw new Error(j.error?.message ?? "Failed to save tier details");
+      }
+      setTierBaseline(formSnapshot(tierForm));
+      if (!featuresDirty) {
+        formGuard.markClean();
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save tier details");
+    } finally {
+      setSavingTier(false);
+    }
+  };
+
+  const handleSaveFeatures = async () => {
+    setSavingFeatures(true);
     setError("");
     try {
       const res = await fetch("/api/plan-features", {
@@ -211,26 +228,26 @@ export default function PlanFeaturesPage() {
         throw new Error(j.error?.message ?? "Failed to save");
       }
       setSaved(true);
-      setDirty(false);
-      formGuard.markClean();
+      setFeaturesDirty(false);
+      if (!tierDirty) {
+        formGuard.markClean();
+      }
       postSave.triggerSuccess({
-        message: `Feature configuration saved for ${displayPlanName}.`,
+        message: `Configuration saved for ${tierForm.name || planId}.`,
         redirectTo: LIST_PATH,
       });
     } catch {
       setError("Failed to save feature configuration");
     } finally {
-      setSaving(false);
+      setSavingFeatures(false);
     }
   };
-
-  // ── Derived ─────────────────────────────────────────────────────
 
   const grouped = groupByModule(features);
   const enabledCount = features.filter((f) => f.isEnabled).length;
 
   return (
-    <div className="mx-auto w-full max-w-[min(100rem,calc(100vw-2rem))]">
+    <div className="mx-auto w-full max-w-[min(100rem,calc(100vw-2rem))] space-y-6">
       <div className="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
         <div className="border-b border-zinc-100 p-6 dark:border-zinc-800">
           <DashboardPageHeader
@@ -244,143 +261,190 @@ export default function PlanFeaturesPage() {
                 Back to pricing plans
               </GuardedBackLink>
             }
-            title="Feature configuration"
-            titleAccessory={
-              <span className={`rounded-full px-3 py-0.5 text-xs font-semibold ${meta.tierColor}`}>{meta.label}</span>
+            title="Configure pricing tier"
+            description={
+              tierForm.description.trim()
+                ? tierForm.description
+                : "Edit tier details, enable features, and set limits for this subscription plan."
             }
-            description={`Enable or disable features · Set limits for metered features · ${enabledCount}/${features.length} enabled`}
             actions={
               <>
+                {isUuidString(planId) ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    loading={savingTier}
+                    disabled={!tierDirty || postSave.isLocked}
+                    onClick={() => void handleSaveTierDetails()}
+                  >
+                    Save tier details
+                  </Button>
+                ) : null}
                 <Button type="button" variant="outline" size="sm" onClick={enableAll}>
-                  Enable all
+                  Enable all features
                 </Button>
                 <Button
                   type="button"
                   variant="primary"
                   size="sm"
                   className="gap-2"
-                  loading={saving}
-                  disabled={!dirty || postSave.isLocked}
-                  onClick={handleSave}
-                  leadingIcon={!saving ? <Save className="h-4 w-4" /> : undefined}
+                  loading={savingFeatures}
+                  disabled={!featuresDirty || postSave.isLocked}
+                  onClick={handleSaveFeatures}
+                  leadingIcon={!savingFeatures ? <Save className="h-4 w-4" /> : undefined}
                 >
-                  {saving ? "Saving…" : "Save configuration"}
+                  {savingFeatures ? "Saving…" : "Save features"}
                 </Button>
               </>
             }
           />
         </div>
 
-        {/* Status Messages */}
-        {error && (
+        {error ? (
           <div className="mx-6 mt-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             {error}
           </div>
-        )}
+        ) : null}
+        {saved ? (
+          <div className="mx-6 mt-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            Feature configuration saved.
+          </div>
+        ) : null}
         <PostSaveSuccessBanner text={postSave.bannerText} className="mx-6 mt-4" />
+      </div>
 
-        {/* Feature Groups */}
-        {loading ? (
-          <div className="space-y-3 p-6">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-14 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800" />
-            ))}
-          </div>
-        ) : error && features.length === 0 ? (
-          <div className="px-6 py-12 text-center text-sm text-zinc-500">
-            <p>Could not load this plan’s feature configuration. Check the database and try again, or add features in the{" "}
-            <Link href="/super-admin/system-settings/feature-registry" className="font-medium text-[var(--brand-primary)] hover:underline">Feature Registry</Link>.
-            </p>
-          </div>
-        ) : !error && features.length === 0 ? (
-          <div className="px-6 py-12 text-center text-sm text-zinc-500">
-            <p>No active features in the registry. Add features in the <Link href="/super-admin/system-settings/feature-registry" className="font-medium text-[var(--brand-primary)] hover:underline">Feature Registry</Link> first.</p>
-          </div>
-        ) : (
-          <div className="space-y-6 p-6">
-            {Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([moduleKey, feats]) => (
-              <div key={moduleKey} className="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
-                {/* Module Header */}
-                <div className="border-b border-zinc-100 bg-zinc-50 px-5 py-3 dark:border-zinc-800 dark:bg-zinc-800/50">
-                  <h3 className="text-sm font-bold text-zinc-700 dark:text-zinc-200">
-                    {MODULE_LABELS[moduleKey] || moduleKey}
-                  </h3>
-                </div>
+      {loading ? (
+        <div className="flex h-48 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[var(--brand-primary)]" />
+        </div>
+      ) : (
+        <>
+          {isUuidString(planId) ? (
+            <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+              <h2 className="mb-6 text-lg font-bold text-zinc-900 dark:text-white">Tier details</h2>
+              <PricingTierForm
+                formData={tierForm}
+                onChange={setTierForm}
+                registryFeatures={[]}
+                showFeatureMatrix={false}
+                disabled={postSave.isLocked}
+              />
+            </div>
+          ) : null}
 
-                {/* Feature Rows */}
-                <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                  {feats.map((f) => (
-                    <div
-                      key={f.featureId}
-                      className={`flex flex-wrap items-center gap-4 px-5 py-4 transition-colors ${
-                        f.isEnabled ? "" : "bg-zinc-50/50 dark:bg-zinc-900/50"
-                      }`}
-                    >
-                      {/* Toggle */}
-                      <button
-                        type="button"
-                        onClick={() => toggleFeature(f.featureId)}
-                        className={`shrink-0 transition-colors ${
-                          f.isEnabled
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : "text-zinc-300 dark:text-zinc-600"
-                        }`}
-                        title={f.isEnabled ? "Disable" : "Enable"}
-                      >
-                        {f.isEnabled ? <ToggleRight className="h-7 w-7" /> : <ToggleLeft className="h-7 w-7" />}
-                      </button>
+          <div className="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="border-b border-zinc-100 px-6 py-4 dark:border-zinc-800">
+              <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Feature configuration</h2>
+              <p className="mt-1 text-sm text-zinc-500">
+                {enabledCount}/{features.length} features enabled
+              </p>
+            </div>
 
-                      {/* Info */}
-                      <div className="min-w-0 flex-1">
-                        <p className={`text-sm font-semibold ${f.isEnabled ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-400 dark:text-zinc-500"}`}>
-                          {f.featureName}
-                        </p>
-                        {f.description && (
-                          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 line-clamp-1">{f.description}</p>
-                        )}
+            {error && features.length === 0 ? (
+              <div className="px-6 py-12 text-center text-sm text-zinc-500">
+                <p>
+                  Could not load this plan&apos;s feature configuration. Add features in the{" "}
+                  <Link
+                    href="/super-admin/system-settings/feature-registry"
+                    className="font-medium text-[var(--brand-primary)] hover:underline"
+                  >
+                    Feature Registry
+                  </Link>
+                  .
+                </p>
+              </div>
+            ) : !error && features.length === 0 ? (
+              <div className="px-6 py-12 text-center text-sm text-zinc-500">
+                <p>
+                  No active features in the registry. Add features in the{" "}
+                  <Link
+                    href="/super-admin/system-settings/feature-registry"
+                    className="font-medium text-[var(--brand-primary)] hover:underline"
+                  >
+                    Feature Registry
+                  </Link>{" "}
+                  first.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-6 p-6">
+                {Object.entries(grouped)
+                  .sort(([a], [b]) => a.localeCompare(b))
+                  .map(([moduleKey, feats]) => (
+                    <div key={moduleKey} className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-700">
+                      <div className="border-b border-zinc-100 bg-zinc-50 px-5 py-3 dark:border-zinc-800 dark:bg-zinc-800/50">
+                        <h3 className="text-sm font-bold text-zinc-700 dark:text-zinc-200">
+                          {MODULE_LABELS[moduleKey] || moduleKey}
+                        </h3>
                       </div>
-
-                      {/* Key badge */}
-                      <code className="hidden rounded bg-zinc-100 px-2 py-0.5 font-mono text-[10px] text-zinc-500 sm:inline-block dark:bg-zinc-800 dark:text-zinc-400">
-                        {f.featureKey}
-                      </code>
-
-                      {/* Limit input */}
-                      {f.hasLimit && f.isEnabled && (
-                        <div className="flex items-center gap-2">
-                          <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Limit:</label>
-                          <input
-                            type="number"
-                            min={0}
-                            value={f.limitValue ?? ""}
-                            onChange={(e) => setLimit(f.featureId, e.target.value)}
-                            placeholder="∞"
-                            className="w-24 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm text-right outline-none ring-[var(--brand-primary)] focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                      <div className="divide-y divide-zinc-100 p-2 dark:divide-zinc-800">
+                        {feats.map((f) => (
+                          <PlanFeatureRow
+                            key={f.featureId}
+                            title={f.featureName}
+                            description={f.description}
+                            muted={!f.isEnabled}
+                            leading={
+                              <button
+                                type="button"
+                                onClick={() => toggleFeature(f.featureId)}
+                                className={`transition-colors ${
+                                  f.isEnabled
+                                    ? "text-emerald-600 dark:text-emerald-400"
+                                    : "text-zinc-300 dark:text-zinc-600"
+                                }`}
+                                title={f.isEnabled ? "Disable" : "Enable"}
+                              >
+                                {f.isEnabled ? (
+                                  <ToggleRight className="h-7 w-7" />
+                                ) : (
+                                  <ToggleLeft className="h-7 w-7" />
+                                )}
+                              </button>
+                            }
+                            trailing={
+                              <>
+                                <code className="hidden rounded bg-zinc-100 px-2 py-0.5 font-mono text-[10px] text-zinc-500 sm:inline-block dark:bg-zinc-800 dark:text-zinc-400">
+                                  {f.featureKey}
+                                </code>
+                                {f.hasLimit && f.isEnabled ? (
+                                  <div className="flex items-center gap-2">
+                                    <label className="text-xs font-medium text-zinc-500">Limit:</label>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      value={f.limitValue ?? ""}
+                                      onChange={(e) => setLimit(f.featureId, e.target.value)}
+                                      placeholder="∞"
+                                      className="w-24 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm text-right outline-none ring-[var(--brand-primary)] focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                    />
+                                  </div>
+                                ) : f.hasLimit ? (
+                                  <span className="text-xs text-zinc-400">—</span>
+                                ) : null}
+                              </>
+                            }
                           />
-                        </div>
-                      )}
-
-                      {f.hasLimit && !f.isEnabled && (
-                        <span className="text-xs text-zinc-400">—</span>
-                      )}
+                        ))}
+                      </div>
                     </div>
                   ))}
-                </div>
               </div>
-            ))}
-          </div>
-        )}
+            )}
 
-        {/* Dirty indicator */}
-        {dirty && (
-          <div className="border-t border-zinc-100 px-6 py-3 dark:border-zinc-800">
-            <p className="text-xs text-amber-600 dark:text-amber-400">
-              ⚠ You have unsaved changes. Click &quot;Save Configuration&quot; to apply.
-            </p>
+            {dirty ? (
+              <div className="border-t border-zinc-100 px-6 py-3 dark:border-zinc-800">
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  You have unsaved changes. Save tier details and/or features to apply.
+                </p>
+              </div>
+            ) : null}
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       <UnsavedChangesDialog
         dialogRef={formGuard.dialogRef}

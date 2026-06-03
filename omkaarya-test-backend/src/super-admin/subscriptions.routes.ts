@@ -113,6 +113,96 @@ export function createSubscriptionsRouter(repo: PostgresSubscriptionsRepository)
     })
   );
 
+  r.patch(
+    "/subscriptions/:id",
+    asyncHandler(async (req, res) => {
+      const id = typeof req.params.id === "string" ? req.params.id : "";
+      const body = (req.body ?? {}) as { action?: string; months?: number; pricingPlanId?: string };
+
+      if (body.action === "extend") {
+        const months = Number(body.months);
+        if (!Number.isFinite(months) || months < 1) {
+          sendError(
+            res,
+            400,
+            "VALIDATION_ERROR",
+            "Invalid extension period.",
+            "Provide months as a positive number (e.g. 6, 12, or 24)."
+          );
+          return;
+        }
+        try {
+          const out = await repo.extend(id, months);
+          if (!out.ok) {
+            sendError(res, 404, "SUBSCRIPTION_NOT_FOUND", "Subscription not found.", "No row matches this id.");
+            return;
+          }
+          sendSuccess(
+            res,
+            200,
+            { extended: true, expiresOn: out.expiresOn },
+            "Subscription extended",
+            "The expiry date was moved forward by the requested number of months."
+          );
+        } catch (e) {
+          throw new HttpError(500, "Failed to extend subscription", {
+            cause: e,
+            code: "SUBSCRIPTION_EXTEND_FAILED",
+            reason: "The extend update could not be completed; see server logs.",
+          });
+        }
+        return;
+      }
+
+      if (body.action === "changePlan") {
+        const pricingPlanId = typeof body.pricingPlanId === "string" ? body.pricingPlanId.trim() : "";
+        if (!pricingPlanId) {
+          sendError(
+            res,
+            400,
+            "VALIDATION_ERROR",
+            "pricingPlanId is required.",
+            "Provide the catalog pricing plan id to assign."
+          );
+          return;
+        }
+        try {
+          const out = await repo.changePlan(id, pricingPlanId);
+          if (!out.ok) {
+            if (out.reason === "invalid_plan") {
+              sendError(res, 400, "INVALID_PLAN", "Invalid pricing plan.", "The pricingPlanId is not in pricing_plans.");
+              return;
+            }
+            sendError(res, 404, "SUBSCRIPTION_NOT_FOUND", "Subscription not found.", "No row matches this id.");
+            return;
+          }
+          sendSuccess(
+            res,
+            200,
+            { plan: out.plan },
+            "Plan updated",
+            "Subscription and temple rows were updated to the selected catalog plan."
+          );
+        } catch (e) {
+          throw new HttpError(500, "Failed to change subscription plan", {
+            cause: e,
+            code: "SUBSCRIPTION_CHANGE_PLAN_FAILED",
+            reason: "The plan update could not be completed; see server logs.",
+          });
+        }
+        return;
+      }
+
+      sendError(
+        res,
+        400,
+        "VALIDATION_ERROR",
+        "Unsupported action.",
+        'Use action "extend" with months, or action "changePlan" with pricingPlanId.'
+      );
+    })
+  );
+
   r.post(
     "/subscriptions/:id/reject",
     asyncHandler(async (req, res) => {

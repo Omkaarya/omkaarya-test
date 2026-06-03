@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
 import PostSaveSuccessBanner from "@/app/components/admin/PostSaveSuccessBanner";
 import UnsavedChangesDialog from "@/app/components/admin/UnsavedChangesDialog";
 import { formSnapshot } from "@/lib/form-snapshot";
@@ -21,10 +22,7 @@ import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader"
 import TextareaInput from "@/app/components/admin/TextareaInput";
 import TextInput from "@/app/components/admin/TextInput";
 import Link from "next/link";
-import {
-  TEMPLE_DEFAULT_ROLES,
-  type TempleDefaultRole,
-} from "@/lib/temple-default-roles";
+import type { TempleDefaultRole } from "@/lib/temple-default-roles";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -37,18 +35,7 @@ type SaRole = {
   userCount: number;
 };
 
-type TempleRolePermissionEntry = {
-  featureKey: string;
-  accessLevel: string;
-};
-
-type TempleRoleDefinition = TempleDefaultRole & {
-  permissionTags: string[];
-};
-
-function formatPermissionTag(entry: TempleRolePermissionEntry): string {
-  return `${entry.featureKey}.${entry.accessLevel}`;
-}
+type TempleRoleDefinition = TempleDefaultRole;
 
 // ── Colour helpers ─────────────────────────────────────────────────
 
@@ -179,10 +166,10 @@ function RoleAccordionCard({ role }: { role: SaRole }) {
           <Shield className="w-5 h-5" />
         </div>
         <div className="flex-1 mx-4 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <TruncateText className="text-sm font-bold text-zinc-900 dark:text-zinc-50" title={role.name}>
               {role.name}
-            </span>
+            </TruncateText>
             <span
               className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${badgeColor}`}
             >
@@ -359,8 +346,11 @@ type Tab = "definitions" | "allocations";
 export default function AdminRolesPage() {
   const [activeTab, setActiveTab] = useState<Tab>("definitions");
   const [roles, setRoles] = useState<SaRole[]>([]);
+  const [templeRoles, setTempleRoles] = useState<TempleRoleDefinition[]>([]);
   const [loading, setLoading] = useState(true);
+  const [templeRolesLoading, setTempleRolesLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [templeRolesError, setTempleRolesError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
 
   const load = useCallback(async () => {
@@ -378,9 +368,28 @@ export default function AdminRolesPage() {
     }
   }, []);
 
+  const loadTempleRoles = useCallback(async () => {
+    setTempleRolesLoading(true);
+    setTempleRolesError(null);
+    try {
+      const res = await fetch("/api/temple-default-roles", { cache: "no-store" });
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setTempleRoles(json.data as TempleRoleDefinition[]);
+      } else {
+        setTempleRolesError(json.error?.message ?? "Failed to load temple role definitions.");
+      }
+    } catch {
+      setTempleRolesError("Network error — could not load temple roles.");
+    } finally {
+      setTempleRolesLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     load();
-  }, [load]);
+    loadTempleRoles();
+  }, [load, loadTempleRoles]);
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "definitions", label: "Role Definitions" },
@@ -438,12 +447,26 @@ export default function AdminRolesPage() {
             </p>
           </div>
 
-          {/* Role cards grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {TEMPLE_DEFAULT_ROLES.map((role) => (
-              <RoleDefinitionCard key={role.id} role={role} />
-            ))}
-          </div>
+          {templeRolesLoading ? (
+            <div className="flex flex-col items-center gap-3 py-16 text-zinc-400">
+              <Loader2 className="h-8 w-8 animate-spin text-[var(--brand-primary)]" />
+              <span className="text-sm">Loading temple role definitions…</span>
+            </div>
+          ) : templeRolesError ? (
+            <div className="flex flex-col items-center gap-3 py-16 text-zinc-400">
+              <AlertCircle className="h-8 w-8 text-amber-400" />
+              <span className="text-sm text-amber-600 dark:text-amber-400">{templeRolesError}</span>
+              <Button variant="outline" size="sm" onClick={loadTempleRoles}>
+                Retry
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {templeRoles.map((role) => (
+                <RoleDefinitionCard key={role.id} role={role} />
+              ))}
+            </div>
+          )}
         </div>
       )}
 

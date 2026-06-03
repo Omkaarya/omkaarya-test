@@ -2,6 +2,7 @@ import type { RequestHandler } from "express";
 import { jwtVerify } from "jose";
 import { getPool } from "../../db/pool.js";
 import { HttpError } from "../../middleware/http-error.js";
+import { checkTempleBillingAccess } from "../../super-admin/temple-billing-access.js";
 
 export type TempleSessionLocals = {
   email: string;
@@ -90,6 +91,14 @@ export const requireTempleJwtSession: RequestHandler = async (_req, res, next) =
       throw new HttpError(403, "Invalid session.", {
         code: "INVALID_SESSION",
         reason: "User id claim does not match the user record.",
+      });
+    }
+
+    const billing = await checkTempleBillingAccess(pool, tenantClaim);
+    if (!billing.ok) {
+      throw new HttpError(403, billing.message, {
+        code: billing.code,
+        reason: billing.message,
       });
     }
 

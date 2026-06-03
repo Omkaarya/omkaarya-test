@@ -7,8 +7,9 @@ import { sendInvoiceOnlyEmail, sendTempleInviteAndInvoiceCombined } from "../ema
 import { sendTempleAdminInviteEmail } from "../email/send-temple-invite.js";
 import type { TemplesService } from "./temples.service.js";
 import type { CreateTemplePayload, UpdateTemplePayload } from "./types.js";
-import { createTempleBodySchema, tenantIdParamSchema, updateTempleBodySchema } from "./validation.js";
+import { createTempleBodySchema, extendTrialBodySchema, tenantIdParamSchema, updateTempleBodySchema } from "./validation.js";
 import { TempleEmailAlreadyInUseError } from "./temples.repository.js";
+import { extendTempleTrial } from "./trial-expiry.service.js";
 
 function asSingleParam(v: string | string[] | undefined): string | undefined {
   if (v === undefined) return undefined;
@@ -110,6 +111,39 @@ export function createTemplesRouter(temples: TemplesService): Router {
       } catch (e) {
         throw new HttpError(500, "Failed to update temple.", { cause: e });
       }
+    })
+  );
+
+  r.post(
+    "/temples/:tenantId/extend-trial",
+    validateBody(extendTrialBodySchema),
+    asyncHandler(async (req, res) => {
+      const tenantId = requireTenantIdParam(req.params.tenantId);
+      const body = req.body as { days: number };
+      const out = await extendTempleTrial(tenantId, body.days);
+      if (!out.ok) {
+        const code =
+          out.reason === "not_found"
+            ? "TEMPLE_NOT_FOUND"
+            : out.reason === "no_trial"
+              ? "NO_TRIAL"
+              : "INVALID_DAYS";
+        sendError(
+          res,
+          out.reason === "not_found" ? 404 : 400,
+          code,
+          out.reason === "not_found" ? "Temple not found." : "Cannot extend trial.",
+          out.reason
+        );
+        return;
+      }
+      sendSuccess(
+        res,
+        200,
+        { trialEndsAt: out.trialEndsAt, status: out.status },
+        "Trial extended",
+        "The trial end date was updated."
+      );
     })
   );
 

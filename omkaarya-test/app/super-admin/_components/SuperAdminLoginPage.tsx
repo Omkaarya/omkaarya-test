@@ -99,17 +99,14 @@ export default function SuperAdminLoginPage() {
         </div>
 
         <div className="relative z-10 flex flex-col items-center gap-3 text-center">
-          {/* SVG viewBox is square; crop to the wordmark band so text sits close below */}
-          <div className="relative h-[4.25rem] w-full max-w-[20rem] overflow-hidden sm:h-20 sm:max-w-md">
-            <Image
-              src="/brand-logo/Omkaarya 9.svg"
-              alt="Omkaarya Logo"
-              width={480}
-              height={480}
-              className="absolute left-1/2 top-[65%] w-[115%] max-w-none -translate-x-1/2 -translate-y-1/2 "
-              priority
-            />
-          </div>
+          <Image
+            src="/brand-logo/Omkaarya 9.svg"
+            alt="Omkaarya Logo"
+            width={655}
+            height={162}
+            className="h-auto w-full max-w-xs sm:max-w-sm"
+            priority
+          />
           <div>
             <p className="text-sm font-semibold uppercase tracking-wider text-white/80">
               Super Admin

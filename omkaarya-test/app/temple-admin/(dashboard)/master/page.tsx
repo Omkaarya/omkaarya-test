@@ -11,6 +11,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
+import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
 import SelectInput from "@/app/components/admin/SelectInput";
 import {
   fetchTempleAdminJson,
@@ -149,7 +150,7 @@ function TabButton({ active, label, onClick }: { active: boolean; label: string;
 function SevaTable({ data, onDelete }: { data: PoojaSeva[]; onDelete: (id: string) => void }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-left">
+      <table className="w-full table-fixed text-left">
         <thead>
           <tr className="border-b border-zinc-50 bg-zinc-50/50 dark:border-zinc-800 dark:bg-zinc-900/50">
             <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Pooja Seva Name</th>
@@ -163,7 +164,11 @@ function SevaTable({ data, onDelete }: { data: PoojaSeva[]; onDelete: (id: strin
         <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800">
           {data.map((item) => (
             <tr key={item.id} className="group hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50">
-              <td className="px-6 py-4 font-bold">{item.name}</td>
+              <td className="min-w-0 overflow-hidden px-6 py-4">
+                <TruncateText className="font-bold" title={item.name}>
+                  {item.name}
+                </TruncateText>
+              </td>
               <td className="px-6 py-4 text-sm text-[var(--text-muted)]">{item.category || "—"}</td>
               <td className="px-6 py-4 text-center">
                 {item.duration_minutes ? (
@@ -193,7 +198,7 @@ function SevaTable({ data, onDelete }: { data: PoojaSeva[]; onDelete: (id: strin
 function ScheduleTable({ data, onDelete }: { data: Schedule[]; onDelete: (id: string) => void }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-left">
+      <table className="w-full table-fixed text-left">
         <thead>
           <tr className="border-b border-zinc-50 bg-zinc-50/50 dark:border-zinc-800 dark:bg-zinc-900/50">
             <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Pooja Seva</th>
@@ -207,7 +212,11 @@ function ScheduleTable({ data, onDelete }: { data: Schedule[]; onDelete: (id: st
         <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800">
           {data.map((item) => (
             <tr key={item.id} className="group hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50">
-              <td className="px-6 py-4 font-bold">{item.pooja_name}</td>
+              <td className="min-w-0 overflow-hidden px-6 py-4">
+                <TruncateText className="font-bold" title={item.pooja_name}>
+                  {item.pooja_name}
+                </TruncateText>
+              </td>
               <td className="px-6 py-4">
                 <div className="flex flex-wrap gap-1">
                   {item.days.map((day) => (
@@ -235,7 +244,7 @@ function ScheduleTable({ data, onDelete }: { data: Schedule[]; onDelete: (id: st
 function FestivalTable({ data, onDelete }: { data: Festival[]; onDelete: (id: string) => void }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-left">
+      <table className="w-full table-fixed text-left">
         <thead>
           <tr className="border-b border-zinc-50 bg-zinc-50/50 dark:border-zinc-800 dark:bg-zinc-900/50">
             <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Festival Name</th>
@@ -247,9 +256,15 @@ function FestivalTable({ data, onDelete }: { data: Festival[]; onDelete: (id: st
         <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800">
           {data.map((item) => (
             <tr key={item.id} className="group hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50">
-              <td className="px-6 py-4">
-                <p className="font-bold">{item.name}</p>
-                {item.description && <p className="text-[10px] text-[var(--text-muted)]">{item.description}</p>}
+              <td className="min-w-0 overflow-hidden px-6 py-4">
+                <TruncateText className="font-bold" title={item.name}>
+                  {item.name}
+                </TruncateText>
+                {item.description ? (
+                  <TruncateText className="text-[10px] text-[var(--text-muted)]" title={item.description}>
+                    {item.description}
+                  </TruncateText>
+                ) : null}
               </td>
               <td className="px-6 py-4 font-bold">{item.festival_date ?? "—"}</td>
               <td className="px-6 py-4">
@@ -274,7 +289,7 @@ function FestivalTable({ data, onDelete }: { data: Festival[]; onDelete: (id: st
 function PanchTable({ data, onDelete }: { data: PanchangamEntry[]; onDelete: (id: string) => void }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-left">
+      <table className="w-full table-fixed text-left">
         <thead>
           <tr className="border-b border-zinc-50 bg-zinc-50/50 dark:border-zinc-800 dark:bg-zinc-900/50">
             <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Date</th>
@@ -287,9 +302,15 @@ function PanchTable({ data, onDelete }: { data: PanchangamEntry[]; onDelete: (id
           {data.map((item) => (
             <tr key={item.id} className="group hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50">
               <td className="px-6 py-4 font-mono text-sm">{item.panch_date}</td>
-              <td className="px-6 py-4">
-                <p className="font-bold">{item.festival_label ?? "—"}</p>
-                {item.type_label && <p className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-wider">{item.type_label}</p>}
+              <td className="min-w-0 overflow-hidden px-6 py-4">
+                <TruncateText className="font-bold" title={item.festival_label ?? undefined}>
+                  {item.festival_label ?? "—"}
+                </TruncateText>
+                {item.type_label ? (
+                  <TruncateText className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]" title={item.type_label}>
+                    {item.type_label}
+                  </TruncateText>
+                ) : null}
               </td>
               <td className="px-6 py-4">
                 {item.auspicious_label ? (

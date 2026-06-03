@@ -11,6 +11,8 @@ export interface ColumnDef<T> {
   width?: string;
   sortable?: boolean;
   align?: "left" | "center" | "right";
+  /** Classes merged onto `<td>` / `<th>` for this column (e.g. max-w-[16rem]). */
+  className?: string;
   cell?: (item: T) => React.ReactNode;
 }
 
@@ -72,7 +74,7 @@ export function DataTable<T>({
   return (
     <div className={`w-full min-w-0 overflow-x-auto ${className}`.trim()}>
       <table
-        className={`w-full min-w-[600px] border-collapse text-left whitespace-nowrap ${tableClassName}`.trim()}
+        className={`w-full min-w-[600px] table-fixed border-collapse text-left whitespace-nowrap ${tableClassName}`.trim()}
       >
         
         {/* Table Header */}
@@ -93,9 +95,10 @@ export function DataTable<T>({
                 key={String(col.key) || idx}
                 style={{ width: col.width }}
                 className={`
-                  px-6 py-3 text-xs font-semibold text-text-tertiary tracking-wider
+                  min-w-0 overflow-hidden px-6 py-3 text-xs font-semibold text-text-tertiary tracking-wider
                   ${col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"}
                   ${col.sortable ? "cursor-pointer hover:bg-border/30 transition-colors select-none group" : ""}
+                  ${col.className ?? ""}
                 `}
                 onClick={() => col.sortable && onSort && onSort(String(col.key))}
               >
@@ -124,7 +127,7 @@ export function DataTable<T>({
               <tr key={`loading-${rIdx}`} className="animate-pulse">
                 {isSelectable && <td className="px-6 py-4"><div className="h-4 w-4 bg-border/40 rounded" /></td>}
                 {columns.map((col, cIdx) => (
-                  <td key={cIdx} className="px-6 py-4">
+                  <td key={cIdx} className={`min-w-0 overflow-hidden px-6 py-4 ${col.className ?? ""}`}>
                     <div className="h-4 bg-border/40 rounded w-full" />
                   </td>
                 ))}
@@ -166,8 +169,9 @@ export function DataTable<T>({
                     <td 
                       key={cIdx} 
                       className={`
-                        px-6 py-4 align-middle 
+                        min-w-0 overflow-hidden px-6 py-4 align-middle
                         ${col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"}
+                        ${col.className ?? ""}
                       `}
                     >
                       {col.cell ? (

@@ -7,6 +7,12 @@ import { ArrowRight, Building2, Calendar, Copy, UploadCloud, X } from "lucide-re
 import SelectInput from "@/app/components/admin/SelectInput";
 import TempleOnboardingStepActions from "@/app/components/temple-admin/TempleOnboardingStepActions";
 import { submitTempleBankTransferNotification } from "@/lib/templePaymentSubmissionApi";
+import { submitTemplePaymentOnboarding } from "@/lib/temple-onboarding-payment-api";
+import {
+  fetchTempleOnboardingProgress,
+  type TempleOnboardingProgress,
+} from "@/lib/temple-onboarding-routing";
+import { saveTempleOnboardingPaymentComplete } from "@/lib/temple-onboarding-payment";
 import { clearTempleOnboardingDeityDraft, isDeitySelectionComplete } from "@/lib/temple-onboarding-deity";
 import {
   clearTempleOnboardingPlanDraft,
@@ -115,6 +121,8 @@ export default function TempleAdminPaymentPage() {
   const [catalogPlans, setCatalogPlans] = useState<ApiPricingPlan[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [onboardingProgress, setOnboardingProgress] = useState<TempleOnboardingProgress | null>(null);
+  const [progressLoading, setProgressLoading] = useState(true);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
@@ -146,6 +154,23 @@ export default function TempleAdminPaymentPage() {
     setPlanDraft(draft);
     setReady(true);
   }, [router]);
+
+  useEffect(() => {
+    if (!ready) return;
+    let cancelled = false;
+    void (async () => {
+      setProgressLoading(true);
+      const out = await fetchTempleOnboardingProgress();
+      if (cancelled) return;
+      if (out.ok) {
+        setOnboardingProgress(out.progress);
+      }
+      setProgressLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ready]);
 
   useEffect(() => {
     if (!ready || !planDraft?.pricingPlanId) return;
@@ -207,17 +232,26 @@ export default function TempleAdminPaymentPage() {
   }, [planDraft]);
 
   const trialEnd = useMemo(() => {
+    const iso = onboardingProgress?.trialEndsAt?.trim();
+    if (iso) {
+      const parsed = new Date(iso);
+      if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
     const d = new Date();
     d.setDate(d.getDate() + TEMPLE_ONBOARDING_TRIAL_DAYS);
     return d;
-  }, []);
+  }, [onboardingProgress?.trialEndsAt]);
 
   const trialEndLabel = useMemo(() => {
-    const y = trialEnd.getFullYear();
-    const mon = trialEnd.toLocaleString("en", { month: "short" });
-    const day = trialEnd.getDate();
-    return `${y} ${mon} ${day}`;
+    return trialEnd.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   }, [trialEnd]);
+
+  const showTrialAcknowledge =
+    Boolean(onboardingProgress?.isInTrial) && !onboardingProgress?.hasPayableInvoice;
 
   const afterTrialPrice = useMemo(() => {
     if (!plan || !planDraft) return "—";
@@ -296,6 +330,39 @@ export default function TempleAdminPaymentPage() {
     setSlipFile(file);
   };
 
+  const handleTrialAcknowledge = async () => {
+    const sessionEmail = sessionStorage.getItem(TEMPLE_ONBOARDING_EMAIL_KEY)?.trim();
+    if (!sessionEmail) {
+      router.replace("/temple-admin/signin");
+      return;
+    }
+    const created = loadTempleOnboardingTempleCreatedResponse();
+    if (!created?.templeId) {
+      setSubmitError("Temple setup is incomplete. Please finish the previous steps first.");
+      return;
+    }
+
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      const out = await submitTemplePaymentOnboarding({
+        sessionEmail,
+        templeId: created.templeId,
+        saveCardPreferred: false,
+      });
+      if (out.ok === false) {
+        setSubmitError(out.message);
+        return;
+      }
+      saveTempleOnboardingPaymentComplete(false);
+      router.push("/temple-admin/admin-profile");
+    } catch {
+      setSubmitError("Network error. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleModalSubmit = async () => {
     const sessionEmail = sessionStorage.getItem(TEMPLE_ONBOARDING_EMAIL_KEY)?.trim();
     if (!sessionEmail) {
@@ -361,8 +428,68 @@ export default function TempleAdminPaymentPage() {
     }
   };
 
-  if (!ready || !planDraft?.pricingPlanId) {
+  if (!ready || !planDraft?.pricingPlanId || progressLoading) {
     return <PaymentPageSkeleton />;
+  }
+
+  if (showTrialAcknowledge) {
+    const invNum = onboardingProgress?.trialProformaInvoiceNumber?.trim();
+    return (
+      <div className="relative w-full max-w-3xl">
+        <div className="rounded-3xl border border-[var(--border-default)] bg-[var(--surface-card)] p-6 shadow-xl sm:p-10">
+          <header className="text-center">
+            <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-3xl">
+              Your trial is active
+            </h1>
+            <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-[var(--text-muted)]">
+              No payment is due during your {TEMPLE_ONBOARDING_TRIAL_DAYS}-day trial. A $0.00 pro-forma invoice was sent
+              to your email{invNum ? ` (${invNum})` : ""}. You do not need to upload a bank transfer slip now.
+            </p>
+          </header>
+
+          <dl className="mx-auto mt-8 max-w-md space-y-3 rounded-2xl border border-emerald-200/70 bg-emerald-50/50 p-5 text-sm dark:border-emerald-900/40 dark:bg-emerald-950/20">
+            <div className="flex justify-between gap-4">
+              <dt className="text-[var(--text-muted)]">Amount due today</dt>
+              <dd className="font-bold text-emerald-700 dark:text-emerald-300">$0.00</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-[var(--text-muted)]">Trial ends</dt>
+              <dd className="font-medium text-[var(--text-primary)]">{trialEndLabel}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-[var(--text-muted)]">After trial</dt>
+              <dd className="font-medium text-[var(--text-primary)]">{afterTrialPrice}</dd>
+            </div>
+          </dl>
+
+          {submitError ? (
+            <div
+              role="alert"
+              className="mx-auto mt-6 max-w-md rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200"
+            >
+              {submitError}
+            </div>
+          ) : null}
+
+          <TempleOnboardingStepActions
+            className="mt-10"
+            onBack={() => router.push("/temple-admin/choose-plan")}
+            showBackIcon
+            primary={
+              <button
+                type="button"
+                onClick={() => void handleTrialAcknowledge()}
+                disabled={isSubmitting}
+                className="flex w-full min-w-0 flex-[1.25] items-center justify-center gap-2 rounded-lg bg-[var(--brand-primary)] py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)] disabled:pointer-events-none disabled:opacity-50"
+              >
+                {isSubmitting ? "Continuing…" : "Continue"}
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </button>
+            }
+          />
+        </div>
+      </div>
+    );
   }
 
   return (

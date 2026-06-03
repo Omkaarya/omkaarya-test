@@ -68,6 +68,17 @@ import {
   getPlanByIdFromList,
   isPricingPlanId,
 } from "@/lib/temple-pricing-plans";
+import LocationCityField from "@/app/components/admin/LocationCityField";
+import {
+  countryLabelFromCode,
+  countryOptionsWithFallback,
+  dialForCountryIso,
+  getStateLabel,
+  getStateOptions,
+  optionsWithFallback,
+} from "@/lib/location-data";
+import { useMasterDeitiesOptions } from "@/lib/use-master-deities-options";
+import DeityUpsertModal from "@/app/super-admin/(dashboard)/core/deities/DeityUpsertModal";
 
 export type TempleWizardMode = "create" | "edit";
 
@@ -80,16 +91,8 @@ export type TempleWizardProps = {
 };
 
 /** Temple form country (ISO) → default dial code for phone rows when country changes */
-const TEMPLE_COUNTRY_TO_DIAL: Record<string, string> = {
-  GB: "+44",
-  US: "+1",
-  IN: "+91",
-  AU: "+61",
-  CA: "+1",
-};
-
 function dialForCountry(iso: string): string {
-  return TEMPLE_COUNTRY_TO_DIAL[iso] ?? "+1";
+  return dialForCountryIso(iso);
 }
 
 function emptyPhoneForCountry(iso: string): PhoneRowValue {
@@ -146,31 +149,6 @@ const TRADITIONS: {
   },
 ];
 
-const DEITIES = ["Ganesha", "Shiva", "Vishnu", "Devi", "Hanuman", "Murugan"];
-const COUNTRIES = [
-  { value: "GB", label: "United Kingdom" },
-  { value: "US", label: "United States" },
-  { value: "IN", label: "India" },
-  { value: "AU", label: "Australia" },
-  { value: "CA", label: "Canada" },
-];
-const CITIES_BY_COUNTRY: Record<string, { value: string; label: string }[]> = {
-  GB: [
-    { value: "London", label: "London" },
-    { value: "Birmingham", label: "Birmingham" },
-  ],
-  US: [
-    { value: "New York", label: "New York" },
-    { value: "Los Angeles", label: "Los Angeles" },
-  ],
-  IN: [
-    { value: "Hyderabad", label: "Hyderabad" },
-    { value: "Delhi", label: "Delhi" },
-  ],
-  AU: [{ value: "Sydney", label: "Sydney" }],
-  CA: [{ value: "Toronto", label: "Toronto" }],
-};
-
 function nextButtonLabel(step: number, wizardMode: TempleWizardMode, viewOnly: boolean): string {
   if (step >= STEP_LABELS.length - 1) {
     if (viewOnly) return "Continue";
@@ -191,8 +169,16 @@ type AdminStepErrors = {
 type Step3Errors = {
   selectedPlan?: string;
   billingCycle?: string;
-  trialDays?: string;
 };
+
+const DEFAULT_TRIAL_DAYS = 14;
+
+function formatTrialEndsAt(iso: string | null | undefined): string {
+  if (!iso?.trim()) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+}
 
 type Step1Errors = {
   templeName?: string;
@@ -211,9 +197,14 @@ type Step1Errors = {
 
 type BillingCycle = "Monthly" | "Annually";
 
-function matchCatalogPlanId(plans: ApiPricingPlan[], templePlanName: string): string | null {
-  const t = templePlanName.trim();
-  return plans.find((p) => p.name === t)?.id ?? null;
+function matchCatalogPlanId(plans: ApiPricingPlan[], templePlanName: string, catalogPlanId?: string | null): string | null {
+  const id = (catalogPlanId ?? "").trim();
+  if (isPricingPlanId(id)) {
+    const byId = plans.find((p) => p.id === id);
+    if (byId) return byId.id;
+  }
+  const t = templePlanName.trim().toLowerCase();
+  return plans.find((p) => p.name.trim().toLowerCase() === t)?.id ?? null;
 }
 
 function traditionFromApi(s: string): Tradition {
@@ -254,6 +245,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
   const [templeName, setTempleName] = useState("");
   const [deity, setDeity] = useState("");
   const [country, setCountry] = useState("GB");
+  const [regionState, setRegionState] = useState("");
   const [city, setCity] = useState("London");
   const [address, setAddress] = useState("");
   const [email, setEmail] = useState("");
@@ -274,6 +266,15 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
   const [charityRegistered, setCharityRegistered] = useState(false);
   const [charityRegistrationNumber, setCharityRegistrationNumber] = useState("");
   const [adminProfileFile, setAdminProfileFile] = useState<File | null>(null);
+  const [deityModalOpen, setDeityModalOpen] = useState(false);
+
+  const { optionsWithFallback: deityOptionsFor, reload: reloadDeities } = useMasterDeitiesOptions();
+  const countryOptions = useMemo(() => countryOptionsWithFallback(country), [country]);
+  const deityOptions = useMemo(() => deityOptionsFor(deity), [deity, deityOptionsFor]);
+  const deityLabel = useMemo(
+    () => deityOptions.find((o) => o.value === deity)?.label ?? deity,
+    [deity, deityOptions]
+  );
   const [adminFullName, setAdminFullName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [adminWhatsapp, setAdminWhatsapp] = useState<PhoneRowValue>(() =>
@@ -289,12 +290,13 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
   const [catalogPlans, setCatalogPlans] = useState<ApiPricingPlan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<BillingCycle | "">("Annually");
-  const [trialEnabled, setTrialEnabled] = useState(false);
-  const [trialDays, setTrialDays] = useState<"7" | "14" | "30">("7");
+  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
+  const [extendTrialDays, setExtendTrialDays] = useState("7");
+  const [extendTrialBusy, setExtendTrialBusy] = useState(false);
+  const [extendTrialMessage, setExtendTrialMessage] = useState<string | null>(null);
   const [step3Touched, setStep3Touched] = useState({
     selectedPlan: false,
     billingCycle: false,
-    trialDays: false,
   });
   const [step1ShowErrors, setStep1ShowErrors] = useState(false);
   const [validationToastOpen, setValidationToastOpen] = useState(false);
@@ -310,6 +312,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
       templeName,
       deity,
       country,
+      regionState,
       city,
       address,
       email,
@@ -328,8 +331,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
       adminRole,
       selectedPlanId,
       billingCycle,
-      trialEnabled,
-      trialDays,
+      trialEndsAt,
       logoFileName: logoFile?.name ?? "",
       adminProfileFileName: adminProfileFile?.name ?? "",
     });
@@ -338,6 +340,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
     templeName,
     deity,
     country,
+    regionState,
     city,
     address,
     email,
@@ -356,8 +359,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
     adminRole,
     selectedPlanId,
     billingCycle,
-    trialEnabled,
-    trialDays,
+    trialEndsAt,
     logoFile,
     adminProfileFile,
   ]);
@@ -402,11 +404,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
     setAdminRole(d.admin.role);
     const bc = d.planBilling.billingCycle;
     setBillingCycle(bc === "Monthly" || bc === "Annually" ? bc : "Annually");
-    setTrialEnabled(d.planBilling.trial.enabled);
-    const td = d.planBilling.trial.days;
-    if (td === 14) setTrialDays("14");
-    else if (td === 30) setTrialDays("30");
-    else setTrialDays("7");
+    setTrialEndsAt(d.planBilling.trial.endsAt ?? null);
     setInitialTempleLogoDataUrl(d.logoTempleDataUrl);
     setHydrated(true);
   }, [mode, initialDetail]);
@@ -427,7 +425,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
 
   useEffect(() => {
     didInitPlanIdRef.current = false;
-  }, [mode, tenantId, initialDetail?.planBilling?.selectedPlan]);
+  }, [mode, tenantId, initialDetail?.planBilling?.selectedPlan, initialDetail?.planBilling?.selectedPricingPlanId]);
 
   useEffect(() => {
     if (catalogPlans.length === 0) return;
@@ -437,7 +435,11 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
       return;
     }
     if (mode === "edit" && initialDetail && !didInitPlanIdRef.current) {
-      const id = matchCatalogPlanId(catalogPlans, initialDetail.planBilling.selectedPlan);
+      const id = matchCatalogPlanId(
+        catalogPlans,
+        initialDetail.planBilling.selectedPlan,
+        initialDetail.planBilling.selectedPricingPlanId
+      );
       if (id) {
         setSelectedPlanId(id);
         didInitPlanIdRef.current = true;
@@ -526,23 +528,26 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
     }
   }, [isViewOnly, hydrated]);
 
-  const cityOptions = useMemo(() => {
-    const base = CITIES_BY_COUNTRY[country] ?? [];
-    if (base.some((c) => c.value === city)) return base;
-    if (!city.trim()) return base;
-    return [...base, { value: city, label: city }];
-  }, [country, city]);
+  const stateOptions = useMemo(
+    () => optionsWithFallback(getStateOptions(country), regionState),
+    [country, regionState]
+  );
 
-  const deityOptions = useMemo(() => {
-    if (!deity.trim() || DEITIES.includes(deity)) return DEITIES;
-    return [...DEITIES, deity];
-  }, [deity]);
+  const formatAddressForSave = useCallback(
+    (street: string) => {
+      const stateName = regionState ? getStateLabel(country, regionState) : "";
+      const line = street.trim();
+      if (stateName && line) return `${line}, ${stateName}`;
+      if (stateName && !line) return stateName;
+      return line;
+    },
+    [country, regionState]
+  );
 
   const handleCountryChange = (next: string) => {
     setCountry(next);
-    const cities = CITIES_BY_COUNTRY[next];
-    if (cities?.length) setCity(cities[0].value);
-    else setCity("");
+    setRegionState("");
+    setCity("");
     const dial = dialForCountry(next);
     setTelephone((prev) => ({ ...prev, countryCode: dial }));
     setWhatsapp((prev) => ({ ...prev, countryCode: dial }));
@@ -743,9 +748,6 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
     if (!billingCycle) {
       errors.billingCycle = "Please select a billing cycle.";
     }
-    if (trialEnabled && !trialDays) {
-      errors.trialDays = "Please select trial days.";
-    }
     return errors;
   };
 
@@ -753,7 +755,8 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
   const isStep3Valid = Object.keys(step3Errors).length === 0;
 
   const selectedPlanData = getPlanByIdFromList(catalogPlans, selectedPlanId ?? undefined);
-  const selectedPlanName = selectedPlanData?.name ?? "Sankalpa";
+  const selectedPlanName =
+    selectedPlanData?.name ?? initialDetail?.planBilling?.selectedPlan?.trim() ?? "";
 
   const getDisplayPriceDollars = (plan: ApiPricingPlan | undefined): number => {
     if (!plan) return 0;
@@ -791,8 +794,9 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
       selectedPlan: selectedPlanName,
       billingCycle,
       trial: {
-        enabled: trialEnabled,
-        days: trialEnabled ? Number(trialDays) : null,
+        enabled: true,
+        days: DEFAULT_TRIAL_DAYS,
+        endsAt: trialEndsAt,
       },
     },
   };
@@ -873,7 +877,6 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
       setStep3Touched({
         selectedPlan: true,
         billingCycle: true,
-        trialDays: true,
       });
       setStep(2);
     }
@@ -946,7 +949,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
         selectedPlan: string;
         selectedPricingPlanId: string | null;
         billingCycle: BillingCycle | "";
-        trial: { enabled: boolean; days: number | null };
+        trial: { enabled: boolean; days: number | null; endsAt: string | null };
       };
       logoTempleDataUrl?: string;
       adminProfileDataUrl?: string;
@@ -957,7 +960,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
         deity: deity.trim(),
         country,
         city,
-        address: address.trim(),
+        address: formatAddressForSave(address),
         email: email.trim(),
         phone: telephone,
         whatsapp,
@@ -979,8 +982,9 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
         selectedPricingPlanId: isPricingPlanId(selectedPlanId) ? selectedPlanId : null,
         billingCycle,
         trial: {
-          enabled: trialEnabled,
-          days: trialEnabled ? Number(trialDays) : null,
+          enabled: true,
+          days: DEFAULT_TRIAL_DAYS,
+          endsAt: trialEndsAt,
         },
       },
     };
@@ -1099,7 +1103,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
         deity: deity.trim(),
         country,
         city,
-        address: address.trim(),
+        address: formatAddressForSave(address),
         email: email.trim(),
         phone: telephone,
         whatsapp,
@@ -1120,8 +1124,9 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
         selectedPricingPlanId: isPricingPlanId(selectedPlanId) ? selectedPlanId : null,
         billingCycle,
         trial: {
-          enabled: trialEnabled,
-          days: trialEnabled ? Number(trialDays) : null,
+          enabled: true,
+          days: DEFAULT_TRIAL_DAYS,
+          endsAt: trialEndsAt,
         },
       },
     };
@@ -1180,7 +1185,6 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
       setStep3Touched({
         selectedPlan: true,
         billingCycle: true,
-        trialDays: true,
       });
       if (!isStep1Valid) setStep(0);
       else if (!isStep2Valid) setStep(1);
@@ -1222,7 +1226,6 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
         setStep3Touched({
           selectedPlan: true,
           billingCycle: true,
-          trialDays: true,
         });
         showRequiredFieldsToast();
         return;
@@ -1338,6 +1341,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                     <button
                       type="button"
                       disabled={isViewOnly}
+                      onClick={() => setDeityModalOpen(true)}
                       className="text-sm font-medium text-[var(--brand-primary)] hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       + Add New
@@ -1353,8 +1357,8 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                     >
                       <option value="">Select deity</option>
                       {deityOptions.map((d) => (
-                        <option key={d} value={d}>
-                          {d}
+                        <option key={d.value} value={d.value}>
+                          {d.label}
                         </option>
                       ))}
                     </SelectInput>
@@ -1372,7 +1376,8 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                       onChange={(e) => handleCountryChange(e.target.value)}
                       disabled={isViewOnly}
                     >
-                      {COUNTRIES.map((c) => (
+                      <option value="">Select country</option>
+                      {countryOptions.map((c) => (
                         <option key={c.value} value={c.value}>
                           {c.label}
                         </option>
@@ -1384,15 +1389,37 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                   </div>
                 </FormField>
 
-                <FormField id="city" label="City" required>
-                  <div>
-                    <SelectInput id="city" value={city} onChange={(e) => setCity(e.target.value)} disabled={isViewOnly}>
-                      {cityOptions.map((c) => (
-                        <option key={c.value} value={c.value}>
-                          {c.label}
+                {stateOptions.length > 0 ? (
+                  <FormField id="region-state" label="State / Province">
+                    <SelectInput
+                      id="region-state"
+                      value={regionState}
+                      onChange={(e) => {
+                        setRegionState(e.target.value);
+                        setCity("");
+                      }}
+                      disabled={isViewOnly}
+                    >
+                      <option value="">Select state / province</option>
+                      {stateOptions.map((s) => (
+                        <option key={s.value} value={s.value}>
+                          {s.label}
                         </option>
                       ))}
                     </SelectInput>
+                  </FormField>
+                ) : null}
+
+                <FormField id="city" label="City" required>
+                  <div>
+                    <LocationCityField
+                      id="city"
+                      countryIso={country}
+                      stateIso={regionState}
+                      value={city}
+                      onChange={setCity}
+                      disabled={isViewOnly}
+                    />
                     {step1ShowErrors && step1Errors.city ? (
                       <p className="mt-1 text-xs text-red-500">{step1Errors.city}</p>
                     ) : null}
@@ -1435,6 +1462,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                 </FormField>
 
                 <PhoneFieldsGroup
+                  embedded
                   telephone={telephone}
                   whatsapp={whatsapp}
                   fax={fax}
@@ -1889,58 +1917,82 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                 </div>
               ) : null}
 
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900">
-                  <label className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-200">
-                    <button
-                      type="button"
-                      role="switch"
-                      disabled={isViewOnly}
-                      aria-checked={trialEnabled}
-                      onClick={() => {
-                        setTrialEnabled((prev) => !prev);
-                        setStep3Touched((prev) => ({ ...prev, trialDays: true }));
-                      }}
-                      className={[
-                        "relative h-5 w-10 overflow-hidden rounded-full transition-colors",
-                        trialEnabled ? "bg-[var(--brand-primary)]" : "bg-zinc-300 dark:bg-zinc-700",
-                      ].join(" ")}
-                    >
-                      <span
-                        className={[
-                          "absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform",
-                          trialEnabled ? "translate-x-5" : "translate-x-0.5",
-                        ].join(" ")}
-                      />
-                    </button>
-                    If Enabled Trial
-                  </label>
-                </div>
-
-                {trialEnabled && (
-                  <div>
-                    <FormField id="trial-days" label="Number of Days" required>
-                      <SelectInput
-                        id="trial-days"
-                        value={trialDays}
-                        disabled={isViewOnly}
-                        onChange={(e) => {
-                          setTrialDays(e.target.value as "7" | "14" | "30");
-                          setStep3Touched((prev) => ({ ...prev, trialDays: true }));
-                        }}
-                      >
-                        <option value="7">7 - days free trial</option>
-                        <option value="14">14 - days free trial</option>
-                        <option value="30">30 - days free trial</option>
-                      </SelectInput>
-                    </FormField>
-                    {step3Touched.trialDays && step3Errors.trialDays && (
-                      <p className="mt-1 text-xs text-red-500">{step3Errors.trialDays}</p>
-                    )}
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {mode === "create" ? (
+                  <div className="rounded-lg border border-sky-200 bg-sky-50/80 px-3 py-3 dark:border-sky-900 dark:bg-sky-950/30 md:col-span-2">
+                    <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+                      {DEFAULT_TRIAL_DAYS}-day free trial included
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+                      Every new temple starts on trial. A $0 pro-forma invoice is emailed to the temple admin automatically.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-3 dark:border-zinc-700 dark:bg-zinc-900/40 md:col-span-2">
+                    <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">Trial ends</p>
+                    <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">{formatTrialEndsAt(trialEndsAt)}</p>
+                    {!isViewOnly && tenantId ? (
+                      <div className="mt-3 flex flex-wrap items-end gap-2">
+                        <FormField id="extend-trial-days" label="Extend by (days)">
+                          <SelectInput
+                            id="extend-trial-days"
+                            value={extendTrialDays}
+                            onChange={(e) => setExtendTrialDays(e.target.value)}
+                          >
+                            <option value="7">7 days</option>
+                            <option value="14">14 days</option>
+                            <option value="30">30 days</option>
+                          </SelectInput>
+                        </FormField>
+                        <AdminButton
+                          type="button"
+                          variant="outline"
+                          disabled={extendTrialBusy}
+                          onClick={() => {
+                            void (async () => {
+                              setExtendTrialBusy(true);
+                              setExtendTrialMessage(null);
+                              try {
+                                const res = await fetch(
+                                  `/api/temples/${encodeURIComponent(tenantId)}/extend-trial`,
+                                  {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ days: Number(extendTrialDays) }),
+                                  },
+                                );
+                                const data = (await res.json().catch(() => null)) as {
+                                  success?: boolean;
+                                  data?: { trialEndsAt?: string };
+                                  message?: string;
+                                };
+                                if (!res.ok) {
+                                  throw new Error(jsonApiErrorMessage(data) || "Could not extend trial.");
+                                }
+                                const next = data.data?.trialEndsAt ?? null;
+                                if (next) setTrialEndsAt(next);
+                                setExtendTrialMessage("Trial extended successfully.");
+                              } catch (e) {
+                                setExtendTrialMessage(
+                                  e instanceof Error ? e.message : "Could not extend trial.",
+                                );
+                              } finally {
+                                setExtendTrialBusy(false);
+                              }
+                            })();
+                          }}
+                        >
+                          {extendTrialBusy ? "Extending…" : "Extend trial"}
+                        </AdminButton>
+                      </div>
+                    ) : null}
+                    {extendTrialMessage ? (
+                      <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">{extendTrialMessage}</p>
+                    ) : null}
                   </div>
                 )}
 
-                <div className={trialEnabled ? "" : "md:col-start-2"}>
+                <div>
                   <FormField id="billing-cycle" label="Billing Cycle" required>
                     <SelectInput
                       id="billing-cycle"
@@ -1987,8 +2039,8 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                   <dl className="space-y-2 text-sm">
                     <div className="flex justify-between gap-4"><dt className="text-zinc-500">Temple Name</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{templeName || "—"}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-zinc-500">Tradition</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{tradition || "—"}</dd></div>
-                    <div className="flex justify-between gap-4"><dt className="text-zinc-500">Primary Deity</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{deity || "—"}</dd></div>
-                    <div className="flex justify-between gap-4"><dt className="text-zinc-500">Country</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{country || "—"}</dd></div>
+                    <div className="flex justify-between gap-4"><dt className="text-zinc-500">Primary Deity</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{deityLabel || "—"}</dd></div>
+                    <div className="flex justify-between gap-4"><dt className="text-zinc-500">Country</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{countryLabelFromCode(country) || "—"}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-zinc-500">City</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{city || "—"}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-zinc-500">{allowCustomDomain ? "Custom domain" : "Subdomain"}</dt><dd className="font-medium text-[var(--brand-primary)]">{portalPreviewHost || (allowCustomDomain ? "—" : `${slugPreview}.omkaarya.com`)}</dd></div>
                   </dl>
@@ -2002,7 +2054,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                     <div className="flex justify-between gap-4"><dt className="text-zinc-500">WhatsApp Number</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{invitePayload.admin.whatsapp || "—"}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-zinc-500">Plan</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{selectedPlanForReview}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-zinc-500">Billing</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{billingCycle || "—"}</dd></div>
-                    <div className="flex justify-between gap-4"><dt className="text-zinc-500">Trial</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{trialEnabled ? `${trialDays}-day free trial` : "Disabled"}</dd></div>
+                    <div className="flex justify-between gap-4"><dt className="text-zinc-500">Trial</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{mode === "edit" ? `Ends ${formatTrialEndsAt(trialEndsAt)}` : `${DEFAULT_TRIAL_DAYS}-day free trial`}</dd></div>
                   </dl>
                 </section>
               </div>
@@ -2021,7 +2073,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                     Creating this temple will generate the microsite at{" "}
                     <span className="font-medium text-[var(--brand-primary)]">{portalPreviewHost}</span>, send an invite to{" "}
                     {invitePayload.admin.email || "the admin"}, and start{" "}
-                    {trialEnabled ? `${trialDays}-day free trial` : "the selected billing cycle"}.
+                    a {DEFAULT_TRIAL_DAYS}-day free trial (invoice $0.00 emailed to the admin).
                   </>
                 )}
               </p>
@@ -2068,8 +2120,8 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                   <dl className="space-y-2 text-sm">
                     <div className="flex justify-between gap-4"><dt className="text-zinc-500">Temple Name</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{templeName || "—"}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-zinc-500">Tradition</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{tradition || "—"}</dd></div>
-                    <div className="flex justify-between gap-4"><dt className="text-zinc-500">Primary Deity</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{deity || "—"}</dd></div>
-                    <div className="flex justify-between gap-4"><dt className="text-zinc-500">Country</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{country || "—"}</dd></div>
+                    <div className="flex justify-between gap-4"><dt className="text-zinc-500">Primary Deity</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{deityLabel || "—"}</dd></div>
+                    <div className="flex justify-between gap-4"><dt className="text-zinc-500">Country</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{countryLabelFromCode(country) || "—"}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-zinc-500">City</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{city || "—"}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-zinc-500">{allowCustomDomain ? "Custom domain" : "Subdomain"}</dt><dd className="font-medium text-[var(--brand-primary)]">{portalPreviewHost || (allowCustomDomain ? "—" : `${slugPreview}.omkaarya.com`)}</dd></div>
                   </dl>
@@ -2206,7 +2258,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                     Creating this temple will generate the microsite at{" "}
                     <span className="font-medium text-[var(--brand-primary)]">{portalPreviewHost}</span>, send an invite to{" "}
                     {invitePayload.admin.email || "the admin"}, and start{" "}
-                    {trialEnabled ? `${trialDays}-day free trial` : "the selected billing cycle"}.
+                    a {DEFAULT_TRIAL_DAYS}-day free trial (invoice $0.00 emailed to the admin).
                   </>
                 )}
               </p>
@@ -2310,6 +2362,17 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
           <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">No changes made</p>
         </div>
       ) : null}
+
+      <DeityUpsertModal
+        open={deityModalOpen}
+        mode="create"
+        initial={null}
+        onClose={() => setDeityModalOpen(false)}
+        onSaved={() => {
+          setDeityModalOpen(false);
+          void reloadDeities();
+        }}
+      />
     </div>
   );
 }

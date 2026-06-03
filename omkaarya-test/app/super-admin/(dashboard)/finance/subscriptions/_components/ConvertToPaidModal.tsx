@@ -2,6 +2,8 @@
 
 import { CreditCard, ShieldCheck, X } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
+import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
+import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
 import { SubscriptionRow } from "./types";
 
 export function ConvertToPaidModal({
@@ -28,7 +30,14 @@ export function ConvertToPaidModal({
           
           <h3 className="text-xl font-black text-text-primary uppercase tracking-tight">Convert to Paid</h3>
           <p className="mt-2 text-sm text-text-tertiary leading-relaxed">
-            Transitioning <span className="font-bold text-text-primary">{subscription.templeName}</span> from their current trial/pending state to a full paid subscription.
+            Transitioning{" "}
+            <TruncateText
+              className="inline-block max-w-full align-bottom font-bold text-text-primary"
+              title={subscription.templeName}
+            >
+              {subscription.templeName}
+            </TruncateText>{" "}
+            from their current trial/pending state to a full paid subscription.
           </p>
 
           <div className="mt-8 space-y-3">
@@ -38,7 +47,7 @@ export function ConvertToPaidModal({
             </div>
             <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-subtle">
               <span className="text-sm font-medium text-text-secondary">Total Amount</span>
-              <span className="text-sm font-black text-brand">₹{subscription.amount.toLocaleString()}</span>
+              <span className="text-sm font-black text-brand">{formatUsdFromCents(subscription.amountCents)}</span>
             </div>
           </div>
 

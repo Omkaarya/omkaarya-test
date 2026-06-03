@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/app/components/ds/atoms/Button";
+import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
 import { Badge } from "@/app/components/ds/atoms/Badge";
 import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
 import AdminListCard from "@/app/components/admin/AdminListCard";
@@ -134,10 +135,12 @@ function InvoiceModal({
   invoice,
   profile,
   onClose,
+  onDownload,
 }: {
   invoice: Invoice;
   profile: BillingProfile | null;
   onClose: () => void;
+  onDownload?: () => void;
 }) {
   const currency = invoice.currency || profile?.money?.currency || "USD";
   const taxRateBps = profile?.tax?.rateBps ?? 0;
@@ -180,25 +183,31 @@ function InvoiceModal({
               <p className="text-sm text-text-secondary">{profile?.issuer?.address ?? "—"}</p>
               <p className="text-sm text-text-tertiary">{profile?.issuer?.email ?? "—"}</p>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-bold text-text-primary mb-2">Invoice To:</p>
-              <p className="text-sm font-medium text-text-primary">{invoice.temple}</p>
+              <TruncateText className="text-sm font-medium text-text-primary" title={invoice.temple}>
+                {invoice.temple}
+              </TruncateText>
               <p className="text-sm text-text-secondary">{invoice.templeAddress}</p>
-              <p className="text-sm text-text-tertiary">{invoice.adminEmail}</p>
+              <TruncateText className="text-sm text-text-tertiary" title={invoice.adminEmail}>
+                {invoice.adminEmail}
+              </TruncateText>
             </div>
           </div>
           <div className="overflow-hidden rounded-lg border border-border">
-            <table className="w-full text-left">
+            <table className="w-full table-fixed text-left">
               <thead><tr className="border-b border-border bg-subtle">
-                <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Plan</th>
-                <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Period</th>
-                <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Issued</th>
-                <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Due</th>
-                <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Amount</th>
-                <th className="px-4 py-3 text-xs font-semibold text-text-tertiary">Status</th>
+                <th className="w-[22%] px-4 py-3 text-xs font-semibold text-text-tertiary">Plan</th>
+                <th className="w-[16%] px-4 py-3 text-xs font-semibold text-text-tertiary">Period</th>
+                <th className="w-[14%] px-4 py-3 text-xs font-semibold text-text-tertiary">Issued</th>
+                <th className="w-[14%] px-4 py-3 text-xs font-semibold text-text-tertiary">Due</th>
+                <th className="w-[16%] px-4 py-3 text-xs font-semibold text-text-tertiary">Amount</th>
+                <th className="w-[18%] px-4 py-3 text-xs font-semibold text-text-tertiary">Status</th>
               </tr></thead>
               <tbody><tr>
-                <td className="px-4 py-3 text-sm text-text-primary">{invoice.plan}</td>
+                <td className="min-w-0 overflow-hidden px-4 py-3 text-sm text-text-primary">
+                  <TruncateText title={invoice.plan}>{invoice.plan}</TruncateText>
+                </td>
                 <td className="px-4 py-3 text-sm text-text-secondary">{invoice.period}</td>
                 <td className="px-4 py-3 text-sm text-text-secondary">{formatDate(invoice.issuedDate)}</td>
                 <td className="px-4 py-3 text-sm text-text-secondary">{formatDate(invoice.dueDate)}</td>
@@ -231,7 +240,13 @@ function InvoiceModal({
         </div>
         <div className="flex justify-end gap-3 border-t border-border px-6 py-4">
           <Button variant="outline" onClick={onClose}>Close</Button>
-          <Button variant="primary" leadingIcon={<Download className="h-4 w-4" />}>Download Invoice</Button>
+          <Button
+            variant="primary"
+            leadingIcon={<Download className="h-4 w-4" />}
+            onClick={onDownload}
+          >
+            Download Invoice
+          </Button>
         </div>
       </div>
     </div>
@@ -606,7 +621,20 @@ export default function InvoicesPage() {
         </p>
       </AdminListCard>
 
-      {viewInvoice && <InvoiceModal invoice={viewInvoice} profile={profile} onClose={() => setViewInvoice(null)} />}
+      {viewInvoice && (
+        <InvoiceModal
+          invoice={viewInvoice}
+          profile={profile}
+          onClose={() => setViewInvoice(null)}
+          onDownload={() => {
+            window.open(
+              `/api/billing/invoices/${encodeURIComponent(viewInvoice.id)}/receipt`,
+              "_blank",
+              "noopener,noreferrer"
+            );
+          }}
+        />
+      )}
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
     </div>
   );

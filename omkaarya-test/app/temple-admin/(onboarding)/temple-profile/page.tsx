@@ -26,6 +26,15 @@ import { PhoneRowField } from "@/app/components/admin/PhoneFieldsGroup";
 import SelectInput from "@/app/components/admin/SelectInput";
 import TempleOnboardingStepActions from "@/app/components/temple-admin/TempleOnboardingStepActions";
 import TextInput from "@/app/components/admin/TextInput";
+import LocationCityField from "@/app/components/admin/LocationCityField";
+import {
+  countryLabelFromCode,
+  dialForCountryIso,
+  getAllCountryOptions,
+  getStateOptions,
+  optionsWithFallback,
+  resolveStateIso,
+} from "@/lib/location-data";
 
 export default function TempleAdminTempleProfilePage() {
   const router = useRouter();
@@ -50,96 +59,7 @@ export default function TempleAdminTempleProfilePage() {
   const [templeIdFromServer, setTempleIdFromServer] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const LOCATION_COUNTRIES: { iso: string; label: string }[] = useMemo(
-    () => [
-      { iso: "LK", label: "Sri Lanka" },
-      { iso: "IN", label: "India" },
-      { iso: "GB", label: "United Kingdom" },
-      { iso: "US", label: "United States" },
-      { iso: "AU", label: "Australia" },
-      { iso: "CA", label: "Canada" },
-    ],
-    [],
-  );
-
-  const DIAL_BY_ISO: Record<string, string> = useMemo(
-    () => ({
-      LK: "+94",
-      IN: "+91",
-      GB: "+44",
-      US: "+1",
-      AU: "+61",
-      CA: "+1",
-      AE: "+971",
-      DE: "+49",
-      SG: "+65",
-      FR: "+33",
-    }),
-    [],
-  );
-
-  const STATES_BY_COUNTRY: Record<string, { value: string; label: string }[]> = useMemo(
-    () => ({
-      LK: [{ value: "Northern", label: "Northern" }],
-      IN: [
-        { value: "Telangana", label: "Telangana" },
-        { value: "Delhi", label: "Delhi" },
-      ],
-      GB: [{ value: "England", label: "England" }],
-      US: [{ value: "NewYork", label: "New York" }],
-      AU: [{ value: "NewSouthWales", label: "New South Wales" }],
-      CA: [{ value: "Ontario", label: "Ontario" }],
-    }),
-    [],
-  );
-
-  const CITIES_BY_STATE: Record<string, { value: string; label: string }[]> = useMemo(
-    () => ({
-      Northern: [{ value: "Jaffna", label: "Jaffna" }],
-      Telangana: [{ value: "Hyderabad", label: "Hyderabad" }],
-      Delhi: [{ value: "Delhi", label: "Delhi" }],
-      England: [{ value: "London", label: "London" }],
-      NewYork: [{ value: "New York", label: "New York" }],
-      NewSouthWales: [{ value: "Sydney", label: "Sydney" }],
-      Ontario: [{ value: "Toronto", label: "Toronto" }],
-    }),
-    [],
-  );
-
-  const POSTAL_CODES_BY_CITY: Record<string, { value: string; label: string }[]> = useMemo(
-    () => ({
-      Jaffna: [
-        { value: "40000", label: "40000" },
-        { value: "40001", label: "40001" },
-        { value: "40002", label: "40002" },
-      ],
-      Hyderabad: [
-        { value: "500001", label: "500001" },
-        { value: "500002", label: "500002" },
-      ],
-      London: [
-        { value: "EC1A", label: "EC1A" },
-        { value: "SW1A", label: "SW1A" },
-      ],
-      "New York": [
-        { value: "10001", label: "10001" },
-        { value: "10002", label: "10002" },
-      ],
-      Delhi: [
-        { value: "110001", label: "110001" },
-        { value: "110002", label: "110002" },
-      ],
-      Sydney: [
-        { value: "2000", label: "2000" },
-        { value: "2001", label: "2001" },
-      ],
-      Toronto: [
-        { value: "M4B1B3", label: "M4B1B3" },
-        { value: "M5G1C9", label: "M5G1C9" },
-      ],
-    }),
-    [],
-  );
+  const countryOptions = useMemo(() => getAllCountryOptions(), []);
 
   const initialPhone = useMemo<PhoneRowValue>(
     () => ({
@@ -163,6 +83,20 @@ export default function TempleAdminTempleProfilePage() {
     establishedYear: "",
     fullAddress: { countryIso: "LK", state: "", city: "", postalCode: "", street: "" },
   }));
+
+  const stateOptions = useMemo(
+    () =>
+      optionsWithFallback(
+        getStateOptions(draft.fullAddress.countryIso),
+        resolveStateIso(draft.fullAddress.countryIso, draft.fullAddress.state)
+      ),
+    [draft.fullAddress.countryIso, draft.fullAddress.state]
+  );
+
+  const resolvedStateIso = useMemo(
+    () => resolveStateIso(draft.fullAddress.countryIso, draft.fullAddress.state),
+    [draft.fullAddress.countryIso, draft.fullAddress.state]
+  );
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
@@ -195,10 +129,11 @@ export default function TempleAdminTempleProfilePage() {
       setTempleIdFromServer(res.templeId);
 
       const loadedDraft = loadTempleOnboardingTempleProfileDraft();
+      const addr = loadedDraft?.fullAddress ?? res.details.fullAddress;
+      const countryIso = addr.countryIso || "LK";
       const faxDial =
         (loadedDraft?.fax?.countryCode ?? res.details.fax.countryCode ?? "") ||
-        DIAL_BY_ISO[res.details.fullAddress.countryIso] ||
-        "+91";
+        dialForCountryIso(countryIso);
 
       setDraft((prev) => ({
         ...prev,
@@ -218,7 +153,11 @@ export default function TempleAdminTempleProfilePage() {
         websiteUrl: loadedDraft?.websiteUrl ?? res.details.websiteUrl,
         domainSubdomain: loadedDraft?.domainSubdomain ?? res.details.domainSubdomain,
         establishedYear: loadedDraft?.establishedYear ?? res.details.establishedYear,
-        fullAddress: loadedDraft?.fullAddress ?? res.details.fullAddress,
+        fullAddress: {
+          ...addr,
+          countryIso,
+          state: resolveStateIso(countryIso, addr.state),
+        },
         fax: {
           countryCode: loadedDraft?.fax?.countryCode ?? faxDial,
           nationalNumber: loadedDraft?.fax?.nationalNumber ?? res.details.fax.nationalNumber,
@@ -235,7 +174,7 @@ export default function TempleAdminTempleProfilePage() {
     return () => {
       cancelled = true;
     };
-  }, [DIAL_BY_ISO, router, websiteId]);
+  }, [router, websiteId]);
 
   useEffect(() => {
     if (!isHydrating) {
@@ -584,7 +523,7 @@ export default function TempleAdminTempleProfilePage() {
                       <div className="space-y-1.5">
                         <span className="text-xs font-medium text-[var(--text-muted)]">Country</span>
                         <div className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-elevated)] px-3 py-2.5 text-sm text-[var(--text-primary)]">
-                          {LOCATION_COUNTRIES.find((c) => c.iso === core.location.countryIso)?.label ??
+                          {countryLabelFromCode(core.location.countryIso) ||
                             core.location.countryIso}
                         </div>
                       </div>
@@ -770,8 +709,9 @@ export default function TempleAdminTempleProfilePage() {
                                 }));
                               }}
                             >
-                              {LOCATION_COUNTRIES.map((c) => (
-                                <option key={c.iso} value={c.iso}>
+                              <option value="">Select country</option>
+                              {countryOptions.map((c) => (
+                                <option key={c.value} value={c.value}>
                                   {c.label}
                                 </option>
                               ))}
@@ -782,30 +722,32 @@ export default function TempleAdminTempleProfilePage() {
                           </div>
 
 
-                          <div>
-                            <SelectInput
-                              id={stateId}
-                              value={draft.fullAddress.state}
-                              onChange={(e) => {
-                                const nextState = e.target.value;
-                                setDraft((prev) => ({
-                                  ...prev,
-                                  fullAddress: { ...prev.fullAddress, state: nextState, city: "", postalCode: "" },
-                                }));
-                              }}
-                              aria-invalid={submitAttempted && !!errors.errs.addressState}
-                            >
-                              <option value="">Select Province/State</option>
-                              {(STATES_BY_COUNTRY[draft.fullAddress.countryIso] ?? []).map((s) => (
-                                <option key={s.value} value={s.value}>
-                                  {s.label}
-                                </option>
-                              ))}
-                            </SelectInput>
-                            {submitAttempted && errors.errs.addressState ? (
-                              <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.errs.addressState}</p>
-                            ) : null}
-                          </div>
+                          {stateOptions.length > 0 ? (
+                            <div>
+                              <SelectInput
+                                id={stateId}
+                                value={resolvedStateIso}
+                                onChange={(e) => {
+                                  const nextState = e.target.value;
+                                  setDraft((prev) => ({
+                                    ...prev,
+                                    fullAddress: { ...prev.fullAddress, state: nextState, city: "", postalCode: "" },
+                                  }));
+                                }}
+                                aria-invalid={submitAttempted && !!errors.errs.addressState}
+                              >
+                                <option value="">Select province / state</option>
+                                {stateOptions.map((s) => (
+                                  <option key={s.value} value={s.value}>
+                                    {s.label}
+                                  </option>
+                                ))}
+                              </SelectInput>
+                              {submitAttempted && errors.errs.addressState ? (
+                                <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.errs.addressState}</p>
+                              ) : null}
+                            </div>
+                          ) : null}
                       </div>
                     </div>
 
@@ -813,63 +755,37 @@ export default function TempleAdminTempleProfilePage() {
                       <div aria-hidden className="hidden sm:block" />
                       <div className="grid gap-5 md:grid-cols-2">
                           <div>
-                            <SelectInput
+                            <LocationCityField
                               id={addressCityId}
+                              countryIso={draft.fullAddress.countryIso}
+                              stateIso={resolvedStateIso}
                               value={draft.fullAddress.city}
-                              onChange={(e) =>
+                              onChange={(city) =>
                                 setDraft((prev) => ({
                                   ...prev,
-                                  fullAddress: { ...prev.fullAddress, city: e.target.value, postalCode: "" },
+                                  fullAddress: { ...prev.fullAddress, city, postalCode: "" },
                                 }))
                               }
                               aria-invalid={submitAttempted && !!errors.errs.addressCity}
-                            >
-                              <option value="">Select City</option>
-                              {(CITIES_BY_STATE[draft.fullAddress.state] ?? []).map((c) => (
-                                <option key={c.value} value={c.value}>
-                                  {c.label}
-                                </option>
-                              ))}
-                            </SelectInput>
+                            />
                             {submitAttempted && errors.errs.addressCity ? (
                               <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.errs.addressCity}</p>
                             ) : null}
                           </div>
 
                           <div>
-                            {(POSTAL_CODES_BY_CITY[draft.fullAddress.city] ?? []).length ? (
-                              <SelectInput
-                                id={postalCodeId}
-                                value={draft.fullAddress.postalCode}
-                                onChange={(e) =>
-                                  setDraft((prev) => ({
-                                    ...prev,
-                                    fullAddress: { ...prev.fullAddress, postalCode: e.target.value },
-                                  }))
-                                }
-                                aria-invalid={submitAttempted && !!errors.errs.addressPostalCode}
-                              >
-                                <option value="">Select code</option>
-                                {(POSTAL_CODES_BY_CITY[draft.fullAddress.city] ?? []).map((p) => (
-                                  <option key={p.value} value={p.value}>
-                                    {p.label}
-                                  </option>
-                                ))}
-                              </SelectInput>
-                            ) : (
-                              <TextInput
-                                id={postalCodeId}
-                                placeholder="e.g. 40000"
-                                value={draft.fullAddress.postalCode}
-                                onChange={(e) =>
-                                  setDraft((prev) => ({
-                                    ...prev,
-                                    fullAddress: { ...prev.fullAddress, postalCode: e.target.value },
-                                  }))
-                                }
-                                aria-invalid={submitAttempted && !!errors.errs.addressPostalCode}
-                              />
-                            )}
+                            <TextInput
+                              id={postalCodeId}
+                              placeholder="Postal / ZIP code"
+                              value={draft.fullAddress.postalCode}
+                              onChange={(e) =>
+                                setDraft((prev) => ({
+                                  ...prev,
+                                  fullAddress: { ...prev.fullAddress, postalCode: e.target.value },
+                                }))
+                              }
+                              aria-invalid={submitAttempted && !!errors.errs.addressPostalCode}
+                            />
                             {submitAttempted && errors.errs.addressPostalCode ? (
                               <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.errs.addressPostalCode}</p>
                             ) : null}
