@@ -17,4 +17,5 @@ export type MockTemple = {
   status: TempleStatus;
   compliance: TempleCompliance;
   adminEmail: string;
+  trialEndsAt?: string | null;
 };

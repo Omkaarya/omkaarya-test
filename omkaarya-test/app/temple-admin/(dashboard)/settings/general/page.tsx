@@ -7,12 +7,13 @@ import {
   Globe,
   ChevronDown,
   Loader2,
-  AlertCircle,
   CheckCircle2,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Input } from "@/app/components/ds/atoms/Input";
+import { useValidationToast } from "@/lib/hooks/useValidationToast";
+import { ValidationToast } from "@/app/components/ValidationToast";
 import { useTempleSettings } from "@/lib/use-temple-settings";
 
 type GeneralPayload = {
@@ -25,6 +26,7 @@ type GeneralPayload = {
 };
 
 export default function GeneralSettingsPage() {
+  const validationToast = useValidationToast();
   const { payload, loading, saving, error, save } = useTempleSettings<GeneralPayload>("general");
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [draft, setDraft] = useState<GeneralPayload>({});
@@ -51,6 +53,8 @@ export default function GeneralSettingsPage() {
 
   return (
     <div className="space-y-10 max-w-4xl animate-in fade-in duration-500">
+      <ValidationToast isOpen={validationToast.isOpen} onDismiss={validationToast.dismiss} />
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-100 dark:border-zinc-800 pb-10">
         <div>
           <h1 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tight uppercase">General Settings</h1>
@@ -63,12 +67,6 @@ export default function GeneralSettingsPage() {
         </Button>
       </div>
 
-      {error && (
-        <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-          <p className="font-medium">{error}</p>
-        </div>
-      )}
       {savedAt && !error && (
         <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
           <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />

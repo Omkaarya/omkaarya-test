@@ -19,6 +19,7 @@ export async function submitTemplePaymentOnboarding(
   const response = await fetch("/api/temple-admin/payment-onboarding", {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
+    credentials: "same-origin",
     body: JSON.stringify(payload),
   });
 

@@ -315,6 +315,13 @@ export class PostgresSubscriptionsRepository {
     const subId = id.trim();
     const actor = verifiedBy.trim() || "Super Admin";
 
+    const subRow = await pool.query<{ tenant_id: string }>(
+      `SELECT tenant_id FROM public.subscriptions WHERE id = $1 LIMIT 1`,
+      [subId]
+    );
+    const tenantId = subRow.rows[0]?.tenant_id;
+    if (!tenantId) return { ok: false, reason: "not_found" };
+
     const res = await pool.query(
       `UPDATE public.subscriptions
        SET status = 'Active',
@@ -324,6 +331,8 @@ export class PostgresSubscriptionsRepository {
       [subId, actor]
     );
     if (res.rowCount === 0) return { ok: false, reason: "not_found" };
+
+    await pool.query(`UPDATE public.temples SET status = 'Active' WHERE tenant_id = $1`, [tenantId]);
     return { ok: true };
   }
 

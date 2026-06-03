@@ -10,6 +10,9 @@ import { PostgresTempleDeityRepository } from "./temple-deity.repository.js";
 import { createTempleDeityRouter } from "./temple-deity.routes.js";
 import { PostgresTempleOnboardingCompleteRepository } from "./temple-onboarding-complete.repository.js";
 import { createTempleOnboardingCompleteRouter } from "./temple-onboarding-complete.routes.js";
+import { createTempleOnboardingProgressRouter } from "./temple-onboarding-progress.routes.js";
+import { PostgresTempleOnboardingProgressRepository } from "./temple-onboarding-progress.repository.js";
+import { createInternalCronRouter } from "./internal-cron.routes.js";
 import { PostgresTemplePaymentOnboardingRepository } from "./temple-payment-onboarding.repository.js";
 import { createTemplePaymentOnboardingRouter } from "./temple-payment-onboarding.routes.js";
 import { PostgresTemplePaymentSubmissionsRepository } from "./temple-payment-submissions.repository.js";
@@ -91,6 +94,7 @@ export function createSuperAdminApiRouter(): Router {
   const templePaymentOnboarding = new PostgresTemplePaymentOnboardingRepository();
   const templePaymentSubmissions = new PostgresTemplePaymentSubmissionsRepository();
   const templeOnboardingComplete = new PostgresTempleOnboardingCompleteRepository();
+  const templeOnboardingProgress = new PostgresTempleOnboardingProgressRepository();
   const subscriptions = new PostgresSubscriptionsRepository();
   const pricingPlans = new PostgresPricingPlansRepository();
   const billing = new PostgresBillingRepository();
@@ -103,6 +107,7 @@ export function createSuperAdminApiRouter(): Router {
 
   const api = Router();
   api.use(createAuthRouter(authService));
+  api.use(createInternalCronRouter());
   api.use(createPasswordResetRouter(passwordResetService));
   api.use(createPublicRouter(pricingPlans));
   api.use(createTempleDeityCatalogRouter(masterDeities));
@@ -136,6 +141,7 @@ export function createSuperAdminApiRouter(): Router {
   api.use(createTemplePaymentOnboardingRouter(templePaymentOnboarding));
   api.use(createTemplePaymentSubmissionsRouter(templePaymentSubmissions));
   api.use(createTempleOnboardingCompleteRouter(templeOnboardingComplete));
+  api.use(createTempleOnboardingProgressRouter(templeOnboardingProgress));
   return api;
 }
 

@@ -19,6 +19,8 @@ export type TempleRecord = {
   status: TempleStatus;
   compliance: TempleCompliance;
   adminEmail: string;
+  /** ISO timestamp when trial ends (new temples only). */
+  trialEndsAt?: string | null;
 };
 
 export type TemplesSortBy = "last7" | "timeline" | "name" | "devotees";
@@ -117,6 +119,8 @@ export type CreateTemplePayload = {
     trial: {
       enabled: boolean;
       days: number | null;
+      /** ISO timestamp; read-only on edit. */
+      endsAt?: string | null;
     };
   };
   /**

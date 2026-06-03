@@ -521,7 +521,7 @@ export default function FeatureRegistryPage() {
                             <th className="w-[12%] px-6 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-zinc-400">Visible</th>
                             <th className="w-[12%] px-6 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-zinc-400">Limit</th>
                             <th className="w-[8%] px-6 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-zinc-400">Status</th>
-                            <th className="w-[6%] px-6 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-zinc-400">Actions</th>
+                            <th className="w-[7.5rem] min-w-[7.5rem] px-6 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-zinc-400">Actions</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
@@ -569,7 +569,7 @@ export default function FeatureRegistryPage() {
                               <td className="px-6 py-3.5">
                                 <button
                                   onClick={() => { setEditFeature(f); setModalOpen(true); }}
-                                  className="p-2 text-zinc-400 hover:text-[var(--brand-primary)] hover:bg-orange-50 dark:hover:bg-orange-950/20 rounded-lg transition-all opacity-0 group-hover/row:opacity-100"
+                                  className="p-2 text-zinc-400 hover:text-[var(--brand-primary)] hover:bg-orange-50 dark:hover:bg-orange-950/20 rounded-lg transition-all"
                                 >
                                   <Pencil className="w-4 h-4" />
                                 </button>

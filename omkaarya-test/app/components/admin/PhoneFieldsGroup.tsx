@@ -68,10 +68,12 @@ export function PhoneRowField({
             <TextInput
               id={`${idPrefix}-num`}
               type="tel"
+              inputMode="numeric"
+              pattern="[0-9]*"
               placeholder="Number"
               className="w-full min-w-0"
               value={value.nationalNumber}
-              onChange={(e) => onChange({ ...value, nationalNumber: e.target.value })}
+              onChange={(e) => onChange({ ...value, nationalNumber: e.target.value.replace(/\D/g, "") })}
               onBlur={onBlur}
               disabled={disabled}
             />

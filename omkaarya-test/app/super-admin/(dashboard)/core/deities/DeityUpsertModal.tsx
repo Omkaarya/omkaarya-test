@@ -8,6 +8,8 @@ import PostSaveSuccessBanner from "@/app/components/admin/PostSaveSuccessBanner"
 import TextInput from "@/app/components/admin/TextInput";
 import UnsavedChangesDialog from "@/app/components/admin/UnsavedChangesDialog";
 import { Button } from "@/app/components/ds/atoms/Button";
+import { useValidationToast } from "@/lib/hooks/useValidationToast";
+import { ValidationToast } from "@/app/components/ValidationToast";
 import type { MasterDeityRow } from "@/lib/master-deities";
 import { fileToDataUrl } from "@/lib/file-to-data-url";
 import { formSnapshot } from "@/lib/form-snapshot";
@@ -28,6 +30,7 @@ const MAX_BYTES = 10 * 1024 * 1024;
 
 export default function DeityUpsertModal({ open, mode, initial, onClose, onSaved }: DeityUpsertModalProps) {
   const dialogId = useId();
+  const validationToast = useValidationToast();
   const [expanded, setExpanded] = useState(false);
   const [name, setName] = useState("");
   const [isActive, setIsActive] = useState(true);
@@ -106,6 +109,13 @@ export default function DeityUpsertModal({ open, mode, initial, onClose, onSaved
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isView) return;
+    
+    // Validation: name is required
+    if (!name.trim()) {
+      validationToast.show();
+      return;
+    }
+    
     setError(null);
     setSaving(true);
     try {
@@ -169,6 +179,8 @@ export default function DeityUpsertModal({ open, mode, initial, onClose, onSaved
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="presentation">
+      <ValidationToast isOpen={validationToast.isOpen} onDismiss={validationToast.dismiss} />
+
       <button
         type="button"
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
@@ -225,11 +237,6 @@ export default function DeityUpsertModal({ open, mode, initial, onClose, onSaved
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <PostSaveSuccessBanner text={session.postSave.bannerText} className="mx-5 mt-4" />
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-            {error ? (
-              <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
-                {error}
-              </p>
-            ) : null}
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Image</label>

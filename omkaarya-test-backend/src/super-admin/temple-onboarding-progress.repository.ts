@@ -10,6 +10,10 @@ export type TempleOnboardingProgress = {
   hasDeitySelectionComplete: boolean;
   hasOnboardingCompleted: boolean;
   templeId: string;
+  isInTrial: boolean;
+  hasPayableInvoice: boolean;
+  trialEndsAt: string | null;
+  trialProformaInvoiceNumber: string | null;
 };
 
 export class PostgresTempleOnboardingProgressRepository {
@@ -37,8 +41,10 @@ export class PostgresTempleOnboardingProgressRepository {
       pricing_plan_id: string | null;
       plan: string | null;
       plan_confirmed_at: Date | null;
+      status: string;
+      trial_ends_at: Date | null;
     }>(
-      `SELECT tenant_id, pricing_plan_id, plan, plan_confirmed_at
+      `SELECT tenant_id, pricing_plan_id, plan, plan_confirmed_at, status, trial_ends_at
          FROM public.temples
         WHERE ${sqlTempleMatchesSessionEmail(1)}
         LIMIT 1`,
@@ -51,6 +57,36 @@ export class PostgresTempleOnboardingProgressRepository {
     const hasPlanSelected = Boolean(
       temple.pricing_plan_id?.trim() || (temple.plan?.trim() && temple.plan_confirmed_at)
     );
+
+    const now = Date.now();
+    const trialEndsAt =
+      temple.trial_ends_at != null ? temple.trial_ends_at.toISOString() : null;
+    const isInTrial =
+      temple.status === "Trial" &&
+      temple.trial_ends_at != null &&
+      temple.trial_ends_at.getTime() > now;
+
+    const payableRes = await pool.query<{ n: number }>(
+      `SELECT COUNT(*)::int AS n
+         FROM public.billing_invoices
+        WHERE tenant_id = $1
+          AND status = 'pending'
+          AND (NOT is_trial_proforma)
+          AND amount_cents > 0`,
+      [tenantId]
+    );
+    const hasPayableInvoice = (payableRes.rows[0]?.n ?? 0) > 0;
+
+    const proformaRes = await pool.query<{ invoice_number: string }>(
+      `SELECT invoice_number
+         FROM public.billing_invoices
+        WHERE tenant_id = $1
+          AND is_trial_proforma = true
+        ORDER BY issued_at DESC
+        LIMIT 1`,
+      [tenantId]
+    );
+    const trialProformaInvoiceNumber = proformaRes.rows[0]?.invoice_number?.trim() || null;
 
     let hasPaymentCompleted = false;
     let hasTempleProfileDetailsSaved = false;
@@ -98,6 +134,10 @@ export class PostgresTempleOnboardingProgressRepository {
       hasDeitySelectionComplete,
       hasOnboardingCompleted,
       templeId: tenantId,
+      isInTrial,
+      hasPayableInvoice,
+      trialEndsAt,
+      trialProformaInvoiceNumber,
     };
   }
 }

@@ -28,7 +28,7 @@ export type SuperAdminDashboardOverviewResponse = {
   };
   alerts: Array<
     | { type: "pending_payment"; title: string; count: number; createdAt: string | null }
-    | { type: "trial_temples"; title: string; count: number; oldestTrialCreatedAt: string | null }
+    | { type: "trial_temples"; title: string; count: number; oldestTrialEndsAt: string | null }
     | { type: "new_temple"; title: string; tenantId: string; templeName: string; createdAt: string }
   >;
 };
@@ -44,12 +44,17 @@ export function createDashboardRouter(billing: PostgresBillingRepository): Route
 
       const [financial, templeAgg, planAgg, complianceAgg, pendingSubmissions, latestTemple] = await Promise.all([
         billing.revenueDashboard({ period }),
-        pool.query<{ total: number; devotees: number; trial_count: number; oldest_trial_created_at: string | null }>(
+        pool.query<{
+          total: number;
+          devotees: number;
+          trial_count: number;
+          oldest_trial_ends_at: string | null;
+        }>(
           `SELECT
              COUNT(*)::int AS total,
              COALESCE(SUM(devotees), 0)::int AS devotees,
              COUNT(*) FILTER (WHERE status = 'Trial')::int AS trial_count,
-             (MIN(created_at) FILTER (WHERE status = 'Trial'))::timestamptz::text AS oldest_trial_created_at
+             (MIN(trial_ends_at) FILTER (WHERE status = 'Trial' AND trial_ends_at IS NOT NULL))::timestamptz::text AS oldest_trial_ends_at
            FROM public.temples`
         ),
         pool.query<{ plan: string; cnt: number }>(
@@ -101,12 +106,12 @@ export function createDashboardRouter(billing: PostgresBillingRepository): Route
       };
 
       const trialCount = templeAgg.rows[0]?.trial_count ?? 0;
-      const oldestTrialCreatedAt = templeAgg.rows[0]?.oldest_trial_created_at ?? null;
+      const oldestTrialEndsAt = templeAgg.rows[0]?.oldest_trial_ends_at ?? null;
       const trialAlert: SuperAdminDashboardOverviewResponse["alerts"][number] = {
         type: "trial_temples",
         title: "Temples on Trial",
         count: trialCount,
-        oldestTrialCreatedAt,
+        oldestTrialEndsAt,
       };
 
       const lt = latestTemple.rows[0];

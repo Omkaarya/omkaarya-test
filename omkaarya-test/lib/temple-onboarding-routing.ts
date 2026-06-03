@@ -23,6 +23,10 @@ export type TempleOnboardingProgress = {
   hasDeitySelectionComplete: boolean;
   hasOnboardingCompleted: boolean;
   templeId: string;
+  isInTrial: boolean;
+  hasPayableInvoice: boolean;
+  trialEndsAt: string | null;
+  trialProformaInvoiceNumber: string | null;
 };
 
 export type ResolveOnboardingPathOptions = {

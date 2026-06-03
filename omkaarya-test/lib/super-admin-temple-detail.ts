@@ -31,6 +31,7 @@ export type SuperAdminTempleDetail = {
     trial: {
       enabled: boolean;
       days: number | null;
+      endsAt?: string | null;
     };
   };
   logoTempleDataUrl: string | null;

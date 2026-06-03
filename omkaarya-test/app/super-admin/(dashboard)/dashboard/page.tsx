@@ -40,7 +40,7 @@ type Overview = {
   };
   alerts: Array<
     | { type: "pending_payment"; title: string; count: number; createdAt: string | null }
-    | { type: "trial_temples"; title: string; count: number; oldestTrialCreatedAt: string | null }
+    | { type: "trial_temples"; title: string; count: number; oldestTrialEndsAt: string | null }
     | { type: "new_temple"; title: string; tenantId: string; templeName: string; createdAt: string }
   >;
 };
@@ -300,7 +300,7 @@ export default function SuperAdminDashboard() {
                     {alert.type === "pending_payment"
                       ? timeAgo(alert.createdAt)
                       : alert.type === "trial_temples"
-                        ? timeAgo(alert.oldestTrialCreatedAt)
+                        ? timeAgo(alert.oldestTrialEndsAt)
                         : timeAgo(alert.createdAt)}
                   </p>
                 </div>

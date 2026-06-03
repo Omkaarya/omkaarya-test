@@ -176,6 +176,20 @@ export default function TemplesAdminPage() {
         cell: (row) => <StatusBadge status={row.status} />,
       },
       {
+        key: "trialEndsAt",
+        header: "Trial ends",
+        cell: (row) => {
+          if (row.status !== "Trial" || !row.trialEndsAt) {
+            return <span className="text-sm text-text-muted">—</span>;
+          }
+          const d = new Date(row.trialEndsAt);
+          const label = Number.isNaN(d.getTime())
+            ? "—"
+            : d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+          return <span className="text-sm text-text-primary">{label}</span>;
+        },
+      },
+      {
         key: "compliance",
         header: "Compliance",
         cell: (row) => <ComplianceBadge compliance={row.compliance} />,

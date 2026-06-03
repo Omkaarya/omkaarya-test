@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Package, Wrench, ShoppingCart, FileBox, PartyPopper } from "lucide-react";
 import SelectInput from "@/app/components/admin/SelectInput";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
+import { useValidationToast } from "@/lib/hooks/useValidationToast";
+import { ValidationToast } from "@/app/components/ValidationToast";
 import {
   fetchTempleAdminJson,
   type InventoryCategory,
@@ -24,20 +26,10 @@ const TYPES: { id: ProductType; Icon: React.ComponentType<{ className?: string }
 
 const CATEGORIES = ["Prasad", "Flowers", "Puja Supplies", "Oil & Lamps", "Lamps & Deepam", "Prasad Packets", "Stationery"];
 
-function Toast({ msg, show }: { msg: string; show: boolean }) {
-  return (
-    <div
-      className={`fixed bottom-5 right-5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 px-4 py-2.5 rounded-xl text-xs font-medium z-[9999] transition-all duration-200 ${show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"}`}
-    >
-      {msg}
-    </div>
-  );
-}
-
 export default function CreateProductPage() {
   const router = useRouter();
+  const validationToast = useValidationToast();
   const [selectedType, setSelectedType] = useState<ProductType>("Consumable");
-  const [toast, setToast] = useState({ msg: "", show: false });
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState(CATEGORIES[0]!);
@@ -83,21 +75,10 @@ export default function CreateProductPage() {
     ? suppliers.find((s) => s.id === supplierId)?.name ?? null
     : null;
 
-  const showToast = (msg: string) => {
-    setToast({ msg, show: true });
-    setTimeout(() => setToast((prev) => ({ ...prev, show: false })), 2500);
-  };
-
-  const inputCls =
-    "border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 outline-none font-[inherit] w-full transition-colors focus:border-[var(--brand-primary)]";
-  const formSelectClass = "!text-xs !py-2 !rounded-lg !font-[inherit]";
-  const labelCls = "text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide";
-  const readonlyCls = inputCls + " bg-zinc-50 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed";
-
   const handleSave = async () => {
     const trimmedName = name.trim();
     if (!trimmedName) {
-      showToast("Product name is required.");
+      validationToast.show();
       return;
     }
     const qty = Number(quantity.trim() || "0");
@@ -129,20 +110,27 @@ export default function CreateProductPage() {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        showToast(jsonApiErrorMessage(data) || "Could not save product.");
+        validationToast.show();
         return;
       }
-      showToast("Product saved!");
       setTimeout(() => router.push("/temple-admin/inventory"), 800);
     } catch {
-      showToast("Network error — try again.");
+      validationToast.show();
     } finally {
       setSaving(false);
     }
   };
 
+  const inputCls =
+    "border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 outline-none font-[inherit] w-full transition-colors focus:border-[var(--brand-primary)]";
+  const formSelectClass = "!text-xs !py-2 !rounded-lg !font-[inherit]";
+  const labelCls = "text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide";
+  const readonlyCls = inputCls + " bg-zinc-50 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed";
+
   return (
     <div className="space-y-4 max-w-[900px]">
+      <ValidationToast isOpen={validationToast.isOpen} onDismiss={validationToast.dismiss} />
+
       <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
         <span
           className="text-[var(--brand-primary)] cursor-pointer hover:underline"
@@ -348,7 +336,6 @@ export default function CreateProductPage() {
           </button>
         </div>
       </div>
-      <Toast msg={toast.msg} show={toast.show} />
     </div>
   );
 }

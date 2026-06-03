@@ -112,9 +112,11 @@ export default function NewSupplierPage() {
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Phone</label>
               <input
                 type="tel"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={form.phone}
-                onChange={(e) => set("phone", e.target.value)}
-                placeholder="+94 77 123 4567"
+                onChange={(e) => set("phone", e.target.value.replace(/\D/g, ""))}
+                placeholder="77 123 4567"
                 className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-bold outline-none focus:border-[var(--brand-primary)] transition-colors"
               />
             </div>

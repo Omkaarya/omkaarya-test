@@ -11,4 +11,5 @@ export const TEMPLE_ONBOARDING_JWT_PATH_PREFIXES = [
   "/temple-admin/onboarding-complete",
   "/temple-admin/temple-profile",
   "/temple-admin/billing/invoices",
+  "/temple-admin/onboarding-progress",
 ] as const;

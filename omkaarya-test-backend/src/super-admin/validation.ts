@@ -98,10 +98,17 @@ const planBillingNested = z.object({
   selectedPlan: z.string(),
   selectedPricingPlanId: z.string().uuid().optional().nullable(),
   billingCycle: z.string(),
-  trial: z.object({
-    enabled: z.boolean(),
-    days: z.number().nullable(),
-  }),
+  trial: z
+    .object({
+      enabled: z.boolean(),
+      days: z.number().nullable(),
+      endsAt: z.string().nullable().optional(),
+    })
+    .optional(),
+});
+
+export const extendTrialBodySchema = z.object({
+  days: z.number().int().min(1).max(365),
 });
 
 export const createTempleBodySchema = z.object({

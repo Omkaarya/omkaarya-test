@@ -17,6 +17,7 @@ import type {
 import { HttpError } from "../middleware/http-error.js";
 import { sqlTempleMatchesSessionEmail } from "./temple-admin-match.js";
 import { createInitialInvoiceForNewTemple, type CreateInitialInvoiceResult } from "./billing.repository.js";
+import { TEMPLE_TRIAL_DAYS } from "./trial.constants.js";
 import { storeBrandingImageIfNeeded } from "../storage/cloudinary.js";
 import { syncTempleAuthMirrorFromPlatformUserId } from "../temple-ops/sync-auth-mirror.js";
 import { getOperationalPoolForTenant } from "../db/temple-operational-pool-registry.js";
@@ -329,12 +330,14 @@ export class PostgresTempleRepository implements TempleRepository {
       compliance: string;
       admin_email: string;
     }>(
-      `SELECT tenant_id, name, slug, domain_subdomain, country_code, country_flag, city, plan, devotees, status, compliance, admin_email
+      `SELECT tenant_id, name, slug, domain_subdomain, country_code, country_flag, city, plan, devotees, status, compliance, admin_email,
+              trial_ends_at::text AS trial_ends_at
        FROM public.temples
        ORDER BY tenant_id::text DESC`
     );
     return result.rows.map((r) => {
       const ph = portalLabelAndHost(r.slug, r.domain_subdomain);
+      const row = r as typeof r & { trial_ends_at?: string | null };
       return {
         tenantId: r.tenant_id,
         name: r.name,
@@ -349,6 +352,7 @@ export class PostgresTempleRepository implements TempleRepository {
         status: r.status as TempleStatus,
         compliance: r.compliance as TempleCompliance,
         adminEmail: r.admin_email,
+        trialEndsAt: row.trial_ends_at?.trim() || null,
       };
     });
   }
@@ -436,8 +440,10 @@ export class PostgresTempleRepository implements TempleRepository {
       status: string;
       compliance: string;
       admin_email: string;
+      trial_ends_at: string | null;
     }>(
-      `SELECT tenant_id, name, slug, domain_subdomain, country_code, country_flag, city, plan, devotees, status, compliance, admin_email
+      `SELECT tenant_id, name, slug, domain_subdomain, country_code, country_flag, city, plan, devotees, status, compliance, admin_email,
+              trial_ends_at::text AS trial_ends_at
        FROM public.temples t
        ${whereSql}
        ORDER BY ${orderBy}
@@ -461,6 +467,7 @@ export class PostgresTempleRepository implements TempleRepository {
         status: r.status as TempleStatus,
         compliance: r.compliance as TempleCompliance,
         adminEmail: r.admin_email,
+        trialEndsAt: r.trial_ends_at?.trim() || null,
       };
     });
 
@@ -653,7 +660,8 @@ export class PostgresTempleRepository implements TempleRepository {
         selectedPlan: payload.planBilling.selectedPlan,
         selectedPricingPlanId: payload.planBilling.selectedPricingPlanId,
       });
-      const trial = payload.planBilling.trial?.enabled === true;
+      const trial = true;
+      const trialEndsAt = new Date(Date.now() + TEMPLE_TRIAL_DAYS * 24 * 60 * 60 * 1000);
       const slug = buildSlug(payload.temple.subdomain);
       const domainSubEarly = payload.temple.subdomain.trim() || null;
       const phEarly = portalLabelAndHost(slug, domainSubEarly);
@@ -666,11 +674,12 @@ export class PostgresTempleRepository implements TempleRepository {
         countryCode,
         countryFlag: FLAG_BY_CODE[countryCode] ?? "",
         city: payload.temple.city.trim() || "—",
-        plan,
+        plan: plan as TemplePlan,
         devotees: 0,
-        status: trial ? "Trial" : "Active",
+        status: "Trial",
         compliance: "Pending",
         adminEmail: payload.admin.email.trim() || payload.temple.email.trim() || "",
+        trialEndsAt: trialEndsAt.toISOString(),
       };
 
       const contactEmail = payload.temple.email.trim() || null;
@@ -745,11 +754,11 @@ export class PostgresTempleRepository implements TempleRepository {
           `INSERT INTO public.temples (
              tenant_id, name, slug, country_code, country_flag, city, plan, pricing_plan_id, devotees, status, compliance, admin_email,
              admin_user_id,
-             contact_email, domain_subdomain, billing_cycle
+             contact_email, domain_subdomain, billing_cycle, trial_ends_at
            ) VALUES (
              $1, $2, $3, $4, $5, $6, $7, $8,
              $9, $10, $11, $12, $13,
-             $14, $15, $16
+             $14, $15, $16, $17
            )`,
           [
             row.tenantId,
@@ -768,6 +777,7 @@ export class PostgresTempleRepository implements TempleRepository {
             contactEmail,
             domainSub,
             billingCycle,
+            trialEndsAt.toISOString(),
           ]
         );
 
@@ -883,6 +893,7 @@ export class PostgresTempleRepository implements TempleRepository {
       city: string;
       plan: string;
       status: string;
+      trial_ends_at: string | null;
       admin_email: string;
       contact_email: string | null;
       domain_subdomain: string | null;
@@ -903,6 +914,7 @@ export class PostgresTempleRepository implements TempleRepository {
          t.city,
          t.plan,
          t.status,
+         t.trial_ends_at::text AS trial_ends_at,
          t.admin_email,
          t.contact_email,
          t.domain_subdomain,
@@ -984,7 +996,7 @@ export class PostgresTempleRepository implements TempleRepository {
     const adminRole = Array.isArray(roles) && roles.length > 0 ? String(roles[0]) : "Temple Admin";
 
     const trialEnabled = r.status === "Trial";
-    const trialDays = trialEnabled ? 7 : null;
+    const trialEndsAt = r.trial_ends_at?.trim() || null;
 
     const est = (established_year ?? "").trim();
     const establishedYear = est && /^\d{4}$/.test(est) ? est : "2000";
@@ -1022,7 +1034,8 @@ export class PostgresTempleRepository implements TempleRepository {
         billingCycle: (r.billing_cycle ?? "Annually").trim() || "Annually",
         trial: {
           enabled: trialEnabled,
-          days: trialDays,
+          days: trialEnabled ? TEMPLE_TRIAL_DAYS : null,
+          endsAt: trialEndsAt,
         },
       },
       logoTempleDataUrl: logo_data_url,
@@ -1064,8 +1077,11 @@ export class PostgresTempleRepository implements TempleRepository {
         selectedPlan: payload.planBilling.selectedPlan,
         selectedPricingPlanId: payload.planBilling.selectedPricingPlanId,
       });
-      const trial = payload.planBilling.trial?.enabled === true;
-      const status: TempleStatus = trial ? "Trial" : "Active";
+      const existingStatus = await client.query<{ status: string }>(
+        `SELECT status FROM public.temples WHERE tenant_id = $1 LIMIT 1`,
+        [id]
+      );
+      const status: TempleStatus = (existingStatus.rows[0]?.status as TempleStatus) ?? "Trial";
       const name = payload.temple.name.trim() || "Unnamed temple";
       const slug = buildSlug(payload.temple.subdomain);
       const city = payload.temple.city.trim() || "—";

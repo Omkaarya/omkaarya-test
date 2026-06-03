@@ -5,9 +5,11 @@ import PostSaveSuccessBanner from "@/app/components/admin/PostSaveSuccessBanner"
 import UnsavedChangesDialog from "@/app/components/admin/UnsavedChangesDialog";
 import { formSnapshot } from "@/lib/form-snapshot";
 import { useModalFormSession } from "@/lib/use-modal-form-session";
+import { useValidationToast } from "@/lib/hooks/useValidationToast";
+import { ValidationToast } from "@/app/components/ValidationToast";
 import {
   Shield, MoreHorizontal, UserPlus, Trash2, Pencil,
-  CheckCircle2, XCircle, X, Loader2, RefreshCw, AlertCircle,
+  CheckCircle2, XCircle, X, Loader2, RefreshCw,
   UserCheck, UserX,
 } from "lucide-react";
 import { Button } from "@/app/components/ds/atoms/Button";
@@ -83,6 +85,7 @@ function AddUserModal({
   onClose: () => void;
   onSaved: (user: SaUser) => void;
 }) {
+  const validationToast = useValidationToast();
   const [form, setForm] = useState<FormState>(EMPTY_USER_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +96,13 @@ function AddUserModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validation: name and email are required
+    if (!form.name.trim() || !form.email.trim()) {
+      validationToast.show();
+      return;
+    }
+    
     setError(null);
     setSaving(true);
     try {
@@ -123,6 +133,8 @@ function AddUserModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <ValidationToast isOpen={validationToast.isOpen} onDismiss={validationToast.dismiss} />
+
       {/* Backdrop */}
       <button
         type="button"
@@ -151,12 +163,6 @@ function AddUserModal({
         {/* Form */}
         <form onSubmit={handleSubmit} className="px-6 py-6 space-y-5">
           <PostSaveSuccessBanner text={session.postSave.bannerText} />
-          {error && (
-            <div className="flex items-center gap-2 text-xs text-red-700 bg-red-50 border border-red-100 dark:bg-red-950/30 dark:border-red-800 dark:text-red-300 rounded-lg px-4 py-3">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              {error}
-            </div>
-          )}
 
           <fieldset disabled={session.postSave.isLocked} className="space-y-5 border-0 p-0 m-0 min-w-0">
             <FormField id="sa-user-name" label="Full Name" required>

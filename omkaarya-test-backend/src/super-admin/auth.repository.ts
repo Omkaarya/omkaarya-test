@@ -2,9 +2,10 @@ import { getPool } from "../db/pool.js";
 import { HttpError } from "../middleware/http-error.js";
 import { syncTempleAuthMirrorFromEmail } from "../temple-ops/sync-auth-mirror.js";
 import { hashPasswordCredential, passwordCredentialMatches } from "./password-credentials.js";
+import { checkTempleBillingAccess } from "./temple-billing-access.js";
 
 export type LoginResult =
-  | { ok: false }
+  | { ok: false; billingDenied?: { code: string; message: string } }
   | { ok: true; firstLogin: boolean; userId: string; tenantId: string | null };
 
 export interface AuthRepository {
@@ -37,24 +38,35 @@ export class PostgresAuthRepository implements AuthRepository {
         return { ok: false };
       }
       const row = result.rows[0]!;
-      if (row.password_hash) {
-        const match = await passwordCredentialMatches(row.password_hash, password);
-        return match
-          ? {
-              ok: true,
-              firstLogin: false,
-              userId: row.id,
-              tenantId: row.tenant_id,
-            }
-          : { ok: false };
-      }
-      if (await passwordCredentialMatches(row.temp_password, password)) {
+
+      const finishLogin = async (
+        credsOk: boolean,
+        firstLogin: boolean
+      ): Promise<LoginResult> => {
+        if (!credsOk) return { ok: false };
+        if (row.tenant_id) {
+          const access = await checkTempleBillingAccess(client, row.tenant_id);
+          if (!access.ok) {
+            return {
+              ok: false,
+              billingDenied: { code: access.code, message: access.message },
+            };
+          }
+        }
         return {
           ok: true,
-          firstLogin: true,
+          firstLogin,
           userId: row.id,
           tenantId: row.tenant_id,
         };
+      };
+
+      if (row.password_hash) {
+        const match = await passwordCredentialMatches(row.password_hash, password);
+        return finishLogin(match, false);
+      }
+      if (await passwordCredentialMatches(row.temp_password, password)) {
+        return finishLogin(true, true);
       }
       return { ok: false };
     } finally {

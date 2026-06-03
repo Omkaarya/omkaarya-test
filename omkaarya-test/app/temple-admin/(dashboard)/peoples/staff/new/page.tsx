@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Save, UserPlus, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Save, UserPlus, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import SelectInput from "@/app/components/admin/SelectInput";
+import { useValidationToast } from "@/lib/hooks/useValidationToast";
+import { ValidationToast } from "@/app/components/ValidationToast";
 import { fetchTempleAdminJson, type Role } from "@/lib/temple-admin-api";
 
 export default function NewStaffPage() {
   const router = useRouter();
+  const validationToast = useValidationToast();
   const [isActive, setIsActive] = useState(true);
   const [roles, setRoles] = useState<Role[]>([]);
   const [firstName, setFirstName] = useState("");
@@ -32,7 +35,7 @@ export default function NewStaffPage() {
 
   const handleSubmit = async () => {
     if (!firstName.trim() || !email.trim()) {
-      setError("First name and email are required.");
+      validationToast.show();
       return;
     }
     setSaving(true);
@@ -60,6 +63,8 @@ export default function NewStaffPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-500 max-w-4xl mx-auto">
+      <ValidationToast isOpen={validationToast.isOpen} onDismiss={validationToast.dismiss} />
+
       <div className="flex items-center gap-4 border-b border-zinc-100 pb-5 dark:border-zinc-800">
         <Link
           href="/temple-admin/peoples/staff"
@@ -76,13 +81,6 @@ export default function NewStaffPage() {
           </p>
         </div>
       </div>
-
-      {error && (
-        <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-          <p className="font-medium">{error}</p>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] gap-6">
         <div className="bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm space-y-6">
@@ -112,11 +110,7 @@ export default function NewStaffPage() {
               <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Phone Number</label>
               <div className="flex">
                 <span className="flex items-center justify-center px-3 bg-zinc-100 dark:bg-zinc-800 border border-r-0 border-zinc-200 dark:border-zinc-700 rounded-l-xl text-sm font-bold text-zinc-500">+94</span>
-                <input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" placeholder="77 123 4567" className="w-full px-4 py-2.5 rounded-r-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-bold outline-none focus:border-[var(--brand-primary)] transition-colors" />
-              </div>
-            </div>
-
-            <div className="col-span-2 mt-4 pt-5 border-t border-zinc-100 dark:border-zinc-800">
+                <input value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))} type="tel" inputMode="numeric" pattern="[0-9]*" placeholder="77 123 4567" className="w-full px-4 py-2.5 rounded-r-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-bold outline-none focus:border-[var(--brand-primary)] transition-colors" />
               <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Assign Role *</label>
               <SelectInput value={roleSlug} onChange={(e) => setRoleSlug(e.target.value)} className="!rounded-xl !py-3 !pl-4 !text-sm !font-bold">
                 <option value="">Select role…</option>
