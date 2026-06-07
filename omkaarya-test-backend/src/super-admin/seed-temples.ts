@@ -3,7 +3,7 @@ import { portalLabelAndHost } from "./temples.repository.js";
 
 type SeedRow = Omit<TempleRecord, "subdomain" | "portalHost">;
 
-/** Core seed rows; `subdomain` / `portalHost` are derived from `slug` for consistency with the list API. */
+/** Demo temple rows for `npm run seed` only — not applied on server start or migrate. */
 const SEED_TEMPLES_CORE: SeedRow[] = [
   {
     tenantId: "f0001001-0001-4001-8001-000000000001",
@@ -163,7 +163,6 @@ const SEED_TEMPLES_CORE: SeedRow[] = [
   },
 ];
 
-/** Seed data for `npm run seed` (PostgreSQL `temples` table). */
 export const SEED_TEMPLES: TempleRecord[] = SEED_TEMPLES_CORE.map((t) => {
   const ph = portalLabelAndHost(t.slug, null);
   return { ...t, subdomain: ph.subdomain, portalHost: ph.portalHost };

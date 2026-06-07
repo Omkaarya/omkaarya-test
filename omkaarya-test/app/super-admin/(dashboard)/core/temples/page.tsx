@@ -17,7 +17,7 @@ import { Button } from "@/app/components/ds/atoms/Button";
 import { Badge, type BadgeColor } from "@/app/components/ds/atoms/Badge";
 import StatusBadge from "@/app/components/admin/StatusBadge";
 import ComplianceBadge from "@/app/components/admin/ComplianceBadge";
-import { countryLabelFromCode } from "@/lib/country-labels";
+import { TEMPLE_NAME_DISPLAY_MAX, truncateToMaxLength } from "@/lib/truncate-display";
 
 type StatusFilter = "all" | "Active" | "Trial" | "Suspended";
 
@@ -121,35 +121,30 @@ export default function TemplesAdminPage() {
       {
         key: "name",
         header: "Temple",
-        className: "max-w-[18rem]",
+        width: "30ch",
+        className: "min-w-[30ch] w-[30ch]",
         cell: (row) => (
           <EntityNameCell
             initials={initials(row.name)}
-            title={row.name}
+            title={truncateToMaxLength(row.name, TEMPLE_NAME_DISPLAY_MAX)}
+            titleTooltip={row.name}
             subtitle={row.portalHost || "—"}
           />
         ),
       },
       {
-        key: "country",
-        header: "Country",
-        cell: (row) => (
-          <div className="flex items-center gap-2 whitespace-nowrap">
-            <span className="text-lg leading-none" aria-hidden>
-              {row.countryFlag || "🌐"}
-            </span>
-            <span className="text-sm text-text-primary">{countryLabelFromCode(row.countryCode)}</span>
-          </div>
-        ),
-      },
-      {
         key: "city",
         header: "City",
-        className: "max-w-[10rem]",
+        className: "max-w-[12rem]",
         cell: (row) => (
-          <TruncateText className="text-sm text-text-primary" title={row.city || undefined}>
-            {row.city || "—"}
-          </TruncateText>
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="shrink-0 text-lg leading-none" aria-hidden>
+              {row.countryFlag || "🌐"}
+            </span>
+            <TruncateText className="text-sm text-text-primary" title={row.city || undefined}>
+              {row.city || "—"}
+            </TruncateText>
+          </div>
         ),
       },
       {

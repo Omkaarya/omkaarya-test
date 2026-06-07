@@ -71,7 +71,11 @@ export function createDeleteAccountRequestsRouter(
         });
       }
 
-      const result = await repo.updateStatus(id, status);
+      const session = (
+        res.locals as { superAdminSession?: { email: string } }
+      ).superAdminSession;
+
+      const result = await repo.updateStatus(id, status, session?.email);
       if (!result.ok) {
         if (result.reason === "not_found") {
           throw new HttpError(404, "Request not found", {

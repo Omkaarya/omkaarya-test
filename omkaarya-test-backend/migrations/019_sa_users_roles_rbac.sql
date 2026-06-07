@@ -34,15 +34,4 @@ CREATE INDEX IF NOT EXISTS idx_sa_users_email   ON sa_users(email);
 CREATE INDEX IF NOT EXISTS idx_sa_users_role_id ON sa_users(role_id);
 CREATE INDEX IF NOT EXISTS idx_sa_role_perms_role ON sa_role_permissions(role_id);
 
--- Seed default roles
-INSERT INTO sa_roles (name, description) VALUES
-  ('Super Admin', 'Full access to all platform features, including pricing, registry and system settings.'),
-  ('Support Agent', 'Manage temples and subscriptions. Limited access to system settings.'),
-  ('Finance Reviewer', 'Read-only access to revenue and transaction reports.')
-ON CONFLICT (name) DO NOTHING;
-
--- Seed one default super admin user (password must be set separately)
-INSERT INTO sa_users (name, email, role_id, is_active)
-  SELECT 'Pepulux Admin', 'admin@pepulux.com', id, TRUE
-  FROM sa_roles WHERE name = 'Super Admin'
-ON CONFLICT (email) DO NOTHING;
+-- Default roles and demo super-admin user: run `npm run seed` manually (not on migrate/server start).

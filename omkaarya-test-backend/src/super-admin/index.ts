@@ -106,7 +106,7 @@ export function createSuperAdminApiRouter(): Router {
   const templeDefaultRolePerms = new PostgresTempleDefaultRolePermissionsRepository();
 
   const api = Router();
-  api.use(createAuthRouter(authService));
+  api.use(createAuthRouter(authService, saRbac));
   api.use(createInternalCronRouter());
   api.use(createPasswordResetRouter(passwordResetService));
   api.use(createPublicRouter(pricingPlans));

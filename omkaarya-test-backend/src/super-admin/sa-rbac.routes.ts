@@ -4,6 +4,9 @@ import { asyncHandler } from "../middleware/async-handler.js";
 import { HttpError } from "../middleware/http-error.js";
 import type { PostgresSaRbacRepository } from "./sa-rbac.repository.js";
 import { isUuidString } from "./is-uuid-string.js";
+import { requireSaAdminManagement } from "./middleware/require-sa-admin-management.js";
+
+const ACCESS_LEVELS = new Set(["none", "view", "full"]);
 
 function asSingleParam(v: string | string[] | undefined): string | undefined {
   if (v === undefined) return undefined;
@@ -23,6 +26,7 @@ export function createSaRbacRouter(repo: PostgresSaRbacRepository): Router {
 
   r.post(
     "/admin-users",
+    requireSaAdminManagement,
     asyncHandler(async (req, res) => {
       const { name, email, roleId, isActive } = req.body ?? {};
       if (!name || !email) {
@@ -31,9 +35,24 @@ export function createSaRbacRouter(repo: PostgresSaRbacRepository): Router {
           reason: "Provide both name and email in the request body.",
         });
       }
+      const normalizedEmail = String(email).trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+        throw new HttpError(400, "Invalid email", {
+          code: "VALIDATION_ERROR",
+          reason: "Provide a valid email address.",
+        });
+      }
       try {
-        const user = await repo.insertSaUser({ name, email, roleId, isActive });
-        sendSuccess(res, 201, user, "Admin user created", "A new super admin user was added to the system.");
+        const user = await repo.insertSaUser({ name, email: normalizedEmail, roleId, isActive });
+        sendSuccess(
+          res,
+          201,
+          user,
+          "Admin user created",
+          user.tempPassword
+            ? "A new super admin user was added. Share the temporary password securely for first login."
+            : "A new super admin user was added to the system."
+        );
       } catch (e: unknown) {
         const message = e instanceof Error ? e.message : String(e);
         if (message.includes("unique") || message.includes("duplicate")) {
@@ -67,6 +86,7 @@ export function createSaRbacRouter(repo: PostgresSaRbacRepository): Router {
 
   r.patch(
     "/admin-users/:id",
+    requireSaAdminManagement,
     asyncHandler(async (req, res) => {
       const id = asSingleParam(req.params.id)?.trim() ?? "";
       if (!isUuidString(id)) {
@@ -103,6 +123,7 @@ export function createSaRbacRouter(repo: PostgresSaRbacRepository): Router {
 
   r.delete(
     "/admin-users/:id",
+    requireSaAdminManagement,
     asyncHandler(async (req, res) => {
       const id = asSingleParam(req.params.id)?.trim() ?? "";
       if (!isUuidString(id)) {
@@ -129,6 +150,7 @@ export function createSaRbacRouter(repo: PostgresSaRbacRepository): Router {
 
   r.post(
     "/admin-roles",
+    requireSaAdminManagement,
     asyncHandler(async (req, res) => {
       const { name, description } = req.body ?? {};
       if (!name) {
@@ -167,6 +189,7 @@ export function createSaRbacRouter(repo: PostgresSaRbacRepository): Router {
 
   r.put(
     "/admin-roles/:id/permissions",
+    requireSaAdminManagement,
     asyncHandler(async (req, res) => {
       const id = asSingleParam(req.params.id)?.trim() ?? "";
       if (!isUuidString(id)) {
@@ -178,6 +201,15 @@ export function createSaRbacRouter(repo: PostgresSaRbacRepository): Router {
           code: "VALIDATION_ERROR",
           reason: "Provide a permissions array in the request body.",
         });
+      }
+      for (const perm of permissions) {
+        const level = (perm as { accessLevel?: string })?.accessLevel;
+        if (!level || !ACCESS_LEVELS.has(level)) {
+          throw new HttpError(400, "Invalid access level", {
+            code: "VALIDATION_ERROR",
+            reason: 'Each permission accessLevel must be "none", "view", or "full".',
+          });
+        }
       }
       await repo.saveRolePermissions(id, permissions);
       const saved = await repo.fetchRolePermissions(id);

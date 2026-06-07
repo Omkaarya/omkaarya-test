@@ -51,6 +51,47 @@ export function HorizontalBarChartSkeleton({
   );
 }
 
+/** Dashboard stat cards with icon box (super-admin home). */
+export function DashboardStatCardSkeleton({ count = 4 }: { count?: number }) {
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {Array.from({ length: count }).map((_, i) => (
+        <div
+          key={i}
+          className="rounded-2xl border border-border bg-surface p-6 shadow-xs"
+        >
+          <Skeleton className="mb-4 h-11 w-11 rounded-xl" height={44} width={44} />
+          <Skeleton className="mb-2 h-4 w-28" height={16} />
+          <Skeleton className="mb-4 h-9 w-20" height={36} />
+          <Skeleton className="h-3 w-36" height={12} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Chart + list row on super-admin dashboard home. */
+export function DashboardChartRowSkeleton() {
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      <div className="min-h-[320px] animate-pulse rounded-2xl border border-border bg-surface p-6">
+        <Skeleton className="mb-2 h-4 w-32" height={16} />
+        <Skeleton className="mb-6 h-3 w-24" height={12} />
+        <Skeleton className="h-[200px] w-full rounded-xl" height={200} />
+      </div>
+      <div className="min-h-[320px] animate-pulse rounded-2xl border border-border bg-surface p-6">
+        <Skeleton className="mb-2 h-4 w-32" height={16} />
+        <Skeleton className="mb-6 h-3 w-36" height={12} />
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 w-full rounded-xl" height={56} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Matches super-admin analytics `MetricCard` shell (p-6 rounded-xl border). */
 export function MetricCardGridSkeleton({
   count = 4,

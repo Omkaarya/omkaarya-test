@@ -1,14 +1,31 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Building2, PieChart, TrendingUp } from "lucide-react";
-import { Badge } from "@/app/components/ds/atoms/Badge";
-import { MetricCard } from "@/app/components/ds/molecules/MetricCard";
-import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { Building2, CreditCard, ShieldCheck, TrendingUp, Users2 } from "lucide-react";
+import { formatMoneyFromCents } from "@/lib/temple-pricing-plans";
+import { useBillingCurrency } from "@/lib/use-billing-currency";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
-import { MetricCardGridSkeleton } from "@/app/components/admin/ApiFetchPlaceholders";
+import SelectInput from "@/app/components/admin/SelectInput";
+import {
+  DashboardChartRowSkeleton,
+  DashboardStatCardSkeleton,
+} from "@/app/components/admin/ApiFetchPlaceholders";
+import { DashboardGreeting } from "./_components/DashboardGreeting";
+import { DashboardStatCard } from "./_components/DashboardStatCard";
+import { TempleGrowthChart } from "./_components/TempleGrowthChart";
+import { SubscriptionDonutChart } from "./_components/SubscriptionDonutChart";
+import { RecentlyAddedList } from "./_components/RecentlyAddedList";
+import { RecentActivitiesFeed } from "./_components/RecentActivitiesFeed";
+import type { RecentActivityItem } from "./_components/RecentActivitiesFeed";
+import type { RecentTempleItem } from "./_components/RecentlyAddedList";
+import type { TempleGrowthPoint } from "./_components/TempleGrowthChart";
+import type { PlanBreakdownItem } from "./_components/SubscriptionDonutChart";
 
-// ── Page Component ──────────────────────────────────────────────────
+type DashboardAlert =
+  | { type: "pending_payment"; title: string; count: number; createdAt: string | null }
+  | { type: "trial_temples"; title: string; count: number; oldestTrialEndsAt: string | null }
+  | { type: "new_temple"; title: string; tenantId: string; templeName: string; createdAt: string };
 
 type Overview = {
   period: { startDate: string; endDateExclusive: string } | null;
@@ -16,299 +33,218 @@ type Overview = {
     totalTemples: number;
     globalDevotees: number;
     avgCompliancePct: number | null;
-    planBreakdownPct: Array<{ plan: string; percent: number; count: number }>;
+    planBreakdownPct: PlanBreakdownItem[];
     financial: {
-      period: { startDate: string; endDateExclusive: string };
-      kpis: {
-        paidAmountCents: number;
-        paidCount: number;
-        pendingAmountCents: number;
-        pendingCount: number;
-        overdueAmountCents: number;
-        overdueCount: number;
-        activeTemples: number;
-        trialTemples: number;
-      };
-      revenueByPlan: Array<{ plan: string; amountCents: number; count: number }>;
-      trend: Array<{ month: string; amountCents: number }>;
-      subscriptionSummary: Array<{
-        amountCents: number;
-        billingCycle: string;
-        status: "active" | "pending" | "trial";
-      }>;
+      paidAmountCents?: number;
+      pendingAmountCents?: number;
     };
   };
-  alerts: Array<
-    | { type: "pending_payment"; title: string; count: number; createdAt: string | null }
-    | { type: "trial_temples"; title: string; count: number; oldestTrialEndsAt: string | null }
-    | { type: "new_temple"; title: string; tenantId: string; templeName: string; createdAt: string }
-  >;
+  kpiCards: {
+    activeTemples: { count: number; changePct: number | null };
+    activeSubscriptions: { count: number; expiringThisMonth: number };
+    mrrCents: { amountCents: number; changePct: number | null };
+    pendingVerifications: { count: number; oldestDaysAgo: number | null };
+  };
+  templeGrowth: TempleGrowthPoint[];
+  recentTemples: RecentTempleItem[];
+  recentActivities: RecentActivityItem[];
+  alerts: DashboardAlert[];
 };
 
-function compactNumber(n: number): string {
-  return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(n);
+function formatChangePct(pct: number | null, suffix: string): { text: string; direction: "up" | "down" | "neutral" } {
+  if (pct === null) return { text: suffix, direction: "neutral" };
+  if (pct > 0) return { text: `↑ ${pct}% ${suffix}`, direction: "up" };
+  if (pct < 0) return { text: `↓ ${Math.abs(pct)}% ${suffix}`, direction: "down" };
+  return { text: `— ${suffix}`, direction: "neutral" };
 }
-
-function timeAgo(iso: string | null): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (!Number.isFinite(d.getTime())) return "—";
-  const seconds = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-  if (days > 0) return `${days}d ago`;
-  if (hours > 0) return `${hours}h ago`;
-  if (minutes > 0) return `${minutes}m ago`;
-  return "just now";
-}
-
-type DashboardPeriod = "this-month" | "last-month";
 
 export default function SuperAdminDashboard() {
+  const billingCurrency = useBillingCurrency();
+  const [period, setPeriod] = useState("this-month");
   const [loading, setLoading] = useState(true);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
-  const [period, setPeriod] = useState<DashboardPeriod>("this-month");
 
-  useEffect(() => {
-    let cancel = false;
-    (async () => {
-      setLoading(true);
-      setLoadErr(null);
-      try {
-        const res = await fetch(`/api/super-admin/dashboard/overview?period=${period}`, { cache: "no-store" });
-        const j = (await res.json().catch(() => null)) as { success?: boolean; data?: Overview } | null;
-        if (cancel) return;
-        if (!j || j.success !== true || !j.data) {
-          setOverview(null);
-          setLoadErr(jsonApiErrorMessage(j) || "Failed to load dashboard overview");
-          return;
-        }
-        setOverview(j.data);
-      } finally {
-        if (!cancel) setLoading(false);
+  const loadOverview = useCallback(async () => {
+    setLoading(true);
+    setLoadErr(null);
+    try {
+      const res = await fetch(`/api/super-admin/dashboard/overview?period=${encodeURIComponent(period)}`, {
+        cache: "no-store",
+      });
+      const j = (await res.json().catch(() => null)) as { success?: boolean; data?: Overview } | null;
+      if (!j || j.success !== true || !j.data) {
+        setOverview(null);
+        setLoadErr(jsonApiErrorMessage(j) || "Failed to load dashboard overview");
+        return;
       }
-    })();
-    return () => {
-      cancel = true;
-    };
+      setOverview(j.data);
+    } catch {
+      setOverview(null);
+      setLoadErr("Failed to load dashboard overview. Check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
   }, [period]);
 
-  const topPlan = overview?.kpis.planBreakdownPct?.[0];
-  const pendingPaymentAlert = overview?.alerts.find((a) => a.type === "pending_payment") as
-    | { type: "pending_payment"; title: string; count: number; createdAt: string | null }
-    | undefined;
+  useEffect(() => {
+    void loadOverview();
+  }, [loadOverview]);
 
-  const estimatedMrrCents = useMemo(() => {
-    const subs = overview?.kpis.financial.subscriptionSummary ?? [];
-    return subs
-      .filter((s) => s.status === "active")
-      .reduce((sum, s) => {
-        const cycle = (s.billingCycle ?? "").toLowerCase();
-        const monthly = cycle.includes("annual") ? Math.round(s.amountCents / 12) : s.amountCents;
-        return sum + monthly;
-      }, 0);
-  }, [overview]);
+  const statCards = useMemo(() => {
+    const k = overview?.kpiCards;
+    if (!k) return null;
 
-  const chartLine = useMemo(() => {
-    const src = overview?.kpis.financial.revenueByPlan ?? [];
-    if (src.length === 0) return "No paid transactions for this period.";
-    const total = src.reduce((a, x) => a + x.amountCents, 0) || 1;
-    return src
-      .slice(0, 5)
-      .map((x) => `${x.plan} (${Math.round((x.amountCents / total) * 100)}%)`)
-      .join(", ");
-  }, [overview]);
+    const templesTrend = formatChangePct(k.activeTemples.changePct, "vs month start baseline");
+    const mrrTrend = formatChangePct(k.mrrCents.changePct, "vs last month");
+    const expiring = k.activeSubscriptions.expiringThisMonth;
+    const subsTrend = {
+      text:
+        expiring > 0
+          ? `${expiring} expiring this month`
+          : "No subscriptions expiring this month",
+      direction: expiring > 0 ? ("down" as const) : ("neutral" as const),
+    };
+    const pendingTrend = {
+      text:
+        k.pendingVerifications.oldestDaysAgo != null
+          ? `Oldest pending: ${k.pendingVerifications.oldestDaysAgo} days`
+          : "No pending compliance reviews",
+      direction: "neutral" as const,
+    };
+
+    return [
+      {
+        title: "Active temples",
+        value: String(k.activeTemples.count).padStart(2, "0"),
+        icon: Building2,
+        iconColor: "bg-status-success-text/10 text-status-success-text",
+        trendText: templesTrend.text,
+        trendDirection: templesTrend.direction,
+      },
+      {
+        title: "Active subscriptions",
+        value: String(k.activeSubscriptions.count),
+        icon: CreditCard,
+        iconColor: "bg-status-success-text/10 text-status-success-text",
+        trendText: subsTrend.text,
+        trendDirection: subsTrend.direction,
+      },
+      {
+        title: "Active subscription MRR",
+        value: formatMoneyFromCents(k.mrrCents.amountCents, billingCurrency),
+        icon: TrendingUp,
+        iconColor: "bg-status-success-text/10 text-status-success-text",
+        trendText: mrrTrend.text,
+        trendDirection: mrrTrend.direction,
+      },
+      {
+        title: "Pending compliance reviews",
+        value: String(k.pendingVerifications.count).padStart(2, "0"),
+        icon: ShieldCheck,
+        iconColor: "bg-status-warning-text/10 text-status-warning-text",
+        trendText: pendingTrend.text,
+        trendDirection: pendingTrend.direction,
+      },
+    ];
+  }, [overview, billingCurrency]);
+
+  const showKpiSkeleton = loading || Boolean(!overview && loadErr);
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+    <div className="animate-in fade-in slide-in-from-bottom-2 space-y-6 duration-300">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <DashboardGreeting />
+        <div className="flex items-center gap-2">
+          <label htmlFor="dashboard-period" className="text-xs font-semibold text-text-tertiary">
+            Period
+          </label>
+          <SelectInput
+            id="dashboard-period"
+            value={period}
+            onChange={(e) => setPeriod(e.target.value)}
+            className="min-w-[10rem]"
+          >
+            <option value="this-month">This month</option>
+            <option value="last-month">Last month</option>
+            <option value="this-year">This year</option>
+          </SelectInput>
+        </div>
+      </div>
+
       {loadErr && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-950/20 dark:text-amber-200">
           {loadErr}
+          <button type="button" onClick={() => void loadOverview()} className="ml-3 font-semibold underline">
+            Retry
+          </button>
         </div>
       )}
 
-      {/* Dashboard Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-display-xs font-bold tracking-tight text-text-primary">
-            Analytics Overview
-          </h1>
-          <p className="mt-1 text-sm text-text-tertiary font-medium">
-            Global platform health, multi-tenant performance, and financial
-            monitoring.
-          </p>
+      {showKpiSkeleton ? (
+        <DashboardStatCardSkeleton count={4} />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {statCards?.map((card) => (
+            <DashboardStatCard key={card.title} {...card} />
+          ))}
         </div>
-        <Badge
-          color={loading ? "gray" : overview ? "success" : "warning"}
-          size="sm"
-          className="font-bold py-1 px-3"
-        >
-          {loading ? "LOADING…" : overview ? "SYSTEM ONLINE" : "SYSTEM DEGRADED"}
-        </Badge>
-      </div>
+      )}
 
-      {/* ── SECTION 1: Temple Analytics ── */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 px-1">
-          <Building2 className="w-4 h-4 text-text-disabled" />
-          <h2 className="text-xs font-bold text-text-tertiary uppercase tracking-widest">
-            Global Temple Health
-          </h2>
-        </div>
-        {loading ? (
-          <MetricCardGridSkeleton count={4} />
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricCard
-              title="Total Temples"
-              value={overview ? String(overview.kpis.totalTemples) : "—"}
-              trendLabel="Total onboarded"
-              chartColor="brand"
-              showMenu={false}
-            />
-            <MetricCard
-              title="Plan Breakdown"
-              value={overview && topPlan ? `${topPlan.percent}%` : "—"}
-              trendLabel={overview && topPlan ? `${topPlan.plan} (${topPlan.count})` : "Top plan"}
-              chartColor="brand"
-              showMenu={false}
-            />
-            <MetricCard
-              title="Global Devotees"
-              value={overview ? compactNumber(overview.kpis.globalDevotees) : "—"}
-              trendLabel="Sum across temples"
-              chartColor="brand"
-              showMenu={false}
-            />
-            <MetricCard
-              title="Avg. Compliance"
-              value={overview?.kpis.avgCompliancePct != null ? `${overview.kpis.avgCompliancePct}%` : "—"}
-              trendLabel="From compliance status"
-              chartColor="success"
-              showMenu={false}
-            />
+      {!showKpiSkeleton && overview && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="rounded-2xl border border-border bg-surface p-4 shadow-xs">
+            <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Total temples</p>
+            <p className="mt-1 text-2xl font-bold text-text-primary">{overview.kpis.totalTemples}</p>
           </div>
-        )}
-      </div>
-
-      {/* ── SECTION 2: Financial & Subscription Analytics ── */}
-      <div className="space-y-4 pt-2">
-        <div className="flex items-center gap-2 px-1">
-          <TrendingUp className="w-4 h-4 text-text-disabled" />
-          <h2 className="text-xs font-bold text-text-tertiary uppercase tracking-widest">
-            Financial Performance
-          </h2>
-        </div>
-        {loading ? (
-          <MetricCardGridSkeleton count={4} />
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricCard
-              title="Total Revenue"
-              value={overview ? formatUsdFromCents(overview.kpis.financial.kpis.paidAmountCents) : "—"}
-              trendLabel="Confirmed this period"
-              chartColor="success"
-              showMenu={false}
-            />
-            <MetricCard
-              title="Pending Subs"
-              value={overview ? String(pendingPaymentAlert?.count ?? 0) : "—"}
-              trendLabel="Awaiting verification"
-              chartColor="warning"
-              showMenu={false}
-            />
-            <MetricCard
-              title="Active Subs"
-              value={overview ? String(overview.kpis.financial.kpis.activeTemples) : "—"}
-              trendLabel={overview ? `${overview.kpis.financial.kpis.trialTemples} on trial` : "Verified accounts"}
-              chartColor="brand"
-              showMenu={false}
-            />
-            <MetricCard
-              title="Est. MRR"
-              value={overview ? formatUsdFromCents(estimatedMrrCents) : "—"}
-              trendLabel="Active subs (monthly normalized)"
-              chartColor="brand"
-              showMenu={false}
-            />
+          <div className="rounded-2xl border border-border bg-surface p-4 shadow-xs">
+            <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+              <Users2 className="h-3.5 w-3.5" /> Global devotees
+            </p>
+            <p className="mt-1 text-2xl font-bold text-text-primary">{overview.kpis.globalDevotees.toLocaleString()}</p>
           </div>
-        )}
-      </div>
+          <div className="rounded-2xl border border-border bg-surface p-4 shadow-xs">
+            <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Avg compliance score</p>
+            <p className="mt-1 text-2xl font-bold text-text-primary">
+              {overview.kpis.avgCompliancePct != null ? `${overview.kpis.avgCompliancePct}%` : "—"}
+            </p>
+          </div>
+        </div>
+      )}
 
-      {/* ── SECTION 3: Operations & Reports ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-4">
-        {/* Revenue by Plan Chart Placeholder */}
-        <div className="lg:col-span-2 rounded-2xl border border-border bg-surface p-6 flex flex-col justify-between shadow-xs min-h-[320px]">
-          <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center gap-2">
-              <PieChart className="w-4 h-4 text-brand" />
-              <h3 className="text-sm font-bold text-text-primary uppercase tracking-tight">
-                Revenue Breakdown by Plan
-              </h3>
+      {!showKpiSkeleton && overview?.alerts?.length ? (
+        <div className="grid gap-3 md:grid-cols-3">
+          {overview.alerts.map((alert) => (
+            <div key={`${alert.type}-${alert.title}`} className="rounded-xl border border-border bg-subtle px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-text-tertiary">{alert.title}</p>
+              <p className="mt-1 text-lg font-bold text-text-primary">
+                {"count" in alert ? alert.count : alert.templeName}
+              </p>
+              {alert.type === "pending_payment" && alert.count > 0 ? (
+                <Link href="/super-admin/finance/confirm-payments" className="mt-2 inline-block text-xs font-semibold text-brand">
+                  Review payments →
+                </Link>
+              ) : null}
             </div>
-            <button
-              type="button"
-              onClick={() => setPeriod((p) => (p === "this-month" ? "last-month" : "this-month"))}
-              className="text-xs font-bold text-text-tertiary transition-colors hover:text-brand"
-            >
-              {period === "this-month" ? "LAST MONTH" : "THIS MONTH"}
-            </button>
-          </div>
-          <div className="flex-1 flex items-center justify-center border-2 border-dashed border-border rounded-xl text-text-disabled text-xs font-medium">
-            Chart: {chartLine}
-          </div>
+          ))}
         </div>
+      ) : null}
 
-        {/* Quick Actions / Recent Activity */}
-        <div className="rounded-2xl border border-border bg-surface p-6 shadow-xs">
-          <h3 className="text-sm font-bold text-text-primary uppercase tracking-tight mb-4">
-            Critical Alerts
-          </h3>
-          <div className="space-y-3">
-            {loading && (
-              <div className="animate-pulse space-y-2">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-12 rounded-xl bg-subtle border border-border" />
-                ))}
-              </div>
-            )}
-            {!loading && (overview?.alerts ?? []).map((alert, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 p-3 rounded-xl bg-subtle border border-border"
-              >
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    alert.type === "pending_payment"
-                      ? "bg-amber-500"
-                      : alert.type === "trial_temples"
-                        ? "bg-red-500"
-                        : "bg-emerald-500"
-                  }`}
-                />
-                <div className="flex-1">
-                  <p className="text-xs font-bold text-text-primary">
-                    {alert.type === "pending_payment"
-                      ? `${alert.title} (${alert.count})`
-                      : alert.type === "trial_temples"
-                        ? `${alert.title} (${alert.count})`
-                        : `${alert.title}: ${alert.templeName}`}
-                  </p>
-                  <p className="text-[10px] text-text-tertiary">
-                    {alert.type === "pending_payment"
-                      ? timeAgo(alert.createdAt)
-                      : alert.type === "trial_temples"
-                        ? timeAgo(alert.oldestTrialEndsAt)
-                        : timeAgo(alert.createdAt)}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
+      {showKpiSkeleton ? (
+        <DashboardChartRowSkeleton />
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <TempleGrowthChart data={overview?.templeGrowth ?? []} />
+          <RecentlyAddedList items={overview?.recentTemples ?? []} />
         </div>
-      </div>
+      )}
+
+      <SubscriptionDonutChart
+        data={overview?.kpis.planBreakdownPct ?? []}
+        loading={showKpiSkeleton}
+      />
+
+      <RecentActivitiesFeed items={overview?.recentActivities ?? []} loading={showKpiSkeleton} />
     </div>
   );
 }

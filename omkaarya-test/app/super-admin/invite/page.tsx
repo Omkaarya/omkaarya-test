@@ -74,17 +74,10 @@ export default function InvitationLogin() {
       </div>
 
       <div className="relative z-10 w-full max-w-md rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-8 shadow-xl">
-        <div className="mb-6 flex justify-between text-xs text-[var(--text-muted)]">
-          <span className="font-semibold text-[var(--brand-primary)]">Accept Invitation</span>
-          <span>Set Password</span>
-          <span>Temple Profile</span>
-          <span>Add socials</span>
-        </div>
-
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Welcome to Omkaarya</h1>
+          <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Accept your invitation</h1>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
-            Welcome back! Please enter your details.
+            Sign in with the email and temporary password from your invite email.
           </p>
         </div>
 
@@ -152,8 +145,8 @@ export default function InvitationLogin() {
 
         <div className="mt-6 text-center text-xs text-[var(--text-muted)]">
           Didn’t receive an invitation?{" "}
-          <a href="#" className="text-[var(--brand-primary)] hover:underline">
-            Contact Us
+          <a href="mailto:support@pepulux.com" className="text-[var(--brand-primary)] hover:underline">
+            Contact support
           </a>
         </div>
       </div>

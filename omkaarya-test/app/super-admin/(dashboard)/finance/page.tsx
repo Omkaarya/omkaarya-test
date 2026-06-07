@@ -9,7 +9,8 @@ import { Button } from "@/app/components/ds/atoms/Button";
 import { Badge } from "@/app/components/ds/atoms/Badge";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
 import AdminListCard from "@/app/components/admin/AdminListCard";
-import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
+import { formatMoneyFromCents } from "@/lib/temple-pricing-plans";
+import { useBillingCurrency } from "@/lib/use-billing-currency";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import { buildGenerateInvoiceHref } from "@/lib/invoice-temple-prefill";
 import {
@@ -159,6 +160,7 @@ function HorizontalBarChart({ title, subtitle, bars }: {
 // ── Page ────────────────────────────────────────────────────────
 
 export default function RevenueDashboard() {
+  const billingCurrency = useBillingCurrency();
   const [periodFilter, setPeriodFilter] = useState("this-month");
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<string | null>(null);
@@ -206,7 +208,7 @@ export default function RevenueDashboard() {
     plan: r.plan,
     billingCycle: r.billingCycle,
     billing: r.billingCycle === "Annual" ? "Annual" : r.billingCycle === "Monthly" ? "Monthly" : r.billingCycle || "—",
-    amount: r.amountCents ? `${formatUsdFromCents(r.amountCents)}${r.billingCycle === "Annual" ? "/yr" : "/mo"}` : "—",
+    amount: r.amountCents ? `${formatMoneyFromCents(r.amountCents, billingCurrency)}${r.billingCycle === "Annual" ? "/yr" : "/mo"}` : "—",
     status: r.status,
     nextRenewal: r.nextRenewal ?? "—",
   }));
@@ -215,7 +217,7 @@ export default function RevenueDashboard() {
 
   const columns = useMemo<ColumnDef<TempleSummary>[]>(() => [
     {
-      key: "name", header: "Temple", sortable: true,
+      key: "name", header: "Temple", sortable: false,
       cell: (r) => (
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 border border-brand-100 text-sm">🛕</div>
@@ -314,20 +316,20 @@ export default function RevenueDashboard() {
         <div className="grid grid-cols-4 gap-3">
           <div className="bg-surface rounded-xl border border-border p-4">
             <div className="text-lg mb-2">💰</div>
-            <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">MRR (Monthly Recurring)</p>
-            <p className="text-2xl font-bold text-green-600">{formatUsdFromCents(kpis.paidAmountCents)}</p>
+            <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Paid this period</p>
+            <p className="text-2xl font-bold text-green-600">{formatMoneyFromCents(kpis.paidAmountCents, billingCurrency)}</p>
             <p className="text-[10px] text-text-tertiary mt-1">from {kpis.paidCount} payment(s) confirmed</p>
           </div>
           <div className="bg-surface rounded-xl border border-border p-4">
             <div className="text-lg mb-2">📈</div>
-            <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">ARR (Annual Recurring)</p>
-            <p className="text-2xl font-bold text-brand">{formatUsdFromCents(kpis.paidAmountCents * 12)}</p>
+            <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Annualized paid (×12)</p>
+            <p className="text-2xl font-bold text-brand">{formatMoneyFromCents(kpis.paidAmountCents * 12, billingCurrency)}</p>
             <p className="text-[10px] text-text-tertiary mt-1">simple annualized from this period</p>
           </div>
           <div className="bg-surface rounded-xl border border-border p-4">
             <div className="text-lg mb-2">⏳</div>
             <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-1.5">Pending payments</p>
-            <p className="text-2xl font-bold text-amber-600">{formatUsdFromCents(kpis.pendingAmountCents)}</p>
+            <p className="text-2xl font-bold text-amber-600">{formatMoneyFromCents(kpis.pendingAmountCents, billingCurrency)}</p>
             <p className="text-[10px] text-text-tertiary mt-1">{kpis.pendingCount} invoice(s) awaiting bank transfer</p>
             <p className="text-[10px] font-semibold text-amber-600 mt-1">{kpis.overdueCount} overdue</p>
           </div>

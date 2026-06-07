@@ -432,7 +432,7 @@ export default function InvoicesPage() {
   const columns = useMemo<ColumnDef<Invoice>[]>(() => [
     { key: "num", header: "Invoice no.", cell: (r) => <span className="text-xs font-mono text-text-tertiary">{r.num}</span> },
     {
-      key: "temple", header: "Temple", sortable: true,
+      key: "temple", header: "Temple", sortable: false,
       cell: (r) => (
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 border border-brand-100 text-sm">🛕</div>

@@ -25,7 +25,14 @@ export function isPricingPlanId(s: string | null | undefined): s is string {
 }
 
 export function formatUsdFromCents(cents: number): string {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
+  return formatMoneyFromCents(cents, "USD");
+}
+
+/** Format cents using ISO currency code (defaults to INR for platform pricing). */
+export function formatMoneyFromCents(cents: number, currency = "INR"): string {
+  const code = (currency || "INR").toUpperCase();
+  const locale = code === "INR" ? "en-IN" : code === "GBP" ? "en-GB" : "en-US";
+  return new Intl.NumberFormat(locale, { style: "currency", currency: code }).format(cents / 100);
 }
 
 /** Per-month display when “annual” billing: effective monthly from yearly price. */

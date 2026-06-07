@@ -156,11 +156,11 @@ export function AdminBreadcrumbs({ pathname }: { pathname: string }) {
       className="hidden shrink-0 items-center gap-1 text-sm text-[var(--text-muted)] sm:flex"
     >
       <Link
-        href="/"
+        href="/super-admin/dashboard"
         className="flex items-center hover:text-[var(--text-primary)]"
       >
         <Home className="h-4 w-4" />
-        <span className="sr-only">Home</span>
+        <span className="sr-only">Dashboard</span>
       </Link>
       {segments.map((seg, index) => (
         <span key={`${seg.label}-${index}-${seg.href ?? ""}`} className="flex items-center gap-1">

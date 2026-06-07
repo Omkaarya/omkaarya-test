@@ -27,14 +27,4 @@ CREATE TABLE IF NOT EXISTS marketing_dashboard_activity_lines (
 CREATE INDEX IF NOT EXISTS idx_marketing_dashboard_activity_sort
   ON marketing_dashboard_activity_lines (sort_order, id);
 
-INSERT INTO marketing_dashboard_activity_lines (sort_order, line_text, status)
-SELECT v.sort_order, v.line_text, v.status::varchar(16)
-FROM (
-  VALUES
-    (0, 'Ganesh Pooja — Ramesh K.', 'booked'),
-    (1, 'Donation — Priya N. — £50', 'receipt'),
-    (2, 'Abhishekam — Suresh P.', 'pending')
-) AS v(sort_order, line_text, status)
-WHERE NOT EXISTS (
-  SELECT 1 FROM marketing_dashboard_activity_lines t WHERE t.line_text = v.line_text
-);
+-- Demo activity lines: add via temple-admin UI or a manual seed script (not on migrate).

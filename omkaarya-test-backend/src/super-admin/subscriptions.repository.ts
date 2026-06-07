@@ -308,49 +308,66 @@ export class PostgresSubscriptionsRepository {
     };
   }
 
-  async verify(id: string, verifiedBy: string): Promise<{ ok: true } | { ok: false; reason: "not_found" }> {
+  async verify(
+    id: string,
+    verifiedBy: string
+  ): Promise<{ ok: true } | { ok: false; reason: "not_found" | "invalid_state" }> {
     const pool = getPool();
     if (!pool) throw new Error("Database pool is not available");
 
     const subId = id.trim();
     const actor = verifiedBy.trim() || "Super Admin";
 
-    const subRow = await pool.query<{ tenant_id: string }>(
-      `SELECT tenant_id FROM public.subscriptions WHERE id = $1 LIMIT 1`,
+    const subRow = await pool.query<{ tenant_id: string; status: string }>(
+      `SELECT tenant_id, status FROM public.subscriptions WHERE id = $1 LIMIT 1`,
       [subId]
     );
-    const tenantId = subRow.rows[0]?.tenant_id;
-    if (!tenantId) return { ok: false, reason: "not_found" };
+    const row = subRow.rows[0];
+    if (!row) return { ok: false, reason: "not_found" };
+    if (row.status !== "Pending") return { ok: false, reason: "invalid_state" };
 
     const res = await pool.query(
       `UPDATE public.subscriptions
        SET status = 'Active',
            verified_by = $2,
            activated_on = COALESCE(activated_on, CURRENT_DATE)
-       WHERE id = $1`,
+       WHERE id = $1 AND status = 'Pending'`,
       [subId, actor]
     );
-    if (res.rowCount === 0) return { ok: false, reason: "not_found" };
+    if (res.rowCount === 0) return { ok: false, reason: "invalid_state" };
 
-    await pool.query(`UPDATE public.temples SET status = 'Active' WHERE tenant_id = $1`, [tenantId]);
+    await pool.query(`UPDATE public.temples SET status = 'Active' WHERE tenant_id = $1`, [row.tenant_id]);
     return { ok: true };
   }
 
-  async reject(id: string, verifiedBy: string): Promise<{ ok: true } | { ok: false; reason: "not_found" }> {
+  async reject(
+    id: string,
+    verifiedBy: string
+  ): Promise<{ ok: true } | { ok: false; reason: "not_found" | "invalid_state" }> {
     const pool = getPool();
     if (!pool) throw new Error("Database pool is not available");
 
     const subId = id.trim();
     const actor = verifiedBy.trim() || "Super Admin";
 
+    const subRow = await pool.query<{ tenant_id: string; status: string }>(
+      `SELECT tenant_id, status FROM public.subscriptions WHERE id = $1 LIMIT 1`,
+      [subId]
+    );
+    const row = subRow.rows[0];
+    if (!row) return { ok: false, reason: "not_found" };
+    if (row.status !== "Pending") return { ok: false, reason: "invalid_state" };
+
     const res = await pool.query(
       `UPDATE public.subscriptions
        SET status = 'Rejected',
            verified_by = $2
-       WHERE id = $1`,
+       WHERE id = $1 AND status = 'Pending'`,
       [subId, actor]
     );
-    if (res.rowCount === 0) return { ok: false, reason: "not_found" };
+    if (res.rowCount === 0) return { ok: false, reason: "invalid_state" };
+
+    await pool.query(`UPDATE public.temples SET status = 'Suspended' WHERE tenant_id = $1`, [row.tenant_id]);
     return { ok: true };
   }
 

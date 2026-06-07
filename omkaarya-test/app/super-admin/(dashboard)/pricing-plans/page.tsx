@@ -8,6 +8,7 @@ import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
 import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
 import { PricingPlanCardSkeletonGrid } from "@/app/components/admin/ApiFetchPlaceholders";
 import { normalizePricingPlanSeats } from "@/lib/pricing-plan-normalize";
+import { jsonApiErrorMessage } from "@/lib/api-envelope";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -85,12 +86,14 @@ function PlanFeaturesList({ features }: { features: string[] }) {
 export default function PricingPlansPage() {
   const [plans, setPlans] = useState<PricingPlan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
   const visGuardRef = useRef<number>(Date.now());
 
   const [billing, setBilling] = useState<"monthly" | "yearly">("yearly");
 
   const fetchPlans = useCallback(async () => {
     setLoading(true);
+    setLoadErr(null);
     try {
       const res = await fetch("/api/pricing-plans", { cache: "no-store" });
       const data = await res.json();
@@ -98,9 +101,13 @@ export default function PricingPlansPage() {
         setPlans(
           (data.data as Record<string, unknown>[]).map((p) => normalizePricingPlanRow(p))
         );
+      } else {
+        setPlans([]);
+        setLoadErr(jsonApiErrorMessage(data) || "Failed to load pricing plans");
       }
-    } catch (error) {
-      console.error("Failed to fetch plans", error);
+    } catch {
+      setPlans([]);
+      setLoadErr("Failed to load pricing plans. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -127,6 +134,14 @@ export default function PricingPlansPage() {
 
   return (
     <div className="mx-auto w-full max-w-[min(100rem,calc(100vw-2rem))] space-y-5 animate-in fade-in duration-500">
+      {loadErr && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">
+          {loadErr}
+          <button type="button" onClick={() => void fetchPlans()} className="ml-3 font-semibold underline">
+            Retry
+          </button>
+        </div>
+      )}
       <DashboardPageHeader
         title="Pricing plans"
         description="Manage your subscription tiers with fixed seat quotas and role-based seeding."
@@ -170,6 +185,12 @@ export default function PricingPlansPage() {
         <PricingPlanCardSkeletonGrid cards={3} />
       ) : null}
       <div className={`grid gap-6 lg:grid-cols-3 ${loading ? "hidden" : ""}`}>
+        {!loading && plans.length === 0 && !loadErr && (
+          <div className="lg:col-span-3 rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 px-6 py-12 text-center dark:border-zinc-700 dark:bg-zinc-900/40">
+            <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">No pricing tiers yet</p>
+            <p className="mt-1 text-xs text-zinc-500">Create your first subscription tier to get started.</p>
+          </div>
+        )}
         {plans.map((plan) => (
           <div key={plan.id} className={`relative flex flex-col p-8 rounded-3xl border-2 transition-all hover:shadow-2xl ${plan.popular ? 'border-[var(--brand-primary)] bg-white dark:bg-zinc-900' : 'border-zinc-100 bg-white dark:bg-zinc-900 dark:border-zinc-800'}`}>
             {plan.popular && <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-[var(--brand-primary)] text-white px-4 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase shadow-lg">Most Popular</div>}

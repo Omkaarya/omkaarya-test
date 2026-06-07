@@ -2,7 +2,9 @@ import { Router } from "express";
 import { sendSuccess, sendError } from "../middleware/api-envelope.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { sendInvoiceOnlyEmail, sendPaymentReceiptEmail } from "../email/send-temple-billing.js";
-import { PostgresBillingRepository, confirmPaymentSubmission, listPendingPaymentSubmissionsForConfirm, rejectPaymentSubmission } from "./billing.repository.js";
+import { PostgresBillingRepository, confirmPaymentSubmission, listPendingPaymentSubmissionsForConfirm, peekNextInvoiceNumber, rejectPaymentSubmission } from "./billing.repository.js";
+import { getPool } from "../db/pool.js";
+import { HttpError } from "../middleware/http-error.js";
 
 function asString(v: unknown): string {
   return typeof v === "string" ? v : Array.isArray(v) ? String(v[0] ?? "") : "";
@@ -336,6 +338,26 @@ export function createBillingRouter(billing: PostgresBillingRepository): Router 
     })
   );
 
+  r.get(
+    "/billing/invoices/next-number",
+    asyncHandler(async (_req, res) => {
+      const pool = getPool();
+      if (!pool) {
+        throw new HttpError(503, "Database not configured", {
+          code: "DB_NOT_CONFIGURED",
+          reason: "Cannot preview next invoice number.",
+        });
+      }
+      const client = await pool.connect();
+      try {
+        const invoiceNumber = await peekNextInvoiceNumber(client);
+        sendSuccess(res, 200, { invoiceNumber }, "Next invoice number", "Preview of the next sequential invoice number.");
+      } finally {
+        client.release();
+      }
+    })
+  );
+
   r.post(
     "/billing/invoices/generate",
     asyncHandler(async (req, res) => {
@@ -348,8 +370,15 @@ export function createBillingRouter(billing: PostgresBillingRepository): Router 
         description: string;
         sendEmail: boolean;
       }>;
+      const tenantId = String(body.tenantId ?? "").trim();
+      if (!tenantId) {
+        throw new HttpError(400, "tenantId is required", {
+          code: "VALIDATION_ERROR",
+          reason: "Select a temple before generating an invoice.",
+        });
+      }
       const out = await billing.generateInvoice({
-        tenantId: String(body.tenantId ?? ""),
+        tenantId,
         planName: String(body.planName ?? ""),
         billingCycleRaw: String(body.billingCycleRaw ?? ""),
         issueDate: String(body.issueDate ?? ""),
@@ -583,11 +612,10 @@ export function createBillingRouter(billing: PostgresBillingRepository): Router 
     "/billing/payment-submissions/:id/confirm",
     asyncHandler(async (req, res) => {
       const id = asString((req.params as { id?: string }).id);
-      const body = (req.body ?? {}) as { verifiedBy?: string };
-      const verifiedBy =
-        typeof body.verifiedBy === "string"
-          ? body.verifiedBy
-          : process.env.SUPER_ADMIN_VERIFIER_NAME || "System";
+      const session = (
+        res.locals as { superAdminSession?: { email: string } }
+      ).superAdminSession;
+      const verifiedBy = session?.email?.trim() || process.env.SUPER_ADMIN_VERIFIER_NAME || "Super Admin";
       const out = await confirmPaymentSubmission(id, verifiedBy);
       if (!out.ok) {
         const code = out.reason === "not_found" || out.reason === "not_linked" ? 404 : 409;

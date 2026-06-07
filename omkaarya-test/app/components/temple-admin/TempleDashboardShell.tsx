@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import {
   Bell,
   CalendarDays,
@@ -151,8 +152,16 @@ export function TempleDashboardShell({
     return disabledModules.has(moduleKey);
   };
 
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   return (
-    <div className="flex h-screen min-h-0 overflow-hidden bg-white font-sans text-[var(--text-primary)] dark:bg-zinc-950">
+    <div className="flex h-dvh max-h-dvh min-h-0 overflow-hidden bg-white font-sans text-[var(--text-primary)] dark:bg-zinc-950">
       {sidebarOpen && (
         <button
           type="button"
@@ -264,8 +273,8 @@ export function TempleDashboardShell({
         </nav>
       </aside>
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:pl-64">
-        <header className="flex h-16 shrink-0 items-center gap-4 border-b border-zinc-100 bg-white px-4 pr-20 dark:border-zinc-800 dark:bg-zinc-950 lg:pr-24">
+      <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[auto_1fr_auto] overflow-hidden lg:pl-64">
+        <header className="z-10 flex h-16 shrink-0 items-center gap-4 border-b border-zinc-100 bg-white px-4 pr-20 dark:border-zinc-800 dark:bg-zinc-950 lg:pr-24">
           <button
             type="button"
             aria-label="Open menu"
@@ -300,11 +309,11 @@ export function TempleDashboardShell({
           </div>
         </header>
 
-        <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <main className="min-h-0 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
           {children}
         </main>
 
-        <footer className="shrink-0 border-t border-zinc-100 bg-white px-4 py-4 text-xs text-[var(--text-muted)] dark:border-zinc-800 dark:bg-zinc-950">
+        <footer className="z-10 shrink-0 border-t border-zinc-100 bg-white px-4 py-4 text-xs text-[var(--text-muted)] dark:border-zinc-800 dark:bg-zinc-950">
           <div className="mx-auto flex max-w-7xl items-center justify-between">
             <p>© 2024 - 2026 Omkaarya</p>
             <div className="flex gap-4">

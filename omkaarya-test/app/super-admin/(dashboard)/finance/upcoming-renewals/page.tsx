@@ -120,7 +120,7 @@ export default function UpcomingRenewalsPage() {
 
   const columns = useMemo<ColumnDef<RenewalRow>[]>(() => [
     {
-      key: "temple", header: "Temple", sortable: true,
+      key: "temple", header: "Temple", sortable: false,
       cell: (r) => (
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 border border-brand-100 text-sm">🛕</div>

@@ -22,9 +22,7 @@ export default function TempleDashboardLayout({
       theme={theme}
       onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
     >
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {children}
-      </div>
+      {children}
     </TempleDashboardShell>
   );
 }

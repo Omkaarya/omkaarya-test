@@ -1,6 +1,8 @@
 /** GET /api/temples/:tenantId — matches backend SuperAdminTempleDetailResponse */
 export type SuperAdminTempleDetail = {
   tenantId: string;
+  status: string;
+  compliance: string;
   temple: {
     tradition: string;
     name: string;

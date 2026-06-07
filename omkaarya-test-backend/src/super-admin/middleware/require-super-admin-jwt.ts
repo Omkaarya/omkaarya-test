@@ -98,6 +98,17 @@ export const requireSuperAdminJwt: RequestHandler = async (req, res, next) => {
       });
     }
 
+    const saUser = await pool.query<{ is_active: boolean }>(
+      `SELECT is_active FROM sa_users WHERE lower(trim(email)) = lower(trim($1)) LIMIT 1`,
+      [email]
+    );
+    if (saUser.rows[0] && !saUser.rows[0].is_active) {
+      throw new HttpError(403, "Super-admin account inactive.", {
+        code: "FORBIDDEN",
+        reason: "Your super-admin portal account has been deactivated.",
+      });
+    }
+
     (res.locals as { superAdminSession?: { email: string; platformUserId: string } }).superAdminSession = {
       email,
       platformUserId: rows[0]!.id,
