@@ -358,9 +358,17 @@ export default function FeatureRegistryPage() {
 
   const handleToggle = async (id: string) => {
     setTogglingId(id);
+    setLoadError("");
     try {
       const res = await fetch(`/api/features/${id}`, { method: "PATCH" });
-      if (res.ok) await loadFeatures();
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.success !== false) {
+        await loadFeatures();
+      } else {
+        setLoadError(json?.error?.message || "Failed to update feature status");
+      }
+    } catch {
+      setLoadError("Network error — could not update feature status.");
     } finally {
       setTogglingId(null);
     }

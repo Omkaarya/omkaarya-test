@@ -404,6 +404,7 @@ export default function AdminUsersPage() {
   const [actionMenu, setActionMenu] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [actionErr, setActionErr] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -434,6 +435,7 @@ export default function AdminUsersPage() {
   const handleToggle = useCallback(async (id: string) => {
     setTogglingId(id);
     setActionMenu(null);
+    setActionErr(null);
     try {
       const res = await fetch(`/api/admin-users/${id}`, {
         method: "PATCH",
@@ -443,7 +445,11 @@ export default function AdminUsersPage() {
       const json = await res.json();
       if (json.success) {
         setUsers((prev) => prev.map((u) => (u.id === id ? json.data : u)));
+      } else {
+        setActionErr(json.error?.message || "Failed to update user status");
       }
+    } catch {
+      setActionErr("Network error — could not update user status.");
     } finally {
       setTogglingId(null);
     }
@@ -453,10 +459,17 @@ export default function AdminUsersPage() {
     if (!confirm("Permanently delete this user? This cannot be undone.")) return;
     setDeletingId(id);
     setActionMenu(null);
+    setActionErr(null);
     try {
       const res = await fetch(`/api/admin-users/${id}`, { method: "DELETE" });
       const json = await res.json();
-      if (json.success) setUsers((prev) => prev.filter((u) => u.id !== id));
+      if (json.success) {
+        setUsers((prev) => prev.filter((u) => u.id !== id));
+      } else {
+        setActionErr(json.error?.message || "Failed to delete user");
+      }
+    } catch {
+      setActionErr("Network error — could not delete user.");
     } finally {
       setDeletingId(null);
     }
@@ -642,6 +655,12 @@ export default function AdminUsersPage() {
           </div>
         ))}
       </div>
+
+      {actionErr && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">
+          {actionErr}
+        </div>
+      )}
 
       <AdminListCard>
         <AdminTableToolbar>

@@ -287,6 +287,14 @@ export function AdminDashboardShell({
   }, []);
 
   useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  useEffect(() => {
     syncFullscreen();
     document.addEventListener("fullscreenchange", syncFullscreen);
     document.addEventListener("webkitfullscreenchange", syncFullscreen);
@@ -373,7 +381,7 @@ export function AdminDashboardShell({
   return (
     <div
       ref={shellRef}
-      className="flex h-screen min-h-0 overflow-hidden bg-white font-sans text-[var(--text-primary)] dark:bg-zinc-950"
+      className="flex h-dvh max-h-dvh min-h-0 overflow-hidden bg-white font-sans text-[var(--text-primary)] dark:bg-zinc-950"
     >
       {sidebarOpen && (
         <button
@@ -511,8 +519,8 @@ export function AdminDashboardShell({
         </nav>
       </aside>
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:pl-64">
-        <header className="flex h-16 shrink-0 items-center gap-4 border-b border-white bg-white px-4 dark:border-zinc-950 dark:bg-zinc-950">
+      <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[auto_1fr_auto] overflow-hidden lg:pl-64">
+        <header className="z-10 flex h-16 shrink-0 items-center gap-4 border-b border-white bg-white px-4 dark:border-zinc-950 dark:bg-zinc-950">
           <button
             type="button"
             aria-label="Open menu"
@@ -613,7 +621,7 @@ export function AdminDashboardShell({
 
         {children}
 
-        <footer className="shrink-0 border-t border-white bg-white px-4 py-4 text-sm dark:border-zinc-950 dark:bg-zinc-950">
+        <footer className="z-10 shrink-0 border-t border-white bg-white px-4 py-4 text-sm dark:border-zinc-950 dark:bg-zinc-950">
           <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 sm:flex-row sm:gap-4">
             <p className="text-center text-[var(--text-muted)] sm:text-left">
               2024 - 2026 ©{" "}
@@ -631,29 +639,17 @@ export function AdminDashboardShell({
             </p>
             <div className="flex flex-wrap justify-center gap-4 sm:justify-end">
               <a
-                href="#"
-                className="text-[var(--brand-primary)] hover:underline"
-              >
-                Terms
-              </a>
-              <a
-                href="#"
-                className="text-[var(--brand-primary)] hover:underline"
-              >
-                Privacy
-              </a>
-              <a
-                href="#"
+                href="mailto:support@pepulux.com"
                 className="text-[var(--brand-primary)] hover:underline"
               >
                 Help
               </a>
-              <a
-                href="#"
+              <Link
+                href="/super-admin/cms"
                 className="text-[var(--brand-primary)] hover:underline"
               >
-                Status
-              </a>
+                Website CMS
+              </Link>
             </div>
           </div>
         </footer>

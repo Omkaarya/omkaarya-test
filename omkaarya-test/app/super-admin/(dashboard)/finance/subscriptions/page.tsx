@@ -887,7 +887,7 @@ export default function SubscriptionsPage() {
       {
         key: "templeName",
         header: "Temple",
-        sortable: true,
+        sortable: false,
         className: "max-w-[16rem]",
         cell: (row) => (
           <EntityNameCell

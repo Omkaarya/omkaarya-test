@@ -59,7 +59,7 @@ export function createSubscriptionsRouter(repo: PostgresSubscriptionsRepository)
         const pageSize = Number.parseInt(asString(req.query.pageSize) || "10", 10);
         const payload = await repo.listUpcomingRenewals({
           q,
-          days: Number.isFinite(days) ? days : 60,
+          days: Number.isFinite(days) ? days : 30,
           page: Number.isFinite(page) ? page : 1,
           pageSize: Number.isFinite(pageSize) ? pageSize : 10,
         });
@@ -84,9 +84,23 @@ export function createSubscriptionsRouter(repo: PostgresSubscriptionsRepository)
     "/subscriptions/:id/verify",
     asyncHandler(async (req, res) => {
       const id = typeof req.params.id === "string" ? req.params.id : "";
+      const session = (
+        res.locals as { superAdminSession?: { email: string } }
+      ).superAdminSession;
+      const verifiedBy = session?.email?.trim() || "Super Admin";
       try {
-        const out = await repo.verify(id, "Super Admin");
+        const out = await repo.verify(id, verifiedBy);
         if (!out.ok) {
+          if (out.reason === "invalid_state") {
+            sendError(
+              res,
+              409,
+              "INVALID_STATE",
+              "Subscription cannot be verified.",
+              "Only pending subscriptions can be verified."
+            );
+            return;
+          }
           sendError(
             res,
             404,
@@ -207,9 +221,23 @@ export function createSubscriptionsRouter(repo: PostgresSubscriptionsRepository)
     "/subscriptions/:id/reject",
     asyncHandler(async (req, res) => {
       const id = typeof req.params.id === "string" ? req.params.id : "";
+      const session = (
+        res.locals as { superAdminSession?: { email: string } }
+      ).superAdminSession;
+      const verifiedBy = session?.email?.trim() || "Super Admin";
       try {
-        const out = await repo.reject(id, "Super Admin");
+        const out = await repo.reject(id, verifiedBy);
         if (!out.ok) {
+          if (out.reason === "invalid_state") {
+            sendError(
+              res,
+              409,
+              "INVALID_STATE",
+              "Subscription cannot be rejected.",
+              "Only pending subscriptions can be rejected."
+            );
+            return;
+          }
           sendError(
             res,
             404,

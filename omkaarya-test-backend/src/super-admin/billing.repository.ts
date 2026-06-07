@@ -99,6 +99,17 @@ export async function nextInvoiceNumber(client: Pick<PoolClient, "query">): Prom
   return `INV-${y}-${n.padStart(5, "0")}`;
 }
 
+/** Preview the next invoice number without consuming the sequence. */
+export async function peekNextInvoiceNumber(client: Pick<PoolClient, "query">): Promise<string> {
+  const y = new Date().getUTCFullYear();
+  const { rows } = await client.query<{ next_n: string }>(
+    `SELECT CASE WHEN is_called THEN last_value + 1 ELSE last_value END::text AS next_n
+     FROM public.billing_invoice_number_seq`
+  );
+  const n = String(rows[0]?.next_n ?? "1");
+  return `INV-${y}-${n.padStart(5, "0")}`;
+}
+
 export async function nextReceiptNumber(client: Pick<PoolClient, "query">): Promise<string> {
   const y = new Date().getUTCFullYear();
   const { rows } = await client.query<{ seq: string }>(`SELECT nextval('public.billing_receipt_number_seq')::text AS seq`);

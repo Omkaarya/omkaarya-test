@@ -11,6 +11,7 @@ import { useUnsavedFormGuard } from "@/lib/use-unsaved-form-guard";
 import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Loader2, Save } from "lucide-react";
+import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import PricingTierForm, {
   PRICING_TIER_INITIAL_FORM,
   type PricingTierFormData,
@@ -25,6 +26,8 @@ export default function CreatePricingPlanPage() {
   const [registryFeatures, setRegistryFeatures] = useState<RegistryFeatureRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitErr, setSubmitErr] = useState<string | null>(null);
+  const [registryErr, setRegistryErr] = useState<string | null>(null);
   const [formData, setFormData] = useState<PricingTierFormData>(PRICING_TIER_INITIAL_FORM);
   const baselineRef = useRef(formSnapshot(PRICING_TIER_INITIAL_FORM));
 
@@ -34,15 +37,18 @@ export default function CreatePricingPlanPage() {
 
   const loadRegistryFeatures = useCallback(async () => {
     setLoading(true);
+    setRegistryErr(null);
     try {
       const res = await fetch("/api/features", { cache: "no-store" });
       const j = await res.json();
       const data = Array.isArray(j) ? j : j?.success && Array.isArray(j.data) ? j.data : null;
       if (Array.isArray(data)) {
         setRegistryFeatures(data.filter((f) => f.isActive));
+      } else {
+        setRegistryErr(jsonApiErrorMessage(j) || "Failed to load feature registry");
       }
-    } catch (e) {
-      console.error("Failed to load feature registry", e);
+    } catch {
+      setRegistryErr("Failed to load feature registry. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -55,6 +61,7 @@ export default function CreatePricingPlanPage() {
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     setIsSubmitting(true);
+    setSubmitErr(null);
     try {
       const res = await fetch("/api/pricing-plans", {
         method: "POST",
@@ -69,9 +76,11 @@ export default function CreatePricingPlanPage() {
           message: "Pricing tier created successfully.",
           redirectTo: LIST_PATH,
         });
+      } else {
+        setSubmitErr(jsonApiErrorMessage(data) || "Failed to create pricing tier");
       }
-    } catch (e) {
-      console.error("Failed to create plan", e);
+    } catch {
+      setSubmitErr("Network error — please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -87,6 +96,16 @@ export default function CreatePricingPlanPage() {
 
   return (
     <div className="mx-auto max-w-[1200px] animate-in space-y-5 pb-20 duration-500 fade-in">
+      {(registryErr || submitErr) && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">
+          {submitErr ?? registryErr}
+          {registryErr && (
+            <button type="button" onClick={() => void loadRegistryFeatures()} className="ml-3 font-semibold underline">
+              Retry
+            </button>
+          )}
+        </div>
+      )}
       <DashboardPageHeader
         breadcrumb={
           <>

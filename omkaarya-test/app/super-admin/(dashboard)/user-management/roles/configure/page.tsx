@@ -183,6 +183,23 @@ function ConfigureContent() {
 
   const totalGranted = features.filter((f) => permissions[f.key] && permissions[f.key] !== "none").length;
 
+  if (!roleId) {
+    return (
+      <div className="space-y-4 p-2">
+        <DashboardPageHeader
+          title="Configure permissions"
+          description="Select a role from the roles list to configure its permission matrix."
+        />
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-200">
+          No role selected.{" "}
+          <Link href={LIST_PATH} className="font-semibold underline">
+            Back to roles
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5 p-2">
       <DashboardPageHeader

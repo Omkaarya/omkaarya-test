@@ -11,10 +11,24 @@ npm install
 ```
 
 - Create `omkaarya-test-backend/.env` (see `.env.example`).
-- Run migrations + seed:
+- Run migrations (schema only):
+
+```bash
+npm run migrate
+```
+
+- Optionally load demo/reference data (manual — **not** run on `npm run dev`):
+
+```bash
+npm run seed
+npm run seed:pricing-plans
+```
+
+Or both in one step for a fresh local DB:
 
 ```bash
 npm run db:setup
+npm run seed:pricing-plans
 ```
 
 - Start dev server:

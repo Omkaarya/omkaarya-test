@@ -893,6 +893,7 @@ export class PostgresTempleRepository implements TempleRepository {
       city: string;
       plan: string;
       status: string;
+      compliance: string;
       trial_ends_at: string | null;
       admin_email: string;
       contact_email: string | null;
@@ -914,6 +915,7 @@ export class PostgresTempleRepository implements TempleRepository {
          t.city,
          t.plan,
          t.status,
+         t.compliance,
          t.trial_ends_at::text AS trial_ends_at,
          t.admin_email,
          t.contact_email,
@@ -1005,6 +1007,8 @@ export class PostgresTempleRepository implements TempleRepository {
 
     const response: SuperAdminTempleDetailResponse = {
       tenantId: r.tenant_id,
+      status: (r.status ?? "Trial").trim() || "Trial",
+      compliance: (r.compliance ?? "Pending").trim() || "Pending",
       temple: {
         tradition: (tradition ?? "Hindu").trim() || "Hindu",
         name: r.name.trim(),

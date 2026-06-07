@@ -94,6 +94,7 @@ export default function ConfirmPaymentsPage() {
     message: string;
     type: "success" | "error";
   } | null>(null);
+  const [actionId, setActionId] = useState<string | null>(null);
 
   const showToast = useCallback((msg: string, type: "success" | "error") => {
     setToast({ message: msg, type });
@@ -129,59 +130,69 @@ export default function ConfirmPaymentsPage() {
 
   const handleConfirm = useCallback(
     async (payment: PendingPayment) => {
-      const res = await fetch(
-        `/api/billing/payment-submissions/${encodeURIComponent(payment.id)}/confirm`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
+      setActionId(payment.id);
+      try {
+        const res = await fetch(
+          `/api/billing/payment-submissions/${encodeURIComponent(payment.id)}/confirm`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({}),
           },
-          body: JSON.stringify({}),
-        },
-      );
-      const d = await res.json().catch(() => null);
-      if (
-        !res.ok ||
-        (d && typeof d === "object" && "success" in d && d.success === false)
-      ) {
-        showToast(jsonApiErrorMessage(d) || "Confirm failed", "error");
-        return;
+        );
+        const d = await res.json().catch(() => null);
+        if (
+          !res.ok ||
+          (d && typeof d === "object" && "success" in d && d.success === false)
+        ) {
+          showToast(jsonApiErrorMessage(d) || "Confirm failed", "error");
+          return;
+        }
+        setPayments((prev) => prev.filter((p) => p.id !== payment.id));
+        dispatchPendingPaymentSubmissionsChanged();
+        showToast(
+          `Payment confirmed! Receipt generated and emailed to ${payment.temple}.`,
+          "success",
+        );
+      } finally {
+        setActionId(null);
       }
-      setPayments((prev) => prev.filter((p) => p.id !== payment.id));
-      dispatchPendingPaymentSubmissionsChanged();
-      showToast(
-        `Payment confirmed! Receipt generated and emailed to ${payment.temple}.`,
-        "success",
-      );
     },
     [showToast],
   );
 
   const handleReject = useCallback(
     async (payment: PendingPayment) => {
-      const res = await fetch(
-        `/api/billing/payment-submissions/${encodeURIComponent(payment.id)}/reject`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
+      setActionId(payment.id);
+      try {
+        const res = await fetch(
+          `/api/billing/payment-submissions/${encodeURIComponent(payment.id)}/reject`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({}),
           },
-          body: JSON.stringify({}),
-        },
-      );
-      const d = await res.json().catch(() => null);
-      if (
-        !res.ok ||
-        (d && typeof d === "object" && "success" in d && d.success === false)
-      ) {
-        showToast(jsonApiErrorMessage(d) || "Reject failed", "error");
-        return;
+        );
+        const d = await res.json().catch(() => null);
+        if (
+          !res.ok ||
+          (d && typeof d === "object" && "success" in d && d.success === false)
+        ) {
+          showToast(jsonApiErrorMessage(d) || "Reject failed", "error");
+          return;
+        }
+        setPayments((prev) => prev.filter((p) => p.id !== payment.id));
+        dispatchPendingPaymentSubmissionsChanged();
+        showToast(`Submission rejected for ${payment.temple}.`, "error");
+      } finally {
+        setActionId(null);
       }
-      setPayments((prev) => prev.filter((p) => p.id !== payment.id));
-      dispatchPendingPaymentSubmissionsChanged();
-      showToast(`Submission rejected for ${payment.temple}.`, "error");
     },
     [showToast],
   );
@@ -321,6 +332,7 @@ export default function ConfirmPaymentsPage() {
                 <Button
                   variant="primary"
                   size="sm"
+                  disabled={actionId === payment.id}
                   onClick={() => void handleConfirm(payment)}
                 >
                   ✓ Confirm &amp; activate
@@ -329,6 +341,7 @@ export default function ConfirmPaymentsPage() {
                   variant="outline"
                   size="sm"
                   className="text-red-600 border-red-200 hover:border-red-400 hover:text-red-700"
+                  disabled={actionId === payment.id}
                   onClick={() => void handleReject(payment)}
                 >
                   Reject
@@ -338,7 +351,7 @@ export default function ConfirmPaymentsPage() {
           </div>
         ))}
 
-        {!loading && payments.length === 0 && (
+        {!loading && !loadErr && payments.length === 0 && (
           <div className="bg-surface rounded-xl border border-border p-12 text-center">
             <div className="text-4xl mb-3">✅</div>
             <h3 className="text-sm font-bold text-text-primary mb-1">

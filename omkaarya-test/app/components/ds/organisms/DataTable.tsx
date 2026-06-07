@@ -167,7 +167,8 @@ export function DataTable<T>({
 
                   {columns.map((col, cIdx) => (
                     <td 
-                      key={cIdx} 
+                      key={cIdx}
+                      style={col.width ? { width: col.width } : undefined}
                       className={`
                         min-w-0 overflow-hidden px-6 py-4 align-middle
                         ${col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"}

@@ -149,6 +149,8 @@ export type UpdateTemplePayload = {
 /** GET /api/temples/:tenantId — hydrates the super-admin wizard. */
 export type SuperAdminTempleDetailResponse = {
   tenantId: string;
+  status: string;
+  compliance: string;
   temple: CreateTemplePayload["temple"];
   admin: CreateTemplePayload["admin"];
   planBilling: CreateTemplePayload["planBilling"];

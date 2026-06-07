@@ -300,7 +300,15 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
   });
   const [step1ShowErrors, setStep1ShowErrors] = useState(false);
   const [validationToastOpen, setValidationToastOpen] = useState(false);
-  const [quickActionMessage, setQuickActionMessage] = useState<string | null>(null);
+  const templeStatusLabel =
+    mode === "edit" && initialDetail?.status ? initialDetail.status : mode === "create" ? "Trial" : "Trial";
+  const complianceLabel = initialDetail?.compliance?.trim() || "Not set up";
+  const complianceDescription =
+    complianceLabel === "Verified"
+      ? "Compliance documents are verified. Full tax-compliant receipts are enabled."
+      : complianceLabel === "Pending"
+        ? "Compliance review is pending. Basic receipts are active until verification completes."
+        : "Temple has not submitted compliance documents yet. Basic receipts are active.";
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
@@ -2177,7 +2185,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                     <h3 className="mb-3 font-semibold text-zinc-900 dark:text-zinc-100">Subscription</h3>
                     <dl className="space-y-2 text-sm">
                       <div className="flex justify-between"><dt className="text-zinc-500">Plan</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{selectedPlanForReview}</dd></div>
-                      <div className="flex justify-between"><dt className="text-zinc-500">Status</dt><dd className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-700">Trial</dd></div>
+                      <div className="flex justify-between"><dt className="text-zinc-500">Status</dt><dd className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-700">{templeStatusLabel}</dd></div>
                       <div className="flex justify-between"><dt className="text-zinc-500">Billing</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{billingCycle}</dd></div>
                       <div className="flex justify-between"><dt className="text-zinc-500">Next Renewal</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{renewalDateLabel}</dd></div>
                       <div className="flex justify-between"><dt className="text-zinc-500">Amount</dt><dd className="font-medium text-zinc-900 dark:text-zinc-100">{billingAmountLabel}</dd></div>
@@ -2195,51 +2203,9 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                   <section className="rounded-lg border border-zinc-100 bg-zinc-50/70 p-4 dark:border-zinc-800 dark:bg-zinc-800/40">
                     <h3 className="mb-2 font-semibold text-zinc-900 dark:text-zinc-100">Compliance</h3>
                     <p className="mb-2 inline-block rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-semibold text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">
-                      Compliance not setup
+                      {complianceLabel}
                     </p>
-                    <p className="text-sm text-zinc-600 dark:text-zinc-300">
-                      Temple has not submitted compliance documents yet. Basic receipts are active.
-                    </p>
-                  </section>
-
-                  <section className="rounded-lg border border-zinc-100 bg-zinc-50/70 p-4 dark:border-zinc-800 dark:bg-zinc-800/40">
-                    <h3 className="mb-3 font-semibold text-zinc-900 dark:text-zinc-100">Quick actions</h3>
-                    <div className="space-y-2">
-                      {[
-                        "Login as this temple",
-                        "Resend admin invite",
-                        "View Microsite",
-                        "Download Devotee Data",
-                      ].map((label) => (
-                        <button
-                          key={label}
-                          type="button"
-                          disabled={isViewOnly}
-                          onClick={() => setQuickActionMessage(`${label} is coming soon.`)}
-                          className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                        >
-                          {label}
-                        </button>
-                      ))}
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          disabled={isViewOnly}
-                          onClick={() => setQuickActionMessage("Suspend Subscription is coming soon.")}
-                          className="rounded-lg border border-rose-300 px-3 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30"
-                        >
-                          Suspend Subscription
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isViewOnly}
-                          onClick={() => setQuickActionMessage("Delete This Temple is coming soon.")}
-                          className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          Delete This Temple
-                        </button>
-                      </div>
-                    </div>
+                    <p className="text-sm text-zinc-600 dark:text-zinc-300">{complianceDescription}</p>
                   </section>
                 </div>
               </div>
@@ -2262,7 +2228,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                   </>
                 )}
               </p>
-              {quickActionMessage && <p className="text-sm text-zinc-600 dark:text-zinc-300">{quickActionMessage}</p>}
+
               {submitError && <p className="text-sm text-red-500">{submitError}</p>}
               <PostSaveSuccessBanner text={postSave.bannerText ?? (submitSuccess && !postSave.isLocked ? submitSuccess : null)} />
             </div>

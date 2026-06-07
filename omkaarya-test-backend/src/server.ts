@@ -10,6 +10,9 @@ import { INSTANCE_ID } from "./instance-id.js";
  * - `AUTO_MIGRATE=1|true|yes`, or
  * - unset and `NODE_ENV` is not `production` (local dev convenience).
  * Set `AUTO_MIGRATE=0` or `false` to skip even in development.
+ *
+ * Migrations are schema-only. Demo/reference rows (temples, users, RBAC, etc.)
+ * are inserted only via `npm run seed`, never on server start.
  */
 function autoMigrateEnabled(): boolean {
   const v = (process.env.AUTO_MIGRATE ?? "").trim().toLowerCase();

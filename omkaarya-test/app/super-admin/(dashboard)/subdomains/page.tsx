@@ -12,6 +12,7 @@ import AdminFiltersBar from "@/app/components/admin/AdminFiltersBar";
 import AdminPagination from "@/app/components/admin/AdminPagination";
 import StatusBadge from "@/app/components/admin/StatusBadge";
 import { DashboardPageHeader } from "@/app/components/admin/DashboardPageHeader";
+import { TEMPLE_NAME_DISPLAY_MAX, truncateToMaxLength } from "@/lib/truncate-display";
 
 type StatusFilter = "all" | "Active" | "Trial" | "Suspended";
 
@@ -102,11 +103,13 @@ export default function SubdomainsPage() {
       {
         key: "temple",
         header: "Temple",
-        className: "max-w-[16rem]",
+        width: "30ch",
+        className: "min-w-[30ch] w-[30ch]",
         cell: (row) => (
           <EntityNameCell
             initials={initials(row.name)}
-            title={row.name}
+            title={truncateToMaxLength(row.name, TEMPLE_NAME_DISPLAY_MAX)}
+            titleTooltip={row.name}
             subtitle={row.subdomain || row.portalHost || "—"}
           />
         ),
@@ -138,12 +141,15 @@ export default function SubdomainsPage() {
       {
         key: "city",
         header: "City",
+        className: "max-w-[12rem]",
         cell: (row) => (
-          <div className="flex items-center gap-2">
-            <span className="text-lg" aria-hidden>
-              {row.countryFlag}
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="shrink-0 text-lg leading-none" aria-hidden>
+              {row.countryFlag || "🌐"}
             </span>
-            <span className="text-text-primary">{row.city}</span>
+            <span className="min-w-0 truncate text-sm text-text-primary" title={row.city || undefined}>
+              {row.city || "—"}
+            </span>
           </div>
         ),
       },

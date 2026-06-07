@@ -17,13 +17,4 @@ CREATE TABLE IF NOT EXISTS public.master_deities (
 CREATE INDEX IF NOT EXISTS idx_master_deities_active ON public.master_deities (is_active);
 CREATE INDEX IF NOT EXISTS idx_master_deities_country ON public.master_deities (country_code);
 
--- Seed canonical rows (slugs match legacy DEITY_CATALOG / onboarding).
-INSERT INTO public.master_deities (slug, display_serial, name, secondary_label, is_active, country_code, placeholder_hue, image_data_url)
-VALUES
-  ('pillaiyaar', 1, 'Pillaiyaar', '(Ganesha)', true, NULL, 'from-amber-400 to-orange-500', NULL),
-  ('murugan', 2, 'Murugan', NULL, true, NULL, 'from-emerald-500 to-teal-600', NULL),
-  ('shivan', 3, 'Shivan', NULL, true, NULL, 'from-slate-500 to-zinc-600', NULL),
-  ('guruvayurappan', 4, 'Guruvayurappan', NULL, true, NULL, 'from-rose-400 to-pink-600', NULL),
-  ('amman', 5, 'Amman', NULL, true, NULL, 'from-fuchsia-500 to-purple-600', NULL),
-  ('aanjaneyar', 6, 'Aanjaneyar', NULL, true, NULL, 'from-orange-500 to-red-600', NULL)
-ON CONFLICT (slug) DO NOTHING;
+-- Canonical deity rows: run `npm run seed` manually (not on migrate/server start).

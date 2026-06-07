@@ -1,4 +1,9 @@
 import { requirePool } from "../db/pool.js";
+import {
+  deletePlatformUserByEmail,
+  syncPlatformUserActiveByEmail,
+  upsertPlatformSuperAdminUser,
+} from "./sa-platform-user-sync.js";
 
 export type AccessLevel = "none" | "view" | "full";
 
@@ -27,6 +32,8 @@ export type SaUserDto = {
   isActive: boolean;
   lastLogin: string | null;
   createdAt: string;
+  /** Present only when a new login account was created with a temporary password. */
+  tempPassword?: string | null;
 };
 
 export type CreateSaUserInput = {
@@ -114,15 +121,32 @@ export class PostgresSaRbacRepository {
 
   async insertSaUser(input: CreateSaUserInput): Promise<SaUserDto> {
     const pool = requirePool();
-    const result = await pool.query(
-      `
-    INSERT INTO sa_users (name, email, role_id, is_active)
-    VALUES ($1, $2, $3, $4)
-    RETURNING id, name, email, role_id, is_active, last_login, created_at
-  `,
-      [input.name, input.email, input.roleId ?? null, input.isActive ?? true]
-    );
-    return this.fetchSaUserById(result.rows[0].id) as Promise<SaUserDto>;
+    const client = await pool.connect();
+    let tempPassword: string | null = null;
+    try {
+      await client.query("BEGIN");
+      const platform = await upsertPlatformSuperAdminUser(client, {
+        email: input.email,
+        fullName: input.name,
+        isActive: input.isActive ?? true,
+      });
+      tempPassword = platform.tempPassword;
+
+      const result = await client.query<{ id: string }>(
+        `INSERT INTO sa_users (name, email, role_id, is_active)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id`,
+        [input.name, input.email.trim().toLowerCase(), input.roleId ?? null, input.isActive ?? true]
+      );
+      await client.query("COMMIT");
+      const user = (await this.fetchSaUserById(result.rows[0]!.id))!;
+      return { ...user, tempPassword };
+    } catch (e) {
+      await client.query("ROLLBACK");
+      throw e;
+    } finally {
+      client.release();
+    }
   }
 
   async updateSaUser(id: string, input: UpdateSaUserInput): Promise<SaUserDto | null> {
@@ -157,14 +181,53 @@ export class PostgresSaRbacRepository {
 
   async toggleSaUserActive(id: string): Promise<SaUserDto | null> {
     const pool = requirePool();
-    await pool.query(`UPDATE sa_users SET is_active = NOT is_active, updated_at = NOW() WHERE id = $1`, [id]);
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const current = await client.query<{ email: string; is_active: boolean }>(
+        `UPDATE sa_users SET is_active = NOT is_active, updated_at = NOW() WHERE id = $1
+         RETURNING email, is_active`,
+        [id]
+      );
+      if (current.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return null;
+      }
+      const row = current.rows[0]!;
+      await syncPlatformUserActiveByEmail(client, row.email, row.is_active);
+      await client.query("COMMIT");
+    } catch (e) {
+      await client.query("ROLLBACK");
+      throw e;
+    } finally {
+      client.release();
+    }
     return this.fetchSaUserById(id);
   }
 
   async deleteSaUser(id: string): Promise<boolean> {
     const pool = requirePool();
-    const result = await pool.query(`DELETE FROM sa_users WHERE id = $1`, [id]);
-    return (result.rowCount ?? 0) > 0;
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const existing = await client.query<{ email: string }>(
+        `SELECT email FROM sa_users WHERE id = $1 LIMIT 1`,
+        [id]
+      );
+      if (existing.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return false;
+      }
+      await client.query(`DELETE FROM sa_users WHERE id = $1`, [id]);
+      await deletePlatformUserByEmail(client, existing.rows[0]!.email);
+      await client.query("COMMIT");
+      return true;
+    } catch (e) {
+      await client.query("ROLLBACK");
+      throw e;
+    } finally {
+      client.release();
+    }
   }
 
   async fetchAllSaRoles(): Promise<SaRoleDto[]> {
@@ -204,14 +267,34 @@ export class PostgresSaRbacRepository {
     permissions: Array<{ featureKey: string; accessLevel: AccessLevel }>
   ): Promise<void> {
     const pool = requirePool();
-    await pool.query(`DELETE FROM sa_role_permissions WHERE role_id = $1`, [roleId]);
-    if (permissions.length === 0) return;
-    const values = permissions.map((_, i) => `($1, $${i * 2 + 2}, $${i * 2 + 3})`).join(", ");
-    const flat: unknown[] = [roleId];
-    permissions.forEach((perm) => flat.push(perm.featureKey, perm.accessLevel));
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(`DELETE FROM sa_role_permissions WHERE role_id = $1`, [roleId]);
+      if (permissions.length > 0) {
+        const values = permissions.map((_, i) => `($1, $${i * 2 + 2}, $${i * 2 + 3})`).join(", ");
+        const flat: unknown[] = [roleId];
+        permissions.forEach((perm) => flat.push(perm.featureKey, perm.accessLevel));
+        await client.query(
+          `INSERT INTO sa_role_permissions (role_id, feature_key, access_level) VALUES ${values}`,
+          flat
+        );
+      }
+      await client.query("COMMIT");
+    } catch (e) {
+      await client.query("ROLLBACK");
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  async touchLastLogin(email: string): Promise<void> {
+    const pool = requirePool();
     await pool.query(
-      `INSERT INTO sa_role_permissions (role_id, feature_key, access_level) VALUES ${values}`,
-      flat
+      `UPDATE sa_users SET last_login = NOW(), updated_at = NOW()
+       WHERE lower(trim(email)) = lower(trim($1))`,
+      [email.trim()]
     );
   }
 

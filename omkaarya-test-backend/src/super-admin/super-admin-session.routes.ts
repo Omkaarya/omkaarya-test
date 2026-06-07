@@ -67,13 +67,40 @@ export function createSuperAdminSessionRouter(): Router {
         });
       }
 
+      const saProfile = await pool.query<{
+        id: string;
+        name: string;
+        role_id: string | null;
+        role_name: string | null;
+        is_active: boolean;
+        last_login: string | null;
+      }>(
+        `SELECT u.id, u.name, u.role_id, r.name AS role_name, u.is_active, u.last_login::text
+         FROM sa_users u
+         LEFT JOIN sa_roles r ON r.id = u.role_id
+         WHERE lower(trim(u.email)) = lower(trim($1))
+         LIMIT 1`,
+        [session.email]
+      );
+      const sa = saProfile.rows[0];
+
       sendSuccess(
         res,
         200,
         {
           email: session.email,
-          fullName: row.full_name?.trim() || null,
+          fullName: row.full_name?.trim() || sa?.name?.trim() || null,
           roles: normalizeRolesFromDb(row.roles),
+          saUser: sa
+            ? {
+                id: sa.id,
+                name: sa.name,
+                roleId: sa.role_id,
+                roleName: sa.role_name,
+                isActive: sa.is_active,
+                lastLogin: sa.last_login,
+              }
+            : null,
         },
         "Profile loaded",
         "Current super-admin session"

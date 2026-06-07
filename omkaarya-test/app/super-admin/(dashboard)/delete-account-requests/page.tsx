@@ -73,6 +73,11 @@ export default function DeleteAccountRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{
+    id: string;
+    status: "Approved" | "Rejected";
+    temple: string;
+  } | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -216,7 +221,13 @@ export default function DeleteAccountRequestsPage() {
                 size="sm"
                 className="h-7 border-emerald-200 px-3 text-[11px] font-bold text-emerald-600 hover:bg-emerald-50"
                 disabled={actionId === req.id}
-                onClick={() => void setStatus(req.id, "Approved")}
+                onClick={() =>
+                  setConfirmAction({
+                    id: req.id,
+                    status: "Approved",
+                    temple: req.temple,
+                  })
+                }
               >
                 Approve
               </Button>
@@ -225,7 +236,13 @@ export default function DeleteAccountRequestsPage() {
                 size="sm"
                 className="h-7 border-red-200 px-3 text-[11px] font-bold text-red-600 hover:bg-red-50"
                 disabled={actionId === req.id}
-                onClick={() => void setStatus(req.id, "Rejected")}
+                onClick={() =>
+                  setConfirmAction({
+                    id: req.id,
+                    status: "Rejected",
+                    temple: req.temple,
+                  })
+                }
               >
                 Reject
               </Button>
@@ -335,6 +352,49 @@ export default function DeleteAccountRequestsPage() {
           {totalFiltered} request{totalFiltered !== 1 ? "s" : ""} matching filters
         </p>
       </AdminListCard>
+
+      {confirmAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            aria-label="Close dialog"
+            onClick={() => setConfirmAction(null)}
+          />
+          <div className="relative z-10 w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-2xl">
+            <h2 className="text-base font-bold text-text-primary">
+              {confirmAction.status === "Approved" ? "Approve deletion request?" : "Reject deletion request?"}
+            </h2>
+            <p className="mt-2 text-sm text-text-secondary">
+              {confirmAction.status === "Approved" ? (
+                <>
+                  Approving will suspend <strong>{confirmAction.temple}</strong>, revoke temple admin login access, and
+                  clear credentials for the requesting email. This cannot be undone from this screen.
+                </>
+              ) : (
+                <>Rejecting will mark this request as rejected. The temple account will remain active.</>
+              )}
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="outline" size="sm" onClick={() => setConfirmAction(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={actionId === confirmAction.id}
+                onClick={() => {
+                  const { id, status } = confirmAction;
+                  setConfirmAction(null);
+                  void setStatus(id, status);
+                }}
+              >
+                {confirmAction.status === "Approved" ? "Approve" : "Reject"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

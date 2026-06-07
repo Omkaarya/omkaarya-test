@@ -126,23 +126,76 @@ export class PostgresDeleteAccountRequestsRepository {
 
   async updateStatus(
     id: string,
-    status: "Approved" | "Rejected"
+    status: "Approved" | "Rejected",
+    reviewedBy?: string
   ): Promise<{ ok: true } | { ok: false; reason: "not_found" | "not_pending" }> {
     const pool = requirePool();
-    const res = await pool.query<{ id: string }>(
-      `UPDATE public.delete_account_requests
-       SET status = $1, updated_at = NOW()
-       WHERE id = $2::uuid AND status = 'Pending'
-       RETURNING id`,
-      [status, id]
-    );
-    if (res.rowCount === 0) {
-      const exists = await pool.query(`SELECT 1 FROM public.delete_account_requests WHERE id = $1::uuid LIMIT 1`, [
-        id,
-      ]);
-      if (exists.rowCount === 0) return { ok: false, reason: "not_found" };
-      return { ok: false, reason: "not_pending" };
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const existing = await client.query<{
+        tenant_id: string | null;
+        email: string;
+        status: string;
+      }>(
+        `SELECT tenant_id, email, status FROM public.delete_account_requests WHERE id = $1::uuid LIMIT 1`,
+        [id]
+      );
+      const row = existing.rows[0];
+      if (!row) {
+        await client.query("ROLLBACK");
+        return { ok: false, reason: "not_found" };
+      }
+      if (row.status !== "Pending") {
+        await client.query("ROLLBACK");
+        return { ok: false, reason: "not_pending" };
+      }
+
+      const res = await client.query<{ id: string }>(
+        `UPDATE public.delete_account_requests
+         SET status = $1, updated_at = NOW()
+         WHERE id = $2::uuid AND status = 'Pending'
+         RETURNING id`,
+        [status, id]
+      );
+      if (res.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return { ok: false, reason: "not_pending" };
+      }
+
+      if (status === "Approved") {
+        if (row.tenant_id) {
+          await client.query(
+            `UPDATE public.temples SET status = 'Suspended' WHERE tenant_id = $1`,
+            [row.tenant_id]
+          );
+          await client.query(
+            `UPDATE public.users SET roles = (
+               SELECT COALESCE(array_agg(r), ARRAY[]::text[])
+               FROM unnest(COALESCE(roles, ARRAY[]::text[])) AS r
+               WHERE lower(trim(r)) NOT IN ('temple admin', 'admin')
+             )
+             WHERE tenant_id = $1`,
+            [row.tenant_id]
+          );
+        }
+        await client.query(
+          `UPDATE public.users
+           SET temp_password = NULL,
+               password_hash = NULL
+           WHERE lower(trim(email)) = lower(trim($1))`,
+          [row.email]
+        );
+      }
+
+      await client.query("COMMIT");
+      void reviewedBy;
+      return { ok: true };
+    } catch (e) {
+      await client.query("ROLLBACK");
+      throw e;
+    } finally {
+      client.release();
     }
-    return { ok: true };
   }
 }

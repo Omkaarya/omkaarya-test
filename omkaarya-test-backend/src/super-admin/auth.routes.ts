@@ -8,6 +8,7 @@ import type { AuthService } from "./auth.service.js";
 import { loginBodySchema, setPasswordBodySchema, superAdminRegisterBodySchema } from "./validation.js";
 import { getPool } from "../db/pool.js";
 import { hashPasswordCredential } from "./password-credentials.js";
+import type { PostgresSaRbacRepository } from "./sa-rbac.repository.js";
 
 const loginLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
@@ -24,7 +25,7 @@ const superAdminRegisterLimiter = createRateLimiter({
   max: 10,
 });
 
-export function createAuthRouter(auth: AuthService): Router {
+export function createAuthRouter(auth: AuthService, saRbac?: PostgresSaRbacRepository): Router {
   const r = Router();
 
   /**
@@ -98,9 +99,12 @@ export function createAuthRouter(auth: AuthService): Router {
              password_hash = COALESCE(EXCLUDED.password_hash, public.users.password_hash),
              full_name = COALESCE(EXCLUDED.full_name, public.users.full_name),
              whatsapp = COALESCE(EXCLUDED.whatsapp, public.users.whatsapp),
-             roles = EXCLUDED.roles
+             roles = CASE
+               WHEN $7::boolean THEN EXCLUDED.roles
+               ELSE public.users.roles
+             END
            RETURNING id, tenant_id`,
-          [email, effectiveTemp, passwordHash, fullName, whatsapp, roles]
+          [email, effectiveTemp, passwordHash, fullName, whatsapp, roles, Boolean(body.roles?.length)]
         );
 
         sendSuccess(
@@ -141,6 +145,14 @@ export function createAuthRouter(auth: AuthService): Router {
           code: "INVALID_CREDENTIALS",
           reason: "The email and password did not match a user, or the account cannot log in in this way.",
         });
+      }
+
+      if (saRbac) {
+        try {
+          await saRbac.touchLastLogin(body.email);
+        } catch {
+          /* non-fatal */
+        }
       }
 
       sendSuccess(
