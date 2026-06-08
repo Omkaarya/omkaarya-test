@@ -74,7 +74,6 @@ import {
   countryLabelFromCode,
   countryOptionsWithFallback,
   dialForCountryIso,
-  getStateLabel,
   getStateOptions,
   optionsWithFallback,
 } from "@/lib/location-data";
@@ -543,17 +542,6 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
     [country, regionState]
   );
 
-  const formatAddressForSave = useCallback(
-    (street: string) => {
-      const stateName = regionState ? getStateLabel(country, regionState) : "";
-      const line = street.trim();
-      if (stateName && line) return `${line}, ${stateName}`;
-      if (stateName && !line) return stateName;
-      return line;
-    },
-    [country, regionState]
-  );
-
   const handleCountryChange = (next: string) => {
     setCountry(next);
     setRegionState("");
@@ -965,6 +953,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
         name: string;
         deity: string;
         country: string;
+        state?: string;
         city: string;
         address: string;
         email: string;
@@ -997,8 +986,9 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
         name: templeName.trim(),
         deity: deity.trim(),
         country,
+        state: regionState,
         city,
-        address: formatAddressForSave(address),
+        address: address.trim(),
         email: email.trim(),
         phone: telephone,
         whatsapp,
@@ -1163,8 +1153,9 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
         name: templeName.trim(),
         deity: deity.trim(),
         country,
+        state: regionState,
         city,
-        address: formatAddressForSave(address),
+        address: address.trim(),
         email: email.trim(),
         phone: telephone,
         whatsapp,
@@ -1802,8 +1793,10 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                       disabled={isViewOnly}
                     >
                       <option value="Temple Admin">Temple Admin</option>
-                      <option value="Operations Manager">Operations Manager</option>
+                      <option value="Head Priest">Head Priest</option>
                       <option value="Trustee">Trustee</option>
+                      <option value="Manager">Manager</option>
+                      <option value="Accountant">Accountant</option>
                     </SelectInput>
                     {adminTouched.role && adminErrors.role && (
                       <p className="mt-1 text-xs text-red-500">{adminErrors.role}</p>

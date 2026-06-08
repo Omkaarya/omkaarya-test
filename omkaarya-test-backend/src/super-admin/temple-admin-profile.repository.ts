@@ -14,6 +14,7 @@ export type TempleAdminProfileRecord = {
   fullName: string;
   phone: string;
   roles: string[];
+  profileImageUrl: string | null;
 };
 
 export type SaveAdminProfileResult =
@@ -35,8 +36,9 @@ export class PostgresTempleAdminProfileRepository {
       full_name: string | null;
       whatsapp: string | null;
       roles: string[] | null;
+      profile_image_url: string | null;
     }>(
-      `SELECT email, full_name, whatsapp, roles
+      `SELECT email, full_name, whatsapp, roles, profile_image_url
        FROM public.users
        WHERE email = $1
        LIMIT 1`,
@@ -51,6 +53,7 @@ export class PostgresTempleAdminProfileRepository {
       fullName: row.full_name ?? "",
       phone: row.whatsapp ?? "",
       roles: Array.isArray(row.roles) ? row.roles : [],
+      profileImageUrl: row.profile_image_url?.trim() || null,
     };
   }
 

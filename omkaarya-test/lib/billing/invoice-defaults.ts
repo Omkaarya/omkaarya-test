@@ -4,6 +4,9 @@ import type { BillingBankDetails, BillingIssuer, BillingProfile, InvoiceBillToBl
 
 export const INVOICE_DEFAULT_DUE_DAYS = 3;
 
+/** Omkaarya wordmark served from Next.js public assets. */
+export const BILLING_LOGO_PATH = "/brand-logo/Omkaarya 9.svg";
+
 export const DEFAULT_BILLING_ISSUER: BillingIssuer = {
   name: "Omkaarya Platform",
   address: "14 Mandir Lane, London EC4A 4AB, United Kingdom",

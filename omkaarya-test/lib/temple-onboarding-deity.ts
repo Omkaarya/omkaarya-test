@@ -1,6 +1,11 @@
-/** Deity selection draft during onboarding (session-only; no API persistence in this milestone). */
+/** Deity selection draft during onboarding (sessionStorage; persisted to ops DB on Save & Continue). */
 
 export const TEMPLE_ONBOARDING_DEITY_DRAFT_KEY = "temple_onboarding_deity_draft";
+
+export type DeitySessionProfileSlice = {
+  primaryDeityId: string | null;
+  subDeityIds: string[];
+};
 
 export type TempleOnboardingDeityDraft = {
   primaryDeityId: string | null;
@@ -55,6 +60,35 @@ export function clearTempleOnboardingDeityDraft(): void {
   sessionStorage.removeItem(TEMPLE_ONBOARDING_DEITY_DRAFT_KEY);
 }
 
+export function deityDraftFromSessionProfile(
+  deity: DeitySessionProfileSlice,
+): TempleOnboardingDeityDraft | null {
+  const primary = deity.primaryDeityId?.trim();
+  if (!primary) return null;
+  return {
+    primaryDeityId: primary,
+    subDeityIds: Array.isArray(deity.subDeityIds)
+      ? deity.subDeityIds.filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+      : [],
+    completed: true,
+  };
+}
+
+/** Seeds session draft from ops DB when super-admin already chose a primary deity. */
+export function hydrateDeityDraftFromSessionProfile(
+  deity: DeitySessionProfileSlice,
+): TempleOnboardingDeityDraft | null {
+  const existing = loadTempleOnboardingDeityDraft();
+  if (existing?.primaryDeityId) return existing;
+  const fromServer = deityDraftFromSessionProfile(deity);
+  if (fromServer) {
+    saveTempleOnboardingDeityDraft(fromServer);
+    return fromServer;
+  }
+  return existing;
+}
+
 export function isDeitySelectionComplete(): boolean {
-  return Boolean(loadTempleOnboardingDeityDraft()?.completed);
+  const draft = loadTempleOnboardingDeityDraft();
+  return Boolean(draft?.completed && draft.primaryDeityId);
 }

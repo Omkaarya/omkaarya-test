@@ -70,6 +70,7 @@ const templeNested = z
     name: z.string(),
     deity: z.string(),
     country: z.string(),
+    state: z.string().optional(),
     city: z.string(),
     address: z.string(),
     email: z.string(),

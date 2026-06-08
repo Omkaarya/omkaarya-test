@@ -21,6 +21,7 @@ export default function TempleAdminAdminProfilePage() {
   const [roles, setRoles] = useState<TempleAdminRole[]>([]);
   const [email, setEmail] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -47,6 +48,7 @@ export default function TempleAdminAdminProfilePage() {
         setEmail(res.profile.email);
         setFullName(res.profile.fullName);
         setWhatsapp(res.profile.phone);
+        setProfileImageUrl(res.profile.profileImageUrl ?? null);
         setRoles((res.profile.roles ?? []) as TempleAdminRole[]);
       } catch {
         setError("Network error. Please try again.");
@@ -63,6 +65,13 @@ export default function TempleAdminAdminProfilePage() {
     return picked.length ? picked.join(", ") : "—";
   }, [roles]);
 
+  const avatarInitials = useMemo(() => {
+    const parts = fullName.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    if (fullName.trim()) return fullName.slice(0, 2).toUpperCase();
+    return "TA";
+  }, [fullName]);
+
   return (
     <div className="w-full max-w-xl rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-6 shadow-xl sm:p-8">
       <div className="relative overflow-hidden rounded-xl">
@@ -76,6 +85,16 @@ export default function TempleAdminAdminProfilePage() {
         />
 
         <div className="mb-8 text-center">
+          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border border-[var(--border-default)] bg-[var(--surface-elevated)]">
+            {profileImageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- Cloudinary URL from provisioning
+              <img src={profileImageUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-lg font-semibold text-[var(--text-muted)]" aria-hidden>
+                {loading ? "…" : avatarInitials}
+              </span>
+            )}
+          </div>
           <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)]">Admin Profile</h1>
           <p className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">
             Your profile details are managed by your organisation.

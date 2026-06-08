@@ -1,5 +1,16 @@
 export const INVOICE_DEFAULT_DUE_DAYS = 3;
 
+/** Public path segment for the Omkaarya wordmark (space URL-encoded in absolute URLs). */
+export const BILLING_LOGO_PATH = "/brand-logo/Omkaarya 9.svg";
+
+export function resolveBillingLogoUrl(): string {
+  const explicit = process.env.BILLING_LOGO_URL?.trim();
+  if (explicit) return explicit;
+  const publicBase = (process.env.PUBLIC_APP_URL ?? "").trim().replace(/\/$/, "");
+  if (!publicBase) return "";
+  return `${publicBase}${BILLING_LOGO_PATH.replace(/ /g, "%20")}`;
+}
+
 export const DEFAULT_BILLING_ISSUER = {
   name: "Omkaarya Platform",
   address: "14 Mandir Lane, London EC4A 4AB, United Kingdom",
