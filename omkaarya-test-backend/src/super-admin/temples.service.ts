@@ -39,4 +39,8 @@ export class TemplesService {
   ): Promise<{ ok: true } | { ok: false; reason: "not_found" }> {
     return this.repo.updateTemple(tenantId, payload);
   }
+
+  async deleteTemple(tenantId: string): Promise<{ ok: true } | { ok: false; reason: "not_found" }> {
+    return this.repo.deleteTemple(tenantId);
+  }
 }

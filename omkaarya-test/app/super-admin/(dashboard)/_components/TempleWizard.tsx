@@ -27,6 +27,7 @@ import {
   Mail,
   MapPin,
   Sun,
+  Trash2,
   X,
 } from "lucide-react";
 import AdminButton from "@/app/components/admin/AdminButton";
@@ -310,6 +311,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
         ? "Compliance review is pending. Basic receipts are active until verification completes."
         : "Temple has not submitted compliance documents yet. Basic receipts are active.";
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const didInitPlanIdRef = useRef(false);
@@ -909,6 +911,34 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
       message: successMessage,
       redirectTo: TEMPLES_LIST_PATH,
     });
+  };
+
+  const handleDeleteTemple = async () => {
+    const id = tenantId?.trim();
+    if (!id || mode !== "edit" || isViewOnly) return;
+    const label = templeName.trim() || initialDetail?.temple?.name?.trim() || "this temple";
+    if (
+      !confirm(
+        `Permanently delete "${label}"? This removes billing records and the temple database. This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    setIsDeleting(true);
+    setSubmitError(null);
+    try {
+      const res = await fetch(`/api/temples/${encodeURIComponent(id)}`, { method: "DELETE" });
+      const data: unknown = await res.json();
+      if (!res.ok) {
+        setSubmitError(jsonApiErrorMessage(data) || "Failed to delete temple");
+        return;
+      }
+      router.push(TEMPLES_LIST_PATH);
+    } catch {
+      setSubmitError("Network error — could not delete temple.");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleCreateTemple = async () => {
@@ -2258,7 +2288,30 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
           )}
         </div>
 
-        <div className="mt-10 flex flex-wrap items-center justify-end gap-3 border-t border-zinc-100 pt-6 dark:border-zinc-800">
+        <div className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 pt-6 dark:border-zinc-800">
+          {mode === "edit" && !isViewOnly && tenantId?.trim() ? (
+            <AdminButton
+              variant="outline"
+              className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/30"
+              onClick={() => void handleDeleteTemple()}
+              disabled={isSubmitting || isDeleting || postSave.isLocked}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  Deleting…
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4" aria-hidden />
+                  Delete temple
+                </>
+              )}
+            </AdminButton>
+          ) : (
+            <span aria-hidden className="hidden sm:block" />
+          )}
+          <div className="flex flex-wrap items-center justify-end gap-3">
           {isViewOnly ? (
             <AdminButton variant="primary" onClick={requestExit}>
               Back to list
@@ -2307,6 +2360,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
               </AdminButton>
             </>
           )}
+          </div>
         </div>
       </div>
 

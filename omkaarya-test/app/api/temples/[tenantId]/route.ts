@@ -30,6 +30,31 @@ export async function GET(
   }
 }
 
+export async function DELETE(
+  _request: NextRequest,
+  context: { params: Promise<{ tenantId: string }> }
+) {
+  try {
+    const auth = await requireSuperAdminHeaders({ Accept: "application/json" });
+    if (!auth.ok) return auth.response;
+
+    const { tenantId } = await context.params;
+    if (!isUuidString(tenantId)) {
+      return nextJsonError(400, "INVALID_ID", "Invalid temple id", "The path parameter must be a UUID.");
+    }
+    const target = apiUrl(`/api/temples/${encodeURIComponent(tenantId)}`);
+    const res = await fetch(target, {
+      method: "DELETE",
+      headers: auth.headers,
+    });
+    const data = await res.json().catch(() => null);
+    return NextResponse.json(data, { status: res.status });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to delete temple";
+    return nextJsonError(503, "UPSTREAM_UNREACHABLE", "Could not reach the API server", message);
+  }
+}
+
 export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ tenantId: string }> }

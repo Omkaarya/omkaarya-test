@@ -203,21 +203,34 @@ export default function NewStaffPage() {
 
         <div className="space-y-4">
             <div className="bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-bold text-[var(--text-primary)]">
-                  Account Status
-                </h4>
+              <div className="mb-2">
+                <h4 className="text-sm font-bold text-[var(--text-primary)]">Account Status</h4>
+              </div>
+              <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => setIsActive(!isActive)}
-                  className={`w-11 h-6 rounded-full transition-colors ${isActive ? "bg-emerald-500" : "bg-zinc-300 dark:bg-zinc-600"} relative`}
+                  role="switch"
+                  aria-checked={isActive}
+                  aria-label={isActive ? "Account active" : "Account inactive"}
+                  onClick={() => setIsActive((v) => !v)}
+                  className={[
+                    "relative h-7 w-12 shrink-0 rounded-full transition-colors focus-visible:outline focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)]",
+                    isActive ? "bg-[var(--brand-primary)]" : "bg-zinc-300 dark:bg-zinc-600",
+                  ].join(" ")}
                 >
                   <span
-                    className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${isActive ? "translate-x-5" : "translate-x-0.5"}`}
+                    aria-hidden
+                    className={[
+                      "absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-[left] duration-200",
+                      isActive ? "left-5" : "left-0.5",
+                    ].join(" ")}
                   />
                 </button>
+                <span className="text-sm font-medium text-zinc-700 dark:text-zinc-200">
+                  {isActive ? "Active" : "Inactive"}
+                </span>
               </div>
-              <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+              <p className="mt-3 text-xs text-[var(--text-muted)] leading-relaxed">
                 {isActive
                   ? "Member will be marked active immediately."
                   : "Member will be created in inactive state."}

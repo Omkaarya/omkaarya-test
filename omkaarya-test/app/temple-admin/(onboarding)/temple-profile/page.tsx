@@ -179,6 +179,11 @@ export default function TempleAdminTempleProfilePage() {
   useEffect(() => {
     if (!isHydrating) {
       saveTempleOnboardingTempleProfileDraft({
+        templeName: draft.templeName,
+        email: draft.email,
+        phone: draft.phone,
+        whatsapp: draft.whatsapp,
+        location: draft.location,
         logoDataUrl: draft.logoDataUrl,
         websiteUrl: draft.websiteUrl,
         fax: draft.fax,
