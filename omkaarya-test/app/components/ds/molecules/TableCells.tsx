@@ -125,6 +125,40 @@ export const ActionGroupCell = ({ children }: { children: React.ReactNode }) => 
   </div>
 );
 
+export type TableRowIconAction = {
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+  danger?: boolean;
+  disabled?: boolean;
+};
+
+/** Inline icon buttons for table row actions (no overflow menu). */
+export const TableRowIconActions = ({ actions }: { actions: TableRowIconAction[] }) => (
+  <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+    {actions.map((action, i) => (
+      <button
+        key={i}
+        type="button"
+        title={action.label}
+        aria-label={action.label}
+        disabled={action.disabled}
+        onClick={(e) => {
+          e.stopPropagation();
+          action.onClick();
+        }}
+        className={`rounded-lg p-2 transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+          action.danger
+            ? "text-text-quaternary hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
+            : "text-text-quaternary hover:bg-subtle hover:text-text-primary"
+        }`}
+      >
+        {action.icon}
+      </button>
+    ))}
+  </div>
+);
+
 // ─── Table Headers (if needed separately) ────────────────────────
 export const TableHeaderCell = ({ title, sortable }: { title: string; sortable?: boolean }) => (
   <div className="flex items-center gap-1">

@@ -13,15 +13,18 @@ import SelectInput from "@/app/components/admin/SelectInput";
 import TextareaInput from "@/app/components/admin/TextareaInput";
 import TextInput from "@/app/components/admin/TextInput";
 import { Button } from "@/app/components/ds/atoms/Button";
-import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
+import { InvoiceDocument } from "@/app/components/billing/InvoiceDocument";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
+import {
+  computeDefaultDueDate,
+  formatMoneyOrZero,
+  resolveBillingBankDetails,
+  resolveBillingProfile,
+} from "@/lib/billing/invoice-defaults";
+import { mapBillToFromPrefill } from "@/lib/billing/invoice-document-mappers";
 import { formSnapshot } from "@/lib/form-snapshot";
+import { flatPlatformBankDetails, OMKAARYA_PLATFORM_BANK_DETAILS } from "@/lib/omkaarya-platform-bank-details";
 import {
-  flatPlatformBankDetails,
-  OMKAARYA_PLATFORM_BANK_DETAILS,
-} from "@/lib/omkaarya-platform-bank-details";
-import {
-  billToPreviewLines,
   buildInvoiceDescription,
   invoiceBillToFromTempleDetail,
   mergeTempleOptionFromDetail,
@@ -37,7 +40,7 @@ const LIST_PATH = "/super-admin/finance/invoices";
 
 // ── Temple Data ──────────────────────────────────────────────────
 
-type TempleOption = { tenantId: string; name: string; portalUrl: string; adminEmail: string };
+type TempleOption = { tenantId: string; name: string; portalUrl: string; adminEmail: string; adminName?: string };
 
 type PricingPlan = { id: string; name: string; priceMonthly: number; priceYearly: number };
 
@@ -49,13 +52,9 @@ type BillingProfile = {
   money: { currency: string };
 };
 
-function formatMoney(currency: string, amountCents: number | null): string {
-  if (amountCents === null) return "—";
-  const c = (currency || "USD").toUpperCase();
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: c }).format(amountCents / 100);
+function initialDueDate(issueDate: string, amountCents = 1): string {
+  return computeDefaultDueDate(issueDate, amountCents) ?? "";
 }
-
-// ── Page ────────────────────────────────────────────────────────────
 
 export default function GenerateInvoicePage() {
   const router = useRouter();
@@ -77,11 +76,8 @@ export default function GenerateInvoicePage() {
   const [invoiceNum, setInvoiceNum] = useState("");
   const [invoiceNumLoading, setInvoiceNumLoading] = useState(true);
   const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [dueDate, setDueDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 14);
-    return d.toISOString().slice(0, 10);
-  });
+  const [dueDateTouched, setDueDateTouched] = useState(false);
+  const [dueDate, setDueDate] = useState(() => initialDueDate(new Date().toISOString().slice(0, 10)));
   const [description, setDescription] = useState("");
   const qty = 1;
   const [amountCents, setAmountCents] = useState<number | null>(null);
@@ -126,11 +122,36 @@ export default function GenerateInvoicePage() {
     return d.toISOString().slice(0, 10);
   })();
   const currency = profile?.money?.currency || "USD";
-  const amountFormatted = formatMoney(currency, amountCents);
+  const amountFormatted = amountCents === null ? "—" : formatMoneyOrZero(amountCents, currency);
   const taxRateBps = profile?.tax?.rateBps ?? 0;
   const taxCents = amountCents === null ? null : Math.max(0, Math.round((amountCents * taxRateBps) / 10_000));
-  const taxFormatted = formatMoney(currency, taxCents);
-  const totalDueFormatted = amountCents === null ? "—" : formatMoney(currency, amountCents + (taxCents ?? 0));
+  const taxFormatted = taxCents === null ? "—" : formatMoneyOrZero(taxCents, currency);
+  const totalDueFormatted =
+    amountCents === null ? "—" : formatMoneyOrZero(amountCents + (taxCents ?? 0), currency);
+  const resolvedProfile = resolveBillingProfile(profile);
+  const previewDocument = {
+    invoiceNumber: invoiceNumDisplay,
+    issuedDate: invoiceDate,
+    dueDate: amountCents !== null && amountCents <= 0 ? null : dueDate || null,
+    issuer: resolvedProfile.issuer,
+    billTo: mapBillToFromPrefill(billTo),
+    lineItems: [
+      {
+        description: description || "—",
+        subtitle: `Billing period: ${periodFrom} – ${periodTo}`,
+        qty,
+        unitPriceCents: amountCents ?? 0,
+        amountCents: amountCents ?? 0,
+      },
+    ],
+    currency,
+    taxRateBps,
+    taxLabel: resolvedProfile.tax.label,
+    paymentMethodLabel: resolvedProfile.paymentMethodLabel,
+    bank: resolveBillingBankDetails(profile),
+    paymentReference: paymentRef === "—" ? undefined : paymentRef,
+    showBankBlock: true,
+  };
 
   // Load temple options once
   useEffect(() => {
@@ -263,6 +284,17 @@ export default function GenerateInvoicePage() {
     setAmountCents(typeof cents === "number" ? Math.max(0, Math.trunc(cents)) : null);
   }, [plans, planName, billingCycleRaw]);
 
+  useEffect(() => {
+    if (dueDateTouched) return;
+    if (amountCents === null) return;
+    if (amountCents <= 0) {
+      setDueDate("");
+      return;
+    }
+    const next = computeDefaultDueDate(invoiceDate, amountCents);
+    if (next) setDueDate(next);
+  }, [amountCents, invoiceDate, dueDateTouched]);
+
   const submitInvoice = async (sendEmail: boolean, successMessage: string) => {
     setSubmitError(null);
     const res = await fetch("/api/billing/invoices/generate", {
@@ -289,13 +321,6 @@ export default function GenerateInvoicePage() {
     baselineRef.current = currentSnapshot;
     formGuard.markClean();
     postSave.triggerSuccess({ message: successMessage, redirectTo: LIST_PATH });
-  };
-
-  const formatInvDate = (d: string) => {
-    if (!d) return "—";
-    const dt = new Date(d);
-    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    return `${dt.getDate()} ${months[dt.getMonth()]} ${dt.getFullYear()}`;
   };
 
   return (
@@ -370,7 +395,17 @@ export default function GenerateInvoicePage() {
                 <TextInput id="invoice-date" type="date" className="text-xs" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} />
               </FormField>
               <FormField id="invoice-due-date" label="Due date">
-                <TextInput id="invoice-due-date" type="date" className="text-xs" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+                <TextInput
+                  id="invoice-due-date"
+                  type="date"
+                  className="text-xs"
+                  value={dueDate}
+                  disabled={amountCents !== null && amountCents <= 0}
+                  onChange={(e) => {
+                    setDueDateTouched(true);
+                    setDueDate(e.target.value);
+                  }}
+                />
               </FormField>
               <FormField id="invoice-plan" label="Plan" required>
                 <SelectInput id="invoice-plan" value={planName} onChange={(e) => setPlanName(e.target.value)} className="text-xs">
@@ -557,92 +592,7 @@ export default function GenerateInvoicePage() {
             <span className="text-[10px] text-text-tertiary">updates as you type</span>
           </div>
           <div className="bg-surface rounded-xl border border-border p-7 sticky top-6">
-            {/* Invoice Header */}
-            <div className="flex justify-between items-start mb-6 pb-5 border-b-2 border-brand">
-              <div>
-                <p className="text-lg font-extrabold text-brand tracking-tight">OMKAARYA</p>
-                <p className="text-[11px] text-text-tertiary mt-0.5">{profile?.issuer?.name ?? "—"} · {profile?.issuer?.address ?? "—"}</p>
-                <p className="text-[11px] text-text-tertiary">{profile?.issuer?.email ?? "—"} · {profile?.issuer?.website ?? "—"}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xl font-bold text-text-primary">INVOICE</p>
-                <p className="text-xs font-mono text-text-tertiary mt-1">{invoiceNumDisplay}</p>
-                <p className="text-[11px] text-text-tertiary mt-1">Issued: {formatInvDate(invoiceDate)}</p>
-                <p className="text-[11px] text-text-tertiary">Due: {formatInvDate(dueDate)}</p>
-              </div>
-            </div>
-
-            {/* Parties */}
-            <div className="grid grid-cols-2 gap-5 mb-5">
-              <div>
-                <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider mb-1.5">From</p>
-                <p className="text-sm font-bold text-text-primary">{profile?.issuer?.name ?? "—"}</p>
-                <p className="text-[11px] text-text-tertiary leading-relaxed">{profile?.issuer?.address ?? "—"}<br/>{profile?.issuer?.email ?? "—"}<br/>{profile?.issuer?.website ?? "—"}</p>
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider mb-1.5">Bill to</p>
-                <TruncateText className="text-sm font-bold text-text-primary" title={billToDisplayName}>
-                  {billToDisplayName}
-                </TruncateText>
-                <p className="text-[11px] text-text-tertiary leading-relaxed whitespace-pre-line">{billToPreviewLines(billTo)}</p>
-              </div>
-            </div>
-
-            {/* Line Items Preview */}
-            <table className="w-full table-fixed mb-4">
-              <thead>
-                <tr className="border-b-2 border-border bg-subtle">
-                  <th className="w-[46%] px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Description</th>
-                  <th className="w-[12%] px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Qty</th>
-                  <th className="w-[21%] px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Unit price</th>
-                  <th className="w-[21%] px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-border">
-                  <td className="min-w-0 overflow-hidden px-3 py-2.5 text-xs text-text-primary">
-                    <TruncateText title={description}>{description}</TruncateText>
-                    <TruncateText className="text-[10px] text-text-tertiary">
-                      Billing period: {formatInvDate(periodFrom)} – {formatInvDate(periodTo)}
-                    </TruncateText>
-                  </td>
-                  <td className="px-3 py-2.5 text-xs text-text-secondary">{qty}</td>
-                  <td className="px-3 py-2.5 text-xs text-text-secondary">{amountFormatted}</td>
-                  <td className="px-3 py-2.5 text-xs text-right font-semibold text-text-primary">{amountFormatted}</td>
-                </tr>
-              </tbody>
-            </table>
-
-            {/* Totals Preview */}
-            <div className="bg-subtle rounded-lg p-4 mb-4">
-              <div className="flex justify-between text-xs text-text-secondary py-1"><span>Subtotal</span><span>{amountFormatted}</span></div>
-              <div className="flex justify-between text-xs text-text-secondary py-1"><span>{profile?.tax?.label ?? "Tax"} ({(taxRateBps / 100).toFixed(2)}%)</span><span>{taxFormatted}</span></div>
-              <div className="flex justify-between text-sm font-bold text-text-primary pt-2 mt-2 border-t border-border"><span>Total due</span><span className="text-brand">{totalDueFormatted}</span></div>
-            </div>
-
-            {/* Bank Details Preview */}
-            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
-              <p className="text-xs font-bold text-blue-700 dark:text-blue-300 mb-1">Bank transfer details</p>
-              <p className="text-[11px] font-semibold text-text-primary mb-3">{OMKAARYA_PLATFORM_BANK_DETAILS.header}</p>
-              <div className="flex flex-wrap gap-4">
-                <div><p className="text-[10px] text-text-tertiary uppercase font-semibold tracking-wider mb-0.5">Bank</p><p className="text-xs font-semibold text-text-primary">{bankName}</p></div>
-                <div><p className="text-[10px] text-text-tertiary uppercase font-semibold tracking-wider mb-0.5">Branch</p><p className="text-xs font-semibold text-text-primary">{branchName}</p></div>
-                <div><p className="text-[10px] text-text-tertiary uppercase font-semibold tracking-wider mb-0.5">Account name</p><p className="text-xs font-semibold text-text-primary">{accountName}</p></div>
-                <div><p className="text-[10px] text-text-tertiary uppercase font-semibold tracking-wider mb-0.5">Account no.</p><p className="text-xs font-semibold text-text-primary">{accountNumber}</p></div>
-                <div><p className="text-[10px] text-text-tertiary uppercase font-semibold tracking-wider mb-0.5">SWIFT</p><p className="text-xs font-semibold text-text-primary">{swift}</p></div>
-              </div>
-              {/* Payment Reference Box */}
-              <div className="mt-3 rounded-lg border-[1.5px] border-dashed border-amber-400 bg-amber-50 dark:bg-amber-950/20 p-3">
-                <p className="text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider mb-1">Payment reference (include in your transfer)</p>
-                <p className="text-sm font-bold font-mono text-text-primary">{paymentRef}</p>
-                <p className="text-[10px] text-text-tertiary mt-0.5">Please include this reference so we can identify your payment</p>
-              </div>
-            </div>
-
-            {/* Footer Note */}
-            <p className="text-[11px] text-text-tertiary leading-relaxed border-t border-border pt-3">
-              {notes}
-            </p>
+            <InvoiceDocument {...previewDocument} />
           </div>
         </div>
       </div>

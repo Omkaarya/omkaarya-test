@@ -15,7 +15,7 @@ export async function listCategories(pool: Pool): Promise<CategoryRow[]> {
     `SELECT id::text AS id, name, parent_id::text AS parent_id, description, sort_order
        FROM inventory_categories
       WHERE deleted_at IS NULL
-      ORDER BY sort_order ASC, name ASC`
+      ORDER BY created_at DESC`
   );
   return rows;
 }
@@ -75,7 +75,7 @@ export async function listSuppliers(pool: Pool): Promise<SupplierRow[]> {
     `SELECT id::text AS id, name, contact_person, email, phone, address, notes, payment_terms, is_active
        FROM inventory_suppliers
       WHERE deleted_at IS NULL
-      ORDER BY name ASC`
+      ORDER BY created_at DESC`
   );
   return rows;
 }
@@ -160,7 +160,7 @@ export async function listStores(pool: Pool): Promise<StoreRow[]> {
     `SELECT id::text AS id, code, name, description, is_active
        FROM inventory_store_locations
       WHERE deleted_at IS NULL
-      ORDER BY name ASC`
+      ORDER BY created_at DESC`
   );
   return rows;
 }
@@ -574,7 +574,7 @@ export async function listBoms(pool: Pool): Promise<BomHeaderRow[]> {
        FROM inventory_bom b
        LEFT JOIN master_pooja_sevas ps ON ps.id = b.pooja_seva_id
       WHERE b.deleted_at IS NULL
-      ORDER BY b.name ASC`
+      ORDER BY b.created_at DESC`
   );
   return rows;
 }
@@ -657,7 +657,7 @@ export async function listLowStockProducts(pool: Pool): Promise<LowStockProductR
           quantity <= 0
           OR (reorder_point IS NOT NULL AND quantity <= reorder_point)
         )
-      ORDER BY quantity ASC, name ASC`
+      ORDER BY created_at DESC`
   );
   return rows;
 }

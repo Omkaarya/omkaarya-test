@@ -1,4 +1,35 @@
 import type { Pool, PoolClient } from "pg";
+import { getOperationalPoolForTenant } from "../db/temple-operational-pool-registry.js";
+
+export function streetFromFullAddressJson(fullAddress: unknown): string {
+  if (fullAddress && typeof fullAddress === "object" && "street" in (fullAddress as object)) {
+    return String((fullAddress as { street?: string }).street ?? "");
+  }
+  return "";
+}
+
+/** Loads temple street lines from each tenant's operational `temple_admin_data` row. */
+export async function fetchTempleStreetAddressesByTenantIds(
+  tenantIds: readonly string[]
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const unique = [...new Set(tenantIds.map((id) => id.trim()).filter(Boolean))];
+  await Promise.all(
+    unique.map(async (tenantId) => {
+      try {
+        const pool = await getOperationalPoolForTenant(tenantId);
+        if (!pool) return;
+        const res = await pool.query<{ full_address: unknown }>(
+          `SELECT full_address FROM temple_admin_data WHERE id = 1 LIMIT 1`
+        );
+        out.set(tenantId, streetFromFullAddressJson(res.rows[0]?.full_address));
+      } catch {
+        // Ops DB unavailable — leave address empty for this tenant.
+      }
+    })
+  );
+  return out;
+}
 
 export type TempleAdminDataFields = {
   contactPhone: unknown;

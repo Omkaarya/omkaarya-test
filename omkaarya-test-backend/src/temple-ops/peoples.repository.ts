@@ -67,7 +67,7 @@ export async function listRoles(pool: Pool): Promise<RoleRow[]> {
          ) AS cnt FROM role_permissions GROUP BY role_id
        ) pc ON pc.role_id = r.id
       WHERE r.deleted_at IS NULL
-      ORDER BY r.is_system DESC, r.name ASC`
+      ORDER BY r.created_at DESC`
   );
   return rows;
 }
@@ -183,7 +183,7 @@ export async function listStaffMembers(pool: Pool): Promise<StaffMemberRow[]> {
        FROM staff_members s
        LEFT JOIN roles r ON r.id = s.role_id
       WHERE s.deleted_at IS NULL
-      ORDER BY s.first_name ASC`
+      ORDER BY s.created_at DESC`
   );
   return rows;
 }

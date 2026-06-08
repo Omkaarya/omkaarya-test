@@ -162,7 +162,7 @@ function UnitRow({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0">
+        <div className="flex items-center gap-1">
           <Button
             variant="outline"
             size="sm"

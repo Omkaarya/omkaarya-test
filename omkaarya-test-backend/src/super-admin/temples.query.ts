@@ -14,10 +14,10 @@ export function parseTemplesQuery(searchParams: URLSearchParams): TemplesQueryIn
   const rawCountry = (searchParams.get("country") ?? "all").trim();
   const country = rawCountry || "all";
 
-  const rawSort = (searchParams.get("sortBy") ?? "name").trim().toLowerCase();
+  const rawSort = (searchParams.get("sortBy") ?? "timeline").trim().toLowerCase();
   const normalizedSort: TemplesSortBy =
     rawSort === "last7" || rawSort === "timeline" ? "timeline" : (rawSort as TemplesSortBy);
-  const sortBy = ALLOWED_SORTS.includes(normalizedSort) ? normalizedSort : "name";
+  const sortBy = ALLOWED_SORTS.includes(normalizedSort) ? normalizedSort : "timeline";
 
   const rawPage = Number(searchParams.get("page") ?? "1");
   const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.floor(rawPage) : 1;

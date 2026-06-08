@@ -10,9 +10,14 @@ const REFETCH_COOLDOWN_MS = 3000;
  * Verifies the temple-admin session on mount and when the user returns via Back,
  * bfcache, tab focus, or visibility — redirects to sign-in if unauthenticated.
  */
-export function useTempleAdminSessionGuard(): { sessionReady: boolean } {
+export function useTempleAdminSessionGuard(): {
+  sessionReady: boolean;
+  sessionError: string | null;
+  retrySession: () => void;
+} {
   const pathname = usePathname() ?? "";
   const [sessionReady, setSessionReady] = useState(false);
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const verifyInFlight = useRef(false);
   const verifiedRef = useRef(false);
   const lastFetchAtRef = useRef(0);
@@ -22,6 +27,7 @@ export function useTempleAdminSessionGuard(): { sessionReady: boolean } {
       if (!pathname.startsWith("/temple-admin") || isTempleAdminPublicPath(pathname)) {
         verifiedRef.current = true;
         setSessionReady(true);
+        setSessionError(null);
         return true;
       }
 
@@ -38,6 +44,7 @@ export function useTempleAdminSessionGuard(): { sessionReady: boolean } {
 
       verifyInFlight.current = true;
       lastFetchAtRef.current = now;
+      setSessionError(null);
 
       try {
         const res = await fetch("/api/temple-admin/me", {
@@ -49,6 +56,7 @@ export function useTempleAdminSessionGuard(): { sessionReady: boolean } {
         if (res.status === 401 || res.status === 403) {
           verifiedRef.current = false;
           setSessionReady(false);
+          setSessionError(null);
           redirectToTempleAdminSignin();
           return false;
         }
@@ -56,17 +64,20 @@ export function useTempleAdminSessionGuard(): { sessionReady: boolean } {
         if (!res.ok) {
           verifiedRef.current = false;
           setSessionReady(false);
-          console.error("[temple-admin] Session check failed:", res.status);
+          setSessionError(`Session check failed (${res.status}). Check your connection and try again.`);
           return false;
         }
 
         verifiedRef.current = true;
         setSessionReady(true);
+        setSessionError(null);
         return true;
       } catch (err) {
         verifiedRef.current = false;
         setSessionReady(false);
-        console.error("[temple-admin] Session check error:", err);
+        setSessionError(
+          err instanceof Error ? err.message : "Could not verify your session. Check your connection and try again."
+        );
         return false;
       } finally {
         verifyInFlight.current = false;
@@ -107,5 +118,9 @@ export function useTempleAdminSessionGuard(): { sessionReady: boolean } {
     };
   }, [verifySession]);
 
-  return { sessionReady };
+  const retrySession = useCallback(() => {
+    void verifySession({ force: true });
+  }, [verifySession]);
+
+  return { sessionReady, sessionError, retrySession };
 }

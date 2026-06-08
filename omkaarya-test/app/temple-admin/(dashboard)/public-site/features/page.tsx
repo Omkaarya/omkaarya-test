@@ -48,17 +48,29 @@ const PLANS: Record<Plan, { label: string; color: string; order: number }> = {
   aaradhana: { label: "Aaradhana", color: "bg-purple-600", order: 2 },
 };
 
-const CURRENT_PLAN: Plan = "sankalpa";
-
 const PLAN_ORDER: Plan[] = ["prarambha", "sankalpa", "aaradhana"];
 
-function isPlanSufficient(featurePlan: Plan | null): boolean {
+function normalizePlanName(raw: string | null | undefined): Plan {
+  const s = (raw ?? "").trim().toLowerCase();
+  if (s.includes("aaradhana")) return "aaradhana";
+  if (s.includes("sankalpa")) return "sankalpa";
+  return "prarambha";
+}
+
+function isPlanSufficient(currentPlan: Plan, featurePlan: Plan | null): boolean {
   if (featurePlan === null) return true;
-  return PLAN_ORDER.indexOf(CURRENT_PLAN) >= PLAN_ORDER.indexOf(featurePlan);
+  return PLAN_ORDER.indexOf(currentPlan) >= PLAN_ORDER.indexOf(featurePlan);
+}
+
+function applyPlanLocks(features: Feature[], currentPlan: Plan): Feature[] {
+  return features.map((f) => ({
+    ...f,
+    locked: f.availableFrom ? !isPlanSufficient(currentPlan, f.availableFrom) : false,
+  }));
 }
 
 // ─── Feature Definitions ─────────────────────────────────────────────────────
-const INITIAL_FEATURES: Feature[] = [
+const BASE_FEATURES: Omit<Feature, "locked">[] = [
   // ── Core Pages ──────────────────────────────────────────
   {
     id: "homepage",
@@ -68,7 +80,6 @@ const INITIAL_FEATURES: Feature[] = [
     category: "Core Pages",
     availableFrom: null,
     enabled: true,
-    locked: false,
   },
   {
     id: "about",
@@ -78,7 +89,6 @@ const INITIAL_FEATURES: Feature[] = [
     category: "Core Pages",
     availableFrom: null,
     enabled: true,
-    locked: false,
   },
   {
     id: "contact",
@@ -88,7 +98,6 @@ const INITIAL_FEATURES: Feature[] = [
     category: "Core Pages",
     availableFrom: null,
     enabled: true,
-    locked: false,
   },
   {
     id: "gallery",
@@ -98,7 +107,6 @@ const INITIAL_FEATURES: Feature[] = [
     category: "Core Pages",
     availableFrom: null,
     enabled: true,
-    locked: false,
   },
   // ── Events & Schedule ───────────────────────────────────
   {
@@ -109,7 +117,6 @@ const INITIAL_FEATURES: Feature[] = [
     category: "Events & Schedule",
     availableFrom: null,
     enabled: true,
-    locked: false,
   },
   {
     id: "pooja_schedule",
@@ -119,7 +126,6 @@ const INITIAL_FEATURES: Feature[] = [
     category: "Events & Schedule",
     availableFrom: "sankalpa",
     enabled: true,
-    locked: !isPlanSufficient("sankalpa"),
   },
   {
     id: "live_stream",
@@ -129,9 +135,7 @@ const INITIAL_FEATURES: Feature[] = [
     category: "Events & Schedule",
     availableFrom: "aaradhana",
     enabled: false,
-    locked: !isPlanSufficient("aaradhana"),
   },
-  // ── Online Services ──────────────────────────────────────
   {
     id: "online_booking",
     label: "Online Pooja Booking",
@@ -140,7 +144,6 @@ const INITIAL_FEATURES: Feature[] = [
     category: "Online Services",
     availableFrom: "sankalpa",
     enabled: true,
-    locked: !isPlanSufficient("sankalpa"),
   },
   {
     id: "donations",
@@ -150,7 +153,6 @@ const INITIAL_FEATURES: Feature[] = [
     category: "Online Services",
     availableFrom: null,
     enabled: true,
-    locked: false,
   },
   {
     id: "prasadam_delivery",
@@ -160,9 +162,7 @@ const INITIAL_FEATURES: Feature[] = [
     category: "Online Services",
     availableFrom: "aaradhana",
     enabled: false,
-    locked: !isPlanSufficient("aaradhana"),
   },
-  // ── Community ────────────────────────────────────────────
   {
     id: "staff_directory",
     label: "Priests & Staff Directory",
@@ -171,7 +171,6 @@ const INITIAL_FEATURES: Feature[] = [
     category: "Community",
     availableFrom: "sankalpa",
     enabled: true,
-    locked: !isPlanSufficient("sankalpa"),
   },
   {
     id: "reviews",
@@ -181,7 +180,6 @@ const INITIAL_FEATURES: Feature[] = [
     category: "Community",
     availableFrom: "aaradhana",
     enabled: false,
-    locked: !isPlanSufficient("aaradhana"),
   },
   {
     id: "forum",
@@ -191,9 +189,7 @@ const INITIAL_FEATURES: Feature[] = [
     category: "Community",
     availableFrom: "aaradhana",
     enabled: false,
-    locked: !isPlanSufficient("aaradhana"),
   },
-  // ── Analytics ────────────────────────────────────────────
   {
     id: "site_analytics",
     label: "Site Analytics Dashboard",
@@ -202,7 +198,6 @@ const INITIAL_FEATURES: Feature[] = [
     category: "Analytics",
     availableFrom: "sankalpa",
     enabled: true,
-    locked: !isPlanSufficient("sankalpa"),
   },
   {
     id: "conversion_tracking",
@@ -212,7 +207,6 @@ const INITIAL_FEATURES: Feature[] = [
     category: "Analytics",
     availableFrom: "aaradhana",
     enabled: false,
-    locked: !isPlanSufficient("aaradhana"),
   },
 ];
 
@@ -227,18 +221,27 @@ export default function FeatureManagementPage() {
     "public_features",
     {}
   );
-  const [features, setFeatures] = useState<Feature[]>(INITIAL_FEATURES);
+  const [currentPlan, setCurrentPlan] = useState<Plan>("prarambha");
+  const [features, setFeatures] = useState<Feature[]>(() => applyPlanLocks(BASE_FEATURES as Feature[], "prarambha"));
   const [expandedInfo, setExpandedInfo] = useState<string | null>(null);
 
   useEffect(() => {
     if (loading) return;
     const toggles = (payload.toggles as Record<string, boolean> | undefined) ?? {};
-    setFeatures((prev) =>
-      prev.map((f) => (toggles[f.id] !== undefined ? { ...f, enabled: toggles[f.id]! } : f))
+    const savedPlan = normalizePlanName(typeof payload.currentPlan === "string" ? payload.currentPlan : null);
+    setCurrentPlan(savedPlan);
+    setFeatures(
+      applyPlanLocks(
+        BASE_FEATURES.map((f) => ({
+          ...f,
+          enabled: toggles[f.id] !== undefined ? toggles[f.id]! : f.enabled,
+        })) as Feature[],
+        savedPlan
+      )
     );
   }, [loading, payload]);
 
-  const categories = [...new Set(INITIAL_FEATURES.map((f) => f.category))];
+  const categories = [...new Set(BASE_FEATURES.map((f) => f.category))];
 
   function toggleFeature(id: string) {
     setFeatures((prev) =>
@@ -253,7 +256,7 @@ export default function FeatureManagementPage() {
 
   const saveConfiguration = async () => {
     const toggles = Object.fromEntries(features.filter((f) => !f.locked).map((f) => [f.id, f.enabled]));
-    await replace({ toggles, currentPlan: CURRENT_PLAN } as Record<string, unknown>);
+    await replace({ toggles, currentPlan } as Record<string, unknown>);
   };
 
   return (
@@ -318,7 +321,7 @@ export default function FeatureManagementPage() {
         <div className="flex items-center gap-3">
           <div className="w-2.5 h-2.5 rounded-full bg-brand animate-pulse" />
           <span className="text-sm font-black text-zinc-900 dark:text-white uppercase tracking-tight">
-            Current Plan: Sankalpa
+            Current Plan: {PLANS[currentPlan].label}
           </span>
         </div>
         <button className="text-xs font-bold text-brand hover:underline">

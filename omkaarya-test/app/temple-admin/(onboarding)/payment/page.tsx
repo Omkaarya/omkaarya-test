@@ -355,7 +355,7 @@ export default function TempleAdminPaymentPage() {
         return;
       }
       saveTempleOnboardingPaymentComplete(false);
-      router.push("/temple-admin/admin-profile");
+      router.push("/temple-admin/onboarding-complete");
     } catch {
       setSubmitError("Network error. Please try again.");
     } finally {
@@ -407,20 +407,8 @@ export default function TempleAdminPaymentPage() {
         return;
       }
       setModalOpen(false);
-      clearTempleOnboardingPlanDraft();
-      clearTempleOnboardingDeityDraft();
-      clearTempleOnboardingTempleProfileDraft();
-      clearTempleOnboardingPaymentStatus();
-      try {
-        sessionStorage.removeItem(TEMPLE_ONBOARDING_EMAIL_KEY);
-        sessionStorage.removeItem(TEMPLE_ONBOARDING_TEMPLE_CREATED_KEY);
-        sessionStorage.removeItem(TEMPLE_ONBOARDING_TEMPLE_CREATED_RESPONSE_KEY);
-        sessionStorage.removeItem(TEMPLE_ONBOARDING_RETURNING_LOGIN_KEY);
-        sessionStorage.removeItem(TEMPLE_ONBOARDING_TEMP_PASSWORD_KEY);
-      } catch {
-        // sessionStorage can throw in some browsers; navigation still runs
-      }
-      router.replace("/temple-admin/signin");
+      saveTempleOnboardingPaymentComplete(false);
+      router.push("/temple-admin/onboarding-complete");
     } catch {
       setModalError("Network error. Please try again.");
     } finally {

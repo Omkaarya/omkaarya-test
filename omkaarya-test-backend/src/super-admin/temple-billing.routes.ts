@@ -2,6 +2,7 @@ import { Router } from "express";
 import { sendSuccess, sendError } from "../middleware/api-envelope.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { listOpenInvoicesForTempleSession } from "./billing.repository.js";
+import type { TempleSessionLocals } from "../temple-ops/middleware/require-temple-jwt.js";
 
 function asString(v: unknown): string {
   return typeof v === "string" ? v : Array.isArray(v) ? String(v[0] ?? "") : "";
@@ -13,8 +14,9 @@ export function createTempleBillingRouter(): Router {
   r.get(
     "/temple-admin/billing/invoices",
     asyncHandler(async (req, res) => {
-      const sessionEmail = asString(req.query.sessionEmail);
-      const templeId = asString(req.query.templeId);
+      const session = (res.locals as { templeSession?: TempleSessionLocals }).templeSession;
+      const sessionEmail = asString(req.query.sessionEmail) || session?.email || "";
+      const templeId = asString(req.query.templeId) || session?.tenantId || "";
       if (!sessionEmail || !templeId) {
         sendError(res, 400, "VALIDATION_ERROR", "sessionEmail and templeId are required.", "Missing query parameters.");
         return;

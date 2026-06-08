@@ -1,4 +1,5 @@
 import type { SuperAdminTempleDetail } from "@/lib/super-admin-temple-detail";
+import { resolveAdminDisplayName } from "@/lib/billing/invoice-defaults";
 
 export type InvoiceBillTo = {
   templeName: string;
@@ -58,7 +59,11 @@ export function invoiceBillToFromTempleDetail(
   const addressParts = [temple.address, temple.city, temple.country].filter((p) => p?.trim());
   return {
     templeName: temple.name,
-    adminName: admin.fullName?.trim() || "",
+    adminName: resolveAdminDisplayName({
+      fullName: admin.fullName,
+      role: admin.role,
+      email: admin.email,
+    }),
     adminEmail: admin.email?.trim() || "",
     portalUrl: portalUrl.trim(),
     addressLine: addressParts.join(", "),

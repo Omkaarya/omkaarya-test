@@ -1028,6 +1028,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
             data: {
               temporaryPassword?: string;
               inviteEmailSent?: boolean;
+              invoiceEmailSent?: boolean;
               operationalDbName?: string;
             };
           }
@@ -1036,10 +1037,12 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
             data?: {
               temporaryPassword?: string;
               inviteEmailSent?: boolean;
+              invoiceEmailSent?: boolean;
               operationalDbName?: string;
             };
             temporaryPassword?: string;
             inviteEmailSent?: boolean;
+            invoiceEmailSent?: boolean;
             operationalDbName?: string;
             error?: unknown;
           }
@@ -1050,11 +1053,17 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
       const inner =
         data && typeof data === "object" && "data" in data && data && (data as { data?: unknown }).data
           ? (data as {
-              data: { temporaryPassword?: string; inviteEmailSent?: boolean; operationalDbName?: string };
+              data: {
+                temporaryPassword?: string;
+                inviteEmailSent?: boolean;
+                invoiceEmailSent?: boolean;
+                operationalDbName?: string;
+              };
             }).data
           : (data as {
               temporaryPassword?: string;
               inviteEmailSent?: boolean;
+              invoiceEmailSent?: boolean;
               operationalDbName?: string;
             } | null);
       const tempPwd =
@@ -1063,6 +1072,10 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
         inner && "inviteEmailSent" in inner && typeof inner.inviteEmailSent === "boolean"
           ? inner.inviteEmailSent
           : undefined;
+      const invoiceEmailSent =
+        inner && "invoiceEmailSent" in inner && typeof inner.invoiceEmailSent === "boolean"
+          ? inner.invoiceEmailSent
+          : undefined;
       const operationalDbName =
         inner && typeof inner.operationalDbName === "string" && inner.operationalDbName.trim() !== ""
           ? inner.operationalDbName.trim()
@@ -1070,12 +1083,22 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
       const opsNote = operationalDbName
         ? ` Operational PostgreSQL database: ${operationalDbName}.`
         : "";
-      const successMessage =
-        inviteEmailSent === true
-          ? `Temple successfully created.${opsNote} An invite email has been sent to the admin.`
-          : inviteEmailSent === false
-            ? `Temple successfully created.${opsNote} Invite email could not be sent (email not configured or SMTP failed).`
-            : `Temple successfully created.${opsNote}`;
+      const emailNote = (() => {
+        if (inviteEmailSent === true && invoiceEmailSent === true) {
+          return " Login details and invoice were emailed to the admin.";
+        }
+        if (inviteEmailSent === true) {
+          return " Login details were emailed to the admin.";
+        }
+        if (invoiceEmailSent === true) {
+          return " Invoice was emailed to the admin.";
+        }
+        if (inviteEmailSent === false || invoiceEmailSent === false) {
+          return " One or more emails could not be sent (email not configured or SMTP failed).";
+        }
+        return "";
+      })();
+      const successMessage = `Temple successfully created.${opsNote}${emailNote}`;
       setSubmitSuccess(successMessage);
       onPostSaveSuccess(successMessage);
     } catch (err) {

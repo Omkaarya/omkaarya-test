@@ -32,7 +32,7 @@ export async function listInventoryProducts(pool: Pool): Promise<InventoryProduc
             created_at, updated_at
        FROM inventory_products
       WHERE deleted_at IS NULL
-      ORDER BY name ASC`
+      ORDER BY created_at DESC`
   );
   return rows;
 }

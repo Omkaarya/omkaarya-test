@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
+import { displayNameFromEmail } from "../billing/invoice-defaults.js";
 import { requirePool } from "../db/pool.js";
 import type {
   CreateTemplePayload,
@@ -333,7 +334,7 @@ export class PostgresTempleRepository implements TempleRepository {
       `SELECT tenant_id, name, slug, domain_subdomain, country_code, country_flag, city, plan, devotees, status, compliance, admin_email,
               trial_ends_at::text AS trial_ends_at
        FROM public.temples
-       ORDER BY tenant_id::text DESC`
+       ORDER BY created_at DESC, tenant_id::text DESC`
     );
     return result.rows.map((r) => {
       const ph = portalLabelAndHost(r.slug, r.domain_subdomain);
@@ -425,7 +426,7 @@ export class PostgresTempleRepository implements TempleRepository {
           ? `t.name ASC, t.tenant_id::text DESC`
           : query.sortBy === "devotees"
             ? `t.devotees DESC, t.tenant_id::text DESC`
-            : `t.tenant_id::text DESC`;
+            : `t.created_at DESC, t.tenant_id::text DESC`;
 
     const dataRes = await pool.query<{
       tenant_id: string;
@@ -992,7 +993,9 @@ export class PostgresTempleRepository implements TempleRepository {
     const telephone = parsePhoneJson(contact_phone);
     const tWhatsapp = parsePhoneJson(contact_whatsapp);
     const fax = parsePhoneJson(faxRaw);
-    const adminName = (r.u_full_name ?? r.u2_full_name ?? "").trim();
+    const adminNameRaw = (r.u_full_name ?? r.u2_full_name ?? "").trim();
+    const adminEmailForName = r.admin_email.trim();
+    const adminName = adminNameRaw || (adminEmailForName ? displayNameFromEmail(adminEmailForName) : "");
     const adminWhatsappStr = (r.u_whatsapp ?? r.u2_whatsapp ?? "").trim();
     const roles = r.u_roles ?? r.u2_roles ?? [];
     const adminRole = Array.isArray(roles) && roles.length > 0 ? String(roles[0]) : "Temple Admin";

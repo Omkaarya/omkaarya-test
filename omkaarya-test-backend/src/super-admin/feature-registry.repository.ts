@@ -101,7 +101,7 @@ export class PostgresFeatureRegistryRepository {
       `SELECT id, name, key, module_key, description, has_limit, limit_type,
               is_active, is_visible_in_plan_config, created_at
        FROM public.features
-       ORDER BY module_key, name`
+       ORDER BY created_at DESC`
     );
     return result.rows.map(rowToFeature);
   }

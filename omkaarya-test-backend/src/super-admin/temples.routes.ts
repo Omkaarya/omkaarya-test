@@ -3,7 +3,7 @@ import { sendError, sendSuccess } from "../middleware/api-envelope.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { HttpError } from "../middleware/http-error.js";
 import { validateBody } from "../middleware/validate.js";
-import { sendInvoiceOnlyEmail, sendTempleInviteAndInvoiceCombined } from "../email/send-temple-billing.js";
+import { sendInvoiceOnlyEmail } from "../email/send-temple-billing.js";
 import { sendTempleAdminInviteEmail } from "../email/send-temple-invite.js";
 import type { TemplesService } from "./temples.service.js";
 import type { CreateTemplePayload, UpdateTemplePayload } from "./types.js";
@@ -155,36 +155,10 @@ export function createTemplesRouter(temples: TemplesService): Router {
       try {
         const { templeId, temporaryPassword, invoice, operationalDbName } = await temples.createTemple(body);
         const to = body.admin.email.trim();
-        let inviteEmailSent: boolean | undefined = undefined;
-        if (to && invoice) {
-          try {
-            const out =
-              typeof temporaryPassword === "string" && temporaryPassword.trim()
-                ? await sendTempleInviteAndInvoiceCombined({
-                    to,
-                    templeName: body.temple.name ?? "",
-                    temporaryPassword,
-                    invoiceNumber: invoice.invoiceNumber,
-                    amountCents: invoice.amountCents,
-                    isTrialProforma: invoice.isTrialProforma,
-                    planName: invoice.planName,
-                    dueDate: invoice.dueDate,
-                  })
-                : await sendInvoiceOnlyEmail({
-                    to,
-                    templeName: body.temple.name ?? "",
-                    invoiceNumber: invoice.invoiceNumber,
-                    amountCents: invoice.amountCents,
-                    isTrialProforma: invoice.isTrialProforma,
-                    planName: invoice.planName,
-                    dueDate: invoice.dueDate,
-                  });
-            inviteEmailSent = out.sent;
-          } catch (e) {
-            inviteEmailSent = false;
-            console.error(`[temple-billing] Failed to email admin at ${to}`, e);
-          }
-        } else if (typeof temporaryPassword === "string" && temporaryPassword.trim() && to) {
+        let inviteEmailSent: boolean | undefined;
+        let invoiceEmailSent: boolean | undefined;
+
+        if (to && typeof temporaryPassword === "string" && temporaryPassword.trim()) {
           try {
             const out = await sendTempleAdminInviteEmail({
               to,
@@ -197,13 +171,39 @@ export function createTemplesRouter(temples: TemplesService): Router {
             console.error(`[temple-invite] Failed to send invite email to ${to}`, e);
           }
         }
-        const msg =
-          inviteEmailSent === true
-            ? "Temple created. An email with login and invoice details was sent to the admin."
-            : "Temple created successfully.";
-        const reason =
-          inviteEmailSent === true
-            ? "A new tenant, billing invoice, and admin user (if new) were created; the invite and invoice were emailed when SMTP is configured."
+
+        if (to && invoice) {
+          try {
+            const out = await sendInvoiceOnlyEmail({
+              to,
+              templeName: body.temple.name ?? "",
+              invoiceNumber: invoice.invoiceNumber,
+              amountCents: invoice.amountCents,
+              isTrialProforma: invoice.isTrialProforma,
+              planName: invoice.planName,
+              dueDate: invoice.dueDate,
+              paymentReference: invoice.invoiceNumber,
+            });
+            invoiceEmailSent = out.sent;
+          } catch (e) {
+            invoiceEmailSent = false;
+            console.error(`[temple-billing] Failed to email invoice to ${to}`, e);
+          }
+        }
+
+        const emailedBoth = inviteEmailSent === true && invoiceEmailSent === true;
+        const emailedEither = inviteEmailSent === true || invoiceEmailSent === true;
+        const msg = emailedBoth
+          ? "Temple created. Login details and invoice were emailed to the admin."
+          : emailedEither
+            ? "Temple created. At least one email was sent to the admin."
+            : inviteEmailSent === false || invoiceEmailSent === false
+              ? "Temple created. One or more emails could not be sent."
+              : "Temple created successfully.";
+        const reason = emailedBoth
+          ? "A new tenant, billing invoice, and admin user (if new) were created; invite and invoice emails were sent when SMTP is configured."
+          : emailedEither
+            ? "Temple was created; some notification emails were sent."
             : "A new tenant (and user when applicable) was created. Email may be skipped if not configured.";
         sendSuccess(
           res,
@@ -218,6 +218,7 @@ export function createTemplesRouter(temples: TemplesService): Router {
                 }
               : {}),
             ...(inviteEmailSent !== undefined ? { inviteEmailSent } : {}),
+            ...(invoiceEmailSent !== undefined ? { invoiceEmailSent } : {}),
             ...(temporaryPassword !== undefined ? { temporaryPassword } : {}),
           },
           msg,

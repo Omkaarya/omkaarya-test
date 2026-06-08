@@ -42,6 +42,9 @@ export default function RolesPermissionsPage() {
   const [permissionsByRole, setPermissionsByRole] = useState<Record<string, RolePermission[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addSaving, setAddSaving] = useState(false);
+  const [newRole, setNewRole] = useState({ slug: "", name: "", description: "" });
 
   const reload = async () => {
     setLoading(true);
@@ -58,6 +61,34 @@ export default function RolesPermissionsPage() {
   };
 
   useEffect(() => { reload(); }, []);
+
+  const handleAddRole = async () => {
+    const slug = newRole.slug.trim().toLowerCase();
+    const name = newRole.name.trim();
+    if (!slug || !name) {
+      setError("Slug and name are required.");
+      return;
+    }
+    setAddSaving(true);
+    setError(null);
+    try {
+      await fetchTempleAdminJson("/api/temple-admin/peoples/roles", {
+        method: "POST",
+        body: JSON.stringify({
+          slug,
+          name,
+          description: newRole.description.trim() || null,
+        }),
+      });
+      setAddOpen(false);
+      setNewRole({ slug: "", name: "", description: "" });
+      await reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not create role.");
+    } finally {
+      setAddSaving(false);
+    }
+  };
 
   const toggleExpand = async (roleId: string) => {
     if (expandedRoleId === roleId) {
@@ -84,7 +115,9 @@ export default function RolesPermissionsPage() {
             Define what each role can do across modules.
           </p>
         </div>
-        <Button variant="primary" leadingIcon={<Plus className="h-4 w-4" />}>Add Role</Button>
+        <Button variant="primary" leadingIcon={<Plus className="h-4 w-4" />} onClick={() => setAddOpen(true)}>
+          Add Role
+        </Button>
       </div>
 
       {error && (
@@ -185,6 +218,40 @@ export default function RolesPermissionsPage() {
               </div>
             );
           })}
+        </div>
+      )}
+      {addOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
+            <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Add Role</h2>
+            <div className="mt-4 space-y-3">
+              <input
+                className="h-11 w-full rounded-xl border border-zinc-200 px-4 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+                placeholder="Slug (e.g. volunteer-coord)"
+                value={newRole.slug}
+                onChange={(e) => setNewRole((r) => ({ ...r, slug: e.target.value }))}
+              />
+              <input
+                className="h-11 w-full rounded-xl border border-zinc-200 px-4 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+                placeholder="Display name"
+                value={newRole.name}
+                onChange={(e) => setNewRole((r) => ({ ...r, name: e.target.value }))}
+              />
+              <textarea
+                rows={3}
+                className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+                placeholder="Description (optional)"
+                value={newRole.description}
+                onChange={(e) => setNewRole((r) => ({ ...r, description: e.target.value }))}
+              />
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
+              <Button variant="primary" disabled={addSaving} onClick={() => void handleAddRole()}>
+                {addSaving ? "Creating…" : "Create Role"}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

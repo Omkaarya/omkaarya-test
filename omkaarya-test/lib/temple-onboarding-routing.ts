@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getTempleSessionProfileAction } from "@/app/actions/onboarding";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
@@ -96,6 +96,21 @@ export async function fetchTempleOnboardingProgress(): Promise<
   }
 }
 
+function profileStepsDone(progress: TempleOnboardingProgress): {
+  adminProfileSeen: boolean;
+  templeProfileDone: boolean;
+  deityDone: boolean;
+} {
+  const deityDone =
+    progress.hasDeitySelectionComplete ||
+    isDeitySelectionComplete() ||
+    Boolean(loadTempleOnboardingDeityDraft()?.completed);
+  const templeProfileDone =
+    progress.hasTempleProfileDetailsSaved || isTempleOnboardingTempleCreated();
+  const adminProfileSeen = isTempleOnboardingAdminProfileSeen();
+  return { adminProfileSeen, templeProfileDone, deityDone };
+}
+
 /** Resolves the next onboarding href the user should be on. */
 export function resolveTempleOnboardingPath(
   progress: TempleOnboardingProgress,
@@ -104,14 +119,12 @@ export function resolveTempleOnboardingPath(
   if (options?.firstLogin || progress.needsPasswordChange) {
     return ONBOARDING_PATHS.setPassword;
   }
-  if (!progress.hasPlanSelected) {
-    return ONBOARDING_PATHS.choosePlan;
-  }
-  if (!progress.hasPaymentCompleted) {
-    return ONBOARDING_PATHS.payment;
+
+  if (progress.hasOnboardingCompleted) {
+    return ONBOARDING_PATHS.complete;
   }
 
-  if (options?.afterLogin && !options.continueProfileSteps) {
+  if (options?.afterLogin && !options.continueProfileSteps && progress.hasPaymentCompleted) {
     return ONBOARDING_PATHS.complete;
   }
 
@@ -119,39 +132,35 @@ export function resolveTempleOnboardingPath(
     return ONBOARDING_PATHS.complete;
   }
 
-  if (progress.hasOnboardingCompleted) {
-    return ONBOARDING_PATHS.complete;
-  }
+  const { adminProfileSeen, templeProfileDone, deityDone } = profileStepsDone(progress);
 
-  const deityDone =
-    progress.hasDeitySelectionComplete ||
-    isDeitySelectionComplete() ||
-    Boolean(loadTempleOnboardingDeityDraft()?.completed);
-  const templeProfileDone =
-    progress.hasTempleProfileDetailsSaved || isTempleOnboardingTempleCreated();
-  const adminProfileSeen = isTempleOnboardingAdminProfileSeen();
-
-  if (deityDone && templeProfileDone) {
-    return ONBOARDING_PATHS.complete;
+  if (!adminProfileSeen) {
+    return ONBOARDING_PATHS.adminProfile;
   }
-  if (templeProfileDone && !deityDone) {
-    return ONBOARDING_PATHS.deitySelection;
-  }
-  if (adminProfileSeen && !templeProfileDone) {
+  if (!templeProfileDone) {
     return ONBOARDING_PATHS.templeProfile;
   }
+  if (!deityDone) {
+    return ONBOARDING_PATHS.deitySelection;
+  }
+  if (!progress.hasPlanSelected) {
+    return ONBOARDING_PATHS.choosePlan;
+  }
+  if (!progress.hasPaymentCompleted) {
+    return ONBOARDING_PATHS.payment;
+  }
 
-  return ONBOARDING_PATHS.adminProfile;
+  return ONBOARDING_PATHS.complete;
 }
 
 export function isOnboardingIncomplete(progress: TempleOnboardingProgress): boolean {
-  const target = resolveTempleOnboardingPath(progress, { continueProfileSteps: true });
-  return target !== ONBOARDING_PATHS.complete;
+  if (progress.hasOnboardingCompleted) return false;
+  return true;
 }
 
 /** Whether the user should be redirected away from the operational dashboard. */
 export function shouldBlockTempleDashboard(progress: TempleOnboardingProgress): boolean {
-  return isOnboardingIncomplete(progress);
+  return !progress.hasOnboardingCompleted;
 }
 
 export async function resolveTempleTenantId(sessionEmail: string): Promise<string | null> {
@@ -169,51 +178,73 @@ export async function resolveTempleTenantId(sessionEmail: string): Promise<strin
 export function useTempleOnboardingGuard(
   currentStep: keyof typeof ONBOARDING_PATHS,
   options?: { enabled?: boolean; afterLogin?: boolean; continueProfileSteps?: boolean },
-): { ready: boolean } {
+): { ready: boolean; guardError: string | null; retryGuard: () => void } {
   const router = useRouter();
   const pathname = usePathname();
   const checkedRef = useRef(false);
+  const [ready, setReady] = useState(false);
+  const [guardError, setGuardError] = useState<string | null>(null);
   const enabled = options?.enabled ?? true;
 
+  const runGuard = useCallback(async () => {
+    if (!enabled || currentStep === "signin") {
+      setReady(true);
+      setGuardError(null);
+      return;
+    }
+
+    setGuardError(null);
+    setReady(false);
+
+    const result = await fetchTempleOnboardingProgress();
+    if (result.ok === false) {
+      if (currentStep === "setPassword") {
+        setReady(true);
+        return;
+      }
+      setGuardError(result.message);
+      return;
+    }
+
+    const target = resolveTempleOnboardingPath(result.progress, {
+      afterLogin: options?.afterLogin,
+      continueProfileSteps: options?.continueProfileSteps ?? currentStep !== "setPassword",
+      firstLogin: currentStep === "setPassword" && result.progress.needsPasswordChange,
+    });
+
+    const here = pathnameToOnboardingStep(pathname);
+    if (here && here !== currentStep) {
+      setReady(true);
+      return;
+    }
+
+    if (target !== ONBOARDING_PATHS[currentStep]) {
+      router.replace(target);
+      return;
+    }
+
+    checkedRef.current = true;
+    setReady(true);
+  }, [
+    enabled,
+    currentStep,
+    pathname,
+    router,
+    options?.afterLogin,
+    options?.continueProfileSteps,
+  ]);
+
   useEffect(() => {
-    if (!enabled || currentStep === "signin") return;
     if (checkedRef.current && currentStep !== "setPassword") return;
+    void runGuard();
+  }, [runGuard, currentStep]);
 
-    let cancelled = false;
+  const retryGuard = useCallback(() => {
+    checkedRef.current = false;
+    void runGuard();
+  }, [runGuard]);
 
-    void (async () => {
-      const result = await fetchTempleOnboardingProgress();
-      if (cancelled) return;
-      if (!result.ok) {
-        if (currentStep !== "setPassword") {
-          router.replace(ONBOARDING_PATHS.signin);
-        }
-        return;
-      }
-
-      const target = resolveTempleOnboardingPath(result.progress, {
-        afterLogin: options?.afterLogin,
-        continueProfileSteps: options?.continueProfileSteps ?? currentStep !== "setPassword",
-        firstLogin: currentStep === "setPassword" && result.progress.needsPasswordChange,
-      });
-
-      const here = pathnameToOnboardingStep(pathname);
-      if (here && here !== currentStep) return;
-
-      if (target !== ONBOARDING_PATHS[currentStep]) {
-        router.replace(target);
-        return;
-      }
-
-      checkedRef.current = true;
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [enabled, currentStep, pathname, router, options?.afterLogin, options?.continueProfileSteps]);
-
-  return { ready: true };
+  return { ready, guardError, retryGuard };
 }
 
 export { ONBOARDING_PATHS };

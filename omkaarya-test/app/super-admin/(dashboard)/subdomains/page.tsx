@@ -29,7 +29,7 @@ export default function SubdomainsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [country, setCountry] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<TemplesSortBy>("name");
+  const [sortBy, setSortBy] = useState<TemplesSortBy>("timeline");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [rows, setRows] = useState<MockTemple[]>([]);

@@ -42,8 +42,8 @@ function parseStatus(raw: string): "all" | "active" | "inactive" {
 
 function parseSortBy(raw: string): "name" | "last7" | "timeline" {
   const s = raw.trim().toLowerCase();
-  if (s === "last7" || s === "timeline") return "timeline";
-  return "name";
+  if (s === "name") return "name";
+  return "timeline";
 }
 
 export function createMasterDeitiesRouter(repo: PostgresMasterDeitiesRepository): Router {

@@ -1,15 +1,13 @@
 "use client";
 
-import { useMemo, useState, useCallback, useRef, useEffect } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import {
-  Calendar,
   CheckCircle2,
   CreditCard,
   Download,
   Expand,
   Eye,
   FileText,
-  ChevronDown,
   RefreshCw,
   Repeat,
   ShieldCheck,
@@ -19,11 +17,14 @@ import {
 import { Button } from "@/app/components/ds/atoms/Button";
 import { Badge } from "@/app/components/ds/atoms/Badge";
 import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
+import { InvoiceDetailModal } from "@/app/components/billing/InvoiceDetailModal";
+import { buildInvoiceDocumentFromListRow } from "@/lib/billing/invoice-document-mappers";
+import type { BillingProfile } from "@/lib/billing/invoice-types";
 import AdminListCard from "@/app/components/admin/AdminListCard";
 import AdminPagination from "@/app/components/admin/AdminPagination";
 import { AdminTableToolbar, AdminTableToolbarEnd, AdminTableToolbarStart } from "@/app/components/admin/AdminTableToolbar";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
-import { EntityNameCell } from "@/app/components/ds/molecules/TableCells";
+import { EntityNameCell, TableRowIconActions, type TableRowIconAction } from "@/app/components/ds/molecules/TableCells";
 import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
 import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
@@ -55,20 +56,42 @@ type SubscriptionRow = {
   adminEmail: string;
 };
 
-type BillingProfile = {
-  issuer: { name: string; address: string; email: string; website: string; brandLine: string };
-  paymentMethodLabel: string;
-  bank: { bankName: string; accountName: string; accountNumber: string; swift: string; notes: string };
-  tax: { rateBps: number; label: string };
-  money: { currency: string };
-};
+function InvoiceModal({
+  subscription,
+  profile,
+  onClose,
+  onDownload,
+}: {
+  subscription: SubscriptionRow;
+  profile: BillingProfile | null;
+  onClose: () => void;
+  onDownload?: () => void;
+}) {
+  const invoiceStatus = subscription.status === "Active" || subscription.verifiedBy ? "Paid" : "Unpaid";
+  const document = buildInvoiceDocumentFromListRow({
+    invoiceNumber: subscription.invoiceId ?? "—",
+    issuedDate: subscription.paymentDate,
+    dueDate: subscription.expiresOn,
+    statusLabel: invoiceStatus,
+    templeName: subscription.templeName,
+    adminEmail: subscription.adminEmail,
+    plan: subscription.plan,
+    period: subscription.billingCycle,
+    amountCents: subscription.amountCents,
+    currency: profile?.money?.currency || "USD",
+    profile,
+    paymentReference: subscription.invoiceId ?? undefined,
+  });
 
-function formatMoney(currency: string, amountCents: number): string {
-  const c = (currency || "USD").toUpperCase();
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: c }).format((amountCents ?? 0) / 100);
+  return (
+    <InvoiceDetailModal
+      title={`Invoice #${subscription.invoiceId ?? "—"} Details`}
+      document={document}
+      onClose={onClose}
+      onDownload={subscription.invoiceId ? onDownload : undefined}
+    />
+  );
 }
-
-// ── Helpers ────────────────────────────────────────────────────────
 
 function statusBadgeColor(status: SubscriptionStatus) {
   switch (status) {
@@ -97,276 +120,7 @@ function formatDate(dateStr: string) {
 const FILTERS = ["All", "Pending", "Active", "Expired", "Rejected"] as const;
 type FilterId = (typeof FILTERS)[number];
 
-// ── Actions Dropdown ───────────────────────────────────────────────
-
-type ActionItem = {
-  label: string;
-  icon: React.ReactNode;
-  onClick: () => void;
-  danger?: boolean;
-};
-
-function ActionsDropdown({ actions }: { actions: ActionItem[] }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    if (open) document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen(!open);
-        }}
-        className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors"
-        aria-expanded={open}
-        aria-label="Open actions menu"
-      >
-        <ChevronDown className="h-4 w-4" aria-hidden />
-      </button>
-
-      {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-52 origin-top-right rounded-xl border border-border bg-surface shadow-xl animate-in fade-in zoom-in-95 duration-150">
-          <div className="p-1.5">
-            {actions.map((action, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setOpen(false);
-                  action.onClick();
-                }}
-                className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
-                  action.danger
-                    ? "text-status-danger-text hover:bg-red-50 dark:hover:bg-red-950/30"
-                    : "text-text-secondary hover:bg-subtle hover:text-text-primary"
-                }`}
-              >
-                {action.icon}
-                {action.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Invoice Detail Modal (Figma-exact) ──────────────────────────────
-
-function InvoiceModal({
-  subscription,
-  profile,
-  onClose,
-  onDownload,
-}: {
-  subscription: SubscriptionRow;
-  profile: BillingProfile | null;
-  onClose: () => void;
-  onDownload?: () => void;
-}) {
-  const invoiceStatus = subscription.status === "Active" || subscription.verifiedBy ? "Paid" : "Unpaid";
-  const currency = profile?.money?.currency || "USD";
-  const taxRateBps = profile?.tax?.rateBps ?? 0;
-  const taxCents = Math.max(0, Math.round(((subscription.amountCents ?? 0) * taxRateBps) / 10_000));
-  const subtotal = formatMoney(currency, subscription.amountCents ?? 0);
-  const tax = formatMoney(currency, taxCents);
-  const total = formatMoney(currency, (subscription.amountCents ?? 0) + taxCents);
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
-      <div
-        className="absolute inset-0 bg-gray-950/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
-
-      <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-surface shadow-2xl">
-        {/* Header — icon top-left, expand + close top-right */}
-        <div className="px-6 pt-6 pb-0">
-          <div className="flex items-start justify-between">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-surface shadow-xs">
-              <FileText className="h-5 w-5 text-text-tertiary" />
-            </div>
-            <div className="flex items-center gap-2">
-              <button className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors">
-                <Expand className="h-4 w-4" />
-              </button>
-              <button
-                onClick={onClose}
-                className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-
-          {/* Title */}
-          <h3 className="mt-4 text-lg font-bold text-text-primary">
-            Invoice #{subscription.invoiceId} Details
-          </h3>
-          <p className="text-sm text-text-tertiary">
-            Manage your invoice details here.
-          </p>
-        </div>
-
-        {/* Body */}
-        <div className="space-y-6 p-6">
-          {/* Temple Avatar */}
-          <div>
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-600 text-white font-bold text-xl shadow-lg">
-              {subscription.templeInitials}
-            </div>
-          </div>
-
-          {/* Invoice Meta */}
-          <div>
-            <p className="text-sm font-semibold text-text-primary mb-2">Invoice</p>
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2 text-sm text-text-secondary">
-                <FileText className="h-4 w-4 text-text-tertiary" />
-                <span>{subscription.invoiceId}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-text-secondary">
-                <Calendar className="h-4 w-4 text-text-tertiary" />
-                <span>Issued On: {formatDate(subscription.paymentDate)}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-text-secondary">
-                <Calendar className="h-4 w-4 text-text-tertiary" />
-                <span>Due On: {formatDate(subscription.expiresOn)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Invoice From / To */}
-          <div className="grid grid-cols-2 gap-8">
-            <div>
-              <p className="text-sm font-bold text-text-primary mb-2">Invoice From:</p>
-              <p className="text-sm font-medium text-text-primary">{profile?.issuer?.name ?? "—"}</p>
-              <p className="text-sm text-text-secondary">{profile?.issuer?.address ?? "—"}</p>
-              <p className="text-sm text-text-tertiary">{profile?.issuer?.email ?? "—"}</p>
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-bold text-text-primary mb-2">Invoice To:</p>
-              <TruncateText className="text-sm font-medium text-text-primary" title={subscription.templeName}>
-                {subscription.templeName}
-              </TruncateText>
-              <TruncateText className="text-sm text-text-tertiary" title={subscription.adminEmail}>
-                {subscription.adminEmail}
-              </TruncateText>
-            </div>
-          </div>
-
-          {/* Line Items Table */}
-          <div className="overflow-hidden rounded-lg border border-border">
-            <table className="w-full table-fixed text-left">
-              <thead>
-                <tr className="border-b border-border bg-subtle">
-                  <th className="w-[22%] px-4 py-3 text-xs font-semibold text-text-tertiary">Plan</th>
-                  <th className="w-[16%] px-4 py-3 text-xs font-semibold text-text-tertiary">Billing Cycle</th>
-                  <th className="w-[16%] px-4 py-3 text-xs font-semibold text-text-tertiary">Created On</th>
-                  <th className="w-[16%] px-4 py-3 text-xs font-semibold text-text-tertiary">Expiring On</th>
-                  <th className="w-[14%] px-4 py-3 text-xs font-semibold text-text-tertiary">Amount(USD)</th>
-                  <th className="w-[16%] px-4 py-3 text-xs font-semibold text-text-tertiary">Invoice Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className="min-w-0 overflow-hidden px-4 py-3 text-sm text-text-primary">
-                    <TruncateText title={subscription.plan}>{subscription.plan}</TruncateText>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-text-secondary">
-                    {subscription.billingCycle}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-text-secondary">
-                    {formatDate(subscription.activatedOn ?? subscription.paymentDate)}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-text-secondary">
-                    {formatDate(subscription.expiresOn)}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-text-primary tabular-nums">
-                    {subtotal}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge color={invoiceStatus === "Paid" ? "success" : "warning"} size="sm" dot>
-                      {invoiceStatus}
-                    </Badge>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          {/* Payment Info + Totals — side by side */}
-          <div className="flex items-start justify-between gap-8">
-            <div>
-              <p className="text-sm font-bold text-text-primary mb-2">Payment Info</p>
-              <p className="text-sm text-text-secondary">
-                Method: {profile?.paymentMethodLabel ?? "—"}
-              </p>
-              <p className="text-sm text-text-secondary">
-                Amount: {subtotal}
-              </p>
-            </div>
-            <div className="text-right space-y-1 min-w-[200px]">
-              <div className="flex justify-between text-sm">
-                <span className="text-text-secondary">Sub Total</span>
-                <span className="text-text-primary tabular-nums">{subtotal}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-text-secondary">{profile?.tax?.label ?? "Tax"}</span>
-                <span className="text-text-primary tabular-nums">{tax}</span>
-              </div>
-              <div className="flex justify-between text-sm font-bold pt-1 border-t border-border">
-                <span className="text-text-primary">Total</span>
-                <span className="text-text-primary tabular-nums">{total}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Terms and Conditions — light pink/rose bg like Figma */}
-          <div className="rounded-xl bg-rose-50 dark:bg-rose-950/20 p-5">
-            <p className="text-sm font-bold text-text-primary mb-2">
-              Terms and Conditions
-            </p>
-            <ul className="text-sm text-text-secondary space-y-1.5 list-disc pl-4">
-              <li>All payments must be made according to the agreed schedule. Late payments may incur additional fees.</li>
-              <li>We are not liable for any indirect, incidental, or consequential damages, including loss of profits, revenue, or data.</li>
-            </ul>
-          </div>
-        </div>
-
-        {/* Bottom Action Buttons */}
-        <div className="flex justify-end gap-3 border-t border-border px-6 py-4">
-          <Button variant="outline" onClick={onClose}>
-            Close
-          </Button>
-          <Button
-            variant="primary"
-            leadingIcon={<Download className="h-4 w-4" />}
-            disabled={!subscription.invoiceId}
-            onClick={onDownload}
-          >
-            Download Invoice
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Verification Modal ─────────────────────────────────────────────
+type ActionItem = TableRowIconAction;
 
 function VerifyModal({
   subscription,
@@ -949,17 +703,23 @@ export default function SubscriptionsPage() {
         header: "Actions",
         align: "right",
         cell: (row) => (
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex items-center justify-end gap-0.5">
             {row.status === "Pending" && (
               <Button
-                variant="primary"
+                variant="ghost"
                 size="sm"
-                onClick={() => setVerifyingRow(row)}
+                iconOnly
+                title="Verify"
+                aria-label="Verify"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setVerifyingRow(row);
+                }}
               >
-                <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Verify
+                <ShieldCheck className="h-4 w-4" />
               </Button>
             )}
-            <ActionsDropdown actions={getRowActions(row)} />
+            <TableRowIconActions actions={getRowActions(row)} />
           </div>
         ),
       },
