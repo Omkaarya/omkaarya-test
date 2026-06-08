@@ -11,8 +11,10 @@ import {
   getDeityById,
   type DeityCatalogEntry,
 } from "@/lib/deity-catalog";
+import { getTempleSessionProfileAction } from "@/app/actions/onboarding";
 import { submitTempleDeitySelection } from "@/lib/temple-onboarding-deity-api";
 import {
+  hydrateDeityDraftFromSessionProfile,
   isDeitySelectionComplete,
   loadTempleOnboardingDeityDraft,
   saveTempleOnboardingDeityDraft,
@@ -70,6 +72,7 @@ export default function TempleAdminDeitySelectionPage() {
 
   const [catalogEntries, setCatalogEntries] = useState<DeityCatalogEntry[]>([]);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [prefilledFromAdmin, setPrefilledFromAdmin] = useState(false);
 
   const debouncedPrimarySearch = useDebouncedValue(primarySearch, SEARCH_DEBOUNCE_MS);
   const debouncedSubSearch = useDebouncedValue(subSearch, SEARCH_DEBOUNCE_MS);
@@ -124,7 +127,17 @@ export default function TempleAdminDeitySelectionPage() {
         }
       }
 
-      const loaded = loadTempleOnboardingDeityDraft();
+      let loaded = loadTempleOnboardingDeityDraft();
+      if (!loaded?.primaryDeityId) {
+        const profileRes = await getTempleSessionProfileAction(email);
+        if (!cancelled && profileRes.ok) {
+          const hydrated = hydrateDeityDraftFromSessionProfile(profileRes.deity);
+          if (hydrated?.primaryDeityId && hydrated.completed) {
+            loaded = hydrated;
+            setPrefilledFromAdmin(true);
+          }
+        }
+      }
       if (loaded) {
         setPrimaryDeityId(loaded.primaryDeityId);
         setSubDeityIds(loaded.subDeityIds);
@@ -242,6 +255,12 @@ export default function TempleAdminDeitySelectionPage() {
       <p className="mx-auto mt-2 max-w-2xl text-center text-sm leading-relaxed text-[var(--text-muted)]">
         Choose the primary deity of your temple. This will be prominently displayed on your microsite.
       </p>
+
+      {prefilledFromAdmin ? (
+        <p className="mx-auto mt-3 max-w-2xl text-center text-xs text-[var(--text-muted)]">
+          Pre-selected by your administrator — you can change this before continuing.
+        </p>
+      ) : null}
 
       {catalogError ? (
         <div

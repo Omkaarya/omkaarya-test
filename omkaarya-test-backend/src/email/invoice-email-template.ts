@@ -2,6 +2,7 @@ import {
   computeDefaultDueDate,
   formatMoneyOrZero,
   resolveBillingIssuerFromEnv,
+  resolveBillingLogoUrl,
 } from "../billing/invoice-defaults.js";
 
 export type InvoiceEmailPayload = {
@@ -60,6 +61,14 @@ function bankFromEnv() {
   };
 }
 
+function buildInvoiceLogoHeaderHtml(): string {
+  const logoUrl = resolveBillingLogoUrl();
+  if (logoUrl) {
+    return `<img src="${escapeHtml(logoUrl)}" alt="Omkaarya" style="height:32px;width:auto;display:block;max-width:180px;" />`;
+  }
+  return `<div style="font-size:18px;font-weight:800;color:#6366f1;">OMKAARYA</div>`;
+}
+
 export function buildInvoiceEmailHtml(input: InvoiceEmailPayload): string {
   const issuer = resolveBillingIssuerFromEnv();
   const currency = (input.currency || process.env.BILLING_CURRENCY || "USD").toUpperCase();
@@ -92,7 +101,7 @@ export function buildInvoiceEmailHtml(input: InvoiceEmailPayload): string {
     <table width="100%" cellpadding="0" cellspacing="0" style="border-bottom:2px solid #6366f1;padding-bottom:16px;margin-bottom:20px;">
       <tr>
         <td style="vertical-align:top;">
-          <div style="font-size:18px;font-weight:800;color:#6366f1;">OMKAARYA</div>
+          ${buildInvoiceLogoHeaderHtml()}
           <div style="font-size:12px;color:#64748b;margin-top:4px;">${escapeHtml(issuer.name)}</div>
           <div style="font-size:12px;color:#64748b;white-space:pre-line;">${escapeHtml(issuer.address)}</div>
           <div style="font-size:12px;color:#64748b;">${escapeHtml(issuer.email)}</div>

@@ -223,7 +223,7 @@ function phoneFromPayloadUnknown(input: unknown): PhoneRowJson {
 function fullAddressFromPayload(temple: CreateTemplePayload["temple"]): TempleFullAddressJson {
   return {
     countryIso: temple.country.trim() || "GB",
-    state: "",
+    state: (temple.state ?? "").trim() || "",
     city: temple.city.trim() || "",
     postalCode: "",
     street: temple.address.trim() || "",
@@ -537,6 +537,8 @@ export class PostgresTempleRepository implements TempleRepository {
     let charity_registered = false;
     let charity_registration_number = "";
     let contact_phone: unknown = null;
+    let contact_whatsapp: unknown = null;
+    let tradition: string | null = null;
     let website_url = "";
     let fax: unknown = null;
     let established_year = "";
@@ -549,6 +551,8 @@ export class PostgresTempleRepository implements TempleRepository {
         charity_registered: boolean;
         charity_registration_number: string | null;
         contact_phone: unknown;
+        contact_whatsapp: unknown;
+        tradition: string | null;
         website_url: string | null;
         fax: unknown;
         established_year: string | null;
@@ -557,8 +561,9 @@ export class PostgresTempleRepository implements TempleRepository {
         primary_deity_id: string | null;
         sub_deity_ids: string[] | null;
       }>(
-        `SELECT charity_registered, charity_registration_number, contact_phone, website_url, fax,
-                established_year, full_address, logo_data_url, primary_deity_id, sub_deity_ids
+        `SELECT charity_registered, charity_registration_number, contact_phone, contact_whatsapp,
+                tradition, website_url, fax, established_year, full_address, logo_data_url,
+                primary_deity_id, sub_deity_ids
          FROM temple_admin_data WHERE id = 1 LIMIT 1`
       );
       const a = adm.rows[0];
@@ -566,6 +571,8 @@ export class PostgresTempleRepository implements TempleRepository {
         charity_registered = a.charity_registered;
         charity_registration_number = (a.charity_registration_number ?? "").trim();
         contact_phone = a.contact_phone;
+        contact_whatsapp = a.contact_whatsapp;
+        tradition = a.tradition;
         website_url = (a.website_url ?? "").trim();
         fax = a.fax;
         established_year = (a.established_year ?? "").trim();
@@ -580,6 +587,7 @@ export class PostgresTempleRepository implements TempleRepository {
 
     const contactEmail = (row.contact_email ?? row.admin_email).trim();
     const phone = parsePhoneJson(contact_phone);
+    const whatsapp = parsePhoneJson(contact_whatsapp);
     const bc = (row.billing_cycle ?? "").trim().toLowerCase();
     const billing: "monthly" | "annual" = bc === "monthly" ? "monthly" : "annual";
 
@@ -594,6 +602,8 @@ export class PostgresTempleRepository implements TempleRepository {
         },
         email: contactEmail,
         phone,
+        whatsapp,
+        tradition: (tradition ?? "Hindu").trim() || "Hindu",
         location: { countryIso: row.country_code, city: row.city },
       },
       details: {

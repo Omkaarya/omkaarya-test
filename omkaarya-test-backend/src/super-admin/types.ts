@@ -68,6 +68,8 @@ export type TempleSessionProfileResponse = {
     charity: { registered: boolean; registrationNumber: string };
     email: string;
     phone: PhoneRowJson;
+    whatsapp: PhoneRowJson;
+    tradition: string;
     location: { countryIso: string; city: string };
   };
   details: {
@@ -97,6 +99,8 @@ export type CreateTemplePayload = {
     name: string;
     deity: string;
     country: string;
+    /** Region/state ISO or label from super-admin wizard. */
+    state?: string;
     city: string;
     address: string;
     email: string;

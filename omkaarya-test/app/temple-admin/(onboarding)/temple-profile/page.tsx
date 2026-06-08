@@ -9,7 +9,15 @@ import {
   type TempleSessionProfileCore,
 } from "@/app/actions/onboarding";
 import { TEMPLE_ONBOARDING_EMAIL_KEY } from "@/lib/temple-onboarding-signin";
-import { isDeitySelectionComplete } from "@/lib/temple-onboarding-deity";
+import {
+  hydrateDeityDraftFromSessionProfile,
+  isDeitySelectionComplete,
+} from "@/lib/temple-onboarding-deity";
+import {
+  buildOmkaaryaSubdomainHost,
+  OMKAARYA_PORTAL_SUFFIX,
+  splitTempleDomainFromApi,
+} from "@/lib/temple-portal-domain";
 import {
   fileToDataUrl,
   isTempleOnboardingTempleCreated,
@@ -127,8 +135,10 @@ export default function TempleAdminTempleProfilePage() {
       }
       setCore(res.core);
       setTempleIdFromServer(res.templeId);
+      hydrateDeityDraftFromSessionProfile(res.deity);
 
       const loadedDraft = loadTempleOnboardingTempleProfileDraft();
+      const { slug: domainSlug } = splitTempleDomainFromApi(res.details.domainSubdomain);
       const addr = loadedDraft?.fullAddress ?? res.details.fullAddress;
       const countryIso = addr.countryIso || "LK";
       const faxDial =
@@ -147,11 +157,11 @@ export default function TempleAdminTempleProfilePage() {
           : res.core.charity,
         email: res.core.email,
         phone: res.core.phone,
-        whatsapp: res.core.phone,
+        whatsapp: res.core.whatsapp ?? res.core.phone,
         location: res.core.location,
         logoDataUrl: res.details.logoDataUrl,
         websiteUrl: loadedDraft?.websiteUrl ?? res.details.websiteUrl,
-        domainSubdomain: loadedDraft?.domainSubdomain ?? res.details.domainSubdomain,
+        domainSubdomain: loadedDraft?.domainSubdomain ?? domainSlug ?? res.details.domainSubdomain,
         establishedYear: loadedDraft?.establishedYear ?? res.details.establishedYear,
         fullAddress: {
           ...addr,
@@ -286,8 +296,8 @@ export default function TempleAdminTempleProfilePage() {
     return s || "temple_name";
   }, [draft.domainSubdomain]);
 
-  const micrositeHostPreview = useMemo(
-    () => `${slugPreview}.microsite.omkaarya.com`,
+  const portalHostPreview = useMemo(
+    () => buildOmkaaryaSubdomainHost(slugPreview) || `${slugPreview}.${OMKAARYA_PORTAL_SUFFIX}`,
     [slugPreview],
   );
 
@@ -459,6 +469,18 @@ export default function TempleAdminTempleProfilePage() {
                     />
                   </FormField>
 
+                  {core.tradition ? (
+                    <FormField id="tradition-ro" label="Temple Tradition" layout="horizontal">
+                      <TextInput
+                        id="tradition-ro"
+                        readOnly
+                        tabIndex={-1}
+                        value={core.tradition}
+                        className="cursor-not-allowed opacity-90"
+                      />
+                    </FormField>
+                  ) : null}
+
                   <FormField id="charity-display" label="Charity registration" layout="horizontal">
                     <div className="flex flex-col gap-3">
                       <label className="flex cursor-pointer items-start gap-3">
@@ -620,22 +642,21 @@ export default function TempleAdminTempleProfilePage() {
                     <FormField
                       id={domainSubdomainId}
                       label="Domain URL"
-                      hint={`Microsite will be live at: ${micrositeHostPreview}`}
+                      hint={`Microsite will be live at: ${portalHostPreview}`}
                       required
                       layout="horizontal"
                     >
                       <div>
                         <AffixedInput
                           id={domainSubdomainId}
-                          suffix=".microsite.omkaarya.com"
+                          suffix={`.${OMKAARYA_PORTAL_SUFFIX}`}
                           value={draft.domainSubdomain}
                           onChange={(e) => {
                             const raw = e.target.value;
                             const normalized = raw
                               .replace(/\s+/g, "-")
                               .toLowerCase()
-                              .replace(/\.microsite\.omkaarya\.com$/i, "")
-                              .replace(/\.omkaarya\.com$/i, "")
+                              .replace(new RegExp(`\\.${OMKAARYA_PORTAL_SUFFIX.replace(".", "\\.")}$`, "i"), "")
                               .replace(/[^a-z0-9-]/g, "");
                             setDraft((prev) => ({ ...prev, domainSubdomain: normalized }));
                           }}

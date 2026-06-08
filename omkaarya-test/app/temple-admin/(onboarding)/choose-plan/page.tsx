@@ -6,7 +6,11 @@ import { DM_Serif_Display } from "next/font/google";
 import { ArrowRight, Check, ChevronDown, ChevronUp, Layers2, Minus } from "lucide-react";
 import TempleOnboardingStepActions from "@/app/components/temple-admin/TempleOnboardingStepActions";
 import { getDeityById, type DeityCatalogEntry } from "@/lib/deity-catalog";
-import { isDeitySelectionComplete, loadTempleOnboardingDeityDraft } from "@/lib/temple-onboarding-deity";
+import {
+  hydrateDeityDraftFromSessionProfile,
+  isDeitySelectionComplete,
+  loadTempleOnboardingDeityDraft,
+} from "@/lib/temple-onboarding-deity";
 import {
   loadTempleOnboardingPlanDraft,
   saveTempleOnboardingPlanDraft,
@@ -30,8 +34,6 @@ import {
   loadTempleOnboardingTempleProfileDraft,
   saveTempleOnboardingTempleProfileDraft,
 } from "@/lib/temple-onboarding-temple-profile";
-import { saveTempleOnboardingDeityDraft } from "@/lib/temple-onboarding-deity";
-
 const dmSerif = DM_Serif_Display({
   subsets: ["latin"],
   weight: "400",
@@ -127,14 +129,11 @@ export default function TempleAdminChoosePlanPage() {
           setMissing(false);
         }
 
-        if (!hasDeitySummary && res.deity.primaryDeityId) {
-          const deityHydrated = {
-            primaryDeityId: res.deity.primaryDeityId,
-            subDeityIds: res.deity.subDeityIds,
-            completed: true,
-          };
-          saveTempleOnboardingDeityDraft(deityHydrated);
-          setDeityDraft((prev) => ({ ...(prev ?? { subDeityIds: [] }), ...deityHydrated }));
+        if (!hasDeitySummary) {
+          const deityHydrated = hydrateDeityDraftFromSessionProfile(res.deity);
+          if (deityHydrated) {
+            setDeityDraft((prev) => ({ ...(prev ?? { subDeityIds: [] }), ...deityHydrated }));
+          }
         }
       }
 
