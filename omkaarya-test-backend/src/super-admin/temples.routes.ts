@@ -16,6 +16,10 @@ function asSingleParam(v: string | string[] | undefined): string | undefined {
   return typeof v === "string" ? v : v[0];
 }
 
+function resolveAdminNotificationEmail(body: CreateTemplePayload): string {
+  return body.admin.email.trim() || body.temple.email.trim();
+}
+
 function requireTenantIdParam(raw: string | string[] | undefined): string {
   const parsed = tenantIdParamSchema.safeParse(asSingleParam(raw) ?? "");
   if (!parsed.success) {
@@ -79,6 +83,35 @@ export function createTemplesRouter(temples: TemplesService): Router {
         );
       } catch (e) {
         throw new HttpError(500, "Failed to load temple.", { cause: e });
+      }
+    })
+  );
+
+  r.delete(
+    "/temples/:tenantId",
+    asyncHandler(async (req, res) => {
+      const tenantId = requireTenantIdParam(req.params.tenantId);
+      try {
+        const out = await temples.deleteTemple(tenantId);
+        if (!out.ok) {
+          sendError(
+            res,
+            404,
+            "TEMPLE_NOT_FOUND",
+            "Temple not found.",
+            "The tenant id does not match any existing record, so the delete was skipped."
+          );
+          return;
+        }
+        sendSuccess(
+          res,
+          200,
+          { deleted: true },
+          "Temple deleted.",
+          "The temple, related billing records, and operational database (when configured) were removed."
+        );
+      } catch (e) {
+        throw new HttpError(500, "Failed to delete temple.", { cause: e });
       }
     })
   );
@@ -154,18 +187,23 @@ export function createTemplesRouter(temples: TemplesService): Router {
       const body = req.body as CreateTemplePayload;
       try {
         const { templeId, temporaryPassword, invoice, operationalDbName } = await temples.createTemple(body);
-        const to = body.admin.email.trim();
+        const to = resolveAdminNotificationEmail(body);
         let inviteEmailSent: boolean | undefined;
         let invoiceEmailSent: boolean | undefined;
 
-        if (to && typeof temporaryPassword === "string" && temporaryPassword.trim()) {
+        if (to) {
           try {
             const out = await sendTempleAdminInviteEmail({
               to,
               templeName: body.temple.name ?? "",
-              temporaryPassword,
+              ...(typeof temporaryPassword === "string" && temporaryPassword.trim()
+                ? { temporaryPassword }
+                : {}),
             });
             inviteEmailSent = out.sent;
+            if (!out.sent) {
+              console.warn(`[temple-invite] Invite email not sent to ${to}: ${out.reason}`);
+            }
           } catch (e) {
             inviteEmailSent = false;
             console.error(`[temple-invite] Failed to send invite email to ${to}`, e);

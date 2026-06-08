@@ -53,3 +53,44 @@ export function getPlanByIdFromList(
   if (!id) return undefined;
   return list.find((p) => p.id === id);
 }
+
+export type PricingPlanComparisonData = {
+  plans: { id: string; name: string }[];
+  features: {
+    featureId: string;
+    name: string;
+    key: string;
+    moduleKey: string;
+    hasLimit: boolean;
+    values: Record<string, { enabled: boolean; limit: number | null }>;
+  }[];
+};
+
+type PublicPricingApiBody = {
+  success?: boolean;
+  data?: {
+    plans?: ApiPricingPlan[];
+    comparison?: PricingPlanComparisonData;
+  };
+};
+
+/** Temple onboarding uses public pricing (no super-admin auth). */
+export async function fetchPublicPricingCatalog(): Promise<
+  | { ok: true; plans: ApiPricingPlan[]; comparison: PricingPlanComparisonData | null }
+  | { ok: false; message: string }
+> {
+  try {
+    const res = await fetch("/api/public/pricing", { cache: "no-store", credentials: "same-origin" });
+    const json = (await res.json().catch(() => null)) as PublicPricingApiBody | null;
+    if (!res.ok || !json?.success || !Array.isArray(json.data?.plans)) {
+      return { ok: false, message: "Could not load pricing plans." };
+    }
+    return {
+      ok: true,
+      plans: json.data.plans,
+      comparison: json.data.comparison ?? null,
+    };
+  } catch {
+    return { ok: false, message: "Network error while loading plans." };
+  }
+}

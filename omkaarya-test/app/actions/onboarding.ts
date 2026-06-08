@@ -215,6 +215,11 @@ export type TempleSessionProvisioningPlan = {
   billing: "monthly" | "annual";
 };
 
+export type TempleSessionDeity = {
+  primaryDeityId: string | null;
+  subDeityIds: string[];
+};
+
 export type GetTempleSessionProfileResult =
   | {
       ok: true;
@@ -222,6 +227,7 @@ export type GetTempleSessionProfileResult =
       core: TempleSessionProfileCore;
       details: TempleSessionProfileDetails;
       provisioningPlan: TempleSessionProvisioningPlan;
+      deity: TempleSessionDeity;
     }
   | ErrResult;
 
@@ -233,6 +239,7 @@ export async function getTempleSessionProfileAction(sessionEmail: string): Promi
     core: TempleSessionProfileCore;
     details: TempleSessionProfileDetails;
     provisioningPlan?: TempleSessionProvisioningPlan;
+    deity?: TempleSessionDeity;
   }>(`/api/temple-admin/temple-profile?${search.toString()}`, {
     method: "GET",
     headers: { Accept: "application/json" },
@@ -254,12 +261,17 @@ export async function getTempleSessionProfileAction(sessionEmail: string): Promi
     planName: null,
     billing: "annual",
   };
+  const deity: TempleSessionDeity = res.data.deity ?? {
+    primaryDeityId: null,
+    subDeityIds: [],
+  };
   return {
     ok: true,
     templeId: res.data.templeId,
     core: res.data.core,
     details: res.data.details,
     provisioningPlan,
+    deity,
   };
 }
 

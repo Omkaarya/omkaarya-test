@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Eye, Pencil, Plus } from "lucide-react";
+import { Eye, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 
 import type { MockTemple, TemplePlan } from "@/lib/mock-temples";
 import type { TemplesListResponse, TemplesSortBy } from "@/lib/temples-query";
@@ -17,6 +17,7 @@ import { Button } from "@/app/components/ds/atoms/Button";
 import { Badge, type BadgeColor } from "@/app/components/ds/atoms/Badge";
 import StatusBadge from "@/app/components/admin/StatusBadge";
 import ComplianceBadge from "@/app/components/admin/ComplianceBadge";
+import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import { TEMPLE_NAME_DISPLAY_MAX, truncateToMaxLength } from "@/lib/truncate-display";
 
 type StatusFilter = "all" | "Active" | "Trial" | "Suspended";
@@ -58,6 +59,9 @@ export default function TemplesAdminPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -114,7 +118,33 @@ export default function TemplesAdminPage() {
 
     void run();
     return () => controller.abort();
-  }, [search, statusFilter, country, sortBy, page, pageSize]);
+  }, [search, statusFilter, country, sortBy, page, pageSize, refreshKey]);
+
+  const handleDelete = async (tenantId: string, templeName: string) => {
+    const label = templeName.trim() || "this temple";
+    if (
+      !confirm(
+        `Permanently delete "${label}"? This removes billing records and the temple database. This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    setDeletingId(tenantId);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/temples/${encodeURIComponent(tenantId)}`, { method: "DELETE" });
+      const data: unknown = await res.json();
+      if (!res.ok) {
+        setActionError(jsonApiErrorMessage(data) || "Failed to delete temple");
+        return;
+      }
+      setRefreshKey((k) => k + 1);
+    } catch {
+      setActionError("Network error — could not delete temple.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const columns: ColumnDef<MockTemple>[] = useMemo(
     () => [
@@ -195,25 +225,47 @@ export default function TemplesAdminPage() {
         align: "right",
         cell: (row) => (
           <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
-            <Link
-              href={`/super-admin/view-temple/${encodeURIComponent(row.tenantId)}`}
-              aria-label="View temple"
-              title="View temple"
-            >
-              <Button variant="ghost" size="sm" iconOnly aria-label="View temple">
-                <Eye className="h-4 w-4" />
-              </Button>
-            </Link>
-            <Link href={`/super-admin/edit-temple/${encodeURIComponent(row.tenantId)}`} aria-label="Edit temple" title="Edit temple">
-              <Button variant="ghost" size="sm" iconOnly aria-label="Edit temple">
-                <Pencil className="h-4 w-4" />
-              </Button>
-            </Link>
+            {deletingId === row.tenantId ? (
+              <Loader2 className="h-4 w-4 animate-spin text-text-quaternary" aria-hidden />
+            ) : (
+              <>
+                <Link
+                  href={`/super-admin/view-temple/${encodeURIComponent(row.tenantId)}`}
+                  aria-label="View temple"
+                  title="View temple"
+                >
+                  <Button variant="ghost" size="sm" iconOnly aria-label="View temple">
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                </Link>
+                <Link
+                  href={`/super-admin/edit-temple/${encodeURIComponent(row.tenantId)}`}
+                  aria-label="Edit temple"
+                  title="Edit temple"
+                >
+                  <Button variant="ghost" size="sm" iconOnly aria-label="Edit temple">
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </Link>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  aria-label="Delete temple"
+                  title="Delete temple"
+                  className="hover:text-red-600"
+                  onClick={() => void handleDelete(row.tenantId, row.name)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </>
+            )}
           </div>
         ),
       },
     ],
-    []
+    [deletingId]
   );
 
   return (
@@ -257,7 +309,11 @@ export default function TemplesAdminPage() {
 
         {error ? (
           <p className="px-6 py-10 text-center text-sm text-red-600 dark:text-red-400">{error}</p>
-        ) : (
+        ) : actionError ? (
+          <p className="px-6 py-3 text-center text-sm text-red-600 dark:text-red-400">{actionError}</p>
+        ) : null}
+
+        {!error ? (
           <DataTable<MockTemple>
             columns={columns}
             data={rows}
@@ -266,7 +322,7 @@ export default function TemplesAdminPage() {
             isLoading={loading}
             loadingRows={pageSize}
           />
-        )}
+        ) : null}
 
         <AdminPagination
           page={page}

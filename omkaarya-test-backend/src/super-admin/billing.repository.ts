@@ -125,11 +125,45 @@ export async function nextReceiptNumber(client: Pick<PoolClient, "query">): Prom
 export type CreateInitialInvoiceInput = {
   tenantId: string;
   planName: string;
+  /** Prefer lookup by catalog UUID when the plan name is custom. */
+  pricingPlanId?: string | null;
   templeName: string;
   /** Raw from wizard: "Monthly" | "Annually" */
   billingCycleRaw: string;
   trial: boolean;
 };
+
+async function loadPricingPlanForBilling(
+  client: Pick<PoolClient, "query">,
+  input: { planName: string; pricingPlanId?: string | null }
+): Promise<{ name: string; price_monthly: number; price_yearly: number }> {
+  const catalogId = (input.pricingPlanId ?? "").trim();
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(catalogId)) {
+    const byId = await client.query<{
+      name: string;
+      price_monthly: number;
+      price_yearly: number;
+    }>(
+      `SELECT name, price_monthly, price_yearly
+       FROM public.pricing_plans
+       WHERE id = $1::uuid
+       LIMIT 1`,
+      [catalogId]
+    );
+    if (byId.rows[0]) return byId.rows[0]!;
+  }
+
+  const planName = input.planName.trim() || "Sankalpa";
+  const byName = await client.query<{
+    name: string;
+    price_monthly: number;
+    price_yearly: number;
+  }>(`SELECT name, price_monthly, price_yearly FROM public.pricing_plans WHERE name = $1 LIMIT 1`, [planName]);
+  if (byName.rows.length === 0) {
+    throw new Error(`Pricing plan not found for name: ${planName}`);
+  }
+  return byName.rows[0]!;
+}
 
 export type CreateInitialInvoiceResult = {
   invoiceId: string;
@@ -150,17 +184,14 @@ export async function createInitialInvoiceForNewTemple(
   client: PoolClient,
   input: CreateInitialInvoiceInput
 ): Promise<CreateInitialInvoiceResult> {
-  const planName = input.planName.trim() || "Sankalpa";
+  const pricing = await loadPricingPlanForBilling(client, {
+    planName: input.planName,
+    pricingPlanId: input.pricingPlanId,
+  });
+  const planName = pricing.name.trim() || input.planName.trim() || "Sankalpa";
   const bcStore = toBillingCycleStore(input.billingCycleRaw);
 
-  const pr = await client.query<{
-    price_monthly: number;
-    price_yearly: number;
-  }>(`SELECT price_monthly, price_yearly FROM public.pricing_plans WHERE name = $1 LIMIT 1`, [planName]);
-  if (pr.rows.length === 0) {
-    throw new Error(`Pricing plan not found for name: ${planName}`);
-  }
-  const { price_monthly, price_yearly } = pr.rows[0]!;
+  const { price_monthly, price_yearly } = pricing;
 
   const invoiceId = randomUUID();
   const invoiceNumber = await nextInvoiceNumber(client);
@@ -203,6 +234,7 @@ export async function createInitialInvoiceForNewTemple(
 export type CreatePostTrialInvoiceInput = {
   tenantId: string;
   planName: string;
+  pricingPlanId?: string | null;
   templeName: string;
   billingCycleRaw: string;
 };
@@ -212,17 +244,14 @@ export async function createPostTrialPendingInvoice(
   client: PoolClient,
   input: CreatePostTrialInvoiceInput
 ): Promise<CreateInitialInvoiceResult> {
-  const planName = input.planName.trim() || "Sankalpa";
+  const pricing = await loadPricingPlanForBilling(client, {
+    planName: input.planName,
+    pricingPlanId: input.pricingPlanId,
+  });
+  const planName = pricing.name.trim() || input.planName.trim() || "Sankalpa";
   const bcStore = toBillingCycleStore(input.billingCycleRaw);
 
-  const pr = await client.query<{
-    price_monthly: number;
-    price_yearly: number;
-  }>(`SELECT price_monthly, price_yearly FROM public.pricing_plans WHERE name = $1 LIMIT 1`, [planName]);
-  if (pr.rows.length === 0) {
-    throw new Error(`Pricing plan not found for name: ${planName}`);
-  }
-  const { price_monthly, price_yearly } = pr.rows[0]!;
+  const { price_monthly, price_yearly } = pricing;
 
   const invoiceId = randomUUID();
   const invoiceNumber = await nextInvoiceNumber(client);

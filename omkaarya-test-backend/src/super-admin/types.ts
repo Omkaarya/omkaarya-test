@@ -84,6 +84,11 @@ export type TempleSessionProfileResponse = {
     planName: string | null;
     billing: "monthly" | "annual";
   };
+  /** Saved deity selection from ops DB (for setup summary when session draft is missing). */
+  deity: {
+    primaryDeityId: string | null;
+    subDeityIds: string[];
+  };
 };
 
 export type CreateTemplePayload = {

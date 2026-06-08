@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { TempleDashboardShell } from "@/app/components/temple-admin/TempleDashboardShell";
+import { TempleDashboardMainPanel } from "@/app/components/temple-admin/TempleDashboardMainPanel";
 import { TempleOnboardingDashboardGate } from "@/app/components/temple-admin/TempleOnboardingDashboardGate";
 import { useTheme } from "@/app/components/ThemeProvider";
 import { useTempleDisabledModules } from "@/lib/use-temple-disabled-modules";
@@ -26,7 +27,9 @@ export default function TempleDashboardLayout({
       onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
       disabledModules={disabledModules}
     >
-      <TempleOnboardingDashboardGate>{children}</TempleOnboardingDashboardGate>
+      <TempleDashboardMainPanel>
+        <TempleOnboardingDashboardGate>{children}</TempleOnboardingDashboardGate>
+      </TempleDashboardMainPanel>
     </TempleDashboardShell>
   );
 }

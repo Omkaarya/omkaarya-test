@@ -1,5 +1,6 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { getAppOrigin } from "@/lib/server/app-origin";
 import type { ApiErrorBody, ApiSuccessBody } from "@/lib/api-envelope";
 
@@ -38,9 +39,27 @@ export async function internalApiUrl(path: string): Promise<string> {
   return `${origin}${p}`;
 }
 
+async function cookieHeaderFromRequest(): Promise<string> {
+  const cookieStore = await cookies();
+  return cookieStore
+    .getAll()
+    .map(({ name, value }) => `${name}=${value}`)
+    .join("; ");
+}
+
 export async function fetchInternalApiJson<T>(path: string, init: RequestInit): Promise<FetchInternalResult<T>> {
   const url = await internalApiUrl(path);
-  const res = await fetch(url, init);
+  const cookieHeader = await cookieHeaderFromRequest();
+  const headers = new Headers(init.headers ?? undefined);
+  if (cookieHeader && !headers.has("cookie")) {
+    headers.set("cookie", cookieHeader);
+  }
+
+  const res = await fetch(url, {
+    ...init,
+    headers,
+    cache: init.cache ?? "no-store",
+  });
 
   const body = (await res.json().catch(() => null)) as unknown;
   if (res.ok && body !== null) {

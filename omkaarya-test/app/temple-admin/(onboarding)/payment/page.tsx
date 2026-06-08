@@ -22,6 +22,7 @@ import {
 import { clearTempleOnboardingPaymentStatus } from "@/lib/temple-onboarding-payment";
 import {
   getPlanByIdFromList,
+  fetchPublicPricingCatalog,
   type ApiPricingPlan,
   formatUsdFromCents,
   effectiveMonthlyFromYearlyCents,
@@ -174,23 +175,12 @@ export default function TempleAdminPaymentPage() {
 
   useEffect(() => {
     if (!ready || !planDraft?.pricingPlanId) return;
-    const id = planDraft.pricingPlanId;
     let cancelled = false;
     void (async () => {
-      try {
-        const res = await fetch("/api/pricing-plans", { cache: "no-store" });
-        const json = (await res.json().catch(() => null)) as { success?: boolean; data?: ApiPricingPlan[] };
-        if (cancelled) return;
-        if (res.ok && json.success && Array.isArray(json.data)) {
-          setCatalogPlans(json.data);
-          return;
-        }
-        const one = await fetch(`/api/pricing-plans/${encodeURIComponent(id)}`, { cache: "no-store" });
-        const j2 = (await one.json().catch(() => null)) as { success?: boolean; data?: ApiPricingPlan };
-        if (cancelled || !one.ok || !j2.success || !j2.data) return;
-        setCatalogPlans([j2.data]);
-      } catch {
-        /* summary uses planName from session draft */
+      const result = await fetchPublicPricingCatalog();
+      if (cancelled) return;
+      if (result.ok) {
+        setCatalogPlans(result.plans);
       }
     })();
     return () => {

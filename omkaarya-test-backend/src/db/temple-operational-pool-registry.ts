@@ -75,6 +75,18 @@ export async function getOperationalPoolForTenant(tenantId: string): Promise<Poo
   return pool;
 }
 
+/** Removes a cached pool for one tenant (e.g. before dropping its operational database). */
+export async function evictOperationalPoolForTenant(tenantId: string): Promise<void> {
+  const key = tenantId.trim();
+  if (!key) return;
+  const entry = pools.get(key);
+  if (!entry) return;
+  pools.delete(key);
+  const i = lruTenants.indexOf(key);
+  if (i >= 0) lruTenants.splice(i, 1);
+  await entry.pool.end();
+}
+
 /** Test / shutdown helper. */
 export async function endOperationalPools(): Promise<void> {
   const values = [...pools.values()];
