@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
+import { computeDefaultDueDate, displayNameFromEmail } from "../billing/invoice-defaults.js";
 import { requirePool } from "../db/pool.js";
 import { getOperationalPoolForTenant } from "../db/temple-operational-pool-registry.js";
+import { fetchTempleStreetAddressesByTenantIds } from "../temple-ops/temple-admin-data.js";
 import { sqlTempleMatchesSessionEmail } from "./temple-admin-match.js";
 
 export type InvoiceStatus = "proforma" | "pending" | "paid" | "void" | "rejected";
@@ -14,10 +16,13 @@ function clampInt(n: number, min: number, max: number): number {
 
 export type RevenueDashboardPeriod = "this-month" | "last-month" | "this-year" | `${number}-${string}`;
 
-/** Map wizard "Annually" to DB and subscriptions UI. */
+/** Map wizard "Annually" / plan-selection lowercase to DB and subscriptions UI. */
 export function toBillingCycleStore(raw: string | null | undefined): BillingCycleStore {
+  const lower = (raw ?? "").trim().toLowerCase();
+  if (lower === "annually" || lower === "annual" || lower === "yearly") return "Annual";
+  if (lower === "monthly") return "Monthly";
   const s = (raw ?? "").trim();
-  if (s === "Annually" || s === "Annual" || s === "Yearly" || s === "yearly") return "Annual";
+  if (s === "Annually" || s === "Annual" || s === "Yearly") return "Annual";
   return "Monthly";
 }
 
@@ -223,8 +228,8 @@ export async function createPostTrialPendingInvoice(
   const invoiceNumber = await nextInvoiceNumber(client);
   const amountCents = bcStore === "Annual" ? price_yearly : price_monthly;
   const issued = new Date();
-  const due = new Date(issued);
-  due.setDate(due.getDate() + 14);
+  const issuedIso = issued.toISOString().slice(0, 10);
+  const dueIso = computeDefaultDueDate(issuedIso, amountCents);
 
   await client.query(
     `INSERT INTO public.billing_invoices (
@@ -237,7 +242,7 @@ export async function createPostTrialPendingInvoice(
       planName,
       bcStore,
       amountCents,
-      due.toISOString().slice(0, 10),
+      dueIso,
       JSON.stringify({ templeName: input.templeName, source: "post_trial" }),
     ]
   );
@@ -263,7 +268,7 @@ export async function createPostTrialPendingInvoice(
     isTrialProforma: false,
     status: "pending",
     subscriptionId,
-    dueDate: due.toISOString().slice(0, 10),
+    dueDate: dueIso,
     planName,
   };
 }
@@ -437,19 +442,34 @@ export class PostgresBillingRepository {
     };
   }
 
-  async listTempleOptions(): Promise<Array<{ tenantId: string; name: string; portalUrl: string; adminEmail: string }>> {
+  async listTempleOptions(): Promise<
+    Array<{ tenantId: string; name: string; portalUrl: string; adminEmail: string; adminName: string }>
+  > {
     const pool = requirePool();
-    const { rows } = await pool.query<{ tenant_id: string; name: string; slug: string; admin_email: string }>(
-      `SELECT tenant_id, name, slug, admin_email
-       FROM public.temples
-       ORDER BY tenant_id::text DESC`
+    const { rows } = await pool.query<{
+      tenant_id: string;
+      name: string;
+      slug: string;
+      admin_email: string;
+      admin_full_name: string | null;
+    }>(
+      `SELECT t.tenant_id, t.name, t.slug, t.admin_email, u.full_name AS admin_full_name
+       FROM public.temples t
+       LEFT JOIN public.users u ON lower(u.email) = lower(t.admin_email)
+       ORDER BY t.created_at DESC, t.tenant_id::text DESC`
     );
-    return rows.map((r) => ({
-      tenantId: r.tenant_id,
-      name: r.name,
-      portalUrl: r.slug,
-      adminEmail: r.admin_email,
-    }));
+    return rows.map((r) => {
+      const adminEmail = r.admin_email?.trim() ?? "";
+      const adminName =
+        r.admin_full_name?.trim() || (adminEmail ? displayNameFromEmail(adminEmail) : "Temple Admin");
+      return {
+        tenantId: r.tenant_id,
+        name: r.name,
+        portalUrl: r.slug,
+        adminEmail,
+        adminName,
+      };
+    });
   }
 
   async generateInvoice(input: {
@@ -476,7 +496,6 @@ export class PostgresBillingRepository {
     const planName = input.planName.trim() || "Sankalpa";
     const billingCycle = toBillingCycleStore(input.billingCycleRaw);
     const issuedAt = (input.issueDate || "").trim() || new Date().toISOString().slice(0, 10);
-    const dueAt = (input.dueDate || "").trim() || issuedAt;
     const description = (input.description ?? "").trim();
 
     const templeRes = await pool.query<{ name: string; admin_email: string }>(
@@ -498,6 +517,8 @@ export class PostgresBillingRepository {
     );
     if (pr.rows.length === 0) throw new Error(`Pricing plan not found for name: ${planName}`);
     const amountCents = billingCycle === "Annual" ? pr.rows[0]!.price_yearly : pr.rows[0]!.price_monthly;
+    const dueAt =
+      (input.dueDate || "").trim() || computeDefaultDueDate(issuedAt, amountCents) || null;
 
     const client = await pool.connect();
     try {
@@ -750,7 +771,7 @@ export class PostgresBillingRepository {
          ORDER BY s.payment_date DESC, s.created_at DESC
          LIMIT 1
        ) s ON true
-       ORDER BY t.tenant_id::text DESC`,
+       ORDER BY t.created_at DESC, t.tenant_id::text DESC`,
       []
     );
 
@@ -864,6 +885,7 @@ export class PostgresBillingRepository {
 
     const dataRes = await pool.query<{
       id: string;
+      tenant_id: string;
       invoice_number: string;
       plan: string;
       billing_cycle: string;
@@ -876,11 +898,11 @@ export class PostgresBillingRepository {
       name: string;
       city: string;
       country_code: string;
-      full_address: unknown;
       admin_email: string;
     }>(
       `SELECT
          b.id::text AS id,
+         b.tenant_id::text AS tenant_id,
          b.invoice_number,
          b.plan,
          b.billing_cycle,
@@ -893,7 +915,6 @@ export class PostgresBillingRepository {
          t.name,
          t.city,
          t.country_code,
-         t.full_address,
          t.admin_email
        FROM public.billing_invoices b
        JOIN public.temples t ON t.tenant_id = b.tenant_id
@@ -903,11 +924,12 @@ export class PostgresBillingRepository {
       [...params, lim, off]
     );
 
+    const addressByTenant = await fetchTempleStreetAddressesByTenantIds(
+      dataRes.rows.map((r) => r.tenant_id)
+    );
+
     const data: InvoiceListRow[] = dataRes.rows.map((r) => {
-      const fa =
-        r.full_address && typeof r.full_address === "object" && "street" in (r.full_address as object)
-          ? String((r.full_address as { street?: string }).street ?? "")
-          : "";
+      const fa = addressByTenant.get(r.tenant_id) ?? "";
       const uist = invoiceUiStatus({
         status: r.status,
         is_trial_proforma: r.is_trial_proforma,
@@ -939,6 +961,7 @@ export class PostgresBillingRepository {
     const pool = requirePool();
     const { rows } = await pool.query<{
       id: string;
+      tenant_id: string;
       invoice_number: string;
       plan: string;
       billing_cycle: string;
@@ -951,11 +974,11 @@ export class PostgresBillingRepository {
       name: string;
       city: string;
       country_code: string;
-      full_address: unknown;
       admin_email: string;
     }>(
       `SELECT
          b.id::text AS id,
+         b.tenant_id::text AS tenant_id,
          b.invoice_number,
          b.plan,
          b.billing_cycle,
@@ -968,7 +991,6 @@ export class PostgresBillingRepository {
          t.name,
          t.city,
          t.country_code,
-         t.full_address,
          t.admin_email
        FROM public.billing_invoices b
        JOIN public.temples t ON t.tenant_id = b.tenant_id
@@ -978,10 +1000,8 @@ export class PostgresBillingRepository {
     );
     const r = rows[0];
     if (!r) return null;
-    const fa =
-      r.full_address && typeof r.full_address === "object" && "street" in (r.full_address as object)
-        ? String((r.full_address as { street?: string }).street ?? "")
-        : "";
+    const addressByTenant = await fetchTempleStreetAddressesByTenantIds([r.tenant_id]);
+    const fa = addressByTenant.get(r.tenant_id) ?? "";
     return {
       id: r.id,
       num: r.invoice_number,
@@ -1776,7 +1796,8 @@ export async function listOpenInvoicesForTempleSession(input: { sessionEmail: st
        AND b.status = 'pending'
        AND b.amount_cents > 0
        AND (NOT b.is_trial_proforma)
-       AND ${sqlTempleMatchesSessionEmail(2)}`,
+       AND ${sqlTempleMatchesSessionEmail(2)}
+     ORDER BY b.created_at DESC, b.issued_at DESC`,
     [input.templeId.trim(), input.sessionEmail.trim()]
   );
   return rows.map((r) => ({

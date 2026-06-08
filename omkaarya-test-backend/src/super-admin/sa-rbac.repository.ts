@@ -238,7 +238,7 @@ export class PostgresSaRbacRepository {
     FROM sa_roles r
     LEFT JOIN sa_users u ON u.role_id = r.id
     GROUP BY r.id
-    ORDER BY r.id
+    ORDER BY r.created_at DESC, r.id
   `);
     return result.rows.map(rowToSaRole);
   }

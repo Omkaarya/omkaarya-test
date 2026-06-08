@@ -2,7 +2,7 @@ import { getPool } from "../db/pool.js";
 import { HttpError } from "../middleware/http-error.js";
 import { syncTempleAuthMirrorFromEmail } from "../temple-ops/sync-auth-mirror.js";
 import { hashPasswordCredential, passwordCredentialMatches } from "./password-credentials.js";
-import { checkTempleBillingAccess } from "./temple-billing-access.js";
+import { checkTempleBillingAccessForLogin } from "./temple-billing-access.js";
 
 export type LoginResult =
   | { ok: false; billingDenied?: { code: string; message: string } }
@@ -45,7 +45,7 @@ export class PostgresAuthRepository implements AuthRepository {
       ): Promise<LoginResult> => {
         if (!credsOk) return { ok: false };
         if (row.tenant_id) {
-          const access = await checkTempleBillingAccess(client, row.tenant_id);
+          const access = await checkTempleBillingAccessForLogin(client, row.tenant_id);
           if (!access.ok) {
             return {
               ok: false,

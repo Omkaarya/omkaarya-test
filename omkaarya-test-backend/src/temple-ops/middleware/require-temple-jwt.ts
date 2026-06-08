@@ -3,6 +3,7 @@ import { jwtVerify } from "jose";
 import { getPool } from "../../db/pool.js";
 import { HttpError } from "../../middleware/http-error.js";
 import { checkTempleBillingAccess } from "../../super-admin/temple-billing-access.js";
+import { TEMPLE_ONBOARDING_JWT_PATH_PREFIXES } from "../../super-admin/temple-onboarding-protected-path-prefixes.js";
 
 export type TempleSessionLocals = {
   email: string;
@@ -13,6 +14,10 @@ export type TempleSessionLocals = {
 function jwtSecretKey(): Uint8Array {
   const secret = process.env.JWT_SECRET?.trim() || "";
   return new TextEncoder().encode(secret);
+}
+
+function isTempleOnboardingJwtPath(path: string): boolean {
+  return TEMPLE_ONBOARDING_JWT_PATH_PREFIXES.some((prefix) => path.startsWith(prefix));
 }
 
 /**
@@ -94,12 +99,14 @@ export const requireTempleJwtSession: RequestHandler = async (_req, res, next) =
       });
     }
 
-    const billing = await checkTempleBillingAccess(pool, tenantClaim);
-    if (!billing.ok) {
-      throw new HttpError(403, billing.message, {
-        code: billing.code,
-        reason: billing.message,
-      });
+    if (!isTempleOnboardingJwtPath(_req.path)) {
+      const billing = await checkTempleBillingAccess(pool, tenantClaim);
+      if (!billing.ok) {
+        throw new HttpError(403, billing.message, {
+          code: billing.code,
+          reason: billing.message,
+        });
+      }
     }
 
     (res.locals as { templeSession: TempleSessionLocals }).templeSession = {

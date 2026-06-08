@@ -369,7 +369,7 @@ export default function InventoryPage() {
                       </div>
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-1">
                         <Button variant="ghost" size="sm" iconOnly>
                           <Eye className="w-4 h-4" />
                         </Button>

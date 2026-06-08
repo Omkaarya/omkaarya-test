@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Eye, Image as ImageIcon, Loader2, Pencil, Plus, X } from "lucide-react";
+import { Eye, Image as ImageIcon, Loader2, Pencil, Plus, ToggleLeft, ToggleRight, X } from "lucide-react";
 import AdminListCard from "@/app/components/admin/AdminListCard";
 import AdminPagination from "@/app/components/admin/AdminPagination";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
@@ -19,7 +19,7 @@ export default function DeitiesMasterPage() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<DeityStatusFilter>("all");
-  const [sortBy, setSortBy] = useState<DeitiesSortBy>("name");
+  const [sortBy, setSortBy] = useState<DeitiesSortBy>("timeline");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [rows, setRows] = useState<MasterDeityRow[]>([]);
@@ -28,7 +28,6 @@ export default function DeitiesMasterPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [modal, setModal] = useState<ModalState>({ open: false });
   const [imagePreview, setImagePreview] = useState<{ src: string; title: string } | null>(null);
   const [actionBusyId, setActionBusyId] = useState<string | null>(null);
@@ -40,13 +39,6 @@ export default function DeitiesMasterPage() {
     }, 400);
     return () => window.clearTimeout(t);
   }, [searchInput]);
-
-  useEffect(() => {
-    if (!actionMenuId) return;
-    const onDocClick = () => setActionMenuId(null);
-    window.addEventListener("click", onDocClick);
-    return () => window.removeEventListener("click", onDocClick);
-  }, [actionMenuId]);
 
   useEffect(() => {
     if (!imagePreview) return;
@@ -103,14 +95,11 @@ export default function DeitiesMasterPage() {
   }, [load]);
 
   const openModal = (mode: DeityModalMode, row: MasterDeityRow | null) => {
-    setActionMenuId(null);
     setModal({ open: true, mode, row });
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- reserved when row action menu is restored
   const patchActive = async (row: MasterDeityRow, next: boolean) => {
     setActionBusyId(row.id);
-    setActionMenuId(null);
     try {
       const res = await fetch(`/api/super-admin/deities/${encodeURIComponent(row.id)}`, {
         method: "PATCH",
@@ -130,11 +119,9 @@ export default function DeitiesMasterPage() {
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- reserved for action menu
   const softDelete = async (row: MasterDeityRow) => {
     if (!window.confirm(`Deactivate “${row.name}”? It will be hidden from temple onboarding.`)) return;
     setActionBusyId(row.id);
-    setActionMenuId(null);
     try {
       const res = await fetch(`/api/super-admin/deities/${encodeURIComponent(row.id)}`, {
         method: "DELETE",
@@ -247,48 +234,38 @@ export default function DeitiesMasterPage() {
                 >
                   <Pencil className="h-4 w-4" />
                 </Button>
-                {/* <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActionMenuId((cur) => (cur === d.id ? null : d.id));
-                  }}
-                  className="rounded-lg p-2 text-text-quaternary hover:bg-subtle hover:text-text-primary"
-                  aria-label="More actions"
-                >
-                  <MoreVertical className="h-4 w-4" />
-                </button> */}
-                {/* {actionMenuId === d.id ? (
-                  <div
-                    className="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl border border-border bg-surface py-1 shadow-xl"
-                    onClick={(e) => e.stopPropagation()}
+                {d.isActive ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    iconOnly
+                    aria-label="Deactivate deity"
+                    title="Deactivate"
+                    onClick={() => void softDelete(d)}
                   >
-                    {d.isActive ? (
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs font-medium text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/30"
-                        onClick={() => void softDelete(d)}
-                      >
-                        Deactivate
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs font-medium text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/30"
-                        onClick={() => void patchActive(d, true)}
-                      >
-                        Activate
-                      </button>
-                    )}
-                  </div>
-                ) : null} */}
+                    <ToggleRight className="h-4 w-4 text-emerald-600" />
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    iconOnly
+                    aria-label="Activate deity"
+                    title="Activate"
+                    onClick={() => void patchActive(d, true)}
+                  >
+                    <ToggleLeft className="h-4 w-4" />
+                  </Button>
+                )}
               </>
             )}
           </div>
         ),
       },
     ],
-    [actionBusyId],
+    [actionBusyId, softDelete, patchActive],
   );
 
   return (

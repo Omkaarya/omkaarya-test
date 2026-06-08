@@ -103,7 +103,7 @@ export class PostgresPricingPlansRepository {
 
     const { rows } = await pool.query(
       `SELECT * FROM public.pricing_plans
-       ORDER BY price_monthly ASC, price_yearly ASC, name ASC`
+       ORDER BY created_at DESC`
     );
     return rows.map(toPricingPlan);
   }

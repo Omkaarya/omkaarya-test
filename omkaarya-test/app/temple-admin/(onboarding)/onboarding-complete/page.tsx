@@ -227,10 +227,9 @@ export default function TempleAdminOnboardingCompletePage() {
 
         <div className="relative z-10 mt-10 border-t border-[var(--border-default)] pt-8">
           <div className="flex flex-col gap-6">
-            {/* Primary: no dedicated temple dashboard route yet — home is the app entry */}
             <div className="flex w-full justify-end">
               <Link
-                href="/"
+                href="/temple-admin"
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--brand-primary)] px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)] sm:w-auto sm:min-w-[14rem]"
               >
                 Go to my dashboard

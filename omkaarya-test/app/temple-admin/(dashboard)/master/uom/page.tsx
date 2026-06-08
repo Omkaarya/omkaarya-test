@@ -374,7 +374,7 @@ export default function UnitsOfMeasurePage() {
                         ) : "—"}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-end gap-1">
                           <button type="button" onClick={() => setDrawer({ open: true, editing: uom })}
                             className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200">
                             <Edit2 className="w-4 h-4" />

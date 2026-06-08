@@ -71,8 +71,8 @@ const navItems: NavItem[] = [
       { href: "/temple-admin/inventory/low-stock", label: "Stock Alerts" },
       { href: "/temple-admin/inventory/adjustments", label: "Stock Adjustments" },
       { href: "/temple-admin/inventory/pooja-bom", label: "Pooja BOM" },
-      { href: "/temple-admin/inventory/return-from-pooja", label: "Return from Pooja" },
       { href: "/temple-admin/inventory/print-labels", label: "Print Labels" },
+      { href: "/temple-admin/inventory/print-qr", label: "Print QR" },
     ],
   },
   {

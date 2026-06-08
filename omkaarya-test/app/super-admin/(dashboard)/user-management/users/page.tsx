@@ -8,7 +8,7 @@ import { useModalFormSession } from "@/lib/use-modal-form-session";
 import { useValidationToast } from "@/lib/hooks/useValidationToast";
 import { ValidationToast } from "@/app/components/ValidationToast";
 import {
-  Shield, MoreHorizontal, UserPlus, Trash2, Pencil,
+  Shield, UserPlus, Trash2, Pencil,
   CheckCircle2, XCircle, X, Loader2, RefreshCw,
   UserCheck, UserX, AlertCircle,
 } from "lucide-react";
@@ -401,7 +401,6 @@ export default function AdminUsersPage() {
   const [roleFilter, setRoleFilter] = useState("all");
   const [showModal, setShowModal] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
-  const [actionMenu, setActionMenu] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [actionErr, setActionErr] = useState<string | null>(null);
@@ -434,7 +433,6 @@ export default function AdminUsersPage() {
 
   const handleToggle = useCallback(async (id: string) => {
     setTogglingId(id);
-    setActionMenu(null);
     setActionErr(null);
     try {
       const res = await fetch(`/api/admin-users/${id}`, {
@@ -458,7 +456,6 @@ export default function AdminUsersPage() {
   const handleDelete = useCallback(async (id: string) => {
     if (!confirm("Permanently delete this user? This cannot be undone.")) return;
     setDeletingId(id);
-    setActionMenu(null);
     setActionErr(null);
     try {
       const res = await fetch(`/api/admin-users/${id}`, { method: "DELETE" });
@@ -552,69 +549,52 @@ export default function AdminUsersPage() {
         header: "Actions",
         align: "right",
         cell: (user) => (
-          <div className="relative flex items-center justify-end gap-1">
+          <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
             {togglingId === user.id || deletingId === user.id ? (
               <Loader2 className="h-4 w-4 animate-spin text-text-quaternary" />
             ) : (
               <>
-                <button
+                <Button
                   type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActionMenu(actionMenu === user.id ? null : user.id);
-                  }}
-                  className="rounded-lg p-2 text-text-quaternary transition-colors hover:bg-subtle hover:text-text-primary"
-                  aria-label="Open actions"
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  title="Edit user"
+                  aria-label="Edit user"
+                  onClick={() => setEditingUserId(user.id)}
                 >
-                  <MoreHorizontal className="h-4 w-4" />
-                </button>
-                {actionMenu === user.id && (
-                  <div
-                    className="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl border border-border bg-surface py-1 shadow-xl"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActionMenu(null);
-                        setEditingUserId(user.id);
-                      }}
-                      className="flex w-full items-center gap-2 px-4 py-2.5 text-xs font-medium text-text-secondary transition-colors hover:bg-subtle hover:text-text-primary"
-                    >
-                      <Pencil className="h-3.5 w-3.5 text-blue-500" /> Edit user
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleToggle(user.id)}
-                      className="flex w-full items-center gap-2 px-4 py-2.5 text-xs font-medium text-text-secondary transition-colors hover:bg-subtle hover:text-text-primary"
-                    >
-                      {user.isActive ? (
-                        <>
-                          <UserX className="h-3.5 w-3.5 text-amber-500" /> Deactivate
-                        </>
-                      ) : (
-                        <>
-                          <UserCheck className="h-3.5 w-3.5 text-emerald-500" /> Activate
-                        </>
-                      )}
-                    </button>
-                    <div className="my-1 border-t border-border" />
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(user.id)}
-                      className="flex w-full items-center gap-2 px-4 py-2.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:hover:bg-red-950/20"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" /> Delete user
-                    </button>
-                  </div>
-                )}
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  title={user.isActive ? "Deactivate user" : "Activate user"}
+                  aria-label={user.isActive ? "Deactivate user" : "Activate user"}
+                  onClick={() => handleToggle(user.id)}
+                >
+                  {user.isActive ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  title="Delete user"
+                  aria-label="Delete user"
+                  className="hover:text-red-600"
+                  onClick={() => handleDelete(user.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </>
             )}
           </div>
         ),
       },
     ],
-    [actionMenu, togglingId, deletingId, handleToggle, handleDelete],
+    [togglingId, deletingId, handleToggle, handleDelete],
   );
 
   const activeCount = useMemo(() => users.filter((u) => u.isActive).length, [users]);
@@ -731,7 +711,6 @@ export default function AdminUsersPage() {
               tableClassName="min-w-[720px]"
               isLoading={loading}
               loadingRows={pageSize}
-              onRowClick={() => setActionMenu(null)}
             />
             {!loading && (
               <>

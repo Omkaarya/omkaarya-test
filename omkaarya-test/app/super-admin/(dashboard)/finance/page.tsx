@@ -208,7 +208,7 @@ export default function RevenueDashboard() {
     plan: r.plan,
     billingCycle: r.billingCycle,
     billing: r.billingCycle === "Annual" ? "Annual" : r.billingCycle === "Monthly" ? "Monthly" : r.billingCycle || "—",
-    amount: r.amountCents ? `${formatMoneyFromCents(r.amountCents, billingCurrency)}${r.billingCycle === "Annual" ? "/yr" : "/mo"}` : "—",
+    amount: `${formatMoneyFromCents(r.amountCents ?? 0, billingCurrency)}${r.billingCycle === "Annual" ? "/yr" : "/mo"}`,
     status: r.status,
     nextRenewal: r.nextRenewal ?? "—",
   }));
@@ -251,7 +251,7 @@ export default function RevenueDashboard() {
     {
       key: "actions", header: "Actions", align: "right",
       cell: (r) => (
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-end gap-1.5">
           <Link
             href={buildGenerateInvoiceHref({
               tenantId: r.id,

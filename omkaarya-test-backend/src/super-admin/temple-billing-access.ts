@@ -4,6 +4,7 @@ export type TempleBillingAccessRow = {
   status: string;
   trial_ends_at: Date | null;
   has_active_subscription: boolean;
+  has_payable_invoice: boolean;
 };
 
 export type TempleBillingAccessDenied = {
@@ -23,19 +24,10 @@ const DENIED_TRIAL: TempleBillingAccessDenied = {
     "Your 14-day trial has ended. A subscription invoice was sent to your email. Please complete payment and contact Omkaarya support to restore access.",
 };
 
-/**
- * Enforces billing access for temples with `trial_ends_at` set (new temples only).
- * Legacy temples without `trial_ends_at` are not blocked by trial rules.
- */
-export async function checkTempleBillingAccess(
+async function loadBillingAccessRow(
   db: Pool | PoolClient,
   tenantId: string
-): Promise<TempleBillingAccessResult> {
-  const id = tenantId.trim();
-  if (!id) {
-    return { ok: false, code: "SUBSCRIPTION_REQUIRED", message: "Invalid temple session." };
-  }
-
+): Promise<TempleBillingAccessRow | null> {
   const res = await db.query<TempleBillingAccessRow>(
     `SELECT
        t.status,
@@ -43,18 +35,26 @@ export async function checkTempleBillingAccess(
        EXISTS (
          SELECT 1 FROM public.subscriptions s
          WHERE s.tenant_id = t.tenant_id AND s.status = 'Active'
-       ) AS has_active_subscription
+       ) AS has_active_subscription,
+       EXISTS (
+         SELECT 1 FROM public.billing_invoices b
+         WHERE b.tenant_id = t.tenant_id
+           AND b.status = 'pending'
+           AND (NOT b.is_trial_proforma)
+           AND b.amount_cents > 0
+       ) AS has_payable_invoice
      FROM public.temples t
      WHERE t.tenant_id = $1
      LIMIT 1`,
-    [id]
+    [tenantId]
   );
+  return res.rows[0] ?? null;
+}
 
-  const row = res.rows[0];
-  if (!row) {
-    return { ok: false, code: "SUBSCRIPTION_REQUIRED", message: "Temple not found." };
-  }
-
+function evaluateBillingAccess(
+  row: TempleBillingAccessRow,
+  options?: { allowPaymentAndOnboarding?: boolean }
+): TempleBillingAccessResult {
   if (row.has_active_subscription) {
     return { ok: true };
   }
@@ -65,14 +65,49 @@ export async function checkTempleBillingAccess(
 
   const trialEnd = row.trial_ends_at.getTime();
   const now = Date.now();
+  const trialExpired = trialEnd <= now;
 
-  if (row.status === "Suspended" && trialEnd <= now) {
-    return DENIED_TRIAL;
+  if (!trialExpired) {
+    return { ok: true };
   }
 
-  if (trialEnd <= now) {
+  if (options?.allowPaymentAndOnboarding && row.has_payable_invoice) {
+    return { ok: true };
+  }
+
+  if (row.status === "Suspended" || trialExpired) {
     return DENIED_TRIAL;
   }
 
   return { ok: true };
+}
+
+/**
+ * Enforces billing access for temples with `trial_ends_at` set (new temples only).
+ * Legacy temples without `trial_ends_at` are not blocked by trial rules.
+ */
+export async function checkTempleBillingAccess(
+  db: Pool | PoolClient,
+  tenantId: string,
+  options?: { allowPaymentAndOnboarding?: boolean }
+): Promise<TempleBillingAccessResult> {
+  const id = tenantId.trim();
+  if (!id) {
+    return { ok: false, code: "SUBSCRIPTION_REQUIRED", message: "Invalid temple session." };
+  }
+
+  const row = await loadBillingAccessRow(db, id);
+  if (!row) {
+    return { ok: false, code: "SUBSCRIPTION_REQUIRED", message: "Temple not found." };
+  }
+
+  return evaluateBillingAccess(row, options);
+}
+
+/** Allows temple admins to sign in when trial expired but they must pay or finish onboarding. */
+export async function checkTempleBillingAccessForLogin(
+  db: Pool | PoolClient,
+  tenantId: string
+): Promise<TempleBillingAccessResult> {
+  return checkTempleBillingAccess(db, tenantId, { allowPaymentAndOnboarding: true });
 }

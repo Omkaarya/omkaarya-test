@@ -1,16 +1,16 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import { formatUsdFromCents } from "@/lib/temple-pricing-plans";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { formatMoneyOrZero } from "@/lib/billing/invoice-defaults";
+import { buildInvoiceDocumentFromListRow } from "@/lib/billing/invoice-document-mappers";
+import { downloadInvoiceAsPdf } from "@/lib/billing/download-invoice-pdf";
+import type { BillingProfile } from "@/lib/billing/invoice-types";
 import { jsonApiErrorMessage } from "@/lib/api-envelope";
 import {
-  Calendar,
   CheckCircle2,
   Download,
-  Expand,
   Eye,
   FileText,
-  ChevronDown,
   Plus,
   Send,
   X,
@@ -20,10 +20,12 @@ import { Button } from "@/app/components/ds/atoms/Button";
 import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
 import { Badge } from "@/app/components/ds/atoms/Badge";
 import { SearchInput } from "@/app/components/ds/molecules/SearchInput";
+import { InvoiceDetailModal } from "@/app/components/billing/InvoiceDetailModal";
 import AdminListCard from "@/app/components/admin/AdminListCard";
 import AdminPagination from "@/app/components/admin/AdminPagination";
 import { AdminTableToolbar, AdminTableToolbarEnd, AdminTableToolbarStart } from "@/app/components/admin/AdminTableToolbar";
 import { DataTable, type ColumnDef } from "@/app/components/ds/organisms/DataTable";
+import { ActionGroupCell } from "@/app/components/ds/molecules/TableCells";
 import { KpiTileGridSkeleton } from "@/app/components/admin/ApiFetchPlaceholders";
 import Link from "next/link";
 
@@ -43,6 +45,8 @@ type Invoice = {
   amount: string;
   issuedDate: string;
   dueDate: string;
+  issuedDateRaw: string;
+  dueDateRaw: string | null;
   status: InvoiceStatus;
   amountCents: number;
   currency: string;
@@ -88,48 +92,7 @@ const FILTERS = [
   { id: "draft", label: "Draft" },
 ] as const;
 
-// ── Actions Dropdown ────────────────────────────────────────────────
-
-function ActionsDropdown({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    if (open) document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-  return (
-    <div className="relative" ref={ref}>
-      <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(!open); }} className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors" aria-expanded={open} aria-label="Open actions menu">
-        <ChevronDown className="h-4 w-4" aria-hidden />
-      </button>
-      {open && <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-xl border border-border bg-surface shadow-xl animate-in fade-in zoom-in-95 duration-150" onClick={() => setOpen(false)}><div className="p-1.5">{children}</div></div>}
-    </div>
-  );
-}
-
-function DropdownItem({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
-  return (
-    <button type="button" onClick={(e) => { e.stopPropagation(); onClick(); }} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary hover:bg-subtle hover:text-text-primary transition-colors">
-      {icon}{label}
-    </button>
-  );
-}
-
 // ── Invoice Detail Modal ────────────────────────────────────────────
-
-type BillingProfile = {
-  issuer: { name: string; address: string; email: string; website: string; brandLine: string };
-  paymentMethodLabel: string;
-  bank: { bankName: string; accountName: string; accountNumber: string; swift: string; notes: string };
-  tax: { rateBps: number; label: string };
-  money: { currency: string };
-};
-
-function formatMoney(currency: string, amountCents: number): string {
-  const c = (currency || "USD").toUpperCase();
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: c }).format((amountCents ?? 0) / 100);
-}
 
 function InvoiceModal({
   invoice,
@@ -142,114 +105,29 @@ function InvoiceModal({
   onClose: () => void;
   onDownload?: () => void;
 }) {
-  const currency = invoice.currency || profile?.money?.currency || "USD";
-  const taxRateBps = profile?.tax?.rateBps ?? 0;
-  const taxCents = Math.max(0, Math.round(((invoice.amountCents ?? 0) * taxRateBps) / 10_000));
-  const subtotal = formatMoney(currency, invoice.amountCents ?? 0);
-  const tax = formatMoney(currency, taxCents);
-  const total = formatMoney(currency, (invoice.amountCents ?? 0) + taxCents);
+  const document = buildInvoiceDocumentFromListRow({
+    invoiceNumber: invoice.num,
+    issuedDate: invoice.issuedDateRaw,
+    dueDate: invoice.dueDateRaw,
+    statusLabel: statusLabel(invoice.status),
+    templeName: invoice.temple,
+    templeAddress: invoice.templeAddress,
+    adminEmail: invoice.adminEmail,
+    plan: invoice.plan,
+    period: invoice.period,
+    amountCents: invoice.amountCents,
+    currency: invoice.currency,
+    profile,
+    paymentReference: invoice.num,
+  });
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
-      <div className="absolute inset-0 bg-gray-950/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-surface shadow-2xl">
-        <div className="px-6 pt-6 pb-0">
-          <div className="flex items-start justify-between">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-surface shadow-xs">
-              <FileText className="h-5 w-5 text-text-tertiary" />
-            </div>
-            <div className="flex items-center gap-2">
-              <button className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors"><Expand className="h-4 w-4" /></button>
-              <button onClick={onClose} className="rounded-lg p-2 text-fg-quaternary hover:bg-subtle hover:text-text-primary transition-colors"><X className="h-5 w-5" /></button>
-            </div>
-          </div>
-          <h3 className="mt-4 text-lg font-bold text-text-primary">Invoice #{invoice.num} Details</h3>
-          <p className="text-sm text-text-tertiary">Manage your invoice details here.</p>
-        </div>
-        <div className="space-y-6 p-6">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-600 text-white font-bold text-xl shadow-lg">🛕</div>
-          <div>
-            <p className="text-sm font-semibold text-text-primary mb-2">Invoice</p>
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2 text-sm text-text-secondary"><FileText className="h-4 w-4 text-text-tertiary" />{invoice.num}</div>
-              <div className="flex items-center gap-2 text-sm text-text-secondary"><Calendar className="h-4 w-4 text-text-tertiary" />Issued On: {formatDate(invoice.issuedDate)}</div>
-              <div className="flex items-center gap-2 text-sm text-text-secondary"><Calendar className="h-4 w-4 text-text-tertiary" />Due On: {formatDate(invoice.dueDate)}</div>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-8">
-            <div>
-              <p className="text-sm font-bold text-text-primary mb-2">Invoice From:</p>
-              <p className="text-sm font-medium text-text-primary">{profile?.issuer?.name ?? "—"}</p>
-              <p className="text-sm text-text-secondary">{profile?.issuer?.address ?? "—"}</p>
-              <p className="text-sm text-text-tertiary">{profile?.issuer?.email ?? "—"}</p>
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-bold text-text-primary mb-2">Invoice To:</p>
-              <TruncateText className="text-sm font-medium text-text-primary" title={invoice.temple}>
-                {invoice.temple}
-              </TruncateText>
-              <p className="text-sm text-text-secondary">{invoice.templeAddress}</p>
-              <TruncateText className="text-sm text-text-tertiary" title={invoice.adminEmail}>
-                {invoice.adminEmail}
-              </TruncateText>
-            </div>
-          </div>
-          <div className="overflow-hidden rounded-lg border border-border">
-            <table className="w-full table-fixed text-left">
-              <thead><tr className="border-b border-border bg-subtle">
-                <th className="w-[22%] px-4 py-3 text-xs font-semibold text-text-tertiary">Plan</th>
-                <th className="w-[16%] px-4 py-3 text-xs font-semibold text-text-tertiary">Period</th>
-                <th className="w-[14%] px-4 py-3 text-xs font-semibold text-text-tertiary">Issued</th>
-                <th className="w-[14%] px-4 py-3 text-xs font-semibold text-text-tertiary">Due</th>
-                <th className="w-[16%] px-4 py-3 text-xs font-semibold text-text-tertiary">Amount</th>
-                <th className="w-[18%] px-4 py-3 text-xs font-semibold text-text-tertiary">Status</th>
-              </tr></thead>
-              <tbody><tr>
-                <td className="min-w-0 overflow-hidden px-4 py-3 text-sm text-text-primary">
-                  <TruncateText title={invoice.plan}>{invoice.plan}</TruncateText>
-                </td>
-                <td className="px-4 py-3 text-sm text-text-secondary">{invoice.period}</td>
-                <td className="px-4 py-3 text-sm text-text-secondary">{formatDate(invoice.issuedDate)}</td>
-                <td className="px-4 py-3 text-sm text-text-secondary">{formatDate(invoice.dueDate)}</td>
-                <td className="px-4 py-3 text-sm text-text-primary tabular-nums font-semibold">{invoice.amount}</td>
-                <td className="px-4 py-3"><Badge color={statusColor(invoice.status)} size="sm" dot>{statusLabel(invoice.status)}</Badge></td>
-              </tr></tbody>
-            </table>
-          </div>
-          <div className="flex items-start justify-between gap-8">
-            <div>
-              <p className="text-sm font-bold text-text-primary mb-2">Payment Info</p>
-              <p className="text-sm text-text-secondary">
-                {(profile?.paymentMethodLabel ?? "—")}{profile?.bank?.accountName ? ` — ${profile.bank.accountName}` : ""}
-              </p>
-              <p className="text-sm text-text-secondary">Amount: {subtotal}</p>
-            </div>
-            <div className="text-right space-y-1 min-w-[200px]">
-              <div className="flex justify-between text-sm"><span className="text-text-secondary">Sub Total</span><span className="text-text-primary tabular-nums">{subtotal}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-text-secondary">{profile?.tax?.label ?? "Tax"}</span><span className="text-text-primary tabular-nums">{tax}</span></div>
-              <div className="flex justify-between text-sm font-bold pt-1 border-t border-border"><span className="text-text-primary">Total</span><span className="text-text-primary tabular-nums">{total}</span></div>
-            </div>
-          </div>
-          <div className="rounded-xl bg-rose-50 dark:bg-rose-950/20 p-5">
-            <p className="text-sm font-bold text-text-primary mb-2">Terms and Conditions</p>
-            <ul className="text-sm text-text-secondary space-y-1.5 list-disc pl-4">
-              <li>All payments must be made according to the agreed schedule. Late payments may incur additional fees.</li>
-              <li>We are not liable for any indirect, incidental, or consequential damages.</li>
-            </ul>
-          </div>
-        </div>
-        <div className="flex justify-end gap-3 border-t border-border px-6 py-4">
-          <Button variant="outline" onClick={onClose}>Close</Button>
-          <Button
-            variant="primary"
-            leadingIcon={<Download className="h-4 w-4" />}
-            onClick={onDownload}
-          >
-            Download Invoice
-          </Button>
-        </div>
-      </div>
-    </div>
+    <InvoiceDetailModal
+      title={`Invoice #${invoice.num} Details`}
+      document={document}
+      onClose={onClose}
+      onDownload={onDownload}
+    />
   );
 }
 
@@ -282,6 +160,7 @@ type ApiRow = {
 };
 
 function mapApiRow(r: ApiRow): Invoice {
+  const currency = r.currency || "USD";
   return {
     id: r.id,
     num: r.num,
@@ -291,12 +170,14 @@ function mapApiRow(r: ApiRow): Invoice {
     adminEmail: r.adminEmail,
     plan: r.plan,
     period: r.period,
-    amount: formatUsdFromCents(r.amountCents),
-    issuedDate: r.issuedDate,
-    dueDate: r.dueDate ?? "—",
+    amount: formatMoneyOrZero(r.amountCents, currency),
+    issuedDateRaw: r.issuedDate,
+    dueDateRaw: r.dueDate,
+    issuedDate: formatDate(r.issuedDate),
+    dueDate: r.dueDate ? formatDate(r.dueDate) : "—",
     status: r.status,
     amountCents: r.amountCents,
-    currency: r.currency,
+    currency,
   };
 }
 
@@ -323,6 +204,19 @@ export default function InvoicesPage() {
   }, [search]);
 
   const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 4000); }, []);
+
+  const handleDownloadInvoicePdf = useCallback(
+    async (invoice: Invoice) => {
+      try {
+        showToast(`Preparing PDF for ${invoice.num}…`);
+        await downloadInvoiceAsPdf(invoice.id, invoice.num);
+        showToast(`Invoice ${invoice.num} downloaded`);
+      } catch (e) {
+        showToast(e instanceof Error ? e.message : "Failed to download invoice PDF");
+      }
+    },
+    [showToast]
+  );
 
   const statusForApi = (tab: string) => {
     if (tab === "all") return "all";
@@ -451,15 +345,18 @@ export default function InvoicesPage() {
     { key: "status", header: "Status", cell: (r) => <Badge color={statusColor(r.status)} size="sm" dot>{statusLabel(r.status)}</Badge> },
     {
       key: "actions", header: "Actions", align: "right",
-      cell: (r) => {
-        const items: React.ReactNode[] = [];
-        if (r.status === "paid") {
-          items.push(
-            <DropdownItem
-              key="receipt"
-              icon={<Eye className="h-4 w-4" />}
-              label="Receipt"
-              onClick={async () => {
+      cell: (r) => (
+        <ActionGroupCell>
+          {r.status === "paid" && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              iconOnly
+              title="Receipt"
+              aria-label="Receipt"
+              onClick={async (e) => {
+                e.stopPropagation();
                 const res = await fetch(`/api/billing/invoices/${encodeURIComponent(r.id)}/receipt`, { cache: "no-store" });
                 const d = (await res.json().catch(() => null)) as { success?: boolean; data?: { receiptId?: string } } | null;
                 const rid = d && d.success === true && d.data && typeof d.data.receiptId === "string" ? d.data.receiptId : "";
@@ -469,26 +366,49 @@ export default function InvoicesPage() {
                 }
                 window.open(`/super-admin/finance/receipts/view?id=${encodeURIComponent(rid)}`, "_blank", "noopener,noreferrer");
               }}
-            />
-          );
-        }
-        if (r.status === "pending" || r.status === "overdue") {
-          items.push(
-            <DropdownItem
-              key="confirm"
-              icon={<CheckCircle2 className="h-4 w-4" />}
-              label="Confirm payments"
-              onClick={() => window.open("/super-admin/finance/confirm-payments", "_self")}
-            />
-          );
-        }
-        items.push(<DropdownItem key="view" icon={<Eye className="h-4 w-4" />} label="View" onClick={() => setViewInvoice(r)} />);
-        items.push(
-          <DropdownItem
-            key="email"
-            icon={<Send className="h-4 w-4" />}
-            label="Email to temple"
-            onClick={async () => {
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+          )}
+          {(r.status === "pending" || r.status === "overdue") && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              iconOnly
+              title="Confirm payments"
+              aria-label="Confirm payments"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open("/super-admin/finance/confirm-payments", "_self");
+              }}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            iconOnly
+            title="View"
+            aria-label="View invoice"
+            onClick={(e) => {
+              e.stopPropagation();
+              setViewInvoice(r);
+            }}
+          >
+            <FileText className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            iconOnly
+            title="Email to temple"
+            aria-label="Email to temple"
+            onClick={async (e) => {
+              e.stopPropagation();
               const res = await fetch(`/api/billing/invoices/${encodeURIComponent(r.id)}/email`, {
                 method: "POST",
                 headers: { Accept: "application/json" },
@@ -500,25 +420,27 @@ export default function InvoicesPage() {
               }
               showToast(`Invoice emailed to ${r.temple}`);
             }}
-          />
-        );
-        items.push(
-          <DropdownItem
-            key="export"
-            icon={<Download className="h-4 w-4" />}
-            label="Export CSV"
-            onClick={() => {
-              const p = new URLSearchParams();
-              if (searchDebounced.trim()) p.set("q", searchDebounced.trim());
-              p.set("status", statusForApi(filter));
-              window.open(`/api/billing/invoices/export?${p.toString()}`, "_blank", "noopener,noreferrer");
+          >
+            <Send className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            iconOnly
+            title="Download PDF"
+            aria-label="Download invoice PDF"
+            onClick={async (e) => {
+              e.stopPropagation();
+              await handleDownloadInvoicePdf(r);
             }}
-          />
-        );
-        return <ActionsDropdown>{items}</ActionsDropdown>;
-      },
+          >
+            <Download className="h-4 w-4" />
+          </Button>
+        </ActionGroupCell>
+      ),
     },
-  ], [showToast, filter, searchDebounced]);
+  ], [showToast, handleDownloadInvoicePdf]);
 
   return (
     <div className="space-y-5">
@@ -627,11 +549,7 @@ export default function InvoicesPage() {
           profile={profile}
           onClose={() => setViewInvoice(null)}
           onDownload={() => {
-            window.open(
-              `/api/billing/invoices/${encodeURIComponent(viewInvoice.id)}/receipt`,
-              "_blank",
-              "noopener,noreferrer"
-            );
+            void handleDownloadInvoicePdf(viewInvoice);
           }}
         />
       )}

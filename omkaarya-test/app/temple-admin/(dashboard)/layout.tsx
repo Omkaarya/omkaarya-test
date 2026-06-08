@@ -3,7 +3,9 @@
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { TempleDashboardShell } from "@/app/components/temple-admin/TempleDashboardShell";
+import { TempleOnboardingDashboardGate } from "@/app/components/temple-admin/TempleOnboardingDashboardGate";
 import { useTheme } from "@/app/components/ThemeProvider";
+import { useTempleDisabledModules } from "@/lib/use-temple-disabled-modules";
 
 export default function TempleDashboardLayout({
   children,
@@ -13,6 +15,7 @@ export default function TempleDashboardLayout({
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const disabledModules = useTempleDisabledModules();
 
   return (
     <TempleDashboardShell
@@ -21,8 +24,9 @@ export default function TempleDashboardLayout({
       onSidebarOpenChange={setSidebarOpen}
       theme={theme}
       onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
+      disabledModules={disabledModules}
     >
-      {children}
+      <TempleOnboardingDashboardGate>{children}</TempleOnboardingDashboardGate>
     </TempleDashboardShell>
   );
 }

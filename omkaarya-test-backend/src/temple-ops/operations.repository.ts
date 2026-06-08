@@ -29,7 +29,7 @@ export async function listDevotees(pool: Pool, search?: string): Promise<Devotee
             address, date_of_birth::text AS date_of_birth,
             gotra, rashi, nakshatra, notes
        FROM devotees ${where}
-      ORDER BY full_name ASC
+      ORDER BY created_at DESC
       LIMIT 500`,
     params
   );
@@ -166,7 +166,7 @@ export async function listBookings(
        FROM bookings b
        LEFT JOIN devotees d ON d.id = b.devotee_id
        ${where}
-      ORDER BY b.scheduled_at DESC
+      ORDER BY b.created_at DESC
       LIMIT 500`,
     params
   );
@@ -251,7 +251,7 @@ export async function listRegisters(pool: Pool): Promise<PosRegisterRow[]> {
        FROM pos_registers r
        LEFT JOIN inventory_store_locations s ON s.id = r.store_id
       WHERE r.deleted_at IS NULL
-      ORDER BY r.name ASC`
+      ORDER BY r.created_at DESC`
   );
   return rows;
 }
@@ -298,7 +298,7 @@ export async function listSessions(pool: Pool, registerId?: string): Promise<Pos
        FROM pos_sessions s
        JOIN pos_registers r ON r.id = s.register_id
       ${where}
-      ORDER BY s.opened_at DESC
+      ORDER BY s.created_at DESC
       LIMIT 200`,
     params
   );
@@ -363,7 +363,7 @@ export async function listPosOrders(pool: Pool, limit = 100): Promise<PosOrderRo
             o.occurred_at::text AS occurred_at,
             (SELECT COUNT(*)::int FROM pos_order_lines pl WHERE pl.order_id = o.id) AS line_count
        FROM pos_orders o
-      ORDER BY o.occurred_at DESC
+      ORDER BY o.created_at DESC
       LIMIT ${safeLimit}`
   );
   return rows;
@@ -480,7 +480,7 @@ export async function listDonations(pool: Pool, limit = 200): Promise<DonationRo
        FROM donations d
        LEFT JOIN devotees dv ON dv.id = d.devotee_id
       WHERE d.deleted_at IS NULL
-      ORDER BY d.occurred_at DESC
+      ORDER BY d.created_at DESC
       LIMIT ${safe}`
   );
   return rows;
@@ -550,7 +550,7 @@ export async function listFinanceEntries(pool: Pool, limit = 200): Promise<Finan
             occurred_at::text AS occurred_at, created_by
        FROM finance_entries
       WHERE deleted_at IS NULL
-      ORDER BY occurred_at DESC
+      ORDER BY created_at DESC
       LIMIT ${safe}`
   );
   return rows;
@@ -634,7 +634,7 @@ export async function listFinanceTransactions(
             description, occurred_at::text AS occurred_at, created_at::text AS created_at
        FROM v_finance_transactions
        ${where}
-      ORDER BY occurred_at DESC
+      ORDER BY created_at DESC
       LIMIT ${limit}`,
     params
   );

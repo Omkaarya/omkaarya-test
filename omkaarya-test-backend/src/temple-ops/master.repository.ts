@@ -66,7 +66,7 @@ export async function listPoojaSevas(pool: Pool): Promise<PoojaSevaRow[]> {
             description, online_enabled, is_active, sort_order
        FROM master_pooja_sevas
       WHERE deleted_at IS NULL
-      ORDER BY sort_order ASC, name ASC`
+      ORDER BY created_at DESC`
   );
   return rows;
 }
@@ -162,7 +162,7 @@ export async function listSchedules(pool: Pool): Promise<ScheduleRow[]> {
             cutoff_hours, is_active
        FROM master_schedules
       WHERE deleted_at IS NULL
-      ORDER BY pooja_name ASC`
+      ORDER BY created_at DESC`
   );
   return rows;
 }
@@ -214,7 +214,7 @@ export async function listFestivals(pool: Pool): Promise<FestivalRow[]> {
             description, priest_name, is_active
        FROM master_festivals
       WHERE deleted_at IS NULL
-      ORDER BY festival_date ASC NULLS LAST, name ASC`
+      ORDER BY created_at DESC`
   );
   return rows;
 }
@@ -261,7 +261,7 @@ export async function listPanchangam(pool: Pool): Promise<PanchangamRow[]> {
             auspicious_label, notes
        FROM master_panchangam
       WHERE deleted_at IS NULL
-      ORDER BY panch_date ASC`
+      ORDER BY created_at DESC`
   );
   return rows;
 }
@@ -306,7 +306,7 @@ export async function listUoms(pool: Pool): Promise<UomRow[]> {
             base_unit_id::text AS base_unit_id, quantity_per_bulk::text AS quantity_per_bulk
        FROM master_uoms
       WHERE deleted_at IS NULL
-      ORDER BY kind ASC, name ASC`
+      ORDER BY created_at DESC`
   );
   return rows;
 }

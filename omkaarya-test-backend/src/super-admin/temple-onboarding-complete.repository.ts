@@ -35,15 +35,38 @@ export class PostgresTempleOnboardingCompleteRepository {
       return { ok: false, reason: "not_found" };
     }
 
-    const client = await opsPool.connect();
+    const platformClient = await pool.connect();
+    const opsClient = await opsPool.connect();
     try {
-      await client.query(`INSERT INTO temple_admin_data (id) VALUES (1) ON CONFLICT (id) DO NOTHING`);
-      await updateTempleAdminOnboardingFlags(client, {
+      await platformClient.query("BEGIN");
+      await opsClient.query("BEGIN");
+
+      await opsClient.query(`INSERT INTO temple_admin_data (id) VALUES (1) ON CONFLICT (id) DO NOTHING`);
+      await updateTempleAdminOnboardingFlags(opsClient, {
         onboardingCompletedAt: new Date(),
       });
+
+      await platformClient.query(
+        `UPDATE public.temples
+         SET status = CASE
+           WHEN status = 'Suspended' THEN status
+           WHEN trial_ends_at IS NOT NULL AND trial_ends_at > NOW() THEN 'Trial'
+           ELSE status
+         END
+         WHERE tenant_id = $1`,
+        [tenantId]
+      );
+
+      await opsClient.query("COMMIT");
+      await platformClient.query("COMMIT");
       return { ok: true };
+    } catch (e) {
+      await opsClient.query("ROLLBACK").catch(() => undefined);
+      await platformClient.query("ROLLBACK").catch(() => undefined);
+      throw e;
     } finally {
-      client.release();
+      opsClient.release();
+      platformClient.release();
     }
   }
 }

@@ -48,7 +48,7 @@ export default function TemplesAdminPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [country, setCountry] = useState<string>("all");
   /** Default `name` lists all temples; `timeline` sorts by created_at descending (newest first). */
-  const [sortBy, setSortBy] = useState<TemplesSortBy>("name");
+  const [sortBy, setSortBy] = useState<TemplesSortBy>("timeline");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [rows, setRows] = useState<MockTemple[]>([]);

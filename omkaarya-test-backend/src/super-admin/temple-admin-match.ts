@@ -5,7 +5,7 @@
 export function sqlTempleMatchesSessionEmail(emailParam: number): string {
   return `EXISTS (
     SELECT 1 FROM public.users u
-    WHERE u.email = $${emailParam}
+    WHERE lower(trim(u.email)) = lower(trim($${emailParam}))
       AND (
         (u.tenant_id IS NOT NULL AND temples.tenant_id = u.tenant_id)
         OR (u.tenant_id IS NULL AND temples.admin_user_id = u.id)

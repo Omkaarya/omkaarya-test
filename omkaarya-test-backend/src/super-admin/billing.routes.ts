@@ -1,7 +1,9 @@
 import { Router } from "express";
+import { resolveBillingIssuerFromEnv } from "../billing/invoice-defaults.js";
 import { sendSuccess, sendError } from "../middleware/api-envelope.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { sendInvoiceOnlyEmail, sendPaymentReceiptEmail } from "../email/send-temple-billing.js";
+import { buildInvoicePrintHtml } from "../email/invoice-email-template.js";
 import { PostgresBillingRepository, confirmPaymentSubmission, listPendingPaymentSubmissionsForConfirm, peekNextInvoiceNumber, rejectPaymentSubmission } from "./billing.repository.js";
 import { getPool } from "../db/pool.js";
 import { HttpError } from "../middleware/http-error.js";
@@ -54,13 +56,7 @@ export function createBillingRouter(billing: PostgresBillingRepository): Router 
     "/billing/profile",
     asyncHandler(async (_req, res) => {
       const profile = {
-        issuer: {
-          name: process.env.BILLING_ISSUER_NAME || "",
-          address: process.env.BILLING_ISSUER_ADDRESS || "",
-          email: process.env.BILLING_ISSUER_EMAIL || "",
-          website: process.env.BILLING_ISSUER_WEBSITE || "",
-          brandLine: process.env.BILLING_BRAND_LINE || "",
-        },
+        issuer: resolveBillingIssuerFromEnv(),
         paymentMethodLabel: process.env.BILLING_PAYMENT_METHOD_LABEL || "Bank transfer",
         bank: {
           bankName: process.env.BILLING_BANK_NAME || "",
@@ -459,6 +455,34 @@ export function createBillingRouter(billing: PostgresBillingRepository): Router 
         return;
       }
       sendSuccess(res, 200, row, "Invoice receipt", "Receipt associated with this invoice.");
+    })
+  );
+
+  r.get(
+    "/billing/invoices/:id/print",
+    asyncHandler(async (req, res) => {
+      const id = asString((req.params as { id?: string }).id);
+      const row = await billing.getInvoiceById(id);
+      if (!row) {
+        res.status(404).type("text/plain").send("Invoice not found");
+        return;
+      }
+      const html = buildInvoicePrintHtml({
+        templeName: row.temple,
+        invoiceNumber: row.num,
+        amountCents: row.amountCents,
+        isTrialProforma: row.isTrialProforma,
+        planName: row.plan,
+        billingCycle: row.period,
+        issuedDate: row.issuedDate,
+        dueDate: row.dueDate,
+        adminEmail: row.adminEmail,
+        templeAddress: row.templeAddress,
+        paymentReference: row.num,
+        currency: row.currency,
+        description: `${row.plan} subscription — ${row.period}`,
+      });
+      res.status(200).type("text/html; charset=utf-8").send(html);
     })
   );
 

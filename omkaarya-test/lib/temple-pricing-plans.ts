@@ -28,6 +28,12 @@ export function formatUsdFromCents(cents: number): string {
   return formatMoneyFromCents(cents, "USD");
 }
 
+/** Format cents; null/undefined treated as zero (never "—" for amounts). */
+export function formatMoneyOrZero(cents: number | null | undefined, currency = "USD"): string {
+  const value = typeof cents === "number" && Number.isFinite(cents) ? cents : 0;
+  return formatMoneyFromCents(value, currency);
+}
+
 /** Format cents using ISO currency code (defaults to INR for platform pricing). */
 export function formatMoneyFromCents(cents: number, currency = "INR"): string {
   const code = (currency || "INR").toUpperCase();

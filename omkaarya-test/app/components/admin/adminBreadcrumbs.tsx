@@ -28,7 +28,73 @@ function breadcrumbsForUnknownSuperAdminPath(pathname: string): BreadcrumbSegmen
   ];
 }
 
+/** Last-resort trail for `/temple-admin/...` routes without explicit rules. */
+function breadcrumbsForUnknownTempleAdminPath(pathname: string): BreadcrumbSegment[] {
+  const rest = pathname.replace(/^\/temple-admin\/?/, "").replace(/\/$/, "");
+  if (!rest) {
+    return [{ label: "Dashboard", isCurrent: true }];
+  }
+  const segments = rest.split("/").filter(Boolean);
+  const lastRaw = segments[segments.length - 1] ?? "Page";
+  return [
+    { label: "Dashboard", href: "/temple-admin" },
+    { label: titleCaseSlug(lastRaw), isCurrent: true },
+  ];
+}
+
+function getTempleAdminBreadcrumbs(pathname: string): BreadcrumbSegment[] | null {
+  if (!pathname.startsWith("/temple-admin")) return null;
+
+  if (pathname === "/temple-admin") {
+    return [{ label: "Dashboard", isCurrent: true }];
+  }
+  if (pathname === "/temple-admin/peoples/devotees") {
+    return [
+      { label: "Peoples", href: "/temple-admin/peoples/staff" },
+      { label: "Devotee Management", isCurrent: true },
+    ];
+  }
+  if (pathname === "/temple-admin/peoples/staff") {
+    return [
+      { label: "Peoples", href: "/temple-admin/peoples/staff" },
+      { label: "Staff Management", isCurrent: true },
+    ];
+  }
+  if (pathname === "/temple-admin/peoples/roles") {
+    return [
+      { label: "Peoples", href: "/temple-admin/peoples/staff" },
+      { label: "Roles & Permissions", isCurrent: true },
+    ];
+  }
+  if (pathname.startsWith("/temple-admin/finance")) {
+    const sub = pathname.replace("/temple-admin/finance", "") || "";
+    const subLabel: Record<string, string> = {
+      "": "Dashboard",
+      "/transactions": "Transactions",
+      "/donations": "Donations",
+      "/assets": "Assets",
+      "/receipts/generate": "Generate Receipt",
+    };
+    return [
+      { label: "Finance", href: "/temple-admin/finance" },
+      { label: subLabel[sub] ?? titleCaseSlug(sub.split("/").filter(Boolean).pop() ?? "Finance"), isCurrent: true },
+    ];
+  }
+  if (pathname.startsWith("/temple-admin/public-site")) {
+    const page = pathname.split("/").pop() ?? "site";
+    return [
+      { label: "Public Site", href: "/temple-admin/public-site/features" },
+      { label: titleCaseSlug(page), isCurrent: true },
+    ];
+  }
+
+  return breadcrumbsForUnknownTempleAdminPath(pathname);
+}
+
 export function getAdminBreadcrumbs(pathname: string): BreadcrumbSegment[] {
+  const temple = getTempleAdminBreadcrumbs(pathname);
+  if (temple) return temple;
+
   // ── Temple Management ──────────────────────────────────────────────
   if (pathname === "/super-admin/create-temple") {
     return [
@@ -144,11 +210,12 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbSegment[] {
     return breadcrumbsForUnknownSuperAdminPath(pathname);
   }
 
-  return breadcrumbsForUnknownSuperAdminPath(pathname);
+  return [{ label: "Home", isCurrent: true }];
 }
 
 export function AdminBreadcrumbs({ pathname }: { pathname: string }) {
   const segments = getAdminBreadcrumbs(pathname);
+  const homeHref = pathname.startsWith("/temple-admin") ? "/temple-admin" : "/super-admin/dashboard";
 
   return (
     <nav
@@ -156,7 +223,7 @@ export function AdminBreadcrumbs({ pathname }: { pathname: string }) {
       className="hidden shrink-0 items-center gap-1 text-sm text-[var(--text-muted)] sm:flex"
     >
       <Link
-        href="/super-admin/dashboard"
+        href={homeHref}
         className="flex items-center hover:text-[var(--text-primary)]"
       >
         <Home className="h-4 w-4" />
