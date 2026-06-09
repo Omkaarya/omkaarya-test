@@ -373,8 +373,24 @@ export default function ForgotPasswordFlow() {
   if (stepIndex === 4) {
     return (
       <div className="w-full max-w-md">
-        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-6 shadow-xl sm:p-8">
-          <div className="mb-6 text-center">
+        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-6 shadow-xl sm:p-8 relative overflow-hidden">
+          <div className="pointer-events-none absolute left-0 top-0" aria-hidden="true">
+            <svg
+              width="160"
+              height="160"
+              viewBox="0 0 160 160"
+              fill="none"
+              className="text-orange-200/50 dark:text-[var(--brand-primary)]/15"
+            >
+              <circle cx="0" cy="0" r="30" stroke="currentColor" strokeWidth="1" />
+              <circle cx="0" cy="0" r="55" stroke="currentColor" strokeWidth="1" />
+              <circle cx="0" cy="0" r="80" stroke="currentColor" strokeWidth="1" />
+              <circle cx="0" cy="0" r="105" stroke="currentColor" strokeWidth="1" />
+              <circle cx="0" cy="0" r="130" stroke="currentColor" strokeWidth="1" />
+              <circle cx="0" cy="0" r="155" stroke="currentColor" strokeWidth="1" />
+            </svg>
+          </div>
+          <div className="relative z-10 mb-6 text-center">
             <OmkaaryaCardMark />
             <h1 className="mt-4 text-2xl font-semibold tracking-tight text-[var(--text-primary)]">
               You are all set
@@ -401,8 +417,24 @@ export default function ForgotPasswordFlow() {
     const em = flowEmail;
     return (
       <div className="w-full max-w-md">
-        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-6 shadow-xl sm:p-8">
-          <div className="mb-8 text-center">
+        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-6 shadow-xl sm:p-8 relative overflow-hidden">
+          <div className="pointer-events-none absolute left-0 top-0" aria-hidden="true">
+            <svg
+              width="160"
+              height="160"
+              viewBox="0 0 160 160"
+              fill="none"
+              className="text-orange-200/50 dark:text-[var(--brand-primary)]/15"
+            >
+              <circle cx="0" cy="0" r="30" stroke="currentColor" strokeWidth="1" />
+              <circle cx="0" cy="0" r="55" stroke="currentColor" strokeWidth="1" />
+              <circle cx="0" cy="0" r="80" stroke="currentColor" strokeWidth="1" />
+              <circle cx="0" cy="0" r="105" stroke="currentColor" strokeWidth="1" />
+              <circle cx="0" cy="0" r="130" stroke="currentColor" strokeWidth="1" />
+              <circle cx="0" cy="0" r="155" stroke="currentColor" strokeWidth="1" />
+            </svg>
+          </div>
+          <div className="relative z-10 mb-8 text-center">
             <OmkaaryaCardMark />
             <h1 className="mt-4 text-2xl font-semibold tracking-tight text-[var(--text-primary)]">
               Email verified
@@ -439,8 +471,24 @@ export default function ForgotPasswordFlow() {
   if (stepIndex === 3) {
     return (
       <div className="w-full max-w-md">
-        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-6 shadow-xl sm:p-8">
-          <div className="mb-8 text-center">
+        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-6 shadow-xl sm:p-8 relative overflow-hidden">
+          <div className="pointer-events-none absolute left-0 top-0" aria-hidden="true">
+            <svg
+              width="160"
+              height="160"
+              viewBox="0 0 160 160"
+              fill="none"
+              className="text-orange-200/50 dark:text-[var(--brand-primary)]/15"
+            >
+              <circle cx="0" cy="0" r="30" stroke="currentColor" strokeWidth="1" />
+              <circle cx="0" cy="0" r="55" stroke="currentColor" strokeWidth="1" />
+              <circle cx="0" cy="0" r="80" stroke="currentColor" strokeWidth="1" />
+              <circle cx="0" cy="0" r="105" stroke="currentColor" strokeWidth="1" />
+              <circle cx="0" cy="0" r="130" stroke="currentColor" strokeWidth="1" />
+              <circle cx="0" cy="0" r="155" stroke="currentColor" strokeWidth="1" />
+            </svg>
+          </div>
+          <div className="relative z-10 mb-8 text-center">
             <OmkaaryaCardMark />
             <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)]">
               Reset your Password
@@ -572,8 +620,24 @@ export default function ForgotPasswordFlow() {
     const em = flowEmail;
     return (
       <div className="w-full max-w-md">
-        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-6 shadow-xl sm:p-8">
-          <div className="mb-8 text-center">
+        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-6 shadow-xl sm:p-8 relative overflow-hidden">
+          <div className="pointer-events-none absolute left-0 top-0" aria-hidden="true">
+            <svg
+              width="160"
+              height="160"
+              viewBox="0 0 160 160"
+              fill="none"
+              className="text-orange-200/50 dark:text-[var(--brand-primary)]/15"
+            >
+              <circle cx="0" cy="0" r="30" stroke="currentColor" strokeWidth="1" />
+              <circle cx="0" cy="0" r="55" stroke="currentColor" strokeWidth="1" />
+              <circle cx="0" cy="0" r="80" stroke="currentColor" strokeWidth="1" />
+              <circle cx="0" cy="0" r="105" stroke="currentColor" strokeWidth="1" />
+              <circle cx="0" cy="0" r="130" stroke="currentColor" strokeWidth="1" />
+              <circle cx="0" cy="0" r="155" stroke="currentColor" strokeWidth="1" />
+            </svg>
+          </div>
+          <div className="relative z-10 mb-8 text-center">
             <OmkaaryaCardMark />
             <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)]">
               Check your email
@@ -663,8 +727,24 @@ export default function ForgotPasswordFlow() {
 
   return (
     <div className="w-full max-w-md">
-      <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-6 shadow-xl sm:p-8">
-        <div className="mb-8 text-center">
+      <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-6 shadow-xl sm:p-8 relative overflow-hidden">
+        <div className="pointer-events-none absolute left-0 top-0" aria-hidden="true">
+          <svg
+            width="160"
+            height="160"
+            viewBox="0 0 160 160"
+            fill="none"
+            className="text-orange-200/50 dark:text-[var(--brand-primary)]/15"
+          >
+            <circle cx="0" cy="0" r="30" stroke="currentColor" strokeWidth="1" />
+            <circle cx="0" cy="0" r="55" stroke="currentColor" strokeWidth="1" />
+            <circle cx="0" cy="0" r="80" stroke="currentColor" strokeWidth="1" />
+            <circle cx="0" cy="0" r="105" stroke="currentColor" strokeWidth="1" />
+            <circle cx="0" cy="0" r="130" stroke="currentColor" strokeWidth="1" />
+            <circle cx="0" cy="0" r="155" stroke="currentColor" strokeWidth="1" />
+          </svg>
+        </div>
+        <div className="relative z-10 mb-8 text-center">
           <OmkaaryaCardMark />
           <h1 className="mt-4 text-2xl font-semibold tracking-tight text-[var(--text-primary)]">
             Forgot Password?
