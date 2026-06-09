@@ -10,6 +10,33 @@ import { isTempleAdminPublicPath } from "@/lib/temple-admin-login";
 import { isTempleScopedAuthPayload } from "@/lib/temple-admin-session";
 import { isSuperAdminProtectedApiPath } from "@/lib/super-admin-api-paths";
 
+const TEMPLE_ADMIN_ONBOARDING_PATHS = new Set([
+  "/temple-admin/set-password",
+  "/temple-admin/admin-profile",
+  "/temple-admin/temple-profile",
+  "/temple-admin/deity-selection",
+  "/temple-admin/choose-plan",
+  "/temple-admin/payment",
+  "/temple-admin/onboarding-complete",
+]);
+
+function isTempleAdminOnboardingPage(pathname: string): boolean {
+  return TEMPLE_ADMIN_ONBOARDING_PATHS.has(pathname);
+}
+
+function isTempleAdminOnboardingApiPath(pathname: string): boolean {
+  const onboardingApiPaths = [
+    "/api/temple-admin/onboarding-progress",
+    "/api/temple-admin/profile",
+    "/api/temple-admin/temple-profile",
+    "/api/temple-admin/deity-selection",
+    "/api/temple-admin/plan-selection",
+    "/api/temple-admin/payment-onboarding",
+    "/api/temple-admin/onboarding-complete",
+  ];
+  return onboardingApiPaths.some((p) => pathname === p || pathname.startsWith(p + "/"));
+}
+
 function applyNoStoreHeaders(response: NextResponse): NextResponse {
   response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
   response.headers.set("Pragma", "no-cache");
@@ -89,13 +116,25 @@ export async function middleware(request: NextRequest) {
       );
     }
     const payload = await tokenPayload(request);
-    if (!isTempleScopedAuthPayload(payload)) {
-      return nextJsonError(
-        403,
-        "FORBIDDEN",
-        "Temple-admin session required",
-        "Sign in with a temple administrator account to use this API."
-      );
+    const hasEmail = typeof payload?.email === "string" && payload.email.trim() !== "";
+    if (isTempleAdminOnboardingApiPath(pathname)) {
+      if (!hasEmail) {
+        return nextJsonError(
+          401,
+          "UNAUTHORIZED",
+          "Authentication required.",
+          "Sign in with a temple administrator account to use this API."
+        );
+      }
+    } else {
+      if (!isTempleScopedAuthPayload(payload)) {
+        return nextJsonError(
+          403,
+          "FORBIDDEN",
+          "Temple-admin session required",
+          "Sign in with a temple administrator account to use this API."
+        );
+      }
     }
   }
 
@@ -134,6 +173,17 @@ export async function middleware(request: NextRequest) {
     return applyNoStoreHeaders(
       NextResponse.redirect(new URL("/super-admin/login", request.url))
     );
+  }
+
+  const hasAuthToken = !!payload && typeof payload.email === "string";
+
+  if (isTempleAdminOnboardingPage(pathname)) {
+    if (!hasAuthToken) {
+      return applyNoStoreHeaders(
+        NextResponse.redirect(new URL("/temple-admin/signin", request.url))
+      );
+    }
+    return NextResponse.next();
   }
 
   if (isTempleAdminProtectedPage(pathname) && !hasTempleSession) {
