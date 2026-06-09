@@ -14,7 +14,7 @@ import "../src/load-env.js";
 import pg from "pg";
 import { getPoolConfig } from "../src/db/config.js";
 import { runPendingTempleOpsMigrations } from "../src/db/run-migrations.js";
-import { poolConfigForTempleOperationalRow } from "../src/db/temple-ops-config.js";
+import { poolConfigForTempleOperationalRow, resolveTempleOpsPgSuperuserUrl } from "../src/db/temple-ops-config.js";
 import { syncTempleAuthMirrorFromPlatformUserId } from "../src/temple-ops/sync-auth-mirror.js";
 
 function safeOperationalDbName(prefix: string, tenantId: string): string {
@@ -23,10 +23,10 @@ function safeOperationalDbName(prefix: string, tenantId: string): string {
 }
 
 async function ensureDatabaseExists(dbName: string): Promise<void> {
-  const superUrl = process.env.TEMPLE_OPS_PG_SUPERUSER_URL?.trim();
+  const superUrl = resolveTempleOpsPgSuperuserUrl();
   if (!superUrl) {
     console.warn(
-      "[temple-ops:bootstrap] TEMPLE_OPS_PG_SUPERUSER_URL unset — skipping CREATE DATABASE (create it manually first)."
+      "[temple-ops:bootstrap] No CREATE DATABASE URL — skipping CREATE DATABASE (create it manually first)."
     );
     return;
   }

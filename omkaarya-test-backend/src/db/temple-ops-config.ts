@@ -131,3 +131,24 @@ export function poolConfigForTempleOperationalRow(row: TempleOperationalConnecti
 
   return poolConfigFromPlatformWithOperationalDatabase(name);
 }
+
+const TEMPLE_OPS_CREATE_DB_URL_KEYS = [
+  "TEMPLE_OPS_PG_SUPERUSER_URL",
+  /** Vercel + Neon integration (direct / unpooled — required for CREATE DATABASE). */
+  "DATABASE_URL_UNPOOLED",
+  /** Legacy Vercel Postgres template name. */
+  "POSTGRES_URL_NON_POOLING",
+] as const;
+
+/**
+ * Connection string for CREATE/DROP DATABASE on the platform cluster.
+ * Local/dev: TEMPLE_OPS_PG_SUPERUSER_URL → maintenance DB `/postgres`.
+ * Neon on Vercel: falls back to DATABASE_URL_UNPOOLED (direct connection to the platform DB on the branch).
+ */
+export function resolveTempleOpsPgSuperuserUrl(): string | null {
+  for (const key of TEMPLE_OPS_CREATE_DB_URL_KEYS) {
+    const v = process.env[key]?.trim();
+    if (v) return v;
+  }
+  return null;
+}

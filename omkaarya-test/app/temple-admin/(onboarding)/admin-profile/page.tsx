@@ -134,6 +134,13 @@ export default function TempleAdminAdminProfilePage() {
     }
   };
 
+  const avatarInitials = useMemo(() => {
+    const parts = fullName.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    if (fullName.trim()) return fullName.slice(0, 2).toUpperCase();
+    return "TA";
+  }, [fullName]);
+
   return (
     <div className="w-full max-w-xl rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-6 shadow-xl sm:p-8 relative overflow-hidden">
       <div className="pointer-events-none absolute left-0 top-0" aria-hidden="true">

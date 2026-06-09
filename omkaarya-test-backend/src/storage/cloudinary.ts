@@ -5,9 +5,34 @@ function env(key: string): string {
 }
 
 function requiredEnv(key: string): string {
+  const raw = process.env[key];
   const v = env(key);
-  if (!v) throw new Error(`Missing required env var: ${key}`);
+  if (!v) {
+    const detail =
+      raw === undefined
+        ? "It is not set in this runtime (check the backend Vercel project env vars and redeploy)."
+        : "It is set but empty.";
+    throw new Error(`Missing required env var: ${key}. ${detail}`);
+  }
   return v;
+}
+
+/** Safe for `/api/health` — booleans only, never secret values. */
+export function cloudinaryEnvStatus(): {
+  configured: boolean;
+  cloudName: boolean;
+  apiKey: boolean;
+  apiSecret: boolean;
+} {
+  const cloudName = Boolean(env("CLOUDINARY_CLOUD_NAME"));
+  const apiKey = Boolean(env("CLOUDINARY_API_KEY"));
+  const apiSecret = Boolean(env("CLOUDINARY_API_SECRET"));
+  return {
+    configured: cloudName && apiKey && apiSecret,
+    cloudName,
+    apiKey,
+    apiSecret,
+  };
 }
 
 function configureCloudinaryOnce(): void {
