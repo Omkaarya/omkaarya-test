@@ -62,7 +62,7 @@ export default function TempleAdminChoosePlanPage() {
     setLoadError(null);
     const result = await fetchPublicPricingCatalog();
     if (!result.ok) {
-      setLoadError(result.message);
+      setLoadError("message" in result ? result.message : "Failed to load plans.");
       return;
     }
     setPlans(result.plans);
