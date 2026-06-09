@@ -5,6 +5,7 @@ export interface User {
   id: string;
   email: string;
   passwordHash: string;
+  tenantId?: string | null;
   createdAt: string;
 }
 
@@ -20,7 +21,22 @@ export async function ensureDb() {
     try {
       await fs.access(dbPath);
     } catch {
-      await fs.writeFile(dbPath, JSON.stringify([]));
+      const initialUsers: User[] = [
+        {
+          id: 'u0001',
+          email: 'pepuluxhq@gmail.com',
+          passwordHash: '$2b$10$P55n6r02oH6/mc3MiJpJTul9aKt/ZpC6MkinKYbdFH2/mrgGOldia',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 'u0002',
+          email: 'omkaaryahq@gmail.com',
+          passwordHash: '$2b$10$9j76vj1dIYF/zzX5Sb/FMOfaERNVxtK70Ts4LDTB.WoqhqHvKUJaC',
+          tenantId: 'f0001001-0001-4001-8001-000000000001',
+          createdAt: new Date().toISOString(),
+        },
+      ];
+      await fs.writeFile(dbPath, JSON.stringify(initialUsers, null, 2));
     }
   } catch (error) {
     console.error('Failed to initialize mock DB', error);

@@ -1,8 +1,8 @@
-/** Canonical temple-admin sign-in path (address bar). */
-export const TEMPLE_ADMIN_SIGNIN_PATH = "/temple-admin/signin";
+/** Canonical unified sign-in path. */
+export const UNIFIED_LOGIN_PATH = "/login";
 
 const TEMPLE_ADMIN_PUBLIC_PATHS = new Set([
-  TEMPLE_ADMIN_SIGNIN_PATH,
+  UNIFIED_LOGIN_PATH,
   "/temple-admin/forgot-password",
 ]);
 
@@ -13,6 +13,6 @@ export function isTempleAdminPublicPath(pathname: string): boolean {
 /** Hard navigation — replaces history so Back cannot return to a protected page after logout. */
 export function redirectToTempleAdminSignin(): void {
   if (typeof window === "undefined") return;
-  if (window.location.pathname === TEMPLE_ADMIN_SIGNIN_PATH) return;
-  window.location.replace(TEMPLE_ADMIN_SIGNIN_PATH);
+  if (window.location.pathname === UNIFIED_LOGIN_PATH) return;
+  window.location.replace(UNIFIED_LOGIN_PATH);
 }

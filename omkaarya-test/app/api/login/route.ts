@@ -133,7 +133,11 @@ export async function POST(request: NextRequest) {
         );
         const okRes = nextJsonSuccess(
           200,
-          { firstLogin: parsedLogin.firstLogin },
+          { 
+            firstLogin: parsedLogin.firstLogin,
+            tenantId: parsedLogin.tenantId ?? null,
+            userId: parsedLogin.userId
+          },
           parsedLogin.message ?? "Login successful",
           parsedLogin.reason ?? "Authenticated against the application database."
         );
@@ -188,7 +192,11 @@ export async function POST(request: NextRequest) {
     const token = await signToken({ userId: user.id, email: user.email }, { rememberMe });
     const mockOk = nextJsonSuccess(
       200,
-      { firstLogin: false },
+      { 
+        firstLogin: false,
+        tenantId: user.tenantId ?? null,
+        userId: user.id
+      },
       "Login successful",
       "Authenticated against local demo user store (no temporary password on this path)."
     );

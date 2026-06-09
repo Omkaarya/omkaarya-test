@@ -46,8 +46,6 @@ function isReturningTempleLogin(): boolean {
 const ONBOARDING_PATHS = {
   signin: "/temple-admin/signin",
   setPassword: "/temple-admin/set-password",
-  choosePlan: "/temple-admin/choose-plan",
-  payment: "/temple-admin/payment",
   adminProfile: "/temple-admin/admin-profile",
   templeProfile: "/temple-admin/temple-profile",
   deitySelection: "/temple-admin/deity-selection",
@@ -60,8 +58,6 @@ export function pathnameToOnboardingStep(pathname: string | null): keyof typeof 
   if (!pathname) return null;
   if (pathname.includes("/signin")) return "signin";
   if (pathname.includes("/set-password")) return "setPassword";
-  if (pathname.includes("/choose-plan")) return "choosePlan";
-  if (pathname.includes("/payment")) return "payment";
   if (pathname.includes("/admin-profile")) return "adminProfile";
   if (pathname.includes("/temple-profile")) return "templeProfile";
   if (pathname.includes("/deity-selection")) return "deitySelection";
@@ -143,12 +139,6 @@ export function resolveTempleOnboardingPath(
   if (!deityDone) {
     return ONBOARDING_PATHS.deitySelection;
   }
-  if (!progress.hasPlanSelected) {
-    return ONBOARDING_PATHS.choosePlan;
-  }
-  if (!progress.hasPaymentCompleted) {
-    return ONBOARDING_PATHS.payment;
-  }
 
   return ONBOARDING_PATHS.complete;
 }
@@ -182,6 +172,7 @@ export function useTempleOnboardingGuard(
   const router = useRouter();
   const pathname = usePathname();
   const checkedRef = useRef(false);
+  const lastStepRef = useRef<string | null>(null);
   const [ready, setReady] = useState(false);
   const [guardError, setGuardError] = useState<string | null>(null);
   const enabled = options?.enabled ?? true;
@@ -235,7 +226,11 @@ export function useTempleOnboardingGuard(
   ]);
 
   useEffect(() => {
-    if (checkedRef.current && currentStep !== "setPassword") return;
+    if (lastStepRef.current !== currentStep) {
+      checkedRef.current = false;
+      lastStepRef.current = currentStep;
+    }
+    if (checkedRef.current) return;
     void runGuard();
   }, [runGuard, currentStep]);
 

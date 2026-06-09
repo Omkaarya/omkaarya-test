@@ -24,7 +24,10 @@ export function useTempleAdminSessionGuard(): {
 
   const verifySession = useCallback(
     async (options?: { force?: boolean }) => {
-      if (!pathname.startsWith("/temple-admin") || isTempleAdminPublicPath(pathname)) {
+      if (
+        !pathname.startsWith("/temple-admin") ||
+        isTempleAdminPublicPath(pathname)
+      ) {
         verifiedRef.current = true;
         setSessionReady(true);
         setSessionError(null);
