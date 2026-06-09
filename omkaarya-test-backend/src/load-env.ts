@@ -7,6 +7,9 @@ import { fileURLToPath } from "node:url";
  * Does not override existing env vars. Ensures `npm run migrate` works even when cwd is not the backend folder.
  */
 export function loadEnvFile(): void {
+  // On Vercel, env vars come from the project dashboard — never from a bundled `.env` file.
+  if (process.env.VERCEL === "1") return;
+
   const here = dirname(fileURLToPath(import.meta.url));
   const backendRootEnv = join(here, "..", ".env");
   const cwdEnv = join(process.cwd(), ".env");

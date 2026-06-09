@@ -58,6 +58,7 @@ Deploy this folder as its own Vercel project:
 - **CORS_ORIGIN**: the exact origin(s) of your frontend, comma-separated
   - Example: `https://your-frontend.vercel.app,https://your-frontend-git-main-<team>.vercel.app`
 - **AUTO_MIGRATE**: set **`0`** in production (recommended for serverless)
+- **CLOUDINARY_CLOUD_NAME**, **CLOUDINARY_API_KEY**, **CLOUDINARY_API_SECRET**: required for temple branding image uploads
 
 Optional (email):
 
