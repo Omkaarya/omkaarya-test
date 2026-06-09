@@ -96,7 +96,7 @@ export default function TempleOnboardingShell({ children }: { children: React.Re
             ].join(" ")}
           >
             <Image
-              src="/brand-logo/Omkaarya 9.svg"
+              src="/brand-logo/Omkaarya 5.svg"
               alt="Omkaarya"
               width={140}
               height={32}
