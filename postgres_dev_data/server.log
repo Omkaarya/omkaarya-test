@@ -6,3 +6,23 @@
 2026-06-05 20:47:12.505 +0530 [74427] LOG:  database system is ready to accept connections
 2026-06-05 20:52:12.518 +0530 [74432] LOG:  checkpoint starting: time
 2026-06-05 20:54:09.354 +0530 [74432] LOG:  checkpoint complete: wrote 1105 buffers (6.7%), wrote 3 SLRU buffers; 1 WAL file(s) added, 0 removed, 0 recycled; write=116.766 s, sync=0.012 s, total=116.837 s; sync files=387, longest=0.002 s, average=0.001 s; distance=5374 kB, estimate=5374 kB; lsn=0/1CC68E8, redo lsn=0/1CC6858
+2026-06-09 11:06:56.754 +0530 [33566] LOG:  starting PostgreSQL 18.4 on x86_64-apple-darwin24.6.0, compiled by Apple clang version 17.0.0 (clang-1700.6.3.2), 64-bit
+2026-06-09 11:06:56.756 +0530 [33566] LOG:  could not bind IPv6 address "::1": Address already in use
+2026-06-09 11:06:56.756 +0530 [33566] HINT:  Is another postmaster already running on port 5432? If not, wait a few seconds and retry.
+2026-06-09 11:06:56.756 +0530 [33566] LOG:  could not bind IPv4 address "127.0.0.1": Address already in use
+2026-06-09 11:06:56.756 +0530 [33566] HINT:  Is another postmaster already running on port 5432? If not, wait a few seconds and retry.
+2026-06-09 11:06:56.756 +0530 [33566] WARNING:  could not create listen socket for "localhost"
+2026-06-09 11:06:56.756 +0530 [33566] FATAL:  could not create any TCP/IP sockets
+2026-06-09 11:06:56.757 +0530 [33566] LOG:  database system is shut down
+2026-06-09 11:34:56.066 +0530 [34204] LOG:  starting PostgreSQL 18.4 on x86_64-apple-darwin24.6.0, compiled by Apple clang version 17.0.0 (clang-1700.6.3.2), 64-bit
+2026-06-09 11:34:56.071 +0530 [34204] LOG:  listening on IPv6 address "::1", port 5433
+2026-06-09 11:34:56.071 +0530 [34204] LOG:  listening on IPv4 address "127.0.0.1", port 5433
+2026-06-09 11:34:56.072 +0530 [34204] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5433"
+2026-06-09 11:34:56.078 +0530 [34210] LOG:  database system was interrupted; last known up at 2026-06-05 20:54:09 +0530
+2026-06-09 11:34:56.140 +0530 [34210] LOG:  database system was not properly shut down; automatic recovery in progress
+2026-06-09 11:34:56.142 +0530 [34210] LOG:  redo starts at 0/1CC6858
+2026-06-09 11:34:56.142 +0530 [34210] LOG:  invalid record length at 0/1CC6998: expected at least 24, got 0
+2026-06-09 11:34:56.142 +0530 [34210] LOG:  redo done at 0/1CC6960 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.00 s
+2026-06-09 11:34:56.143 +0530 [34208] LOG:  checkpoint starting: end-of-recovery immediate wait
+2026-06-09 11:34:56.144 +0530 [34208] LOG:  checkpoint complete: wrote 0 buffers (0.0%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.001 s; sync files=2, longest=0.001 s, average=0.001 s; distance=0 kB, estimate=0 kB; lsn=0/1CC6998, redo lsn=0/1CC6998
+2026-06-09 11:34:56.145 +0530 [34204] LOG:  database system is ready to accept connections
