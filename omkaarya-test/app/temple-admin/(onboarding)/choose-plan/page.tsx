@@ -6,7 +6,11 @@ import { DM_Serif_Display } from "next/font/google";
 import { ArrowRight, Check, ChevronDown, ChevronUp, Layers2, Minus } from "lucide-react";
 import TempleOnboardingStepActions from "@/app/components/temple-admin/TempleOnboardingStepActions";
 import { getDeityById, type DeityCatalogEntry } from "@/lib/deity-catalog";
-import { isDeitySelectionComplete, loadTempleOnboardingDeityDraft } from "@/lib/temple-onboarding-deity";
+import {
+  hydrateDeityDraftFromSessionProfile,
+  isDeitySelectionComplete,
+  loadTempleOnboardingDeityDraft,
+} from "@/lib/temple-onboarding-deity";
 import {
   loadTempleOnboardingPlanDraft,
   saveTempleOnboardingPlanDraft,
@@ -15,9 +19,11 @@ import {
 } from "@/lib/temple-onboarding-plan";
 import {
   type ApiPricingPlan,
+  fetchPublicPricingCatalog,
   formatUsdFromCents,
   effectiveMonthlyFromYearlyCents,
   isPricingPlanId,
+  type PricingPlanComparisonData,
 } from "@/lib/temple-pricing-plans";
 import { submitTemplePlanSelection } from "@/lib/temple-onboarding-plan-api";
 import { getTempleSessionProfileAction } from "@/app/actions/onboarding";
@@ -26,27 +32,12 @@ import {
   isTempleOnboardingTempleCreated,
   loadTempleOnboardingTempleCreatedResponse,
   loadTempleOnboardingTempleProfileDraft,
+  saveTempleOnboardingTempleProfileDraft,
 } from "@/lib/temple-onboarding-temple-profile";
-
 const dmSerif = DM_Serif_Display({
   subsets: ["latin"],
   weight: "400",
 });
-
-type ComparisonPayload = {
-  success?: boolean;
-  data?: {
-    plans: { id: string; name: string }[];
-    features: {
-      featureId: string;
-      name: string;
-      key: string;
-      moduleKey: string;
-      hasLimit: boolean;
-      values: Record<string, { enabled: boolean; limit: number | null }>;
-    }[];
-  };
-};
 
 export default function TempleAdminChoosePlanPage() {
   const router = useRouter();
@@ -55,7 +46,7 @@ export default function TempleAdminChoosePlanPage() {
   const [deityDraft, setDeityDraft] = useState<ReturnType<typeof loadTempleOnboardingDeityDraft> | null>(null);
   const [missing, setMissing] = useState(false);
   const [plans, setPlans] = useState<ApiPricingPlan[]>([]);
-  const [comparison, setComparison] = useState<ComparisonPayload["data"] | null>(null);
+  const [comparison, setComparison] = useState<PricingPlanComparisonData | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [billing, setBilling] = useState<TempleOnboardingPlanBilling>("annual");
@@ -69,23 +60,14 @@ export default function TempleAdminChoosePlanPage() {
 
   const loadCatalog = useCallback(async () => {
     setLoadError(null);
-    try {
-      const [prRes, cmpRes] = await Promise.all([
-        fetch("/api/pricing-plans", { cache: "no-store" }),
-        fetch("/api/pricing-plans/comparison", { cache: "no-store" }),
-      ]);
-      const prJson = (await prRes.json().catch(() => null)) as { success?: boolean; data?: ApiPricingPlan[] };
-      if (!prRes.ok || !prJson.success || !Array.isArray(prJson.data)) {
-        setLoadError("Could not load pricing plans.");
-        return;
-      }
-      setPlans(prJson.data);
-      const cmpJson = (await cmpRes.json().catch(() => null)) as ComparisonPayload;
-      if (cmpRes.ok && cmpJson.success && cmpJson.data) {
-        setComparison(cmpJson.data);
-      }
-    } catch {
-      setLoadError("Network error while loading plans.");
+    const result = await fetchPublicPricingCatalog();
+    if (!result.ok) {
+      setLoadError("message" in result ? result.message : "Failed to load plans.");
+      return;
+    }
+    setPlans(result.plans);
+    if (result.comparison) {
+      setComparison(result.comparison);
     }
   }, []);
 
@@ -102,9 +84,12 @@ export default function TempleAdminChoosePlanPage() {
     }
 
     const loaded = loadTempleOnboardingTempleProfileDraft();
-    if (!loaded) setMissing(true);
+    const loadedDeity = loadTempleOnboardingDeityDraft();
+    const hasTempleSummary = Boolean(loaded?.templeName?.trim());
+    const hasDeitySummary = Boolean(loadedDeity?.primaryDeityId);
+    if (!loaded || !hasTempleSummary) setMissing(!hasTempleSummary);
     setDraft(loaded);
-    setDeityDraft(loadTempleOnboardingDeityDraft());
+    setDeityDraft(loadedDeity);
 
     const planDraft = loadTempleOnboardingPlanDraft();
     if (planDraft && (planDraft.billing === "monthly" || planDraft.billing === "annual")) {
@@ -113,26 +98,49 @@ export default function TempleAdminChoosePlanPage() {
     if (planDraft?.pricingPlanId && isPricingPlanId(planDraft.pricingPlanId)) {
       setSelectedPlanId(planDraft.pricingPlanId);
       setPlanSelectionSourceReady(true);
-      setIsHydrated(true);
-      return;
     }
 
     let cancelled = false;
     void (async () => {
       const res = await getTempleSessionProfileAction(email);
       if (cancelled) return;
-      if (
-        res.ok &&
-        res.provisioningPlan.pricingPlanId &&
-        isPricingPlanId(res.provisioningPlan.pricingPlanId)
-      ) {
-        setSelectedPlanId(res.provisioningPlan.pricingPlanId);
-        setBilling(res.provisioningPlan.billing);
+
+      if (res.ok) {
+        if (
+          !planDraft?.pricingPlanId &&
+          res.provisioningPlan.pricingPlanId &&
+          isPricingPlanId(res.provisioningPlan.pricingPlanId)
+        ) {
+          setSelectedPlanId(res.provisioningPlan.pricingPlanId);
+          setBilling(res.provisioningPlan.billing);
+        }
+
+        if (!hasTempleSummary) {
+          const hydrated = {
+            templeName: res.core.templeName,
+            email: res.core.email,
+            phone: res.core.phone,
+            location: res.core.location,
+            domainSubdomain: res.details.domainSubdomain,
+            charity: res.core.charity,
+          };
+          saveTempleOnboardingTempleProfileDraft(hydrated);
+          setDraft((prev) => ({ ...(prev ?? {}), ...hydrated }));
+          setMissing(false);
+        }
+
+        if (!hasDeitySummary) {
+          const deityHydrated = hydrateDeityDraftFromSessionProfile(res.deity);
+          if (deityHydrated) {
+            setDeityDraft((prev) => ({ ...(prev ?? { subDeityIds: [] }), ...deityHydrated }));
+          }
+        }
       }
+
       setPlanSelectionSourceReady(true);
+      setIsHydrated(true);
     })();
 
-    setIsHydrated(true);
     return () => {
       cancelled = true;
     };

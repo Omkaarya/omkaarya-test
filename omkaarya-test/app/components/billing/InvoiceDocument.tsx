@@ -2,6 +2,7 @@
 
 import { TruncateText } from "@/app/components/ds/atoms/TruncateText";
 import {
+  BILLING_LOGO_PATH,
   billToPreviewLines,
   formatInvoiceDate,
   formatMoneyOrZero,
@@ -44,7 +45,11 @@ export function InvoiceDocument({
     <div className={`bg-surface ${className}`.trim()}>
       <div className={`flex justify-between items-start mb-6 pb-5 border-b-2 border-brand gap-4 ${compact ? "mb-4 pb-4" : ""}`}>
         <div className="min-w-0 flex-1">
-          <p className="text-lg font-extrabold text-brand tracking-tight">OMKAARYA</p>
+          <img
+            src={BILLING_LOGO_PATH}
+            alt="Omkaarya"
+            className="h-8 w-auto max-w-[180px]"
+          />
           <TruncateText className="text-[11px] text-text-tertiary mt-0.5 break-words" title={issuer.name}>
             {issuer.name}
           </TruncateText>

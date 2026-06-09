@@ -68,6 +68,8 @@ export type TempleSessionProfileResponse = {
     charity: { registered: boolean; registrationNumber: string };
     email: string;
     phone: PhoneRowJson;
+    whatsapp: PhoneRowJson;
+    tradition: string;
     location: { countryIso: string; city: string };
   };
   details: {
@@ -84,6 +86,11 @@ export type TempleSessionProfileResponse = {
     planName: string | null;
     billing: "monthly" | "annual";
   };
+  /** Saved deity selection from ops DB (for setup summary when session draft is missing). */
+  deity: {
+    primaryDeityId: string | null;
+    subDeityIds: string[];
+  };
 };
 
 export type CreateTemplePayload = {
@@ -92,6 +99,8 @@ export type CreateTemplePayload = {
     name: string;
     deity: string;
     country: string;
+    /** Region/state ISO or label from super-admin wizard. */
+    state?: string;
     city: string;
     address: string;
     email: string;

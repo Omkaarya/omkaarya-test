@@ -15,34 +15,75 @@ function getPublicBaseUrl(): string {
   return publicBase || "http://localhost:3000";
 }
 
+function getForgotPasswordUrl(): string {
+  const publicBase = getPublicBaseUrl();
+  return `${publicBase}/temple-admin/forgot-password`;
+}
+
 export async function sendTempleAdminInviteEmail(input: {
   to: string;
   templeName: string;
-  temporaryPassword: string;
+  temporaryPassword?: string;
 }): Promise<{ sent: true } | { sent: false; reason: string }> {
+  const to = input.to.trim();
+  if (!to) return { sent: false, reason: "No recipient" };
+
   const url = getSigninUrl();
+  const forgotUrl = getForgotPasswordUrl();
   const publicBase = getPublicBaseUrl();
   const name = input.templeName.trim() || "there";
-  const subject = `Your Omkaarya account is ready`;
+  const tempPassword = input.temporaryPassword?.trim() ?? "";
+  const hasTempPassword = tempPassword.length > 0;
+  const subject = hasTempPassword
+    ? `Your Omkaarya temple admin login — ${name}`
+    : `Your Omkaarya temple admin access — ${name}`;
 
-  const text = [
-    `Hi ${name},`,
-    ``,
-    `Your Omkaarya account is ready.`,
-    ``,
-    `Login details:`,
-    `Email: ${input.to.trim()}`,
-    `Temporary password: ${input.temporaryPassword}`,
-    ``,
-    `For security reasons, please change your password after your first login.`,
-    ``,
-    `Log in: ${url}`,
-    ``,
-    `If you did not request this, please contact our support team immediately.`,
-    ``,
-    `Thanks,`,
-    `The team`,
-  ].join("\n");
+  const text = hasTempPassword
+    ? [
+        `Hi ${name},`,
+        ``,
+        `Your Omkaarya temple admin account is ready.`,
+        ``,
+        `Login details:`,
+        `Email: ${to}`,
+        `Temporary password: ${tempPassword}`,
+        ``,
+        `For security reasons, please change your password after your first login.`,
+        ``,
+        `Log in: ${url}`,
+        ``,
+        `If you did not request this, please contact our support team immediately.`,
+        ``,
+        `Thanks,`,
+        `The team`,
+      ].join("\n")
+    : [
+        `Hi ${name},`,
+        ``,
+        `Your Omkaarya temple admin access is ready.`,
+        ``,
+        `Sign in with your existing Omkaarya password:`,
+        `Email: ${to}`,
+        `Log in: ${url}`,
+        ``,
+        `If you forgot your password: ${forgotUrl}`,
+        ``,
+        `Thanks,`,
+        `The team`,
+      ].join("\n");
+
+  const credentialsHtml = hasTempPassword
+    ? `<p style="margin:0 0 10px 0;font-weight:600;">Login details:</p>
+          <p style="margin:0 0 8px 0;"><span style="color:#555;">Email:</span> ${escapeHtml(to)}</p>
+          <p style="margin:0 0 14px 0;"><span style="color:#555;">Temporary password:</span> ${escapeHtml(tempPassword)}</p>
+          <p style="margin:0 0 16px 0;color:#555;">
+            For security reasons, please change your password after your first login.
+          </p>`
+    : `<p style="margin:0 0 10px 0;font-weight:600;">Sign in with your existing Omkaarya password</p>
+          <p style="margin:0 0 8px 0;"><span style="color:#555;">Email:</span> ${escapeHtml(to)}</p>
+          <p style="margin:0 0 14px 0;color:#555;">
+            <a href="${escapeAttr(forgotUrl)}" style="color:#f97316;">Reset your password</a> if you need a new one.
+          </p>`;
 
   const html = `
     <div style="margin:0;padding:0;background:#ffffff;">
@@ -60,15 +101,9 @@ export async function sendTempleAdminInviteEmail(input: {
 
         <div style="margin-top:26px;font-size:14px;color:#222;">
           <p style="margin:0 0 12px 0;">Hi ${escapeHtml(name)},</p>
-          <p style="margin:0 0 18px 0;">Your Omkaarya account is ready.</p>
+          <p style="margin:0 0 18px 0;">Your Omkaarya temple admin account is ready.</p>
 
-          <p style="margin:0 0 10px 0;font-weight:600;">Login details:</p>
-          <p style="margin:0 0 8px 0;"><span style="color:#555;">Email:</span> ${escapeHtml(input.to.trim())}</p>
-          <p style="margin:0 0 14px 0;"><span style="color:#555;">Temporary Password:</span> ${escapeHtml(input.temporaryPassword)}</p>
-
-          <p style="margin:0 0 16px 0;color:#555;">
-            For security reasons, please change your password after your first login.
-          </p>
+          ${credentialsHtml}
 
           <p style="margin:0 0 16px 0;color:#555;">
             If you did not request this, please contact our support team immediately.
@@ -90,7 +125,7 @@ export async function sendTempleAdminInviteEmail(input: {
     </div>
   `.trim();
 
-  return sendEmail({ to: input.to, subject, text, html });
+  return sendEmail({ to, subject, text, html });
 }
 
 function escapeHtml(value: string): string {

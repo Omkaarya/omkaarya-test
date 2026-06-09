@@ -1,121 +1,236 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import Image from "next/image";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bell,
   CalendarDays,
+  ChevronDown,
   Cookie,
   Database,
   DollarSign,
   LayoutDashboard,
   Lock,
+  Maximize2,
   Menu,
+  Minimize2,
   Monitor,
   Moon,
   Package,
   Settings,
   ShoppingCart,
   Sun,
-  User,
   Users,
 } from "lucide-react";
 import { AdminBreadcrumbs } from "@/app/components/admin/adminBreadcrumbs";
+import { TempleAccountPopover } from "@/app/components/temple-admin/TempleAccountPopover";
 
-// ── Nav Configuration ──────────────────────────────────────────────
-// Each group has an optional `moduleKey` for feature access control.
-// If moduleKey is set and the module is disabled, the nav group is hidden.
+// ── Navigation Config ──────────────────────────────────────────────
 
-type NavSubItem = { href: string; label: string };
-type NavGroup = {
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  moduleKey?: string; // links to feature-module-map
-  items: NavSubItem[];
-};
-type NavLink = {
-  href: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  moduleKey?: string;
-};
-type NavItem = NavGroup | NavLink;
-
-const navItems: NavItem[] = [
+const primaryNav = [
   { href: "/temple-admin", label: "Dashboard", icon: LayoutDashboard },
-  {
-    label: "Finance",
-    icon: DollarSign,
-    moduleKey: "finance",
-    items: [
-      { href: "/temple-admin/finance", label: "Dashboard" },
-      { href: "/temple-admin/finance/transactions", label: "Transactions" },
-      { href: "/temple-admin/finance/transactions/add", label: "Add Transaction" },
-      { href: "/temple-admin/finance/donations", label: "Donations" },
-      { href: "/temple-admin/finance/receipts/generate", label: "Generate Receipt" },
-      { href: "/temple-admin/finance/reports", label: "Reports" },
-      { href: "/temple-admin/finance/purchase-orders", label: "Purchase Orders" },
-      { href: "/temple-admin/finance/assets", label: "Assets Management" },
-    ],
-  },
-  {
-    label: "Inventory",
-    icon: Package,
-    moduleKey: "inventory",
-    items: [
-      { href: "/temple-admin/inventory", label: "Products" },
-      { href: "/temple-admin/inventory/create", label: "Add Product" },
-      { href: "/temple-admin/inventory/categories", label: "Categories" },
-      { href: "/temple-admin/inventory/stores", label: "Stores" },
-      { href: "/temple-admin/inventory/suppliers", label: "Suppliers" },
-      { href: "/temple-admin/inventory/low-stock", label: "Stock Alerts" },
-      { href: "/temple-admin/inventory/adjustments", label: "Stock Adjustments" },
-      { href: "/temple-admin/inventory/pooja-bom", label: "Pooja BOM" },
-      { href: "/temple-admin/inventory/print-labels", label: "Print Labels" },
-      { href: "/temple-admin/inventory/print-qr", label: "Print QR" },
-    ],
-  },
-  {
-    label: "Seva Bookings",
-    icon: CalendarDays,
-    moduleKey: "bookings",
-    items: [
-      { href: "/temple-admin/bookings", label: "Booking Schedules" },
-      { href: "/temple-admin/bookings/calendar", label: "Booking Calendar" },
-      { href: "/temple-admin/bookings/new", label: "New Booking" },
-    ],
-  },
   { href: "/temple-admin/pos", label: "POS", icon: ShoppingCart, moduleKey: "pos" },
   { href: "/temple-admin/kiosk", label: "Kiosk Center", icon: Monitor, moduleKey: "kiosk" },
-  {
-    label: "Prashadham",
-    icon: Cookie,
-    moduleKey: "prasad",
-    items: [
-      { href: "/temple-admin/prasad", label: "Prashadham Items" },
-      { href: "/temple-admin/prasad/categories", label: "Categories" },
-    ],
-  },
-  {
-    label: "Master Data",
-    icon: Database,
-    moduleKey: "master",
-    items: [
-      { href: "/temple-admin/master", label: "All Master Data" },
-    ],
-  },
-  {
-    label: "Peoples",
-    icon: Users,
-    moduleKey: "peoples",
-    items: [
-      { href: "/temple-admin/peoples/staff", label: "Staff Management" },
-      { href: "/temple-admin/peoples/roles", label: "Role & Permissions" },
-      { href: "/temple-admin/peoples/devotees", label: "Devotee Management" },
-    ],
-  },
   { href: "/temple-admin/settings/general", label: "Settings", icon: Settings },
-];
+] as const;
+
+const financeNav = [
+  { href: "/temple-admin/finance", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/temple-admin/finance/transactions", label: "Transactions", icon: DollarSign },
+  { href: "/temple-admin/finance/transactions/add", label: "Add Transaction", icon: DollarSign },
+  { href: "/temple-admin/finance/donations", label: "Donations", icon: DollarSign },
+  { href: "/temple-admin/finance/receipts/generate", label: "Generate Receipt", icon: DollarSign },
+  { href: "/temple-admin/finance/reports", label: "Reports", icon: DollarSign },
+  { href: "/temple-admin/finance/purchase-orders", label: "Purchase Orders", icon: DollarSign },
+  { href: "/temple-admin/finance/assets", label: "Assets Management", icon: DollarSign },
+] as const;
+
+const inventoryNav = [
+  { href: "/temple-admin/inventory", label: "Products", icon: Package },
+  { href: "/temple-admin/inventory/create", label: "Add Product", icon: Package },
+  { href: "/temple-admin/inventory/categories", label: "Categories", icon: Package },
+  { href: "/temple-admin/inventory/stores", label: "Stores", icon: Package },
+  { href: "/temple-admin/inventory/suppliers", label: "Suppliers", icon: Package },
+  { href: "/temple-admin/inventory/low-stock", label: "Stock Alerts", icon: Package },
+  { href: "/temple-admin/inventory/adjustments", label: "Stock Adjustments", icon: Package },
+  { href: "/temple-admin/inventory/pooja-bom", label: "Pooja BOM", icon: Package },
+  { href: "/temple-admin/inventory/print-labels", label: "Print Labels", icon: Package },
+  { href: "/temple-admin/inventory/print-qr", label: "Print QR", icon: Package },
+] as const;
+
+const bookingsNav = [
+  { href: "/temple-admin/bookings", label: "Booking Schedules", icon: CalendarDays },
+  { href: "/temple-admin/bookings/calendar", label: "Booking Calendar", icon: CalendarDays },
+  { href: "/temple-admin/bookings/new", label: "New Booking", icon: CalendarDays },
+] as const;
+
+const prasadNav = [
+  { href: "/temple-admin/prasad", label: "Prashadham Items", icon: Cookie },
+  { href: "/temple-admin/prasad/categories", label: "Categories", icon: Cookie },
+] as const;
+
+const masterNav = [
+  { href: "/temple-admin/master", label: "All Master Data", icon: Database },
+] as const;
+
+const peoplesNav = [
+  { href: "/temple-admin/peoples/staff", label: "Staff Management", icon: Users },
+  { href: "/temple-admin/peoples/roles", label: "Role & Permissions", icon: Users },
+  { href: "/temple-admin/peoples/devotees", label: "Devotee Management", icon: Users },
+] as const;
+
+type SidebarAccordionId = "finance" | "inventory" | "bookings" | "prasad" | "master" | "peoples";
+
+function isChildNavActive(pathname: string, href: string): boolean {
+  if (pathname === href) return true;
+  if (href === "/temple-admin/finance") return pathname === href;
+  if (href === "/temple-admin") return pathname === href;
+  return pathname.startsWith(`${href}/`);
+}
+
+function sectionForPathname(pathname: string): SidebarAccordionId | null {
+  if (financeNav.some((item) => isChildNavActive(pathname, item.href))) return "finance";
+  if (inventoryNav.some((item) => isChildNavActive(pathname, item.href))) return "inventory";
+  if (bookingsNav.some((item) => isChildNavActive(pathname, item.href))) return "bookings";
+  if (prasadNav.some((item) => isChildNavActive(pathname, item.href))) return "prasad";
+  if (masterNav.some((item) => isChildNavActive(pathname, item.href))) return "master";
+  if (peoplesNav.some((item) => isChildNavActive(pathname, item.href))) return "peoples";
+  return null;
+}
+
+function NavSection({
+  label,
+  icon: SectionIcon,
+  items,
+  pathname,
+  onLinkClick,
+  isOpen,
+  onHeaderClick,
+  disabled,
+}: {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  items: ReadonlyArray<{
+    href: string;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }>;
+  pathname: string;
+  onLinkClick: () => void;
+  isOpen: boolean;
+  onHeaderClick: () => void;
+  disabled?: boolean;
+}) {
+  const hasActiveChild = items.some((item) => isChildNavActive(pathname, item.href));
+
+  if (disabled) {
+    return (
+      <li className="opacity-40">
+        <span className="flex w-full cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-[var(--text-muted)]">
+          <SectionIcon className="h-5 w-5 shrink-0 opacity-80" aria-hidden />
+          <span className="flex-1 text-left">{label}</span>
+          <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        </span>
+      </li>
+    );
+  }
+
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onHeaderClick}
+        className={[
+          "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+          hasActiveChild
+            ? "bg-zinc-100 font-semibold text-[var(--brand-primary)] dark:bg-zinc-800/80"
+            : "text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60",
+        ].join(" ")}
+      >
+        <SectionIcon
+          className={`h-5 w-5 shrink-0 ${hasActiveChild ? "opacity-100" : "opacity-80"}`}
+        />
+        <span className="flex-1 text-left">{label}</span>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-0" : "-rotate-90"}`}
+        />
+      </button>
+
+      {isOpen && (
+        <ul className="mt-0.5 ml-4 space-y-0.5 border-l border-zinc-200 pl-3 dark:border-zinc-700">
+          {items.map(({ href, label: itemLabel, icon: Icon }) => {
+            const active = isChildNavActive(pathname, href);
+            return (
+              <li key={itemLabel}>
+                <Link
+                  href={href}
+                  onClick={onLinkClick}
+                  className={[
+                    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
+                    active
+                      ? "bg-zinc-50 font-semibold text-[var(--brand-primary)] dark:bg-zinc-800/50"
+                      : "text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60",
+                  ].join(" ")}
+                >
+                  <Icon
+                    className={`h-4 w-4 shrink-0 ${active ? "opacity-100" : "opacity-70"}`}
+                  />
+                  {itemLabel}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+type DocumentWithWebkitFs = Document & {
+  webkitFullscreenElement?: Element | null;
+  webkitExitFullscreen?: () => Promise<void> | void;
+};
+
+type ElementWithWebkitFs = HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+};
+
+function getFullscreenElement(): Element | null {
+  const d = document as DocumentWithWebkitFs;
+  return document.fullscreenElement ?? d.webkitFullscreenElement ?? null;
+}
+
+function isShellFullscreen(shell: HTMLDivElement | null): boolean {
+  if (!shell) return false;
+  return getFullscreenElement() === shell;
+}
+
+async function requestElFullscreen(el: HTMLElement): Promise<void> {
+  const anyEl = el as ElementWithWebkitFs;
+  if (typeof el.requestFullscreen === "function") {
+    await el.requestFullscreen();
+    return;
+  }
+  if (typeof anyEl.webkitRequestFullscreen === "function") {
+    await Promise.resolve(anyEl.webkitRequestFullscreen());
+    return;
+  }
+  throw new Error("Fullscreen API is not supported.");
+}
+
+async function exitDocFullscreen(): Promise<void> {
+  const d = document as DocumentWithWebkitFs;
+  if (typeof document.exitFullscreen === "function") {
+    await document.exitFullscreen();
+    return;
+  }
+  if (typeof d.webkitExitFullscreen === "function") {
+    await Promise.resolve(d.webkitExitFullscreen());
+    return;
+  }
+  throw new Error("Fullscreen API is not supported.");
+}
 
 // ── Shell Props ────────────────────────────────────────────────────
 
@@ -126,11 +241,6 @@ export type TempleDashboardShellProps = {
   theme: string;
   onToggleTheme: () => void;
   children: React.ReactNode;
-  /**
-   * Set of module keys that are disabled for this tenant.
-   * Nav items with a matching moduleKey will be hidden or shown as locked.
-   * Empty set = all modules accessible (backward compatible).
-   */
   disabledModules?: Set<string>;
 };
 
@@ -143,14 +253,17 @@ export function TempleDashboardShell({
   children,
   disabledModules = new Set(),
 }: TempleDashboardShellProps) {
-  /**
-   * Check if a module is disabled.
-   * Items without moduleKey are always visible (e.g. Dashboard, Settings).
-   */
+  const shellRef = useRef<HTMLDivElement>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+
   const isModuleDisabled = (moduleKey?: string): boolean => {
     if (!moduleKey) return false;
     return disabledModules.has(moduleKey);
   };
+
+  const syncFullscreen = useCallback(() => {
+    setFullscreen(isShellFullscreen(shellRef.current));
+  }, []);
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -160,121 +273,195 @@ export function TempleDashboardShell({
     };
   }, []);
 
+  useEffect(() => {
+    syncFullscreen();
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    document.addEventListener("webkitfullscreenchange", syncFullscreen);
+    return () => {
+      document.removeEventListener("fullscreenchange", syncFullscreen);
+      document.removeEventListener("webkitfullscreenchange", syncFullscreen);
+    };
+  }, [syncFullscreen]);
+
+  useEffect(() => {
+    return () => {
+      if (isShellFullscreen(shellRef.current)) {
+        void exitDocFullscreen().catch(() => {});
+      }
+    };
+  }, []);
+
+  const toggleFullscreen = useCallback(async () => {
+    const shell = shellRef.current;
+    if (isShellFullscreen(shell)) {
+      await exitDocFullscreen().catch(() => {});
+    } else if (shell) {
+      await requestElFullscreen(shell).catch(() => {});
+    }
+    syncFullscreen();
+  }, [syncFullscreen]);
+
+  const closeSidebar = () => onSidebarOpenChange(false);
+
+  const [openAccordion, setOpenAccordion] = useState<SidebarAccordionId | null>(
+    () => sectionForPathname(pathname),
+  );
+
+  useEffect(() => {
+    setOpenAccordion(sectionForPathname(pathname));
+  }, [pathname]);
+
   return (
-    <div className="flex h-dvh max-h-dvh min-h-0 overflow-hidden bg-white font-sans text-[var(--text-primary)] dark:bg-zinc-950">
+    <div
+      ref={shellRef}
+      className="flex h-dvh max-h-dvh min-h-0 overflow-hidden bg-white font-sans text-[var(--text-primary)] dark:bg-zinc-950"
+    >
       {sidebarOpen && (
         <button
           type="button"
           aria-label="Close menu"
           className="fixed inset-0 z-40 bg-black/40 lg:hidden"
-          onClick={() => onSidebarOpenChange(false)}
+          onClick={closeSidebar}
         />
       )}
 
       <aside
         className={[
-          "fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 flex-col border-r border-zinc-100 bg-white transition-transform dark:border-zinc-800 dark:bg-zinc-950",
+          "fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 flex-col border-r border-white bg-white transition-transform dark:border-zinc-950 dark:bg-zinc-950",
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         ].join(" ")}
       >
-        <div className="flex h-16 items-center border-b border-zinc-100 px-6 dark:border-zinc-800">
-          <span className="text-xl font-bold tracking-tight text-[var(--brand-primary)]">
-            OMKAARYA
-          </span>
+        <div className="flex h-[4.5rem] items-center border-b border-white px-2 dark:border-zinc-950">
+          <Image
+            src="/brand-logo/Omkaarya 9.svg"
+            alt="Omkaarya"
+            width={180}
+            height={48}
+            className="h-48 w-auto"
+            priority
+          />
         </div>
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           <ul className="space-y-0.5">
-            {navItems.map((item) => {
-              // Check if this module is disabled
-              const disabled = isModuleDisabled(item.moduleKey);
+            {primaryNav.map(({ href, label, icon: Icon, ...rest }) => {
+              const moduleKey = "moduleKey" in rest ? rest.moduleKey : undefined;
+              const disabled = isModuleDisabled(moduleKey);
+              const active =
+                href === "/temple-admin"
+                  ? pathname === href
+                  : pathname === href || pathname.startsWith(`${href}/`);
 
-              if ("items" in item) {
-                // ── Group nav ──────────────────────────
-                if (disabled) {
-                  // Show locked group
-                  return (
-                    <li key={item.label} className="mt-4 first:mt-0 opacity-40">
-                      <div className="flex items-center gap-3 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                        <item.icon className="h-4 w-4" aria-hidden />
-                        {item.label}
-                        <Lock className="ml-auto h-3 w-3" />
-                      </div>
-                    </li>
-                  );
-                }
-
-                return (
-                  <li key={item.label} className="mt-4 first:mt-0">
-                    <div className="flex items-center gap-3 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                      <item.icon className="h-4 w-4" aria-hidden />
-                      {item.label}
-                    </div>
-                    <ul className="mt-1 space-y-0.5 pl-4">
-                      {item.items.map((sub) => {
-                        const active = pathname === sub.href;
-                        return (
-                          <li key={sub.label}>
-                            <Link
-                              href={sub.href}
-                              onClick={() => onSidebarOpenChange(false)}
-                              className={[
-                                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                                active
-                                  ? "bg-orange-50 font-semibold text-[var(--brand-primary)] dark:bg-orange-950/20"
-                                  : "text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60",
-                              ].join(" ")}
-                            >
-                              {sub.label}
-                            </Link>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </li>
-                );
-              }
-
-              // ── Single nav link ──────────────────────
               if (disabled) {
                 return (
-                  <li key={item.label} className="opacity-40">
-                    <span className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-[var(--text-muted)] cursor-not-allowed">
-                      <item.icon className="h-5 w-5 shrink-0 opacity-80" aria-hidden />
-                      {item.label}
-                      <Lock className="ml-auto h-3 w-3" />
+                  <li key={label} className="opacity-40">
+                    <span className="flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-[var(--text-muted)]">
+                      <Icon className="h-5 w-5 shrink-0 opacity-80" aria-hidden />
+                      {label}
+                      <Lock className="ml-auto h-3.5 w-3.5" aria-hidden />
                     </span>
                   </li>
                 );
               }
 
-              const active = pathname === item.href;
               return (
-                <li key={item.label}>
+                <li key={label}>
                   <Link
-                    href={item.href}
-                    onClick={() => onSidebarOpenChange(false)}
+                    href={href}
+                    onClick={closeSidebar}
                     className={[
                       "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                       active
-                        ? "bg-orange-50 font-semibold text-[var(--brand-primary)] dark:bg-orange-950/20"
+                        ? "bg-zinc-100 font-semibold text-[var(--brand-primary)] dark:bg-zinc-800/80"
                         : "text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60",
                     ].join(" ")}
                   >
-                    <item.icon
+                    <Icon
                       className={`h-5 w-5 shrink-0 ${active ? "opacity-100" : "opacity-80"}`}
                       aria-hidden
                     />
-                    {item.label}
+                    {label}
                   </Link>
                 </li>
               );
             })}
+
+            <NavSection
+              label="Finance"
+              icon={DollarSign}
+              items={financeNav}
+              pathname={pathname}
+              onLinkClick={closeSidebar}
+              isOpen={openAccordion === "finance"}
+              onHeaderClick={() =>
+                setOpenAccordion((o) => (o === "finance" ? null : "finance"))
+              }
+              disabled={isModuleDisabled("finance")}
+            />
+
+            <NavSection
+              label="Inventory"
+              icon={Package}
+              items={inventoryNav}
+              pathname={pathname}
+              onLinkClick={closeSidebar}
+              isOpen={openAccordion === "inventory"}
+              onHeaderClick={() =>
+                setOpenAccordion((o) => (o === "inventory" ? null : "inventory"))
+              }
+              disabled={isModuleDisabled("inventory")}
+            />
+
+            <NavSection
+              label="Seva Bookings"
+              icon={CalendarDays}
+              items={bookingsNav}
+              pathname={pathname}
+              onLinkClick={closeSidebar}
+              isOpen={openAccordion === "bookings"}
+              onHeaderClick={() =>
+                setOpenAccordion((o) => (o === "bookings" ? null : "bookings"))
+              }
+              disabled={isModuleDisabled("bookings")}
+            />
+
+            <NavSection
+              label="Prashadham"
+              icon={Cookie}
+              items={prasadNav}
+              pathname={pathname}
+              onLinkClick={closeSidebar}
+              isOpen={openAccordion === "prasad"}
+              onHeaderClick={() => setOpenAccordion((o) => (o === "prasad" ? null : "prasad"))}
+              disabled={isModuleDisabled("prasad")}
+            />
+
+            <NavSection
+              label="Master Data"
+              icon={Database}
+              items={masterNav}
+              pathname={pathname}
+              onLinkClick={closeSidebar}
+              isOpen={openAccordion === "master"}
+              onHeaderClick={() => setOpenAccordion((o) => (o === "master" ? null : "master"))}
+              disabled={isModuleDisabled("master")}
+            />
+
+            <NavSection
+              label="Peoples"
+              icon={Users}
+              items={peoplesNav}
+              pathname={pathname}
+              onLinkClick={closeSidebar}
+              isOpen={openAccordion === "peoples"}
+              onHeaderClick={() => setOpenAccordion((o) => (o === "peoples" ? null : "peoples"))}
+              disabled={isModuleDisabled("peoples")}
+            />
           </ul>
         </nav>
       </aside>
 
       <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[auto_1fr_auto] overflow-hidden lg:pl-64">
-        <header className="z-10 flex h-16 shrink-0 items-center gap-4 border-b border-zinc-100 bg-white px-4 pr-20 dark:border-zinc-800 dark:bg-zinc-950 lg:pr-24">
+        <header className="z-10 flex h-16 shrink-0 items-center gap-4 border-b border-white bg-white px-4 dark:border-zinc-950 dark:bg-zinc-950">
           <button
             type="button"
             aria-label="Open menu"
@@ -286,39 +473,70 @@ export function TempleDashboardShell({
 
           <AdminBreadcrumbs pathname={pathname} />
 
-          <div className="ml-auto flex items-center gap-1 sm:gap-2">
+          <div className="ml-auto flex items-center gap-1">
             <button
               type="button"
-              className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
+              aria-label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+              title={fullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+              className="hidden rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60 md:block"
+              onClick={() => void toggleFullscreen()}
             >
-              <Bell className="h-5 w-5" />
+              {fullscreen ? (
+                <Minimize2 className="h-5 w-5" aria-hidden />
+              ) : (
+                <Maximize2 className="h-5 w-5" aria-hidden />
+              )}
             </button>
             <button
               type="button"
+              aria-label="Notifications"
+              className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
+            >
+              <Bell className="h-5 w-5" aria-hidden />
+            </button>
+            <button
+              type="button"
+              aria-label="Toggle theme"
               className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-zinc-100/90 dark:hover:bg-zinc-800/60"
               onClick={onToggleTheme}
             >
-              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              {theme === "dark" ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
             </button>
-            <button
-              type="button"
-              className="ml-1 flex h-9 w-9 items-center justify-center rounded-full bg-zinc-200 text-[var(--text-muted)] dark:bg-zinc-700 dark:text-zinc-300"
-            >
-              <User className="h-5 w-5" />
-            </button>
+            <TempleAccountPopover />
           </div>
         </header>
 
-        <main className="min-h-0 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          {children}
-        </main>
+        {children}
 
-        <footer className="z-10 shrink-0 border-t border-zinc-100 bg-white px-4 py-4 text-xs text-[var(--text-muted)] dark:border-zinc-800 dark:bg-zinc-950">
-          <div className="mx-auto flex max-w-7xl items-center justify-between">
-            <p>© 2024 - 2026 Omkaarya</p>
-            <div className="flex gap-4">
-              <a href="#" className="hover:text-[var(--brand-primary)]">Terms</a>
-              <a href="#" className="hover:text-[var(--brand-primary)]">Privacy</a>
+        <footer className="z-10 shrink-0 border-t border-white bg-white px-4 py-4 text-sm dark:border-zinc-950 dark:bg-zinc-950">
+          <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 sm:flex-row sm:gap-4">
+            <p className="text-center text-[var(--text-muted)] sm:text-left">
+              2024 - 2026 ©{" "}
+              <span className="font-medium text-[var(--brand-primary)]">Omkaarya</span> All Rights
+              Reserved
+            </p>
+            <p className="text-center text-[var(--text-muted)]">
+              Powered By{" "}
+              <span className="font-medium text-[var(--brand-primary)]">Pepulux</span> All Rights
+              Reserved
+            </p>
+            <div className="flex flex-wrap justify-center gap-4 sm:justify-end">
+              <a
+                href="mailto:support@pepulux.com"
+                className="text-[var(--brand-primary)] hover:underline"
+              >
+                Help
+              </a>
+              <Link
+                href="/temple-admin/settings/general"
+                className="text-[var(--brand-primary)] hover:underline"
+              >
+                Settings
+              </Link>
             </div>
           </div>
         </footer>

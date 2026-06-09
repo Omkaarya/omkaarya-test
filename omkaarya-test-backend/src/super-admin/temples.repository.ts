@@ -21,7 +21,11 @@ import { createInitialInvoiceForNewTemple, type CreateInitialInvoiceResult } fro
 import { TEMPLE_TRIAL_DAYS } from "./trial.constants.js";
 import { storeBrandingImageIfNeeded } from "../storage/cloudinary.js";
 import { syncTempleAuthMirrorFromPlatformUserId } from "../temple-ops/sync-auth-mirror.js";
-import { getOperationalPoolForTenant } from "../db/temple-operational-pool-registry.js";
+import {
+  evictOperationalPoolForTenant,
+  getOperationalPoolForTenant,
+} from "../db/temple-operational-pool-registry.js";
+import { dropTempleOperationalDatabase } from "../temple-ops/drop-temple-ops-database.js";
 import { ensureTempleOpsDatabaseMigrated } from "../temple-ops/ensure-temple-ops-database.js";
 import { patchTempleAdminDetails, upsertTempleAdminData } from "../temple-ops/temple-admin-data.js";
 import { hashPasswordCredential } from "./password-credentials.js";
@@ -66,6 +70,7 @@ export interface TempleRepository {
   }>;
   getTempleForEdit(tenantId: string): Promise<SuperAdminTempleDetailResponse | null>;
   updateTemple(tenantId: string, payload: UpdateTemplePayload): Promise<{ ok: true } | { ok: false; reason: "not_found" }>;
+  deleteTemple(tenantId: string): Promise<{ ok: true } | { ok: false; reason: "not_found" }>;
 }
 
 const FLAG_BY_CODE: Record<string, string> = {
@@ -218,7 +223,7 @@ function phoneFromPayloadUnknown(input: unknown): PhoneRowJson {
 function fullAddressFromPayload(temple: CreateTemplePayload["temple"]): TempleFullAddressJson {
   return {
     countryIso: temple.country.trim() || "GB",
-    state: "",
+    state: (temple.state ?? "").trim() || "",
     city: temple.city.trim() || "",
     postalCode: "",
     street: temple.address.trim() || "",
@@ -331,10 +336,13 @@ export class PostgresTempleRepository implements TempleRepository {
       compliance: string;
       admin_email: string;
     }>(
-      `SELECT tenant_id, name, slug, domain_subdomain, country_code, country_flag, city, plan, devotees, status, compliance, admin_email,
+      `SELECT tenant_id, name, slug, domain_subdomain, country_code, country_flag, city,
+              COALESCE(pp.name, t.plan) AS plan,
+              devotees, status, compliance, admin_email,
               trial_ends_at::text AS trial_ends_at
-       FROM public.temples
-       ORDER BY created_at DESC, tenant_id::text DESC`
+       FROM public.temples t
+       LEFT JOIN public.pricing_plans pp ON pp.id = t.pricing_plan_id
+       ORDER BY t.created_at DESC, t.tenant_id::text DESC`
     );
     return result.rows.map((r) => {
       const ph = portalLabelAndHost(r.slug, r.domain_subdomain);
@@ -443,9 +451,12 @@ export class PostgresTempleRepository implements TempleRepository {
       admin_email: string;
       trial_ends_at: string | null;
     }>(
-      `SELECT tenant_id, name, slug, domain_subdomain, country_code, country_flag, city, plan, devotees, status, compliance, admin_email,
-              trial_ends_at::text AS trial_ends_at
+      `SELECT t.tenant_id, t.name, t.slug, t.domain_subdomain, t.country_code, t.country_flag, t.city,
+              COALESCE(pp.name, t.plan) AS plan,
+              t.devotees, t.status, t.compliance, t.admin_email,
+              t.trial_ends_at::text AS trial_ends_at
        FROM public.temples t
+       LEFT JOIN public.pricing_plans pp ON pp.id = t.pricing_plan_id
        ${whereSql}
        ORDER BY ${orderBy}
        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
@@ -526,24 +537,33 @@ export class PostgresTempleRepository implements TempleRepository {
     let charity_registered = false;
     let charity_registration_number = "";
     let contact_phone: unknown = null;
+    let contact_whatsapp: unknown = null;
+    let tradition: string | null = null;
     let website_url = "";
     let fax: unknown = null;
     let established_year = "";
     let full_address: unknown = null;
     let logo_data_url: string | null = null;
+    let primary_deity_id: string | null = null;
+    let sub_deity_ids: string[] = [];
     if (opsPool) {
       const adm = await opsPool.query<{
         charity_registered: boolean;
         charity_registration_number: string | null;
         contact_phone: unknown;
+        contact_whatsapp: unknown;
+        tradition: string | null;
         website_url: string | null;
         fax: unknown;
         established_year: string | null;
         full_address: unknown;
         logo_data_url: string | null;
+        primary_deity_id: string | null;
+        sub_deity_ids: string[] | null;
       }>(
-        `SELECT charity_registered, charity_registration_number, contact_phone, website_url, fax,
-                established_year, full_address, logo_data_url
+        `SELECT charity_registered, charity_registration_number, contact_phone, contact_whatsapp,
+                tradition, website_url, fax, established_year, full_address, logo_data_url,
+                primary_deity_id, sub_deity_ids
          FROM temple_admin_data WHERE id = 1 LIMIT 1`
       );
       const a = adm.rows[0];
@@ -551,16 +571,23 @@ export class PostgresTempleRepository implements TempleRepository {
         charity_registered = a.charity_registered;
         charity_registration_number = (a.charity_registration_number ?? "").trim();
         contact_phone = a.contact_phone;
+        contact_whatsapp = a.contact_whatsapp;
+        tradition = a.tradition;
         website_url = (a.website_url ?? "").trim();
         fax = a.fax;
         established_year = (a.established_year ?? "").trim();
         full_address = a.full_address;
         logo_data_url = a.logo_data_url;
+        primary_deity_id = a.primary_deity_id?.trim() || null;
+        sub_deity_ids = Array.isArray(a.sub_deity_ids)
+          ? a.sub_deity_ids.filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+          : [];
       }
     }
 
     const contactEmail = (row.contact_email ?? row.admin_email).trim();
     const phone = parsePhoneJson(contact_phone);
+    const whatsapp = parsePhoneJson(contact_whatsapp);
     const bc = (row.billing_cycle ?? "").trim().toLowerCase();
     const billing: "monthly" | "annual" = bc === "monthly" ? "monthly" : "annual";
 
@@ -575,6 +602,8 @@ export class PostgresTempleRepository implements TempleRepository {
         },
         email: contactEmail,
         phone,
+        whatsapp,
+        tradition: (tradition ?? "Hindu").trim() || "Hindu",
         location: { countryIso: row.country_code, city: row.city },
       },
       details: {
@@ -595,6 +624,10 @@ export class PostgresTempleRepository implements TempleRepository {
             ? row.effective_pricing_plan_name.trim()
             : null,
         billing,
+      },
+      deity: {
+        primaryDeityId: primary_deity_id,
+        subDeityIds: sub_deity_ids,
       },
     };
   }
@@ -657,10 +690,11 @@ export class PostgresTempleRepository implements TempleRepository {
     try {
       const tenantId = randomUUID();
       const countryCode = payload.temple.country.trim() || "GB";
-      const { planName: plan, pricingPlanId: pricingPlanIdResolved } = await resolvePlanForSave(client, {
+      const { planName: catalogPlanName, pricingPlanId: pricingPlanIdResolved } = await resolvePlanForSave(client, {
         selectedPlan: payload.planBilling.selectedPlan,
         selectedPricingPlanId: payload.planBilling.selectedPricingPlanId,
       });
+      const planForRow = normalizePlan(catalogPlanName);
       const trial = true;
       const trialEndsAt = new Date(Date.now() + TEMPLE_TRIAL_DAYS * 24 * 60 * 60 * 1000);
       const slug = buildSlug(payload.temple.subdomain);
@@ -675,7 +709,7 @@ export class PostgresTempleRepository implements TempleRepository {
         countryCode,
         countryFlag: FLAG_BY_CODE[countryCode] ?? "",
         city: payload.temple.city.trim() || "—",
-        plan: plan as TemplePlan,
+        plan: planForRow,
         devotees: 0,
         status: "Trial",
         compliance: "Pending",
@@ -708,8 +742,11 @@ export class PostgresTempleRepository implements TempleRepository {
           const adminRole = payload.admin.role?.trim() ?? "";
           const adminRoles = adminRole ? [adminRole] : [];
 
-          const existing = await client.query<{ password_hash: string | null }>(
-            "SELECT password_hash FROM public.users WHERE email = $1 LIMIT 1",
+          const existing = await client.query<{ id: string; password_hash: string | null }>(
+            `SELECT id, password_hash
+             FROM public.users
+             WHERE lower(trim(email)) = lower(trim($1))
+             LIMIT 1`,
             [row.adminEmail]
           );
           if (existing.rows.length === 0) {
@@ -721,31 +758,49 @@ export class PostgresTempleRepository implements TempleRepository {
               [row.adminEmail, tempPasswordHash, adminFullName, adminWhatsapp, adminRoles, adminProfileStoredUrl]
             );
           } else if (existing.rows[0]!.password_hash != null) {
-            // User already has a permanent password — do not reset password fields, but do overwrite profile fields.
-            await client.query(
-              `UPDATE public.users
-               SET full_name = $1, whatsapp = $2, roles = $3,
-                   profile_image_url = COALESCE($4, profile_image_url)
-               WHERE email = $5`,
-              [adminFullName, adminWhatsapp, adminRoles, adminProfileStoredUrl, row.adminEmail]
+            const superAdmin = await client.query(
+              `SELECT 1 FROM public.sa_users WHERE lower(trim(email)) = lower(trim($1)) LIMIT 1`,
+              [row.adminEmail]
             );
+            if (superAdmin.rows.length > 0) {
+              await client.query(
+                `UPDATE public.users
+                 SET full_name = $1, whatsapp = $2, roles = $3,
+                     profile_image_url = COALESCE($4, profile_image_url)
+                 WHERE lower(trim(email)) = lower(trim($5))`,
+                [adminFullName, adminWhatsapp, adminRoles, adminProfileStoredUrl, row.adminEmail]
+              );
+            } else {
+              temporaryPassword = generateTemporaryPassword();
+              const tempPasswordHash = await hashPasswordCredential(temporaryPassword);
+              await client.query(
+                `UPDATE public.users
+                 SET password_hash = NULL,
+                     temp_password = $1,
+                     full_name = $2,
+                     whatsapp = $3,
+                     roles = $4,
+                     profile_image_url = COALESCE($5, profile_image_url)
+                 WHERE lower(trim(email)) = lower(trim($6))`,
+                [tempPasswordHash, adminFullName, adminWhatsapp, adminRoles, adminProfileStoredUrl, row.adminEmail]
+              );
+            }
           } else {
             temporaryPassword = generateTemporaryPassword();
             const tempPasswordHash = await hashPasswordCredential(temporaryPassword);
             await client.query(
-              `INSERT INTO public.users (email, temp_password, full_name, whatsapp, roles, profile_image_url)
-               VALUES ($1, $2, $3, $4, $5, $6)
-               ON CONFLICT (email) DO UPDATE
-               SET temp_password = EXCLUDED.temp_password,
-                   full_name = EXCLUDED.full_name,
-                   whatsapp = EXCLUDED.whatsapp,
-                   roles = EXCLUDED.roles,
-                   profile_image_url = COALESCE(EXCLUDED.profile_image_url, public.users.profile_image_url)`,
-              [row.adminEmail, tempPasswordHash, adminFullName, adminWhatsapp, adminRoles, adminProfileStoredUrl]
+              `UPDATE public.users
+               SET temp_password = $1,
+                   full_name = $2,
+                   whatsapp = $3,
+                   roles = $4,
+                   profile_image_url = COALESCE($5, profile_image_url)
+               WHERE lower(trim(email)) = lower(trim($6))`,
+              [tempPasswordHash, adminFullName, adminWhatsapp, adminRoles, adminProfileStoredUrl, row.adminEmail]
             );
           }
           const idRes = await client.query<{ id: string }>(
-            "SELECT id FROM public.users WHERE email = $1 LIMIT 1",
+            `SELECT id FROM public.users WHERE lower(trim(email)) = lower(trim($1)) LIMIT 1`,
             [row.adminEmail]
           );
           adminUserId = idRes.rows[0]?.id ?? null;
@@ -792,7 +847,8 @@ export class PostgresTempleRepository implements TempleRepository {
         try {
           invoice = await createInitialInvoiceForNewTemple(client, {
             tenantId: row.tenantId,
-            planName: row.plan,
+            planName: catalogPlanName,
+            pricingPlanId: pricingPlanIdResolved,
             templeName: row.name,
             billingCycleRaw: billingCycle ?? "Annually",
             trial,
@@ -914,7 +970,7 @@ export class PostgresTempleRepository implements TempleRepository {
          t.slug,
          t.country_code,
          t.city,
-         t.plan,
+         COALESCE(pp.name, t.plan) AS plan,
          t.status,
          t.compliance,
          t.trial_ends_at::text AS trial_ends_at,
@@ -930,6 +986,7 @@ export class PostgresTempleRepository implements TempleRepository {
          u2.whatsapp AS u2_whatsapp,
          u2.roles AS u2_roles
        FROM public.temples t
+       LEFT JOIN public.pricing_plans pp ON pp.id = t.pricing_plan_id
        LEFT JOIN public.users u1 ON u1.id = t.admin_user_id
        LEFT JOIN public.users u2 ON t.admin_user_id IS NULL AND lower(trim(u2.email)) = lower(trim(t.admin_email))
        WHERE t.tenant_id = $1
@@ -1080,10 +1137,11 @@ export class PostgresTempleRepository implements TempleRepository {
           : prevLogo;
 
       const countryCode = payload.temple.country.trim() || "GB";
-      const { planName: plan, pricingPlanId: pricingPlanIdResolved } = await resolvePlanForSave(client, {
+      const { planName: catalogPlanName, pricingPlanId: pricingPlanIdResolved } = await resolvePlanForSave(client, {
         selectedPlan: payload.planBilling.selectedPlan,
         selectedPricingPlanId: payload.planBilling.selectedPricingPlanId,
       });
+      const planForRow = normalizePlan(catalogPlanName);
       const existingStatus = await client.query<{ status: string }>(
         `SELECT status FROM public.temples WHERE tenant_id = $1 LIMIT 1`,
         [id]
@@ -1129,7 +1187,7 @@ export class PostgresTempleRepository implements TempleRepository {
             countryCode,
             FLAG_BY_CODE[countryCode] ?? "",
             city,
-            plan,
+            planForRow,
             status,
             contactEmail,
             domainSub,
@@ -1187,5 +1245,92 @@ export class PostgresTempleRepository implements TempleRepository {
     } finally {
       client.release();
     }
+  }
+
+  async deleteTemple(tenantId: string): Promise<{ ok: true } | { ok: false; reason: "not_found" }> {
+    const pool = requirePool();
+    const id = tenantId.trim();
+    if (!id) return { ok: false, reason: "not_found" };
+
+    const client = await pool.connect();
+    let operationalDbName: string | null = null;
+    let adminUserId: string | null = null;
+    let adminEmail: string | null = null;
+
+    try {
+      const existing = await client.query<{
+        operational_db_name: string | null;
+        admin_user_id: string | null;
+        admin_email: string | null;
+      }>(
+        `SELECT operational_db_name, admin_user_id, admin_email
+         FROM public.temples WHERE tenant_id = $1 LIMIT 1`,
+        [id]
+      );
+      if (existing.rows.length === 0) return { ok: false, reason: "not_found" };
+
+      operationalDbName = existing.rows[0]!.operational_db_name?.trim() || null;
+      adminUserId = existing.rows[0]!.admin_user_id;
+      adminEmail = existing.rows[0]!.admin_email?.trim() || null;
+
+      await client.query("BEGIN");
+      try {
+        await client.query(`DELETE FROM public.delete_account_requests WHERE tenant_id = $1::uuid`, [id]);
+
+        await client.query(
+          `DELETE FROM public.users u
+           WHERE u.tenant_id = $1::uuid
+           AND NOT EXISTS (
+             SELECT 1 FROM public.sa_users s
+             WHERE lower(trim(s.email)) = lower(trim(u.email))
+           )`,
+          [id]
+        );
+
+        const del = await client.query(`DELETE FROM public.temples WHERE tenant_id = $1`, [id]);
+        if ((del.rowCount ?? 0) === 0) {
+          await client.query("ROLLBACK");
+          return { ok: false, reason: "not_found" };
+        }
+
+        if (adminUserId || adminEmail) {
+          await client.query(
+            `DELETE FROM public.users u
+             WHERE (
+               ($1::uuid IS NOT NULL AND u.id = $1::uuid)
+               OR ($2::text IS NOT NULL AND $2::text <> '' AND lower(trim(u.email)) = lower(trim($2::text)))
+             )
+             AND NOT EXISTS (
+               SELECT 1 FROM public.temples t
+               WHERE t.admin_user_id = u.id
+                  OR lower(trim(t.admin_email)) = lower(trim(u.email))
+             )
+             AND NOT EXISTS (
+               SELECT 1 FROM public.sa_users s
+               WHERE lower(trim(s.email)) = lower(trim(u.email))
+             )`,
+            [adminUserId, adminEmail]
+          );
+        }
+
+        await client.query("COMMIT");
+      } catch (e) {
+        await client.query("ROLLBACK");
+        throw e;
+      }
+    } finally {
+      client.release();
+    }
+
+    await evictOperationalPoolForTenant(id);
+    if (operationalDbName) {
+      try {
+        await dropTempleOperationalDatabase(operationalDbName);
+      } catch (e) {
+        console.error(`[deleteTemple] failed to drop operational database "${operationalDbName}"`, e);
+      }
+    }
+
+    return { ok: true };
   }
 }
