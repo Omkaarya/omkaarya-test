@@ -34,6 +34,7 @@ async function seedUsers(client: pg.Client): Promise<void> {
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (email) DO UPDATE SET
          temp_password = EXCLUDED.temp_password,
+         password_hash = NULL,
          full_name = COALESCE(EXCLUDED.full_name, public.users.full_name),
          roles = (
            SELECT ARRAY(
