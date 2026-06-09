@@ -11,6 +11,7 @@ import {
   getTempleOpsDiscreteEnvFromProcess,
   hasTempleOpsConnectionBasis,
   poolConfigFromPlatformWithOperationalDatabase,
+  resolveTempleOpsPgSuperuserUrl,
 } from "../src/db/temple-ops-config.js";
 
 function must(name: string): string | null {
@@ -34,7 +35,7 @@ async function main(): Promise<void> {
   const warnings: string[] = [];
 
   const discrete = getTempleOpsDiscreteEnvFromProcess();
-  const superUrl = must("TEMPLE_OPS_PG_SUPERUSER_URL");
+  const superUrl = resolveTempleOpsPgSuperuserUrl();
 
   if (!hasTempleOpsConnectionBasis()) {
     errors.push(
@@ -44,8 +45,7 @@ async function main(): Promise<void> {
 
   if (!superUrl) {
     warnings.push(
-      "TEMPLE_OPS_PG_SUPERUSER_URL is unset: POST /api/temples/create will not run CREATE DATABASE automatically " +
-        "(each ops DB must already exist, or set superuser URL to maintenance DB postgres)."
+      "No CREATE DATABASE URL: set TEMPLE_OPS_PG_SUPERUSER_URL, or on Vercel+Neon ensure DATABASE_URL_UNPOOLED is injected by the Storage integration."
     );
   }
 

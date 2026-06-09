@@ -5,7 +5,7 @@
 import pg from "pg";
 import { getPoolConfig } from "../db/config.js";
 import { runPendingTempleOpsMigrations } from "../db/run-migrations.js";
-import { poolConfigForTempleOperationalRow } from "../db/temple-ops-config.js";
+import { poolConfigForTempleOperationalRow, resolveTempleOpsPgSuperuserUrl } from "../db/temple-ops-config.js";
 
 function safeOperationalDbName(prefix: string, tenantId: string): string {
   const combined = `${prefix}${tenantId}`.replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase();
@@ -21,10 +21,10 @@ async function operationalDbExistsOnCluster(platform: pg.Client, dbName: string)
 }
 
 async function ensureDatabaseExists(dbName: string): Promise<void> {
-  const superUrl = process.env.TEMPLE_OPS_PG_SUPERUSER_URL?.trim();
+  const superUrl = resolveTempleOpsPgSuperuserUrl();
   if (!superUrl) {
     console.warn(
-      "[ensure-temple-ops-database] TEMPLE_OPS_PG_SUPERUSER_URL unset — cannot CREATE DATABASE (set it, create the DB manually, or run temple-ops:bootstrap)."
+      "[ensure-temple-ops-database] No CREATE DATABASE URL — set TEMPLE_OPS_PG_SUPERUSER_URL or (Neon on Vercel) use DATABASE_URL_UNPOOLED from the Storage integration."
     );
     return;
   }
