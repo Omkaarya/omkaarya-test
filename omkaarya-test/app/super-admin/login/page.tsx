@@ -1,5 +1,5 @@
-import SuperAdminLoginPage from "@/app/super-admin/_components/SuperAdminLoginPage";
+import { redirect } from "next/navigation";
 
 export default function SuperAdminLoginRoutePage() {
-  return <SuperAdminLoginPage />;
+  redirect("/login");
 }

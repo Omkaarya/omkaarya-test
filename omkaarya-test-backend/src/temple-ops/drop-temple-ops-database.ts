@@ -1,18 +1,17 @@
 import pg from "pg";
-import { resolveTempleOpsPgSuperuserUrl } from "../db/temple-ops-config.js";
 
 /**
  * Drops a temple operational PostgreSQL database when superuser URL is configured.
- * No-op with a warning when no CREATE DATABASE URL is available.
+ * No-op with a warning when TEMPLE_OPS_PG_SUPERUSER_URL is unset.
  */
 export async function dropTempleOperationalDatabase(dbName: string): Promise<void> {
   const name = dbName.trim();
   if (!name) return;
 
-  const superUrl = resolveTempleOpsPgSuperuserUrl();
+  const superUrl = process.env.TEMPLE_OPS_PG_SUPERUSER_URL?.trim();
   if (!superUrl) {
     console.warn(
-      `[drop-temple-ops-database] No CREATE DATABASE URL — skipping DROP DATABASE for "${name}".`
+      `[drop-temple-ops-database] TEMPLE_OPS_PG_SUPERUSER_URL unset — skipping DROP DATABASE for "${name}".`
     );
     return;
   }

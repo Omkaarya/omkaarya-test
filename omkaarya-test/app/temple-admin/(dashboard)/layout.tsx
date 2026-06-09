@@ -4,7 +4,6 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { TempleDashboardShell } from "@/app/components/temple-admin/TempleDashboardShell";
 import { TempleDashboardMainPanel } from "@/app/components/temple-admin/TempleDashboardMainPanel";
-import { TempleOnboardingDashboardGate } from "@/app/components/temple-admin/TempleOnboardingDashboardGate";
 import { useTheme } from "@/app/components/ThemeProvider";
 import { useTempleDisabledModules } from "@/lib/use-temple-disabled-modules";
 
@@ -28,7 +27,7 @@ export default function TempleDashboardLayout({
       disabledModules={disabledModules}
     >
       <TempleDashboardMainPanel>
-        <TempleOnboardingDashboardGate>{children}</TempleOnboardingDashboardGate>
+        {children}
       </TempleDashboardMainPanel>
     </TempleDashboardShell>
   );

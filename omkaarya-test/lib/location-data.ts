@@ -10,15 +10,35 @@ export type LocationOption = { value: string; label: string };
 /** Max cities in a native &lt;select&gt; before switching to text + datalist. */
 export const CITY_SELECT_MAX = 500;
 
+const ALLOWED_COUNTRY_CODES = [
+  "IN", // India
+  "LK", // Sri Lanka
+  "CH", // Switzerland
+  "DE", // Germany
+  "FR", // France
+  "GB", // United Kingdom
+  "CA", // Canada
+  "NO", // Norway
+  "SG", // Singapore
+  "MY", // Malaysia
+  "SE", // Sweden
+  "DK", // Denmark
+  "IT", // Italy
+  "AU", // Australia
+  "NZ", // New Zealand
+];
+
 let countryOptionsCache: LocationOption[] | null = null;
 
 export function getAllCountryOptions(): LocationOption[] {
   if (countryOptionsCache) return countryOptionsCache;
   countryOptionsCache = Country.getAllCountries()
+    .filter((c) => ALLOWED_COUNTRY_CODES.includes(c.isoCode))
     .map((c) => ({ value: c.isoCode, label: c.name }))
     .sort((a, b) => a.label.localeCompare(b.label));
   return countryOptionsCache;
 }
+
 
 export function countryLabelFromCode(code: string | null | undefined): string {
   const iso = (code ?? "").trim().toUpperCase();
@@ -37,7 +57,11 @@ export function countryOptionsWithFallback(iso: string): LocationOption[] {
 export function getStateOptions(countryIso: string): LocationOption[] {
   const iso = countryIso.trim().toUpperCase();
   if (!iso) return [];
-  return State.getStatesOfCountry(iso)
+  let states = State.getStatesOfCountry(iso);
+  if (iso === "LK") {
+    states = states.filter((s) => s.name.toLowerCase().includes("province"));
+  }
+  return states
     .map((s) => ({ value: s.isoCode, label: s.name }))
     .sort((a, b) => a.label.localeCompare(b.label));
 }
@@ -59,13 +83,33 @@ export function resolveStateIso(countryIso: string, stored: string): string {
   return byName?.value ?? t;
 }
 
+const SRI_LANKA_PROVINCES: Record<string, string[]> = {
+  "1": ["1", "11", "12", "13"], // Western Province (Colombo, Gampaha, Kalutara)
+  "2": ["2", "21", "22", "23"], // Central Province (Kandy, Matale, Nuwara Eliya)
+  "3": ["3", "31", "32", "33"], // Southern Province (Galle, Matara, Hambantota)
+  "4": ["4", "41", "42", "43", "44", "45"], // Northern Province (Jaffna, Kilinochchi, Mannar, Vavuniya, Mullaitivu)
+  "5": ["5", "51", "52", "53"], // Eastern Province (Batticaloa, Ampara, Trincomalee)
+  "6": ["6", "62"], // North Western Province (Puttalam, Kurunegala)
+  "7": ["7", "71", "72"], // North Central Province (Anuradhapura, Polonnaruwa)
+  "8": ["8", "81", "82"], // Uva Province (Badulla, Monaragala)
+  "9": ["9", "91", "92"], // Sabaragamuwa Province (Ratnapura, Kegalle)
+};
+
 export function getCityOptions(countryIso: string, stateIso?: string): LocationOption[] {
   const iso = countryIso.trim().toUpperCase();
   if (!iso) return [];
   const state = (stateIso ?? "").trim();
-  const cities = state
-    ? City.getCitiesOfState(iso, state)
-    : City.getCitiesOfCountry(iso);
+  
+  let cities;
+  if (iso === "LK" && state) {
+    const constituentCodes = SRI_LANKA_PROVINCES[state] || [state];
+    cities = constituentCodes.flatMap((code) => City.getCitiesOfState("LK", code));
+  } else {
+    cities = state
+      ? City.getCitiesOfState(iso, state)
+      : City.getCitiesOfCountry(iso);
+  }
+
   if (!cities?.length) return [];
   const seen = new Set<string>();
   const out: LocationOption[] = [];
@@ -77,6 +121,7 @@ export function getCityOptions(countryIso: string, stateIso?: string): LocationO
   }
   return out.sort((a, b) => a.label.localeCompare(b.label));
 }
+
 
 export function optionsWithFallback(options: LocationOption[], current: string): LocationOption[] {
   const t = current.trim();
@@ -111,7 +156,7 @@ export function getPhoneDialOptions(): PhoneDialOption[] {
     const dial = dialForCountryIso(c.isoCode);
     if (!dial || dial === "+") continue;
     const flag = isoToFlagEmoji(c.isoCode);
-    const entry = { label: `${flag} ${c.name} ${dial}`, name: c.name };
+    const entry = { label: `${flag} ${dial}`, name: c.name };
     const prev = byDial.get(dial);
     if (!prev || c.name.localeCompare(prev.name) < 0) {
       byDial.set(dial, entry);
@@ -119,7 +164,11 @@ export function getPhoneDialOptions(): PhoneDialOption[] {
   }
   phoneDialCache = Array.from(byDial.entries())
     .map(([value, { label }]) => ({ value, label }))
-    .sort((a, b) => a.label.localeCompare(b.label));
+    .sort((a, b) => {
+      const numA = parseInt(a.value.replace(/\D/g, ""), 10) || 0;
+      const numB = parseInt(b.value.replace(/\D/g, ""), 10) || 0;
+      return numA - numB;
+    });
   return phoneDialCache;
 }
 

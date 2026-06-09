@@ -79,23 +79,25 @@ export function resolvePortalPreview(params: {
   const { allowCustomDomain, slug, customDomain } = params;
   if (allowCustomDomain) {
     const host = normalizeCustomDomainHost(customDomain);
-    return host || "";
+    if (host) return host;
   }
   const label = normalizeTempleSubdomainLabel(slug) || "temple_name";
   return buildOmkaaryaSubdomainHost(label) || `${label}.${OMKAARYA_PORTAL_SUFFIX}`;
 }
 
-/** Hint under the domain field — never mentions omkaarya.com when custom domain plan is selected. */
+/** Hint under the domain field — fallback to default subdomain if custom domain is blank. */
 export function domainFieldHint(params: {
   allowCustomDomain: boolean;
   slug: string;
   customDomain: string;
 }): string {
   if (params.allowCustomDomain) {
-    const host = resolvePortalPreview(params);
-    return host
-      ? `Microsite will be live at: ${host}`
-      : "Enter your own domain only (e.g. bookings.mytemple.org). Omkaarya subdomain is not used on this plan.";
+    const host = normalizeCustomDomainHost(params.customDomain);
+    if (host) {
+      return `Microsite will be live at: ${host}`;
+    }
+    const fallback = buildOmkaaryaSubdomainHost(params.slug) || `${params.slug || "your-temple"}.${OMKAARYA_PORTAL_SUFFIX}`;
+    return `Enter your own domain (e.g. bookings.mytemple.org), or leave blank to use the default subdomain: ${fallback}`;
   }
   const host = resolvePortalPreview(params);
   return `Microsite will be live at: ${host || "your-temple.omkaarya.com"}`;
@@ -108,7 +110,8 @@ export function templeSubdomainPayloadValue(params: {
   customDomain: string;
 }): string {
   if (params.allowCustomDomain) {
-    return normalizeCustomDomainHost(params.customDomain);
+    const custom = normalizeCustomDomainHost(params.customDomain);
+    if (custom) return custom;
   }
   return normalizeTempleSubdomainLabel(params.slug);
 }

@@ -63,6 +63,13 @@ export default function TemplesAdminPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [search, statusFilter, country, sortBy, page, pageSize, refreshKey]);
+
   useEffect(() => {
     const timeout = setTimeout(() => {
       setSearch(searchInput.trim());
@@ -143,6 +150,37 @@ export default function TemplesAdminPage() {
       setActionError("Network error — could not delete temple.");
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const count = selectedIds.length;
+    if (
+      !confirm(
+        `Permanently delete the ${count} selected ${
+          count === 1 ? "temple" : "temples"
+        }? This will remove all associated billing records and databases. This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    setBulkDeleting(true);
+    setActionError(null);
+    try {
+      const deletePromises = selectedIds.map(async (id) => {
+        const res = await fetch(`/api/temples/${encodeURIComponent(id)}`, { method: "DELETE" });
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          throw new Error(jsonApiErrorMessage(data) || `Failed to delete temple ${id}`);
+        }
+      });
+      await Promise.all(deletePromises);
+      setSelectedIds([]);
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to delete one or more temples.");
+    } finally {
+      setBulkDeleting(false);
     }
   };
 
@@ -286,26 +324,64 @@ export default function TemplesAdminPage() {
       />
 
       <AdminListCard>
-        <AdminFiltersBar
-          search={searchInput}
-          onSearchChange={setSearchInput}
-          status={statusFilter}
-          onStatusChange={(status) => {
-            setStatusFilter(status);
-            setPage(1);
-          }}
-          country={country}
-          onCountryChange={(nextCountry) => {
-            setCountry(nextCountry);
-            setPage(1);
-          }}
-          countries={countries}
-          sortBy={sortBy}
-          onSortByChange={(nextSortBy) => {
-            setSortBy(nextSortBy as TemplesSortBy);
-            setPage(1);
-          }}
-        />
+        {selectedIds.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-4 border-b border-border bg-orange-50/70 px-6 py-4 animate-in slide-in-from-top-4 duration-300 dark:bg-orange-950/20">
+            <span className="text-sm font-semibold text-text-primary">
+              {selectedIds.length} {selectedIds.length === 1 ? "temple" : "temples"} selected
+            </span>
+            <div className="hidden sm:block h-4 w-px bg-border" />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/30"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+            >
+              {bulkDeleting ? (
+                <>
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                  Bulk Delete
+                </>
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedIds([])}
+              disabled={bulkDeleting}
+            >
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          <AdminFiltersBar
+            search={searchInput}
+            onSearchChange={setSearchInput}
+            status={statusFilter}
+            onStatusChange={(status) => {
+              setStatusFilter(status);
+              setPage(1);
+            }}
+            country={country}
+            onCountryChange={(nextCountry) => {
+              setCountry(nextCountry);
+              setPage(1);
+            }}
+            countries={countries}
+            sortBy={sortBy}
+            onSortByChange={(nextSortBy) => {
+              setSortBy(nextSortBy as TemplesSortBy);
+              setPage(1);
+            }}
+          />
+        )}
 
         {error ? (
           <p className="px-6 py-10 text-center text-sm text-red-600 dark:text-red-400">{error}</p>
@@ -321,6 +397,9 @@ export default function TemplesAdminPage() {
             tableClassName="min-w-[960px]"
             isLoading={loading}
             loadingRows={pageSize}
+            isSelectable
+            selectedIds={selectedIds}
+            onSelectChange={setSelectedIds}
           />
         ) : null}
 

@@ -13,6 +13,18 @@ const SEED_USERS: { email: string; temp_password: string; full_name?: string; ro
     full_name: "Pepulux Admin",
     roles: ["Super Admin"],
   },
+  {
+    email: "pepuluxhq@gmail.com",
+    temp_password: "Pepul@temple2026",
+    full_name: "Omkaarya Super Admin",
+    roles: ["Super Admin"],
+  },
+  {
+    email: "omkaaryahq@gmail.com",
+    temp_password: "Templeu$er2026",
+    full_name: "Omkaarya Temple Admin",
+    roles: [],
+  },
 ];
 
 async function seedUsers(client: pg.Client): Promise<void> {
@@ -22,6 +34,7 @@ async function seedUsers(client: pg.Client): Promise<void> {
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (email) DO UPDATE SET
          temp_password = EXCLUDED.temp_password,
+         password_hash = NULL,
          full_name = COALESCE(EXCLUDED.full_name, public.users.full_name),
          roles = (
            SELECT ARRAY(

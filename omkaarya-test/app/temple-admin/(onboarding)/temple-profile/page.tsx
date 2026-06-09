@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, ChevronDown, HelpCircle, Loader2, Plus } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, HelpCircle, Loader2, Plus } from "lucide-react";
 import {
   getTempleSessionProfileAction,
   saveTempleProfileDetailsAction,
@@ -46,6 +46,13 @@ import {
 
 export default function TempleAdminTempleProfilePage() {
   const router = useRouter();
+
+  const handleSkip = () => {
+    markTempleOnboardingTempleCreated({
+      templeId: templeIdFromServer || "f0001001-0001-4001-8001-000000000001"
+    });
+    router.push("/temple-admin/deity-selection");
+  };
 
   const templeNameId = useId();
   const emailId = useId();
@@ -256,8 +263,7 @@ export default function TempleAdminTempleProfilePage() {
     }
 
     const yearRaw = draft.establishedYear.trim();
-    if (!yearRaw) errs.establishedYear = "Established year is required.";
-    else {
+    if (yearRaw) {
       const year = Number(yearRaw);
       if (!Number.isInteger(year) || year < 1800 || year > 2100) {
         errs.establishedYear = "Established year must be between 1800 and 2100.";
@@ -661,14 +667,6 @@ export default function TempleAdminTempleProfilePage() {
                             setDraft((prev) => ({ ...prev, domainSubdomain: normalized }));
                           }}
                           placeholder="temple_name"
-                          suffixAction={
-                            <button
-                              type="button"
-                              className="rounded-md bg-zinc-200 px-2 py-1 text-xs font-semibold text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600"
-                            >
-                              Upgrade
-                            </button>
-                          }
                         />
                         {submitAttempted && errors.errs.domainSubdomain ? (
                           <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.errs.domainSubdomain}</p>
@@ -676,7 +674,7 @@ export default function TempleAdminTempleProfilePage() {
                       </div>
                     </FormField>
 
-                    <FormField id={establishedYearId} label="Established year" required layout="horizontal">
+                    <FormField id={establishedYearId} label="Established year" layout="horizontal">
                       <div>
                         <TextInput
                           id={establishedYearId}
@@ -829,29 +827,41 @@ export default function TempleAdminTempleProfilePage() {
               </div>
             ) : null}
 
-            <TempleOnboardingStepActions
-              className="mt-2 pt-3"
-              onBack={() => router.push("/temple-admin/admin-profile")}
-              primary={
+            <div className="flex items-center justify-between border-t border-zinc-100 pt-5 mt-6 dark:border-zinc-800">
+              <div className="flex items-center gap-3">
                 <button
-                  type="submit"
-                  disabled={isSaving || !core || !!loadError}
-                  className="flex w-full min-w-0 flex-[1.25] items-center justify-center gap-2 rounded-lg bg-[var(--brand-primary)] py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)] disabled:pointer-events-none disabled:opacity-50"
+                  type="button"
+                  onClick={() => router.push("/temple-admin/admin-profile")}
+                  className="flex items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-[var(--surface-card)] px-5 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900 transition-colors"
                 >
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                      Saving…
-                    </>
-                  ) : (
-                    <>
-                      Save & Continue
-                      <ArrowRight className="h-4 w-4" aria-hidden />
-                    </>
-                  )}
+                  Back
                 </button>
-              }
-            />
+                <button
+                  type="button"
+                  onClick={handleSkip}
+                  className="flex items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-[var(--surface-card)] px-5 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900 transition-colors"
+                >
+                  <ArrowLeft className="h-4 w-4" /> Skip now
+                </button>
+              </div>
+              <button
+                type="submit"
+                disabled={isSaving || !core || !!loadError}
+                className="flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[var(--brand-primary-hover)] disabled:pointer-events-none disabled:opacity-50 transition-colors"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    Saving…
+                  </>
+                ) : (
+                  <>
+                    Save & Continue
+                    <ArrowRight className="h-4 w-4" aria-hidden />
+                  </>
+                )}
+              </button>
+            </div>
           </form>
         </>
       )}

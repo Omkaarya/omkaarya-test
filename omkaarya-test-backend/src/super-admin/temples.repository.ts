@@ -225,7 +225,7 @@ function fullAddressFromPayload(temple: CreateTemplePayload["temple"]): TempleFu
     countryIso: temple.country.trim() || "GB",
     state: (temple.state ?? "").trim() || "",
     city: temple.city.trim() || "",
-    postalCode: "",
+    postalCode: (temple.postalCode ?? "").trim(),
     street: temple.address.trim() || "",
   };
 }
@@ -1074,7 +1074,9 @@ export class PostgresTempleRepository implements TempleRepository {
         name: r.name.trim(),
         deity: deitySlug,
         country,
+        state: fa.state || "",
         city,
+        postalCode: fa.postalCode || "",
         address: addressLine,
         email,
         phone: telephone,

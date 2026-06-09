@@ -7,7 +7,7 @@ type SeedRow = Omit<TempleRecord, "subdomain" | "portalHost">;
 const SEED_TEMPLES_CORE: SeedRow[] = [
   {
     tenantId: "f0001001-0001-4001-8001-000000000001",
-    name: "Shiva Mandffir London",
+    name: "Shiva Mandir London",
     slug: "shiva-mandir-london.omkaarya.com",
     countryCode: "GB",
     countryFlag: "🇬🇧",
@@ -16,7 +16,7 @@ const SEED_TEMPLES_CORE: SeedRow[] = [
     devotees: 1200,
     status: "Active",
     compliance: "Verified",
-    adminEmail: "admin@shivalondon.org",
+    adminEmail: "omkaaryahq@gmail.com",
   },
   {
     tenantId: "f0001002-0001-4001-8001-000000000002",

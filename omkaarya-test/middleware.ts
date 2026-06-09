@@ -20,7 +20,6 @@ function applyNoStoreHeaders(response: NextResponse): NextResponse {
 function isSuperAdminProtectedPage(pathname: string): boolean {
   return (
     pathname.startsWith("/super-admin") &&
-    pathname !== "/super-admin/login" &&
     pathname !== "/super-admin/invite"
   );
 }
@@ -44,17 +43,11 @@ export async function middleware(request: NextRequest) {
     "/",
     "/pricing",
     "/login",
-    "/super-admin/login",
     "/super-admin/invite",
-    "/temple-admin/signin",
     "/temple-admin/forgot-password",
   ]);
 
-  const isLoginPage =
-    pathname === "/login" ||
-    pathname === "/super-admin/login" ||
-    pathname === "/super-admin/invite" ||
-    pathname === "/temple-admin/signin";
+  const isLoginPage = pathname === "/login";
   const isPublicRoute = publicRoutes.has(pathname);
   const isApiRoute = pathname.startsWith("/api/");
   const isPublicAsset = pathname.match(/\.(.*)$/);
@@ -89,6 +82,7 @@ export async function middleware(request: NextRequest) {
       );
     }
     const payload = await tokenPayload(request);
+    
     if (!isTempleScopedAuthPayload(payload)) {
       return nextJsonError(
         403,
@@ -107,38 +101,21 @@ export async function middleware(request: NextRequest) {
   const hasTempleSession = isTempleScopedAuthPayload(payload);
 
   if (token && isLoginPage) {
-    if (pathname === "/temple-admin/signin") {
-      if (hasTempleSession) {
-        return NextResponse.redirect(new URL("/temple-admin", request.url));
-      }
-      return NextResponse.next();
-    }
-    if (pathname === "/login") {
-      return NextResponse.redirect(new URL("/super-admin/login", request.url));
-    }
-    if (pathname === "/super-admin/login" || pathname === "/super-admin/invite") {
-      return NextResponse.next();
+    if (hasTempleSession) {
+      return NextResponse.redirect(new URL("/temple-admin", request.url));
     }
     return NextResponse.redirect(new URL("/super-admin/dashboard", request.url));
   }
 
   if (!token && !isPublicRoute) {
-    if (pathname.startsWith("/temple-admin")) {
-      return NextResponse.redirect(new URL("/temple-admin/signin", request.url));
-    }
-    if (pathname.startsWith("/super-admin")) {
-      return applyNoStoreHeaders(
-        NextResponse.redirect(new URL("/super-admin/login", request.url))
-      );
-    }
     return applyNoStoreHeaders(
-      NextResponse.redirect(new URL("/super-admin/login", request.url))
+      NextResponse.redirect(new URL("/login", request.url))
     );
   }
 
   if (isTempleAdminProtectedPage(pathname) && !hasTempleSession) {
     return applyNoStoreHeaders(
-      NextResponse.redirect(new URL("/temple-admin/signin", request.url))
+      NextResponse.redirect(new URL("/login", request.url))
     );
   }
 
