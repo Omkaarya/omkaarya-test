@@ -256,8 +256,7 @@ export default function TempleAdminTempleProfilePage() {
     }
 
     const yearRaw = draft.establishedYear.trim();
-    if (!yearRaw) errs.establishedYear = "Established year is required.";
-    else {
+    if (yearRaw) {
       const year = Number(yearRaw);
       if (!Number.isInteger(year) || year < 1800 || year > 2100) {
         errs.establishedYear = "Established year must be between 1800 and 2100.";
@@ -661,14 +660,6 @@ export default function TempleAdminTempleProfilePage() {
                             setDraft((prev) => ({ ...prev, domainSubdomain: normalized }));
                           }}
                           placeholder="temple_name"
-                          suffixAction={
-                            <button
-                              type="button"
-                              className="rounded-md bg-zinc-200 px-2 py-1 text-xs font-semibold text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600"
-                            >
-                              Upgrade
-                            </button>
-                          }
                         />
                         {submitAttempted && errors.errs.domainSubdomain ? (
                           <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.errs.domainSubdomain}</p>
@@ -676,7 +667,7 @@ export default function TempleAdminTempleProfilePage() {
                       </div>
                     </FormField>
 
-                    <FormField id={establishedYearId} label="Established year" required layout="horizontal">
+                    <FormField id={establishedYearId} label="Established year" layout="horizontal">
                       <div>
                         <TextInput
                           id={establishedYearId}

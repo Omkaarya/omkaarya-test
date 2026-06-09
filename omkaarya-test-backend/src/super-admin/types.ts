@@ -102,6 +102,7 @@ export type CreateTemplePayload = {
     /** Region/state ISO or label from super-admin wizard. */
     state?: string;
     city: string;
+    postalCode?: string;
     address: string;
     email: string;
     phone: unknown;

@@ -247,6 +247,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
   const [country, setCountry] = useState("GB");
   const [regionState, setRegionState] = useState("");
   const [city, setCity] = useState("London");
+  const [postalCode, setPostalCode] = useState("");
   const [address, setAddress] = useState("");
   const [email, setEmail] = useState("");
   const [telephone, setTelephone] = useState<PhoneRowValue>(() => emptyPhoneForCountry("GB"));
@@ -323,6 +324,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
       country,
       regionState,
       city,
+      postalCode,
       address,
       email,
       telephone,
@@ -351,6 +353,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
     country,
     regionState,
     city,
+    postalCode,
     address,
     email,
     telephone,
@@ -381,6 +384,9 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
     setDeity(d.temple.deity);
     setCountry(d.temple.country);
     setCity(d.temple.city);
+    if ("postalCode" in d.temple) {
+      setPostalCode((d.temple as any).postalCode ?? "");
+    }
     setAddress(d.temple.address);
     setEmail(d.temple.email);
     setTelephone(
@@ -591,7 +597,8 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
       return;
     }
 
-    if (allowCustomDomain) {
+    const checkCustom = allowCustomDomain && customDomain.trim().length > 0;
+    if (checkCustom) {
       const host = normalizeCustomDomainHost(customDomain);
       if (!host) {
         setSubdomainTaken(false);
@@ -615,7 +622,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
         if (mode === "edit" && tenantId?.trim()) {
           params.set("excludeTenantId", tenantId.trim());
         }
-        if (allowCustomDomain) {
+        if (checkCustom) {
           params.set("host", normalizeCustomDomainHost(customDomain));
         } else {
           params.set("subdomain", normalizeTempleSubdomainLabel(subdomain));
@@ -709,16 +716,16 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
     const faxErr = phoneRowError(fax, "Fax");
     if (faxErr) errors.fax = faxErr;
 
-    const year = Number(establishedYear);
-    if (!establishedYear.trim()) {
-      errors.establishedYear = "Established year is required.";
-    } else if (!Number.isInteger(year) || year < 1800 || year > 2100) {
-      errors.establishedYear = "Established year must be between 1800 and 2100.";
+    if (establishedYear.trim()) {
+      const year = Number(establishedYear);
+      if (!Number.isInteger(year) || year < 1800 || year > 2100) {
+        errors.establishedYear = "Established year must be between 1800 and 2100.";
+      }
     }
     if (charityRegistered && !charityRegistrationNumber.trim()) {
       errors.charityRegistrationNumber = "Charity registration number is required when registered.";
     }
-    if (allowCustomDomain) {
+    if (allowCustomDomain && customDomain.trim()) {
       const host = normalizeCustomDomainHost(customDomain);
       if (!host) {
         errors.subdomain = "Enter a valid custom domain (e.g. bookings.mytemple.org).";
@@ -955,6 +962,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
         country: string;
         state?: string;
         city: string;
+        postalCode: string;
         address: string;
         email: string;
         phone: PhoneRowValue;
@@ -988,6 +996,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
         country,
         state: regionState,
         city,
+        postalCode: postalCode.trim(),
         address: address.trim(),
         email: email.trim(),
         phone: telephone,
@@ -1155,6 +1164,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
         country,
         state: regionState,
         city,
+        postalCode: postalCode.trim(),
         address: address.trim(),
         email: email.trim(),
         phone: telephone,
@@ -1420,6 +1430,41 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                   </div>
                 </FormField>
 
+                <FormField id="year" label="Established Year">
+                  <div>
+                    <TextInput
+                      id="year"
+                      type="number"
+                      min={1800}
+                      max={2100}
+                      value={establishedYear}
+                      onChange={(e) => setEstablishedYear(e.target.value)}
+                      placeholder="e.g. 1998"
+                      disabled={isViewOnly}
+                    />
+                    {step1ShowErrors && step1Errors.establishedYear ? (
+                      <p className="mt-1 text-xs text-red-500">{step1Errors.establishedYear}</p>
+                    ) : null}
+                  </div>
+                </FormField>
+
+                <FormField id="email" label="Email Address" required>
+                  <div>
+                    <TextInput
+                      id="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="temple@example.com"
+                      startIcon={<Mail className="h-4 w-4" aria-hidden />}
+                      disabled={isViewOnly}
+                    />
+                    {step1ShowErrors && step1Errors.email ? (
+                      <p className="mt-1 text-xs text-red-500">{step1Errors.email}</p>
+                    ) : null}
+                  </div>
+                </FormField>
+
                 <FormField id="country" label="Country" required>
                   <div>
                     <SelectInput
@@ -1462,19 +1507,33 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                   </FormField>
                 ) : null}
 
-                <FormField id="city" label="City" required>
+                <div className="md:col-start-1">
+                  <FormField id="city" label="City" required>
+                    <div>
+                      <LocationCityField
+                        id="city"
+                        countryIso={country}
+                        stateIso={regionState}
+                        value={city}
+                        onChange={setCity}
+                        disabled={isViewOnly}
+                      />
+                      {step1ShowErrors && step1Errors.city ? (
+                        <p className="mt-1 text-xs text-red-500">{step1Errors.city}</p>
+                      ) : null}
+                    </div>
+                  </FormField>
+                </div>
+
+                <FormField id="postal-code" label="Postal Code">
                   <div>
-                    <LocationCityField
-                      id="city"
-                      countryIso={country}
-                      stateIso={regionState}
-                      value={city}
-                      onChange={setCity}
+                    <TextInput
+                      id="postal-code"
+                      value={postalCode}
+                      onChange={(e) => setPostalCode(e.target.value)}
+                      placeholder="e.g. EC4A 4AB"
                       disabled={isViewOnly}
                     />
-                    {step1ShowErrors && step1Errors.city ? (
-                      <p className="mt-1 text-xs text-red-500">{step1Errors.city}</p>
-                    ) : null}
                   </div>
                 </FormField>
 
@@ -1495,23 +1554,6 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                     </div>
                   </FormField>
                 </div>
-
-                <FormField id="email" label="Email Address" required>
-                  <div>
-                    <TextInput
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="temple@example.com"
-                      startIcon={<Mail className="h-4 w-4" aria-hidden />}
-                      disabled={isViewOnly}
-                    />
-                    {step1ShowErrors && step1Errors.email ? (
-                      <p className="mt-1 text-xs text-red-500">{step1Errors.email}</p>
-                    ) : null}
-                  </div>
-                </FormField>
 
                 <PhoneFieldsGroup
                   embedded
@@ -1542,109 +1584,72 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
                   />
                 </FormField>
 
-                <FormField
-                  id="subdomain"
-                  label={
-                    planFeaturesLoading && selectedPlanId
-                      ? "Domain"
-                      : allowCustomDomain
-                        ? "Custom domain"
-                        : "Account URL"
-                  }
-                  hint={
-                    planFeaturesLoading && selectedPlanId
-                      ? "Checking plan features…"
-                      : domainFieldHint({ allowCustomDomain, slug: subdomain, customDomain })
-                  }
-                >
-                  <div>
-                    {planFeaturesLoading && selectedPlanId ? (
-                      <TextInput
-                        id="subdomain"
-                        value=""
-                        readOnly
-                        placeholder="Loading plan features…"
-                        disabled
-                        className="text-sm"
-                      />
-                    ) : allowCustomDomain ? (
-                      <TextInput
-                        key="custom-domain-input"
-                        id="subdomain"
-                        value={customDomain}
-                        onChange={(e) => {
-                          customDomainTouchedRef.current = true;
-                          setCustomDomain(stripOmkaaryaFromCustomDomainInput(e.target.value));
-                        }}
-                        placeholder="bookings.mytemple.org"
-                        disabled={isViewOnly}
-                        className="text-sm"
-                      />
-                    ) : (
-                      <>
-                        <AffixedInput
-                          key="omkaarya-subdomain-input"
+                <div className="md:col-span-2">
+                  <FormField
+                    id="subdomain"
+                    label={
+                      planFeaturesLoading && selectedPlanId
+                        ? "Domain"
+                        : allowCustomDomain
+                          ? "Custom domain"
+                          : "Account URL"
+                    }
+                    hint={
+                      planFeaturesLoading && selectedPlanId
+                        ? "Checking plan features…"
+                        : domainFieldHint({ allowCustomDomain, slug: subdomain, customDomain })
+                    }
+                  >
+                    <div>
+                      {planFeaturesLoading && selectedPlanId ? (
+                        <TextInput
                           id="subdomain"
-                          suffix=".omkaarya.com"
-                          suffixAction={
-                            <button
-                              type="button"
-                              disabled={isViewOnly}
-                              onClick={handleUpgradeForCustomDomain}
-                              className="rounded-md bg-zinc-200 px-2 py-1 text-xs font-semibold text-zinc-700 hover:bg-zinc-300 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600"
-                            >
-                              Upgrade
-                            </button>
-                          }
-                          value={subdomain}
-                          onChange={(e) => handleSubdomainChange(e.target.value)}
-                          placeholder="your-temple"
-                          disabled={isViewOnly}
+                          value=""
+                          readOnly
+                          placeholder="Loading plan features…"
+                          disabled
+                          className="text-sm"
                         />
-                        <p className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                          Select a plan with Custom domain to use your own hostname.{" "}
-                          <button
-                            type="button"
+                      ) : allowCustomDomain ? (
+                        <TextInput
+                          key="custom-domain-input"
+                          id="subdomain"
+                          value={customDomain}
+                          onChange={(e) => {
+                            customDomainTouchedRef.current = true;
+                            setCustomDomain(stripOmkaaryaFromCustomDomainInput(e.target.value));
+                          }}
+                          placeholder="bookings.mytemple.org"
+                          disabled={isViewOnly}
+                          className="text-sm"
+                        />
+                      ) : (
+                        <>
+                          <AffixedInput
+                            key="omkaarya-subdomain-input"
+                            id="subdomain"
+                            suffix=".omkaarya.com"
+                            value={subdomain}
+                            onChange={(e) => handleSubdomainChange(e.target.value)}
+                            placeholder="your-temple"
                             disabled={isViewOnly}
-                            onClick={handleUpgradeForCustomDomain}
-                            className="font-semibold text-[var(--brand-primary)] hover:underline disabled:opacity-50"
-                          >
-                            Upgrade plan
-                          </button>
+                          />
+                        </>
+                      )}
+                      {subdomainChecking ? (
+                        <p className="mt-1 text-xs text-zinc-500">Checking availability…</p>
+                      ) : null}
+                      {step1ShowErrors && step1Errors.subdomain ? (
+                        <p className="mt-1 text-xs text-red-500">{step1Errors.subdomain}</p>
+                      ) : null}
+                      {!step1ShowErrors && subdomainTaken ? (
+                        <p className="mt-1 text-xs text-red-500">
+                          This domain is already in use. Choose another hostname.
                         </p>
-                      </>
-                    )}
-                    {subdomainChecking ? (
-                      <p className="mt-1 text-xs text-zinc-500">Checking availability…</p>
-                    ) : null}
-                    {step1ShowErrors && step1Errors.subdomain ? (
-                      <p className="mt-1 text-xs text-red-500">{step1Errors.subdomain}</p>
-                    ) : null}
-                    {!step1ShowErrors && subdomainTaken ? (
-                      <p className="mt-1 text-xs text-red-500">
-                        This domain is already in use. Choose another hostname.
-                      </p>
-                    ) : null}
-                  </div>
-                </FormField>
-
-                <FormField id="year" label="Established Year" required>
-                  <div>
-                    <TextInput
-                      id="year"
-                      type="number"
-                      min={1800}
-                      max={2100}
-                      value={establishedYear}
-                      onChange={(e) => setEstablishedYear(e.target.value)}
-                      placeholder="e.g. 1998"
-                      disabled={isViewOnly}
-                    />
-                    {step1ShowErrors && step1Errors.establishedYear ? (
-                      <p className="mt-1 text-xs text-red-500">{step1Errors.establishedYear}</p>
-                    ) : null}
-                  </div>
-                </FormField>
+                      ) : null}
+                    </div>
+                  </FormField>
+                </div>
 
                 {/* <div className="md:col-span-2">
                   <label
@@ -1761,7 +1766,7 @@ export default function TempleWizard({ mode, tenantId, initialDetail, readOnly =
 
                 <PhoneRowField
                   idPrefix="admin-wa"
-                  label="WhatsApp"
+                  label="Phone Number (WhatsApp)"
                   required
                   value={adminWhatsapp}
                   onChange={setAdminWhatsapp}

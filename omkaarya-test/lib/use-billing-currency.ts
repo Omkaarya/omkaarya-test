@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const DEFAULT_CURRENCY = "INR";
+const DEFAULT_CURRENCY = "USD";
 
 let cachedCurrency: string | null = null;
 

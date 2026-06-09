@@ -204,8 +204,15 @@ export default function PricingPlansPage() {
 
             <div className="mb-8">
                <div className="flex items-baseline gap-1">
-                 <span className="text-4xl font-bold text-zinc-900 dark:text-white">₹{(billing === "yearly" ? plan.priceYearly : plan.priceMonthly) / 100}</span>
+                 <span className="text-4xl font-bold text-zinc-900 dark:text-white">${(billing === "yearly" ? plan.priceYearly : plan.priceMonthly) / 100}</span>
                  <span className="text-sm font-bold text-zinc-400">/{billing === "yearly" ? "year" : "mo"}</span>
+               </div>
+               {/* One-time setup fee */}
+               <div className="mt-2 flex justify-between items-center text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+                 <span>One-time setup fee</span>
+                 <span className="text-zinc-900 dark:text-zinc-200">
+                   ${plan.name === "Aaradhana" && billing === "yearly" ? "0" : (plan.name === "Prarambha" ? "49" : plan.name === "Sankalpa" ? "99" : plan.name === "Aaradhana" ? "149" : "0")}
+                 </span>
                </div>
             </div>
 

@@ -260,30 +260,30 @@ export default function PricingTierForm({
           </div>
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <FormField id="plan-price-monthly" label="Monthly Collection (₹)" required>
+              <FormField id="plan-price-monthly" label="Monthly Collection ($)" required>
                 <AffixedInput
                   id="plan-price-monthly"
                   type="number"
                   required
                   min={0}
                   disabled={disabled}
-                  prefix="₹"
+                  prefix="$"
                   value={formData.priceMonthly}
                   onChange={(e) => onChange({ ...formData, priceMonthly: e.target.value })}
-                  placeholder="999"
+                  placeholder="99"
                 />
               </FormField>
-              <FormField id="plan-price-yearly" label="Annual Collection (₹)" required>
+              <FormField id="plan-price-yearly" label="Annual Collection ($)" required>
                 <AffixedInput
                   id="plan-price-yearly"
                   type="number"
                   required
                   min={0}
                   disabled={disabled}
-                  prefix="₹"
+                  prefix="$"
                   value={formData.priceYearly}
                   onChange={(e) => onChange({ ...formData, priceYearly: e.target.value })}
-                  placeholder="9999"
+                  placeholder="999"
                 />
               </FormField>
             </div>

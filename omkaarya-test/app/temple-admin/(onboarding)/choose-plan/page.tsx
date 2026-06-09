@@ -356,19 +356,33 @@ export default function TempleAdminChoosePlanPage() {
                       : "border-zinc-100 dark:border-zinc-800",
                   ].join(" ")}
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-50 text-[var(--brand-primary)] dark:bg-orange-950/50">
-                    <Layers2 className="h-6 w-6" aria-hidden />
+                  <div className="flex items-center justify-between">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-50 text-[var(--brand-primary)] dark:bg-orange-950/50">
+                      <Layers2 className="h-6 w-6" aria-hidden />
+                    </div>
+                    {plan.name === "Prarambha" && (
+                      <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+                        Starter
+                      </span>
+                    )}
+                    {plan.name === "Sankalpa" && (
+                      <span className="rounded-full bg-orange-100 dark:bg-orange-950/40 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-orange-700 dark:text-orange-400">
+                        Most Popular
+                      </span>
+                    )}
+                    {plan.name === "Aaradhana" && billing === "annual" && (
+                      <span className="rounded-full bg-amber-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm">
+                        VIP Annual Offer
+                      </span>
+                    )}
                   </div>
-                  {plan.popular ? (
-                    <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">
-                      Premium
-                    </p>
-                  ) : null}
-                  <h2 className="mt-1 text-lg font-bold text-zinc-900 dark:text-zinc-100">{plan.name}</h2>
-                  <p className="min-h-10 text-xs text-zinc-500 dark:text-zinc-400">
+                  
+                  <h2 className="mt-4 text-xl font-extrabold text-zinc-900 dark:text-zinc-100">{plan.name}</h2>
+                  <p className="min-h-10 text-xs text-zinc-500 dark:text-zinc-400 mt-1">
                     {plan.description ?? " "}
                   </p>
-                  <div className="mt-2">
+                  
+                  <div className="mt-4">
                     <span className="text-3xl font-bold tabular-nums text-zinc-900 dark:text-zinc-50">
                       {formatUsdFromCents(priceCents)}
                     </span>
@@ -377,17 +391,36 @@ export default function TempleAdminChoosePlanPage() {
                     </span>
                   </div>
                   {billing === "annual" ? (
-                    <p className="text-xs text-zinc-500">
+                    <p className="text-xs text-zinc-500 mt-0.5">
                       {formatUsdFromCents(Math.round(perMo))} / month billed annually
                     </p>
                   ) : (
-                    <p className="text-xs text-zinc-500">Billed monthly.</p>
+                    <p className="text-xs text-zinc-500 mt-0.5">Billed monthly.</p>
                   )}
-                  <p className="mt-2 text-xs text-zinc-500">{priceLabel}</p>
-                  <p className="mt-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                  <p className="mt-1 text-xs text-zinc-500">{priceLabel}</p>
+                  
+                  {/* One-time setup fee / onboarding */}
+                  <div className="mt-4 min-h-[4rem] flex flex-col justify-center">
+                    {plan.name === "Aaradhana" && billing === "annual" ? (
+                      <div className="space-y-1">
+                        <div className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-950/30 px-3 py-1.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                          Annual VIP offer: Free setup ($0)
+                        </div>
+                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">
+                          Save $149 with annual onboarding included
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="inline-flex items-center self-start rounded-full border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-800/40 px-3 py-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                        One-time onboarding: {formatUsdFromCents(plan.name === "Prarambha" ? 4900 : plan.name === "Sankalpa" ? 9900 : 14900)}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <p className="mt-3 text-xs font-medium text-emerald-700 dark:text-emerald-400">
                     {TEMPLE_ONBOARDING_TRIAL_DAYS}-Day Free Trial
                   </p>
-                  <p className="mt-1 text-xs text-zinc-500">Onboarding &amp; setup: contact sales if needed</p>
+                  <p className="mt-1 text-xs text-zinc-500">Onboarding &amp; setup included</p>
                   <ul className="mt-4 flex flex-1 flex-col gap-2 text-sm text-zinc-700 dark:text-zinc-300">
                     {Array.isArray(plan.features) && plan.features.length > 0
                       ? plan.features.map((f) => (

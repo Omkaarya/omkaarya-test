@@ -24,9 +24,10 @@ export default function SelectInput({
   children,
   ...props
 }: SelectInputProps) {
+  const hasWidthClass = wrapperClassName.split(" ").some((c) => c.startsWith("w-"));
   return (
     <div
-      className={["relative w-full min-w-0", wrapperClassName].filter(Boolean).join(" ")}
+      className={["relative min-w-0", !hasWidthClass && "w-full", wrapperClassName].filter(Boolean).join(" ")}
     >
       <select
         id={id}

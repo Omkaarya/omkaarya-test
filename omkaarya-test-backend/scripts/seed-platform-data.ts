@@ -16,14 +16,38 @@ ON CONFLICT (email) DO NOTHING;
 `;
 
 const MASTER_DEITIES_SQL = `
+DELETE FROM public.master_deities;
 INSERT INTO public.master_deities (slug, display_serial, name, secondary_label, is_active, country_code, placeholder_hue, image_data_url)
 VALUES
-  ('pillaiyaar', 1, 'Pillaiyaar', '(Ganesha)', true, NULL, 'from-amber-400 to-orange-500', NULL),
-  ('murugan', 2, 'Murugan', NULL, true, NULL, 'from-emerald-500 to-teal-600', NULL),
-  ('shivan', 3, 'Shivan', NULL, true, NULL, 'from-slate-500 to-zinc-600', NULL),
-  ('guruvayurappan', 4, 'Guruvayurappan', NULL, true, NULL, 'from-rose-400 to-pink-600', NULL),
-  ('amman', 5, 'Amman', NULL, true, NULL, 'from-fuchsia-500 to-purple-600', NULL),
-  ('aanjaneyar', 6, 'Aanjaneyar', NULL, true, NULL, 'from-orange-500 to-red-600', NULL)
+  ('pillaiyar', 1, 'Pillaiyar', '(Ganesha)', true, NULL, 'from-amber-400 to-orange-500', '/deities/pillaiyar.png'),
+  ('murugan', 2, 'Murugan', '(Kartikeya)', true, NULL, 'from-emerald-500 to-teal-600', '/deities/murugan.png'),
+  ('hanuman', 3, 'Hanuman', '(Anjaneyar)', true, NULL, 'from-orange-500 to-red-600', '/deities/hanuman.png'),
+  ('satyanarayan', 4, 'Satyanarayan', NULL, true, NULL, 'from-yellow-400 to-amber-500', '/deities/satyanarayan.png'),
+  ('ramar', 5, 'Ramar', '(Rama)', true, NULL, 'from-sky-400 to-blue-600', '/deities/ramar.png'),
+  ('brahma', 6, 'Brahma', NULL, true, NULL, 'from-orange-400 to-amber-600', '/deities/brahma.png'),
+  ('vishnu', 7, 'Vishnu', NULL, true, NULL, 'from-blue-500 to-indigo-600', '/deities/vishnu.png'),
+  ('shivan', 8, 'Shivan', '(Shiva)', true, NULL, 'from-slate-500 to-zinc-600', '/deities/shivan.png'),
+  ('ayyappan', 9, 'Ayyappan', NULL, true, NULL, 'from-stone-500 to-neutral-700', '/deities/ayyappan.png'),
+  ('lakshmi-narasimha', 10, 'Lakshmi Narasimha', NULL, true, NULL, 'from-amber-500 to-yellow-600', '/deities/lakshmi-narasimha.png'),
+  ('venkesha', 11, 'Venkesha', '(Venkateshwara)', true, NULL, 'from-indigo-500 to-purple-600', '/deities/venkesha.png'),
+  ('saraswati', 12, 'Saraswati', NULL, true, NULL, 'from-teal-400 to-cyan-600', '/deities/saraswati.png'),
+  ('lakshmi', 13, 'Lakshmi', NULL, true, NULL, 'from-pink-500 to-rose-600', '/deities/lakshmi.png'),
+  ('parvati', 14, 'Parvati', NULL, true, NULL, 'from-purple-500 to-indigo-600', '/deities/parvati.png'),
+  ('durgai', 15, 'Durgai', '(Durga)', true, NULL, 'from-red-500 to-rose-600', '/deities/durgai.png'),
+  ('varahi', 16, 'Varahi', NULL, true, NULL, 'from-emerald-600 to-green-700', '/deities/varahi.png'),
+  ('meenakshi', 17, 'Meenakshi', NULL, true, NULL, 'from-emerald-400 to-teal-500', '/deities/meenakshi.png'),
+  ('bhadrakali', 18, 'Bhadrakali', NULL, true, NULL, 'from-red-600 to-zinc-900', '/deities/bhadrakali.png'),
+  ('maariamman', 19, 'Maariamman', NULL, true, NULL, 'from-rose-500 to-red-600', '/deities/maariamman.png'),
+  ('navakiragam', 20, 'Navakiragam', '(Navagraha)', true, NULL, 'from-gray-600 to-slate-800', '/deities/navakiragam.png'),
+  ('naga-thambiran', 21, 'Naga Thambiran', NULL, true, NULL, 'from-zinc-600 to-stone-800', '/deities/naga-thambiran.png'),
+  ('vairavar', 22, 'Vairavar', '(Bhairava)', true, NULL, 'from-red-700 to-zinc-800', '/deities/vairavar.png'),
+  ('thachchanamoorthy', 23, 'Thachchanamoorthy', '(Dakshinamurthy)', true, NULL, 'from-amber-600 to-yellow-700', '/deities/thachchanamoorthy.png'),
+  ('sandeswari-sandeswarar', 24, 'Sandeswari / Sandeswarar', NULL, true, NULL, 'from-gray-500 to-slate-600', '/deities/sandeswari-sandeswarar.png'),
+  ('nadeswarar', 25, 'Nadeswarar', NULL, true, NULL, 'from-zinc-500 to-neutral-600', '/deities/nadeswarar.png'),
+  ('thirugnana-sambandar', 26, 'Thirugnana Sambandar', NULL, true, NULL, 'from-amber-500 to-orange-600', '/deities/thirugnana-sambandar.png'),
+  ('thirunavukkarasar-appar', 27, 'Thirunavukkarasar (Appar)', '(Appar)', true, NULL, 'from-emerald-500 to-teal-700', '/deities/thirunavukkarasar-appar.png'),
+  ('sundarar', 28, 'Sundarar', NULL, true, NULL, 'from-rose-500 to-pink-700', '/deities/sundarar.png'),
+  ('manikkavasagar', 29, 'Manikkavasagar', NULL, true, NULL, 'from-indigo-500 to-violet-700', '/deities/manikkavasagar.png')
 ON CONFLICT (slug) DO NOTHING;
 `;
 
