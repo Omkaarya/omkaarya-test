@@ -34,6 +34,7 @@ function TempleAdminSignInForm() {
   const [loading, setLoading] = useState(false);
   const [emailPrefilled, setEmailPrefilled] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [templeName, setTempleName] = useState("");
 
   useEffect(() => {
     const raw = searchParams.get("email");
@@ -41,6 +42,10 @@ function TempleAdminSignInForm() {
     const decodedName = rawFullName ? decodeURIComponent(rawFullName.trim()) : "";
     if (decodedName) {
       sessionStorage.setItem(TEMPLE_ONBOARDING_INVITE_FULL_NAME_KEY, decodedName);
+    }
+    const rawTemple = searchParams.get("templeName") ?? searchParams.get("temple") ?? searchParams.get("temple_name");
+    if (rawTemple) {
+      setTempleName(decodeURIComponent(rawTemple.trim()));
     }
     try {
       const savedRemember = localStorage.getItem(TEMPLE_ONBOARDING_REMEMBER_ME_KEY);
@@ -162,18 +167,17 @@ function TempleAdminSignInForm() {
   }
 
   return (
-    <div className="w-full max-w-sm rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] p-5 shadow-lg sm:p-6">
-      <div className="mb-5 text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-          Welcome to Omkaarya
+    <div className="w-full max-w-md rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-6 shadow-xl sm:p-8">
+      <div className="mb-6 text-center">
+        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">
+          {templeName ? `Welcome to Omkaarya, ${templeName}!` : "Welcome to Omkaarya!"}
         </h1>
-        <p className="mt-1.5 text-sm leading-snug text-[var(--text-muted)]">
-          Your temple dashboard is ready. Use the temporary password from your invite, or your own
-          password if you already created one.
+        <p className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">
+          Your temple portal is ready. Let&apos;s set it up — it takes less than 5 minutes.
         </p>
       </div>
 
-      <form className="space-y-4" onSubmit={handleSubmit} noValidate>
+      <form className="space-y-5" onSubmit={handleSubmit} noValidate>
         <div>
           <label htmlFor={emailFieldId} className="text-sm font-medium text-[var(--text-primary)]">
             Email <span className="text-red-600 dark:text-red-400">*</span>
@@ -206,7 +210,7 @@ function TempleAdminSignInForm() {
 
         <div>
           <label htmlFor={passwordFieldId} className="text-sm font-medium text-[var(--text-primary)]">
-            Password <span className="text-red-600 dark:text-red-400">*</span>
+            Temporary password (from your invitation email) <span className="text-red-600 dark:text-red-400">*</span>
           </label>
           <div className="relative mt-1.5">
             <Lock
@@ -243,28 +247,8 @@ function TempleAdminSignInForm() {
             />
           </div>
           <p className="mt-2 text-xs text-[var(--text-muted)]">
-            First-time sign-in uses your temporary password; you’ll set a permanent password on the
-            next step.
+            You&apos;ll create a permanent password on the next step.
           </p>
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <label className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--surface-elevated)]"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-              />
-              Remember me
-            </label>
-          <div className="mt-2 flex justify-end">
-            <Link
-              href="/temple-admin/forgot-password"
-              className="text-sm font-medium text-[var(--brand-primary)] hover:underline"
-            >
-              Forgot password?
-            </Link>
-          </div>
-          </div>
         </div>
 
         {error ? (
@@ -278,9 +262,16 @@ function TempleAdminSignInForm() {
           disabled={loading}
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--brand-primary)] py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-hover)] disabled:pointer-events-none disabled:opacity-50"
         >
-          {loading ? "Signing in…" : "Sign in"}
+          {loading ? "Signing in…" : "Sign in & set up"}
           <ArrowRight className="h-4 w-4" aria-hidden />
         </button>
+
+        <p className="mt-5 text-center text-xs text-[var(--text-muted)]">
+          Can&apos;t find your invitation email? Contact{" "}
+          <a href="mailto:support@omkaarya.com" className="font-semibold text-[var(--brand-primary)] hover:underline">
+            support@omkaarya.com
+          </a>
+        </p>
       </form>
     </div>
   );
