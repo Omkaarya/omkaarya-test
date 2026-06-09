@@ -8,6 +8,7 @@ import { INSTANCE_ID, STARTED_AT_ISO } from "./instance-id.js";
 import { sendError, sendSuccess } from "./middleware/api-envelope.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { createSuperAdminApiRouter } from "./super-admin/index.js";
+import { cloudinaryEnvStatus } from "./storage/cloudinary.js";
 import { createTempleOpsApiRouter } from "./temple-ops/index.js";
 
 type CreateAppOptions = {
@@ -65,6 +66,14 @@ export function createApp(options: CreateAppOptions = {}): Express {
   app.use(express.json({ limit: process.env.JSON_BODY_LIMIT ?? "10mb" }));
 
   const healthHandler: express.RequestHandler = async (_req, res) => {
+    const runtime = {
+      vercel: process.env.VERCEL === "1",
+      nodeEnv: process.env.NODE_ENV ?? "unknown",
+    };
+    const integrations = {
+      cloudinary: cloudinaryEnvStatus(),
+    };
+
     try {
       const pool = getPool();
       if (!pool) {
@@ -75,6 +84,8 @@ export function createApp(options: CreateAppOptions = {}): Express {
             service: "omkaarya-test-backend",
             instanceId: INSTANCE_ID,
             startedAt: STARTED_AT_ISO,
+            runtime,
+            integrations,
             database: { connected: false },
           },
           "Service is running",
@@ -89,6 +100,8 @@ export function createApp(options: CreateAppOptions = {}): Express {
           service: "omkaarya-test-backend",
           instanceId: INSTANCE_ID,
           startedAt: STARTED_AT_ISO,
+          runtime,
+          integrations,
           database: {
             connected: true,
           },
@@ -105,6 +118,8 @@ export function createApp(options: CreateAppOptions = {}): Express {
           service: "omkaarya-test-backend",
           instanceId: INSTANCE_ID,
           startedAt: STARTED_AT_ISO,
+          runtime,
+          integrations,
           database: {
             connected: false,
           },
